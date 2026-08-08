@@ -8,7 +8,7 @@ import type { NextRequest } from 'next/server'
  * - Role-based route protection
  */
 
-const PUBLIC_PATHS = ['/login', '/role-select', '/api/auth']
+const PUBLIC_PATHS = ['/', '/login', '/role-select', '/api/auth']
 const LOAD_OWNER_PATHS = ['/dashboard/load-owner', '/post-load', '/my-loads']
 const TRUCK_OWNER_PATHS = ['/dashboard/truck-owner', '/register-truck', '/my-trucks']
 
