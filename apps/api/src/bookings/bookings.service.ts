@@ -41,7 +41,7 @@ export class BookingsService {
       where: { 
         id: dto.truckId, 
         verificationStatus: 'Verified',
-        status: { not: LoadStatus.InTransit }
+        bookings: { none: { status: BookingStatus.InTransit } }
       },
       include: { user: true },
     })

@@ -228,7 +228,7 @@ model Checkpoint {
   name        String    // e.g., "Pune", "Satara", "Belgavi", "Hubli", "Bangalore"
   lat         Decimal   @db.Decimal(10, 8)
   lng         Decimal   @db.Decimal(11, 8)
-  location    Unsupported("geography(Point, 4326)")
+  location    Unsupported("geography(Point, 4326)")?
   radiusM     Int       @map("radius_m") // Geofence radius in meters (default 2000m)
   crossedAt   DateTime? @map("crossed_at")
   crossedBy   String?   @map("crossed_by") // Device ID or user ID
