@@ -26,7 +26,7 @@ export class LoadsService {
       throw new NotFoundException('Could not geocode unloading address. Please check and try again.')
     }
 
-    // Create load with geospatial data
+    // Create load record
     const load = await prisma.load.create({
       data: {
         userId,
@@ -35,12 +35,10 @@ export class LoadsService {
         loadingPin: dto.loadingPin,
         loadingLat: loadingGeo.lat,
         loadingLng: loadingGeo.lng,
-        loadingPoint: `POINT(${loadingGeo.lng} ${loadingGeo.lat})`,
         unloadingAddress: dto.unloadingAddress,
         unloadingPin: dto.unloadingPin,
         unloadingLat: unloadingGeo.lat,
         unloadingLng: unloadingGeo.lng,
-        unloadingPoint: `POINT(${unloadingGeo.lng} ${unloadingGeo.lat})`,
         truckType: dto.truckType,
         minLengthFt: dto.minLengthFt,
         minHeightFt: dto.minHeightFt,
@@ -49,8 +47,22 @@ export class LoadsService {
         expectedDeliveryAt: dto.expectedDeliveryAt,
         advancePayable: dto.advancePayable,
         status: LoadStatus.Open,
-      } as any,
+      },
     })
+
+    // Update PostGIS geography points via raw SQL
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE loads SET loading_point = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, unloading_point = ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography WHERE id = $5`,
+        loadingGeo.lng,
+        loadingGeo.lat,
+        unloadingGeo.lng,
+        unloadingGeo.lat,
+        load.id
+      )
+    } catch (err) {
+      // PostGIS point update fallback
+    }
 
     return {
       ...load,

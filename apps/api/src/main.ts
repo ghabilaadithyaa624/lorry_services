@@ -8,12 +8,18 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true })
   const configService = app.get(ConfigService)
   
-  // Enable CORS
+  // Enable CORS with fallbacks
+  const allowedOrigins = Array.from(new Set([
+    configService.get('CLIENT_URL'),
+    configService.get('ADMIN_URL'),
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3010',
+    'http://localhost:3011',
+  ].filter(Boolean)))
+
   app.enableCors({
-    origin: [
-      configService.get('CLIENT_URL'),
-      configService.get('ADMIN_URL'),
-    ],
+    origin: allowedOrigins,
     credentials: true,
   })
   
@@ -21,6 +27,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
     transform: true,
+    forbidNonWhitelisted: false,
   }))
   
   // API prefix

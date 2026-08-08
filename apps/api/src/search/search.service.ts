@@ -25,7 +25,7 @@ export class SearchService {
     const queryParams: any[] = [lng, lat, radiusKm * 1000] // Convert to meters
     
     if (truckType) {
-      whereConditions.push(`body_type = $${queryParams.length + 1}`)
+      whereConditions.push(`body_type::text = $${queryParams.length + 1}`)
       queryParams.push(truckType)
     }
     
@@ -79,7 +79,7 @@ export class SearchService {
     const queryParams: any[] = [lng, lat, radiusKm * 1000]
     
     if (truckType) {
-      whereConditions.push(`truck_type = $${queryParams.length + 1}`)
+      whereConditions.push(`truck_type::text = $${queryParams.length + 1}`)
       queryParams.push(truckType)
     }
     

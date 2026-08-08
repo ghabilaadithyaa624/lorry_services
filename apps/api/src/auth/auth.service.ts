@@ -210,9 +210,9 @@ export class AuthService {
    * Validate Indian phone number format
    */
   private isValidIndianPhone(phone: string): boolean {
-    // Accepts +919876543210 or 9876543210
-    const cleaned = phone.replace(/\\s/g, '')
-    const indianMobileRegex = /^\\+?91[6-9]\\d{9}$/
+    // Accepts +919876543210, 919876543210, or 9876543210
+    const cleaned = phone.replace(/\s/g, '')
+    const indianMobileRegex = /^(\+?91)?[6-9]\d{9}$/
     return indianMobileRegex.test(cleaned)
   }
 }

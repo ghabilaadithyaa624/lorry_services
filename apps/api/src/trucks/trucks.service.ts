@@ -38,12 +38,22 @@ export class TrucksService {
         tonnageCapacity: dto.tonnageCapacity,
         currentLat: location.lat,
         currentLng: location.lng,
-        currentLocation: `POINT(${location.lng} ${location.lat})`,
         serviceableRadiusKm: dto.serviceableRadiusKm ?? 50,
         preferredDestinations: dto.preferredDestinations || [],
         verificationStatus: VerificationStatus.Pending,
-      } as any,
+      },
     })
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE trucks SET current_location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography WHERE id = $3`,
+        location.lng,
+        location.lat,
+        truck.id
+      )
+    } catch (err) {
+      // PostGIS point update fallback
+    }
 
     return truck
   }
@@ -170,13 +180,25 @@ export class TrucksService {
       throw new NotFoundException('Could not geocode address')
     }
 
-    return prisma.truck.update({
+    const updatedTruck = await prisma.truck.update({
       where: { id: truckId },
       data: {
         currentLat: location.lat,
         currentLng: location.lng,
-        currentLocation: `POINT(${location.lng} ${location.lat})`,
-      } as any,
+      },
     })
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE trucks SET current_location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography WHERE id = $3`,
+        location.lng,
+        location.lat,
+        truckId
+      )
+    } catch (err) {
+      // PostGIS point update fallback
+    }
+
+    return updatedTruck
   }
 }

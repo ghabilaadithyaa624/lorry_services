@@ -62,6 +62,16 @@ async function main() {
   // 2. Subscriptions
   await prisma.subscription.create({
     data: {
+      userId: loadOwner1.id,
+      plan: 'Monthly Unlimited',
+      status: SubscriptionStatus.active,
+      startedAt: new Date(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+    },
+  });
+
+  await prisma.subscription.create({
+    data: {
       userId: truckOwner1.id,
       plan: 'Fleet Pro Unlimited',
       status: SubscriptionStatus.active,
