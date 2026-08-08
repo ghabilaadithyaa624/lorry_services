@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
@@ -27,7 +27,7 @@ const STATUS_STYLES: Record<string, string> = {
   Cancelled: 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400',
 }
 
-export default function MyLoadsPage() {
+function MyLoadsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loads, setLoads] = useState<Load[]>([])
@@ -186,5 +186,17 @@ export default function MyLoadsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function MyLoadsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
+        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <MyLoadsContent />
+    </Suspense>
   )
 }

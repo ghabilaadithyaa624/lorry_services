@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 
@@ -37,7 +37,7 @@ const PLANS = [
   },
 ]
 
-export default function SubscribePage() {
+function SubscribeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const reason = searchParams.get('reason')
@@ -191,5 +191,17 @@ export default function SubscribePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SubscribePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
+        <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <SubscribeContent />
+    </Suspense>
   )
 }
