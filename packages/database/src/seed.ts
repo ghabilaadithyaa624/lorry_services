@@ -1,10 +1,12 @@
-import { prisma, UserRole, TruckType, LoadStatus, VerificationStatus } from './client'
+import { PrismaClient, UserRole, TruckType, LoadStatus, VerificationStatus } from '@prisma/client'
+
+const prisma = new PrismaClient()
 
 async function main() {
   console.log('🌱 Seeding database...')
 
   // Clean existing data
-  await prisma.checkpoint.deleteMany()
+  try { await (prisma as any).checkpoint?.deleteMany() } catch {}
   await prisma.booking.deleteMany()
   await prisma.document.deleteMany()
   await prisma.truck.deleteMany()

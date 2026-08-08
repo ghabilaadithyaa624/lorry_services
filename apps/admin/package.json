@@ -2,7 +2,7 @@
   "name": "@lorrycarry/admin",
   "version": "1.0.0",
   "scripts": {
-    "dev": "vite --port 3001",
+    "dev": "vite --port 3011",
     "build": "vite build",
     "preview": "vite preview"
   },

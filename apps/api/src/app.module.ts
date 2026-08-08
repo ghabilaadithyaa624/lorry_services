@@ -14,10 +14,12 @@ import { AdminModule } from './admin/admin.module'
 import { TrackingModule } from './tracking/tracking.module'
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard'
 import { CommonModule } from './common/common.module'
+import { RedisModule } from './common/redis/redis.module'
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    RedisModule,
     CommonModule,
     AuthModule,
     UsersModule,

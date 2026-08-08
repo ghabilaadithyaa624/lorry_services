@@ -1,17 +1,15 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgis/postgis:15-3.4
-    container_name: lorrycarry-db
+    container_name: lorrycarry-svc-db
     environment:
       POSTGRES_USER: lorrycarry
       POSTGRES_PASSWORD: localdev
       POSTGRES_DB: lorrycarry_dev
     ports:
-      - "5432:5432"
+      - "5438:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_svc_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lorrycarry"]
       interval: 5s
@@ -20,23 +18,23 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: lorrycarry-redis
+    container_name: lorrycarry-svc-redis
     ports:
-      - "6379:6379"
+      - "6388:6379"
 
   minio:
     image: minio/minio:latest
-    container_name: lorrycarry-s3
-    command: server /data --console-address ":9001"
+    container_name: lorrycarry-svc-s3
+    command: server /data --console-address ":9009"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9008:9000"
+      - "9009:9001"
     volumes:
-      - minio_data:/data
+      - minio_svc_data:/data
 
 volumes:
-  postgres_data:
-  minio_data:
+  postgres_svc_data:
+  minio_svc_data:
