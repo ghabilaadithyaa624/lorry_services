@@ -143,7 +143,6 @@ export class BookingsService {
           name: cp.name,
           lat: cp.lat,
           lng: cp.lng,
-          location: `POINT(${cp.lng} ${cp.lat})`,
           radiusM: cp.radiusM,
         },
       })
