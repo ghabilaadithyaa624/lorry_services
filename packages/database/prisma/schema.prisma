@@ -1,0 +1,323 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Users with role-based access
+model User {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  name      String?
+  role      UserRole
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  loads              Load[]
+  trucks             Truck[]
+  subscriptions      Subscription[]
+  loadOwnerBookings  Booking[] @relation("LoadOwnerBookings")
+  truckOwnerBookings Booking[] @relation("TruckOwnerBookings")
+  payments           Payment[]
+  notifications      Notification[]
+  
+  @@index([phone])
+  @@index([role])
+  @@map("users")
+}
+
+enum UserRole {
+  load_owner
+  truck_owner
+  admin
+}
+
+// Subscription paywall
+model Subscription {
+  id        String             @id @default(uuid())
+  userId    String             @map("user_id")
+  plan      String // 'monthly_unlimited', 'pay_per_unlock', etc.
+  status    SubscriptionStatus
+  startedAt DateTime           @map("started_at")
+  expiresAt DateTime           @map("expires_at")
+  paymentId String?            @map("payment_id")
+  createdAt DateTime           @default(now()) @map("created_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+}
+
+// Load postings with geospatial data
+model Load {
+  id                 String     @id @default(uuid())
+  userId             String     @map("user_id")
+  tonnageRequired    Decimal    @map("tonnage_required") @db.Decimal(10, 2)
+  loadingAddress     String     @map("loading_address")
+  loadingPin         String     @map("loading_pin")
+  loadingLat         Decimal?   @map("loading_lat") @db.Decimal(10, 8)
+  loadingLng         Decimal?   @map("loading_lng") @db.Decimal(11, 8)
+  loadingPoint       Unsupported("geography(Point, 4326)")? @map("loading_point")
+  unloadingAddress   String     @map("unloading_address")
+  unloadingPin       String     @map("unloading_pin")
+  unloadingLat       Decimal?   @map("unloading_lat") @db.Decimal(10, 8)
+  unloadingLng       Decimal?   @map("unloading_lng") @db.Decimal(11, 8)
+  unloadingPoint     Unsupported("geography(Point, 4326)")? @map("unloading_point")
+  truckType          TruckType  @map("truck_type")
+  minLengthFt        Int?       @map("min_length_ft")
+  minHeightFt        Int?       @map("min_height_ft")
+  urgent             Boolean    @default(false)
+  maxPrice           Decimal?   @map("max_price") @db.Decimal(12, 2)
+  expectedDeliveryAt DateTime?  @map("expected_delivery_at")
+  advancePayable     Decimal?   @map("advance_payable") @db.Decimal(12, 2)
+  status             LoadStatus @default(Open)
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+  
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([truckType])
+  @@index([urgent])
+  @@index([createdAt])
+  // GiST indexes for geospatial queries (created via migration)
+  @@map("loads")
+}
+
+enum TruckType {
+  Open
+  Container
+  OpenBody @map("Open body")
+}
+
+enum LoadStatus {
+  Open
+  Matched
+  InTransit @map("In-transit")
+  Completed
+  Cancelled
+}
+
+// Truck registrations with geospatial
+model Truck {
+  id                  String             @id @default(uuid())
+  userId              String             @map("user_id")
+  registrationNumber  String             @unique @map("registration_number")
+  bodyType            TruckType          @map("body_type")
+  lengthFt            Int                @map("length_ft")
+  heightFt            Int                @map("height_ft")
+  tonnageCapacity     Decimal            @map("tonnage_capacity") @db.Decimal(10, 2)
+  currentLat          Decimal?           @map("current_lat") @db.Decimal(10, 8)
+  currentLng          Decimal?           @map("current_lng") @db.Decimal(11, 8)
+  currentLocation     Unsupported("geography(Point, 4326)")? @map("current_location")
+  serviceableRadiusKm Int                @default(50) @map("serviceable_radius_km")
+  preferredDestinations Json?            @map("preferred_destinations") // Array of city names
+  verificationStatus  VerificationStatus @default(Pending) @map("verification_status")
+  verifiedAt          DateTime?          @map("verified_at")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents Document[]
+  bookings  Booking[]
+  
+  @@index([userId])
+  @@index([verificationStatus])
+  @@index([bodyType])
+  @@index([tonnageCapacity])
+  @@map("trucks")
+}
+
+enum VerificationStatus {
+  Pending
+  Verified
+  Rejected
+}
+
+// KYC documents (RC, Insurance)
+model Document {
+  id                 String             @id @default(uuid())
+  truckId            String             @map("truck_id")
+  type               DocumentType
+  docNumber          String?            @map("doc_number")
+  s3Url              String             @map("s3_url")
+  s3Key              String             @map("s3_key")
+  originalFilename   String?            @map("original_filename")
+  fileSize           Int?               @map("file_size")
+  mimeType           String?            @map("mime_type")
+  verificationStatus VerificationStatus @default(Pending) @map("verification_status")
+  verifiedBy         String?            @map("verified_by") // Admin user ID
+  verificationNotes  String?            @map("verification_notes")
+  verifiedAt         DateTime?          @map("verified_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  
+  truck Truck @relation(fields: [truckId], references: [id], onDelete: Cascade)
+  
+  @@index([truckId])
+  @@index([type])
+  @@index([verificationStatus])
+  @@map("documents")
+}
+
+enum DocumentType {
+  RC
+  Insurance
+}
+
+// Bookings with commercial terms
+model Booking {
+  id                  String          @id @default(uuid())
+  loadId              String          @map("load_id")
+  truckId             String          @map("truck_id")
+  loadOwnerId         String          @map("load_owner_id")
+  truckOwnerId        String          @map("truck_owner_id")
+  agreedPrice         Decimal         @map("agreed_price") @db.Decimal(12, 2)
+  advanceConfirmed    Boolean         @default(false) @map("advance_confirmed")
+  advanceConfirmedAt  DateTime?       @map("advance_confirmed_at")
+  balanceConfirmed    Boolean         @default(false) @map("balance_confirmed")
+  balanceConfirmedAt  DateTime?       @map("balance_confirmed_at")
+  ewayBillNumber      String?         @map("eway_bill_number")
+  liabilityAccepted   Boolean         @default(false) @map("liability_accepted")
+  liabilityAcceptedAt DateTime?       @map("liability_accepted_at")
+  status              BookingStatus   @default(Pending)
+  startedAt           DateTime?       @map("started_at")
+  completedAt         DateTime?       @map("completed_at")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  
+  load        Load         @relation(fields: [loadId], references: [id])
+  truck       Truck        @relation(fields: [truckId], references: [id])
+  loadOwner   User         @relation("LoadOwnerBookings", fields: [loadOwnerId], references: [id])
+  truckOwner  User         @relation("TruckOwnerBookings", fields: [truckOwnerId], references: [id])
+  checkpoints Checkpoint[]
+  
+  @@index([loadId])
+  @@index([truckId])
+  @@index([status])
+  @@index([loadOwnerId])
+  @@index([truckOwnerId])
+  @@map("bookings")
+}
+
+enum BookingStatus {
+  Pending
+  Confirmed
+  InTransit @map("In-transit")
+  Completed
+  Cancelled
+}
+
+// Checkpoint-based tracking (NOT live GPS)
+model Checkpoint {
+  id          String    @id @default(uuid())
+  bookingId   String    @map("booking_id")
+  seq         Int       // 1, 2, 3, 4, 5 for the 5 checkpoints
+  name        String    // e.g., "Pune", "Satara", "Belgavi", "Hubli", "Bangalore"
+  lat         Decimal   @db.Decimal(10, 8)
+  lng         Decimal   @db.Decimal(11, 8)
+  location    Unsupported("geography(Point, 4326)")
+  radiusM     Int       @map("radius_m") // Geofence radius in meters (default 2000m)
+  crossedAt   DateTime? @map("crossed_at")
+  crossedBy   String?   @map("crossed_by") // Device ID or user ID
+  etaMinutes  Int?      @map("eta_minutes") // Calculated ETA at creation
+  notifiedAt  DateTime? @map("notified_at") // When WhatsApp/push was sent
+  createdAt   DateTime  @default(now()) @map("created_at")
+  
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  @@unique([bookingId, seq])
+  @@index([bookingId])
+  @@index([crossedAt])
+  @@map("checkpoints")
+}
+
+// Payments (subscriptions + bookings)
+model Payment {
+  id              String          @id @default(uuid())
+  userId          String          @map("user_id")
+  amount          Decimal         @db.Decimal(12, 2)
+  currency        String          @default("INR")
+  purpose         PaymentPurpose
+  status          PaymentStatus   @default(Pending)
+  provider        String          @default("cashfree")
+  providerOrderId String?         @map("provider_order_id")
+  providerTxnId   String?         @map("provider_txn_id")
+  paymentMethod   String?         @map("payment_method") // UPI, CARD, etc.
+  paidAt          DateTime?       @map("paid_at")
+  failureReason   String?         @map("failure_reason")
+  metadata        Json?           // Store additional payment data
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@index([providerTxnId])
+  @@map("payments")
+}
+
+enum PaymentPurpose {
+  subscription
+  booking_advance
+  booking_balance
+}
+
+enum PaymentStatus {
+  Pending
+  Success
+  Failed
+  Refunded
+}
+
+// Notifications (WhatsApp/SMS/Push)
+model Notification {
+  id          String                @id @default(uuid())
+  userId      String                @map("user_id")
+  channel     NotificationChannel
+  template    String                // Template name/code
+  variables   Json?                 // Template variables
+  recipient   String                // Phone number or device token
+  content     String?               // Actual content sent
+  status      NotificationStatus    @default(Pending)
+  provider    String                @default("gupshup") // or msg91
+  providerMsgId String?             @map("provider_msg_id")
+  deliveredAt DateTime?           @map("delivered_at")
+  failedAt    DateTime?           @map("failed_at")
+  failureReason String?           @map("failure_reason")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@index([channel])
+  @@map("notifications")
+}
+
+enum NotificationChannel {
+  whatsapp
+  sms
+  push
+}
+
+enum NotificationStatus {
+  Pending
+  Sent
+  Delivered
+  Failed
+}

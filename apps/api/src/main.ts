@@ -1,0 +1,46 @@
+import { NestFactory } from '@nestjs/core'
+import { ValidationPipe } from '@nestjs/common'
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
+import { ConfigService } from '@nestjs/config'
+import { AppModule } from './app.module'
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule, { rawBody: true })
+  const configService = app.get(ConfigService)
+  
+  // Enable CORS
+  app.enableCors({
+    origin: [
+      configService.get('CLIENT_URL'),
+      configService.get('ADMIN_URL'),
+    ],
+    credentials: true,
+  })
+  
+  // Global validation
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    transform: true,
+  }))
+  
+  // API prefix
+  app.setGlobalPrefix('api/v1')
+  
+  // Swagger docs
+  const config = new DocumentBuilder()
+    .setTitle('LorryCarry API')
+    .setDescription('Truck-load matching marketplace API')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build()
+  const document = SwaggerModule.createDocument(app, config)
+  SwaggerModule.setup('api/docs', app, document)
+  
+  const port = configService.get('PORT', 3002)
+  await app.listen(port)
+  
+  console.log(`🚀 API running on http://localhost:${port}/api/v1`)
+  console.log(`📚 Swagger docs at http://localhost:${port}/api/docs`)
+}
+
+bootstrap()

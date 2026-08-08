@@ -1,0 +1,104 @@
+import { Injectable, Logger } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { v4 as uuidv4 } from 'uuid'
+
+export interface UploadResult {
+  key: string
+  url: string
+  signedUrl: string
+}
+
+/**
+ * S3/Minio Service for document storage
+ * Supports AWS S3 in production, Minio for local dev
+ */
+@Injectable()
+export class S3Service {
+  private readonly logger = new Logger(S3Service.name)
+  private readonly s3Client: S3Client
+  private readonly bucket: string
+
+  constructor(private config: ConfigService) {
+    this.bucket = config.get('AWS_S3_BUCKET', 'lorrycarry-kyc')
+    
+    this.s3Client = new S3Client({
+      region: config.get('AWS_REGION', 'ap-south-1'),
+      endpoint: config.get('AWS_S3_ENDPOINT'), // For Minio
+      credentials: {
+        accessKeyId: config.get('AWS_ACCESS_KEY_ID', ''),
+        secretAccessKey: config.get('AWS_SECRET_ACCESS_KEY', ''),
+      },
+      forcePathStyle: config.get('AWS_S3_FORCE_PATH_STYLE') === 'true', // For Minio
+    })
+  }
+
+  /**
+   * Upload file to S3
+   */
+  async uploadFile(
+    file: Buffer,
+    mimeType: string,
+    folder: string,
+    userId: string
+  ): Promise<UploadResult> {
+    const key = `${folder}/${userId}/${uuidv4()}`
+    
+    try {
+      await this.s3Client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          Body: file,
+          ContentType: mimeType,
+          Metadata: {
+            'x-amz-meta-userid': userId,
+            'x-amz-meta-uploadedat': new Date().toISOString(),
+          },
+        })
+      )
+
+      const signedUrl = await this.getSignedUrl(key)
+      
+      return {
+        key,
+        url: `${this.config.get('AWS_S3_ENDPOINT') || 'https://s3.amazonaws.com'}/${this.bucket}/${key}`,
+        signedUrl,
+      }
+    } catch (error: any) {
+      this.logger.error(`Upload failed: ${error.message}`)
+      throw new Error('File upload failed')
+    }
+  }
+
+  /**
+   * Generate signed URL for file access (valid for 1 hour)
+   */
+  async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    })
+
+    return getSignedUrl(this.s3Client, command, { expiresIn })
+  }
+
+  /**
+   * Validate file before upload
+   */
+  validateFile(file: Express.Multer.File, allowedTypes: string[], maxSizeMB: number = 5): { valid: boolean; error?: string } {
+    // Check file size
+    const maxSizeBytes = maxSizeMB * 1024 * 1024
+    if (file.size > maxSizeBytes) {
+      return { valid: false, error: `File too large. Max size: ${maxSizeMB}MB` }
+    }
+
+    // Check mime type
+    if (!allowedTypes.includes(file.mimetype)) {
+      return { valid: false, error: `Invalid file type. Allowed: ${allowedTypes.join(', ')}` }
+    }
+
+    return { valid: true }
+  }
+}
