@@ -55,7 +55,7 @@ export default function TruckOwnerDashboard() {
   const logout = async () => {
     try {
       await api.post('/auth/logout')
-    } catch (e) {
+    } catch {
       // Ignore error
     }
     localStorage.removeItem('accessToken')

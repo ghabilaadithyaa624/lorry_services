@@ -23,9 +23,10 @@ export class S3Service {
   constructor(private config: ConfigService) {
     this.bucket = config.get('AWS_S3_BUCKET', 'lorrycarry-kyc')
     
+    const endpoint = config.get<string>('AWS_S3_ENDPOINT')
     this.s3Client = new S3Client({
       region: config.get('AWS_REGION', 'ap-south-1'),
-      endpoint: config.get('AWS_S3_ENDPOINT'), // For Minio
+      endpoint: endpoint && endpoint.trim() !== '' ? endpoint : undefined, // For Minio
       credentials: {
         accessKeyId: config.get('AWS_ACCESS_KEY_ID', ''),
         secretAccessKey: config.get('AWS_SECRET_ACCESS_KEY', ''),

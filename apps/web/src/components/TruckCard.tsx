@@ -29,7 +29,7 @@ export function TruckCard({ truck }: TruckCardProps) {
       const res = await api.post(`/search/truck/${truck.id}/reveal`)
       setContactData(res.data)
     } catch (err: any) {
-      if (err.response?.status === 402) {
+      if (err.response?.status === 402 || err.response?.status === 403) {
         setShowPaywall(true)
       }
     }

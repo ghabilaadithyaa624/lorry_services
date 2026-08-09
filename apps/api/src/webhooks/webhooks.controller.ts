@@ -20,10 +20,14 @@ export class WebhooksController {
     @Body() payload: any,
     @Headers('x-webhook-signature') signature?: string,
   ) {
-    // Verify signature if provided
-    if (signature) {
+    const isProd = process.env.NODE_ENV === 'production'
+    if (isProd && !signature) {
+      throw new BadRequestException('Missing webhook signature')
+    }
+
+    if (signature || isProd) {
       const isValid = this.cashfreeService.verifyWebhookSignature(payload, signature)
-      if (!isValid) throw new BadRequestException('Invalid signature')
+      if (!isValid) throw new BadRequestException('Invalid webhook signature')
     }
 
     const result = await this.paymentsService.handleWebhook(payload)

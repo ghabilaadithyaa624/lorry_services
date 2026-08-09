@@ -36,6 +36,28 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+  // Redirect /dashboard to appropriate role dashboard
+  if (pathname === '/dashboard') {
+    const dashboard = userRole === 'admin'
+      ? '/admin'
+      : userRole === 'truck_owner'
+      ? '/dashboard/truck-owner'
+      : '/dashboard/load-owner'
+    return NextResponse.redirect(new URL(dashboard, request.url))
+  }
+
+  // Admin-only paths
+  if (pathname.startsWith('/admin')) {
+    if (userRole !== 'admin') {
+      const fallback = userRole === 'truck_owner'
+        ? '/dashboard/truck-owner'
+        : userRole === 'load_owner'
+        ? '/dashboard/load-owner'
+        : '/login'
+      return NextResponse.redirect(new URL(fallback, request.url))
+    }
+  }
+
   // Role-based access control
   if (LOAD_OWNER_PATHS.some(path => pathname.startsWith(path))) {
     if (userRole !== 'load_owner') {

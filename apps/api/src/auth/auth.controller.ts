@@ -73,6 +73,7 @@ export class AuthController {
     return this.authService.refreshToken(dto.refreshToken)
   }
 
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout and revoke tokens' })

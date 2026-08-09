@@ -1,7 +1,10 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common'
+import { Injectable, UnauthorizedException, Logger, Inject } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { prisma, UserRole } from '@lorrycarry/database'
+import { REDIS_CLIENT } from '../common/redis/redis.module'
+import Redis from 'ioredis'
+import * as crypto from 'crypto'
 import { Msg91Service } from './msg91.service'
 import { GupshupService } from './gupshup.service'
 import { RateLimitService } from './rate-limit.service'
@@ -11,6 +14,8 @@ export enum OtpChannel {
   WHATSAPP = 'whatsapp',
   SMS = 'sms',
 }
+
+const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60 // 30 days in seconds (2,592,000)
 
 @Injectable()
 export class AuthService {
@@ -23,6 +28,7 @@ export class AuthService {
     private gupshup: GupshupService,
     private rateLimit: RateLimitService,
     private otpStorage: OtpStorageService,
+    @Inject(REDIS_CLIENT) private redis: Redis,
   ) {}
 
   /**
@@ -83,7 +89,7 @@ export class AuthService {
   }
 
   /**
-   * Verify OTP and issue JWT tokens
+   * Verify OTP and issue JWT tokens with rotating refresh token
    * New users must provide role, existing users inherit their role
    */
   async verifyOtp(
@@ -142,18 +148,45 @@ export class AuthService {
     // Clear rate limits on success
     await this.rateLimit.clearRateLimit(phone)
 
+    // Generate unique token ID and session family ID
+    const tokenId = crypto.randomUUID()
+    const familyId = crypto.randomUUID()
+
     // Generate tokens
-    const payload = { 
+    const accessPayload = { 
       sub: user.id, 
       phone: user.phone, 
       role: user.role 
     }
+
+    const refreshPayload = {
+      sub: user.id,
+      phone: user.phone,
+      role: user.role,
+      jti: tokenId,
+      fam: familyId,
+    }
     
-    const accessToken = this.jwtService.sign(payload)
-    const refreshToken = this.jwtService.sign(payload, { 
+    const accessToken = this.jwtService.sign(accessPayload)
+    const refreshToken = this.jwtService.sign(refreshPayload, { 
       expiresIn: '30d',
       secret: this.config.get('JWT_REFRESH_SECRET', this.config.get('JWT_SECRET'))
     })
+
+    // Store active token in Redis
+    await this.redis.set(
+      `auth:rt:active:${tokenId}`,
+      JSON.stringify({ userId: user.id, familyId, createdAt: Date.now() }),
+      'EX',
+      REFRESH_TOKEN_TTL
+    )
+    await this.redis.set(
+      `auth:family:${familyId}`,
+      JSON.stringify({ activeTokenId: tokenId, userId: user.id }),
+      'EX',
+      REFRESH_TOKEN_TTL
+    )
+    await this.redis.sadd(`auth:user:families:${user.id}`, familyId)
 
     return {
       accessToken,
@@ -169,41 +202,158 @@ export class AuthService {
   }
 
   /**
-   * Refresh access token using refresh token
+   * Refresh access token using rotating refresh token
+   * - Invalidate previous refresh token
+   * - Detect reuse and revoke token family
+   * - Issue new access and refresh token pair
    */
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is required')
+    }
+
+    let payload: any
     try {
-      const payload = this.jwtService.verify(refreshToken, {
+      payload = this.jwtService.verify(refreshToken, {
         secret: this.config.get('JWT_REFRESH_SECRET', this.config.get('JWT_SECRET'))
       })
-      
-      // Verify user still exists
-      const user = await prisma.user.findUnique({ 
-        where: { id: payload.sub } 
-      })
-      
-      if (!user) {
-        throw new UnauthorizedException('User no longer exists')
-      }
-
-      const newAccessToken = this.jwtService.sign({
-        sub: user.id,
-        phone: user.phone,
-        role: user.role,
-      })
-
-      return { accessToken: newAccessToken }
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid or expired refresh token')
+    }
+
+    const userId = payload.sub
+    const tokenId = payload.jti
+    const familyId = payload.fam
+
+    if (!userId || !tokenId || !familyId) {
+      throw new UnauthorizedException('Invalid or expired refresh token')
+    }
+
+    // Check if token was previously revoked or rotated (Token Reuse Detection)
+    const isRevoked = await this.redis.get(`auth:rt:revoked:${tokenId}`)
+    if (isRevoked) {
+      this.logger.warn(`Security Alert: Revoked refresh token reuse detected for user ${userId}, family ${familyId}. Revoking entire token family.`)
+      // Invalidate the entire family
+      const familyDataStr = await this.redis.get(`auth:family:${familyId}`)
+      if (familyDataStr) {
+        try {
+          const familyData = JSON.parse(familyDataStr)
+          if (familyData.activeTokenId) {
+            await this.redis.del(`auth:rt:active:${familyData.activeTokenId}`)
+          }
+        } catch (_) {}
+        await this.redis.del(`auth:family:${familyId}`)
+      }
+      await this.redis.srem(`auth:user:families:${userId}`, familyId)
+      throw new UnauthorizedException('Invalid or expired refresh token')
+    }
+
+    // Check if token is active in Redis
+    const activeDataStr = await this.redis.get(`auth:rt:active:${tokenId}`)
+    if (!activeDataStr) {
+      throw new UnauthorizedException('Invalid or expired refresh token')
+    }
+
+    // Verify user still exists in database
+    const user = await prisma.user.findUnique({ 
+      where: { id: userId } 
+    })
+    
+    if (!user) {
+      await this.redis.del(`auth:rt:active:${tokenId}`)
+      await this.redis.del(`auth:family:${familyId}`)
+      throw new UnauthorizedException('User no longer exists')
+    }
+
+    // Invalidate old token (mark revoked and delete from active)
+    await this.redis.del(`auth:rt:active:${tokenId}`)
+    await this.redis.set(
+      `auth:rt:revoked:${tokenId}`,
+      JSON.stringify({ userId, familyId, rotatedAt: Date.now() }),
+      'EX',
+      REFRESH_TOKEN_TTL
+    )
+
+    // Issue new token pair
+    const newTokenId = crypto.randomUUID()
+    const newAccessToken = this.jwtService.sign({
+      sub: user.id,
+      phone: user.phone,
+      role: user.role,
+    })
+
+    const newRefreshToken = this.jwtService.sign({
+      sub: user.id,
+      phone: user.phone,
+      role: user.role,
+      jti: newTokenId,
+      fam: familyId,
+    }, {
+      expiresIn: '30d',
+      secret: this.config.get('JWT_REFRESH_SECRET', this.config.get('JWT_SECRET'))
+    })
+
+    // Store new active token in Redis
+    await this.redis.set(
+      `auth:rt:active:${newTokenId}`,
+      JSON.stringify({ userId: user.id, familyId, createdAt: Date.now() }),
+      'EX',
+      REFRESH_TOKEN_TTL
+    )
+    await this.redis.set(
+      `auth:family:${familyId}`,
+      JSON.stringify({ activeTokenId: newTokenId, userId: user.id }),
+      'EX',
+      REFRESH_TOKEN_TTL
+    )
+
+    return { 
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
     }
   }
 
   /**
-   * Logout - revoke refresh token (optional implementation with token blacklist)
+   * Logout - revoke active refresh token and session family
    */
-  async logout(refreshToken: string): Promise<void> {
-    // Add to blacklist in Redis if implementing token revocation
-    // await this.redis.set(`blacklist:${refreshToken}`, '1', 'EX', 2592000) // 30 days
+  async logout(refreshToken?: string): Promise<void> {
+    if (!refreshToken) return
+
+    try {
+      const payload: any = this.jwtService.decode(refreshToken)
+      if (payload && payload.jti) {
+        const tokenId = payload.jti
+        const familyId = payload.fam
+        const userId = payload.sub
+
+        // Invalidate active token
+        await this.redis.del(`auth:rt:active:${tokenId}`)
+        await this.redis.set(
+          `auth:rt:revoked:${tokenId}`,
+          JSON.stringify({ userId, familyId, revokedAt: Date.now(), reason: 'logout' }),
+          'EX',
+          REFRESH_TOKEN_TTL
+        )
+
+        if (familyId) {
+          const familyDataStr = await this.redis.get(`auth:family:${familyId}`)
+          if (familyDataStr) {
+            try {
+              const familyData = JSON.parse(familyDataStr)
+              if (familyData.activeTokenId) {
+                await this.redis.del(`auth:rt:active:${familyData.activeTokenId}`)
+              }
+            } catch (_) {}
+            await this.redis.del(`auth:family:${familyId}`)
+          }
+          if (userId) {
+            await this.redis.srem(`auth:user:families:${userId}`, familyId)
+          }
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Logout token invalidation error: ${err.message}`)
+    }
   }
 
   /**

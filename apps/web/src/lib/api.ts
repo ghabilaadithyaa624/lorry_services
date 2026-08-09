@@ -25,42 +25,74 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor - handle token refresh
+// Mutex / promise for single in-flight token refresh
+let isRefreshing = false
+let refreshPromise: Promise<string> | null = null
+
+// Response interceptor - handle token refresh with rotation & queue
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
-    const isAuthEndpoint = originalRequest.url?.includes('/auth/')
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/')
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true
 
+      if (!isRefreshing) {
+        isRefreshing = true
+        refreshPromise = (async () => {
+          try {
+            const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null
+            if (!refreshToken) {
+              throw new Error('No refresh token available')
+            }
+
+            const response = await axios.post(`${API_URL}/auth/token/refresh`, {
+              refreshToken,
+            })
+
+            const { accessToken, refreshToken: newRefreshToken } = response.data
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('accessToken', accessToken)
+              if (newRefreshToken) {
+                localStorage.setItem('refreshToken', newRefreshToken)
+              }
+              const userStr = localStorage.getItem('user')
+              if (userStr) {
+                try {
+                  const user = JSON.parse(userStr)
+                  if (user?.role) setAuthCookies(accessToken, user.role)
+                } catch {
+                  // Ignore parse error
+                }
+              }
+            }
+
+            return accessToken
+          } catch (refreshError) {
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('accessToken')
+              localStorage.removeItem('refreshToken')
+              localStorage.removeItem('user')
+              clearAuthCookies()
+              window.location.href = '/login'
+            }
+            throw refreshError
+          } finally {
+            isRefreshing = false
+            refreshPromise = null
+          }
+        })()
+      }
+
       try {
-        const refreshToken = localStorage.getItem('refreshToken')
-        if (!refreshToken) {
-          throw new Error('No refresh token')
-        }
-
-        const response = await axios.post(`${API_URL}/auth/token/refresh`, {
-          refreshToken,
-        })
-
-        const { accessToken } = response.data
-        localStorage.setItem('accessToken', accessToken)
-
-        // Retry original request
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`
+        const newAccessToken = await refreshPromise
+        if (originalRequest.headers && newAccessToken) {
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
         }
         return api(originalRequest)
       } catch (refreshError) {
-        // Refresh failed, logout
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('accessToken')
-          localStorage.removeItem('refreshToken')
-          localStorage.removeItem('user')
-          window.location.href = '/login'
-        }
         return Promise.reject(refreshError)
       }
     }
@@ -80,9 +112,21 @@ export const authApi = {
   refreshToken: (refreshToken: string) =>
     api.post('/auth/token/refresh', { refreshToken }),
 
-  logout: () => {
-    const refreshToken = localStorage.getItem('refreshToken')
-    return api.post('/auth/logout', { refreshToken })
+  logout: async () => {
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null
+    try {
+      if (refreshToken) {
+        await api.post('/auth/logout', { refreshToken })
+      }
+    } catch {
+      // Ignore API logout failure to allow local cleanup
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
+      clearAuthCookies()
+    }
   },
 }
 

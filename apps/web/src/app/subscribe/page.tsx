@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
+import { load } from '@cashfreepayments/cashfree-js'
 
 const PLANS = [
   {
@@ -56,17 +57,42 @@ function SubscribeContent() {
   const handleSubscribe = async () => {
     setLoading(true)
     setError('')
+
     try {
-      const res = await api.post('/subscriptions/initiate', { plan: selectedPlan })
-      // Redirect to Cashfree payment page
-      if (res.data?.paymentUrl) {
-        window.location.href = res.data.paymentUrl
-      } else {
-        setError('Payment initiation failed. Please try again.')
+      const res = await api.post('/subscriptions/initiate', {
+        plan: selectedPlan,
+      })
+
+      console.log('Subscription initiate response:', res.data)
+
+      const paymentSessionId = res.data?.paymentSessionId
+
+      if (!paymentSessionId) {
+        console.error('Missing paymentSessionId:', res.data)
+        throw new Error('Payment session was not created')
       }
+
+      const cashfree = await load({
+        mode: 'sandbox',
+      })
+
+      if (!cashfree) {
+        throw new Error('Unable to load Cashfree checkout')
+      }
+
+      await cashfree.checkout({
+        paymentSessionId,
+        redirectTarget: '_self',
+      })
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Something went wrong')
-    } finally {
+      console.error('Subscription initiation failed:', err)
+
+      setError(
+        err.response?.data?.message ||
+        err.message ||
+        'Payment initiation failed. Please try again.'
+      )
+
       setLoading(false)
     }
   }
@@ -98,7 +124,12 @@ function SubscribeContent() {
               <p className="font-semibold text-green-800 dark:text-green-300">You have an active subscription</p>
               <p className="text-sm text-green-700 dark:text-green-400">
                 You can reveal contacts freely.{' '}
-                <button onClick={() => router.back()} className="underline font-medium">Go back</button>
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="underline font-medium hover:text-green-900 dark:hover:text-green-200"
+                >
+                  Go back
+                </button>
               </p>
             </div>
           </div>

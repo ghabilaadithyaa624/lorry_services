@@ -9,6 +9,7 @@ import { SubscriptionsService } from './subscriptions.service'
 import { InitiateSubscriptionDto } from './dto/initiate-subscription.dto'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
+import { Public } from '../common/decorators/public.decorator'
 
 @ApiTags('Subscriptions')
 @Controller('subscriptions')
@@ -41,6 +42,7 @@ export class SubscriptionsController {
    * Cashfree webhook — receives payment status notifications
    * Must be public (no JwtAuthGuard), but signature-verified
    */
+  @Public()
   @Post('webhook/cashfree')
   @ApiOperation({ summary: 'Cashfree payment webhook (internal)' })
   async cashfreeWebhook(
@@ -81,14 +83,20 @@ export class SubscriptionsController {
   }
 
   /**
-   * Return URL callback — user lands here after Cashfree redirect
-   * Frontend polls this to confirm payment status
+   * Return URL callback / verification endpoint — user lands here after Cashfree redirect
+   * Frontend polls this to confirm payment status and activate subscription
    */
+  @Public()
   @Get('callback/:orderId')
   @ApiOperation({ summary: 'Verify payment after Cashfree redirect' })
   async callback(@Param('orderId') orderId: string) {
-    // Frontend verifies via polling; we just return current status
-    // Actual activation is handled by webhook above
-    return { orderId, message: 'Payment processing. Check your subscription status.' }
+    return this.subscriptionsService.verifyOrder(orderId)
+  }
+
+  @Public()
+  @Get('verify/:orderId')
+  @ApiOperation({ summary: 'Verify payment by order ID' })
+  async verify(@Param('orderId') orderId: string) {
+    return this.subscriptionsService.verifyOrder(orderId)
   }
 }

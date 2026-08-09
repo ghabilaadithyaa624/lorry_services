@@ -1,8 +1,9 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common'
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common'
 import { prisma } from '@lorrycarry/database'
 
 @Injectable()
 export class SearchService {
+  private readonly logger = new Logger(SearchService.name)
   /**
    * Find trucks within radius of a location
    * Returns SUMMARY data only (PII masked for non-subscribers)
@@ -134,6 +135,9 @@ export class SearchService {
     })
     
     if (!subscription) {
+      this.logger.warn(
+        `Contact reveal denied (no active subscription): userId=${userId}, type=${type}, listingId=${listingId}`,
+      )
       throw new HttpException(
         {
           statusCode: HttpStatus.PAYMENT_REQUIRED,
@@ -143,6 +147,10 @@ export class SearchService {
         HttpStatus.PAYMENT_REQUIRED,
       )
     }
+
+    this.logger.log(
+      `Contact reveal authorized: userId=${userId}, type=${type}, listingId=${listingId}`,
+    )
     
     if (type === 'truck') {
       return prisma.truck.findUnique({

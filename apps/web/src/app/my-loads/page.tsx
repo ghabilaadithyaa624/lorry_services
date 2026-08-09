@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 
@@ -28,7 +28,6 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 function MyLoadsContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [loads, setLoads] = useState<Load[]>([])
   const [loading, setLoading] = useState(true)

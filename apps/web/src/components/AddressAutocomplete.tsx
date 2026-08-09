@@ -57,7 +57,7 @@ export function AddressAutocomplete({
         const res = await api.get(`/mapmyindia/suggestions?query=${encodeURIComponent(query)}`)
         setSuggestions(res.data)
         setShowSuggestions(true)
-      } catch (e) {
+      } catch {
         // Fallback: just show as typed
       } finally {
         setLoading(false)

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { APP_GUARD } from '@nestjs/core'
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { LoadsModule } from './loads/loads.module'
@@ -22,6 +23,10 @@ import { RedisModule } from './common/redis/redis.module'
       isGlobal: true,
       envFilePath: ['.env', '../../.env', '../.env'],
     }),
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 120,
+    }]),
     RedisModule,
     CommonModule,
     AuthModule,
@@ -37,6 +42,11 @@ import { RedisModule } from './common/redis/redis.module'
     TrackingModule,
   ],
   providers: [
+    // Rate limiting guard
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     // Apply JWT guard globally (all routes protected by default)
     {
       provide: APP_GUARD,

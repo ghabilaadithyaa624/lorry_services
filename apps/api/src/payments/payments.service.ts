@@ -73,19 +73,14 @@ export class PaymentsService {
     const order_status = data?.order_status || data?.order?.order_status
     const payment_details = data?.payment_details || []
 
-    if (!order_id) {
-      this.logger.warn('Webhook payload missing order_id')
-      return { success: false, message: 'Invalid payload' }
-    }
-
     const payment = await prisma.payment.findFirst({
       where: { providerOrderId: order_id },
       include: { user: true },
     })
 
     if (!payment) {
-      this.logger.error(`Payment not found for order_id: ${order_id}`)
-      throw new Error('Payment not found')
+      this.logger.warn(`Payment not found for order_id: ${order_id}`)
+      return { success: false, message: 'Payment record not found' }
     }
 
     if (order_status === 'PAID') {

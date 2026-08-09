@@ -26,10 +26,12 @@ export class SubscriptionsService {
     if (!user) throw new BadRequestException('User not found')
 
     const orderId = `sub_${userId.slice(0, 8)}_${Date.now()}`
-    const cashfreeApiKey = this.config.get<string>('CASHFREE_API_KEY')
+    const cashfreeApiKey = this.config.get<string>('CASHFREE_API_KEY') || this.config.get<string>('CASHFREE_APP_ID')
     const cashfreeSecretKey = this.config.get<string>('CASHFREE_SECRET_KEY')
     const cashfreeEnv = this.config.get<string>('CASHFREE_ENV', 'sandbox')
-    const appUrl = this.config.get<string>('APP_URL', 'http://localhost:3001')
+    const appUrl = this.config.get<string>('APP_URL') || this.config.get<string>('CLIENT_URL') || 'http://localhost:3010'
+    const rawApiUrl = this.config.get<string>('API_URL') || 'http://localhost:3002'
+    const apiUrl = rawApiUrl.replace(/\/api\/v1\/?$/, '')
 
     const baseUrl = cashfreeEnv === 'production'
       ? 'https://api.cashfree.com/pg'
@@ -61,7 +63,7 @@ export class SubscriptionsService {
       },
       order_meta: {
         return_url: `${appUrl}/subscribe/callback?order_id={order_id}&payment_id=${payment.id}`,
-        notify_url: `${appUrl.replace('3001', '3002')}/api/v1/payments/webhook/cashfree`,
+        notify_url: `${apiUrl}/api/v1/payments/webhook/cashfree`,
       },
       order_note: `LorryCarry ${planConfig.label} Subscription`,
     }
@@ -76,9 +78,11 @@ export class SubscriptionsService {
         },
       })
 
+      this.logger.log(`Cashfree order created: ${JSON.stringify(res.data)}`)
+
       return {
-        paymentUrl: res.data.payment_link,
-        orderId,
+        paymentSessionId: res.data.payment_session_id,
+        orderId: res.data.order_id ?? orderId,
         paymentId: payment.id,
         amount: planConfig.price,
         plan,
@@ -86,6 +90,134 @@ export class SubscriptionsService {
     } catch (err: any) {
       this.logger.error('Cashfree order creation failed', err.response?.data)
       throw new BadRequestException('Payment initiation failed. Please try again.')
+    }
+  }
+
+  /**
+   * Verify Cashfree order with Cashfree PG API and activate subscription
+   * Used by return URL callback and polling verification
+   */
+  async verifyOrder(orderId: string) {
+    this.logger.log(`Cashfree verification started: orderId=${orderId}`)
+
+    // 1. Find local payment record
+    const payment = await prisma.payment.findFirst({
+      where: { providerOrderId: orderId },
+    })
+
+    if (!payment) {
+      this.logger.warn(`Payment verification failed: orderId=${orderId} (record not found)`)
+      return {
+        status: 'FAILED',
+        orderId,
+        message: 'Payment record not found',
+      }
+    }
+
+    // 2. Check if already marked Success & active subscription exists (Idempotency)
+    const existingSubscription = await prisma.subscription.findFirst({
+      where: {
+        OR: [
+          { paymentId: payment.id },
+          { userId: payment.userId, status: 'active', expiresAt: { gt: new Date() } },
+        ],
+      },
+      orderBy: { expiresAt: 'desc' },
+    })
+
+    if (payment.status === 'Success' && existingSubscription) {
+      this.logger.log(`Payment already verified and subscription active: orderId=${orderId}`)
+      return {
+        status: 'SUCCESS',
+        orderId,
+        paymentId: payment.id,
+        hasSubscription: true,
+        plan: existingSubscription.plan,
+        expiresAt: existingSubscription.expiresAt,
+      }
+    }
+
+    // 3. Query Cashfree Sandbox/Production API
+    const cashfreeApiKey = this.config.get<string>('CASHFREE_API_KEY') || this.config.get<string>('CASHFREE_APP_ID')
+    const cashfreeSecretKey = this.config.get<string>('CASHFREE_SECRET_KEY')
+    const cashfreeEnv = this.config.get<string>('CASHFREE_ENV', 'sandbox')
+    const baseUrl = cashfreeEnv === 'production'
+      ? 'https://api.cashfree.com/pg'
+      : 'https://sandbox.cashfree.com/pg'
+
+    const headers = {
+      'x-client-id': cashfreeApiKey,
+      'x-client-secret': cashfreeSecretKey,
+      'x-api-version': '2023-08-01',
+    }
+
+    try {
+      // Get order details from Cashfree
+      const orderRes = await axios.get(`${baseUrl}/orders/${orderId}`, { headers })
+      const orderStatus = orderRes.data?.order_status
+      this.logger.log(`Cashfree order status: orderId=${orderId} status=${orderStatus}`)
+
+      // Get payments list for order from Cashfree
+      let paymentsData: any[] = []
+      try {
+        const paymentsRes = await axios.get(`${baseUrl}/orders/${orderId}/payments`, { headers })
+        paymentsData = Array.isArray(paymentsRes.data) ? paymentsRes.data : []
+      } catch (pErr: any) {
+        this.logger.warn(`Could not fetch payments list for order ${orderId}: ${pErr.message}`)
+      }
+
+      const successfulPayment = paymentsData.find((p: any) => p.payment_status === 'SUCCESS')
+      const paymentStatus = successfulPayment?.payment_status ?? paymentsData[0]?.payment_status ?? orderStatus
+
+      this.logger.log(`Cashfree payment status: orderId=${orderId} paymentStatus=${paymentStatus}`)
+
+      // If order is PAID or any payment attempt SUCCEEDED
+      if (orderStatus === 'PAID' || successfulPayment) {
+        const txnId = successfulPayment?.cf_payment_id?.toString() || orderRes.data?.cf_order_id?.toString() || orderId
+        const activationResult = await this.verifyAndActivate(orderId, txnId)
+
+        return {
+          status: 'SUCCESS',
+          orderId,
+          paymentId: payment.id,
+          hasSubscription: true,
+          plan: (payment.metadata as any)?.plan,
+          expiresAt: activationResult.expiresAt,
+        }
+      }
+
+      // If order is still ACTIVE / pending
+      if (orderStatus === 'ACTIVE') {
+        return {
+          status: 'PENDING',
+          orderId,
+          message: 'Payment is being processed by Cashfree',
+        }
+      }
+
+      // If order is EXPIRED / TERMINATED / CANCELLED
+      if (['EXPIRED', 'TERMINATED', 'CANCELLED'].includes(orderStatus)) {
+        await this.markFailed(orderId, `Cashfree order status: ${orderStatus}`)
+        this.logger.warn(`Payment verification failed: orderId=${orderId} status=${orderStatus}`)
+        return {
+          status: 'FAILED',
+          orderId,
+          message: `Payment failed (${orderStatus})`,
+        }
+      }
+
+      return {
+        status: 'PENDING',
+        orderId,
+        message: 'Payment status pending',
+      }
+    } catch (err: any) {
+      this.logger.error(`Payment verification error: orderId=${orderId}`, err.response?.data || err.message)
+      return {
+        status: 'PENDING',
+        orderId,
+        message: 'Unable to verify payment with Cashfree at this time',
+      }
     }
   }
 
@@ -99,12 +231,23 @@ export class SubscriptionsService {
     })
     if (!payment) throw new BadRequestException('Payment record not found')
 
+    // Idempotency: check if subscription already exists for this payment
+    const existingSubscription = await prisma.subscription.findFirst({
+      where: { paymentId: payment.id },
+    })
+    if (existingSubscription) {
+      this.logger.log(`Subscription already exists for paymentId=${payment.id}, skipping creation`)
+      return { activated: true, expiresAt: existingSubscription.expiresAt }
+    }
+
     const plan = (payment.metadata as any)?.plan as PlanId
-    const planConfig = PLAN_CONFIG[plan]
+    const planConfig = PLAN_CONFIG[plan] || PLAN_CONFIG.monthly
 
     const now = new Date()
     const expiresAt = new Date(now)
     expiresAt.setDate(expiresAt.getDate() + planConfig.durationDays)
+
+    this.logger.log(`Subscription activation started: userId=${payment.userId} plan=${plan}`)
 
     // Update payment + create subscription atomically
     await prisma.$transaction([

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { prisma, BookingStatus } from '@lorrycarry/database'
 import { GupshupService } from '../auth/gupshup.service'
 
@@ -127,7 +127,19 @@ export class TrackingService {
   /**
    * Get current tracking status for a booking
    */
-  async getTrackingStatus(bookingId: string) {
+  async getTrackingStatus(bookingId: string, userId?: string) {
+    if (userId) {
+      const booking = await prisma.booking.findFirst({
+        where: {
+          id: bookingId,
+          OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
+        },
+      })
+      if (!booking) {
+        throw new NotFoundException('Booking not found or not authorized')
+      }
+    }
+
     const checkpoints = await prisma.checkpoint.findMany({
       where: { bookingId },
       orderBy: { seq: 'asc' },

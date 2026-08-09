@@ -91,16 +91,35 @@ export class CashfreeService {
   /**
    * Verify payment signature (for webhook security)
    */
-  verifyWebhookSignature(payload: any, signature: string): boolean {
+  verifyWebhookSignature(payload: any, signature?: string): boolean {
+    const isProd = this.config.get('NODE_ENV') === 'production'
     const secret = this.config.get('CASHFREE_WEBHOOK_SECRET', '')
-    if (!secret) return true // Allow in dev environment if secret is unconfigured
 
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(JSON.stringify(payload))
-      .digest('base64')
-    
-    return signature === expectedSignature
+    if (!secret) {
+      if (isProd) {
+        this.logger.error('CASHFREE_WEBHOOK_SECRET is not configured in production. Rejecting webhook.')
+        return false
+      }
+      return true // Allow in dev environment if secret is unconfigured
+    }
+
+    if (!signature) {
+      if (isProd) return false
+      return true
+    }
+
+    try {
+      const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload)
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(payloadString)
+        .digest('base64')
+      
+      return signature === expectedSignature
+    } catch (err: any) {
+      this.logger.error(`Webhook signature verification error: ${err.message}`)
+      return false
+    }
   }
 
   /**

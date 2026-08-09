@@ -105,10 +105,10 @@ export default function SearchPage() {
         )
       )
     } catch (err: any) {
-      if (err.response?.status === 402) {
+      if (err.response?.status === 402 || err.response?.status === 403) {
         router.push('/subscribe?reason=reveal')
       } else {
-        setRevealError('Failed to reveal contact. Try again.')
+        setRevealError(err.response?.data?.message || 'Failed to reveal contact. Try again.')
       }
     } finally {
       setRevealing(null)
