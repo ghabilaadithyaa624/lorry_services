@@ -15,7 +15,7 @@ import { OtpStorageService } from './otp-storage.service'
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
         secret: config.get('JWT_SECRET'),
-        signOptions: { expiresIn: config.get('JWT_EXPIRY', '7d') },
+        signOptions: { expiresIn: config.get('JWT_EXPIRY', '15m') },
       }),
       inject: [ConfigService],
     }),

@@ -5,12 +5,13 @@ node_modules/
 .yarn/unplugged
 .yarn/build-state.yml
 
-# Environment variables & secrets
+# Environment variables & secrets (NEVER COMMIT)
 .env
-.env*.local
-.env.production
-.env.staging
+.env.*
 !.env.example
+*.pem
+*.key
+*.cert
 
 # Build & Output directories
 dist/
@@ -20,6 +21,8 @@ out/
 .turbo/
 .cache/
 .vite/
+*.tsbuildinfo
+.eslintcache
 
 # Database & Prisma
 prisma/dev.db

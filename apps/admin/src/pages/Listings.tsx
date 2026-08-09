@@ -1,385 +1,318 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Package,
-  Truck as TruckIcon,
-  Search,
-  Filter,
-  AlertTriangle,
+  Truck,
+  ShieldCheck,
+  CalendarDays,
+  RefreshCw,
+  AlertCircle,
   CheckCircle2,
-  Trash2,
-  Eye,
-  MapPin,
-  Calendar,
-  X,
-  DollarSign
+  XCircle,
+  Award,
 } from 'lucide-react'
+import { api } from '../lib/api'
+import { formatPhone, cn } from '../lib/utils'
 
-type ListingCategory = 'loads' | 'trucks'
-
-interface LoadListing {
-  id: string
-  ownerName: string
-  ownerPhone: string
-  loadingAddress: string
-  unloadingAddress: string
-  truckType: string
-  tonnageRequired: string
-  maxPrice: string
-  urgent: boolean
-  status: 'Open' | 'In-transit' | 'Completed' | 'Flagged'
-  postedAt: string
+interface Stats {
+  totalLoads: number
+  totalTrucks: number
+  totalBookings: number
+  pendingDocuments: number
 }
 
-interface TruckListing {
+interface PendingDoc {
   id: string
-  ownerName: string
-  ownerPhone: string
+  type: string
+  truck: {
+    id: string
+    registrationNumber: string
+    bodyType: string
+    user: { name: string | null; phone: string }
+  }
+}
+
+interface TruckGroup {
+  truckId: string
   registrationNumber: string
   bodyType: string
-  tonnageCapacity: string
-  serviceableRadiusKm: number
-  preferredDestinations: string[]
-  verificationStatus: 'Verified' | 'Pending' | 'Flagged'
-  registeredAt: string
+  ownerName: string | null
+  ownerPhone: string
+  pendingDocs: number
 }
 
-const MOCK_LOADS: LoadListing[] = [
-  {
-    id: 'LD-9901',
-    ownerName: 'Apex Logistics Corp',
-    ownerPhone: '+91 98765 11223',
-    loadingAddress: 'Peenya Industrial Area, Bangalore (560058)',
-    unloadingAddress: 'Bhiwandi Warehousing Zone, Mumbai (421302)',
-    truckType: 'Container',
-    tonnageRequired: '18.5 Tons',
-    maxPrice: '₹ 42,000',
-    urgent: true,
-    status: 'Open',
-    postedAt: '2026-08-07 15:20'
-  },
-  {
-    id: 'LD-9902',
-    ownerName: 'Venkateshwara Minerals',
-    ownerPhone: '+91 94432 88776',
-    loadingAddress: 'Hospet Iron Ore Yard, Bellary (583201)',
-    unloadingAddress: 'Chennai Port Container Terminal (600001)',
-    truckType: 'Open body',
-    tonnageRequired: '32 Tons',
-    maxPrice: '₹ 68,000',
-    urgent: false,
-    status: 'In-transit',
-    postedAt: '2026-08-07 11:05'
-  },
-  {
-    id: 'LD-9903',
-    ownerName: 'Rapid Traders',
-    ownerPhone: '+91 98450 99887',
-    loadingAddress: 'Chakan MIDC Phase 2, Pune (410501)',
-    unloadingAddress: 'Sanand Industrial Estate, Ahmedabad (382110)',
-    truckType: 'Container',
-    tonnageRequired: '12 Tons',
-    maxPrice: '₹ 28,500',
-    urgent: false,
-    status: 'Completed',
-    postedAt: '2026-08-06 09:40'
-  }
-]
+interface UserContributor {
+  id: string
+  name: string | null
+  phone: string
+  role: string
+  _count: { loads: number; trucks: number; subscriptions: number }
+}
 
-const MOCK_TRUCKS: TruckListing[] = [
-  {
-    id: 'TRK-5501',
-    ownerName: 'Suraj Transports',
-    ownerPhone: '+91 98112 33445',
-    registrationNumber: 'KA-01-EQ-9876',
-    bodyType: 'Container',
-    tonnageCapacity: '16 Tons',
-    serviceableRadiusKm: 75,
-    preferredDestinations: ['Mumbai', 'Pune', 'Hyderabad'],
-    verificationStatus: 'Verified',
-    registeredAt: '2026-08-05 16:10'
-  },
-  {
-    id: 'TRK-5502',
-    ownerName: 'Kalyani Heavy Haulers',
-    ownerPhone: '+91 97334 66778',
-    registrationNumber: 'MH-12-AB-1234',
-    bodyType: 'Open body',
-    tonnageCapacity: '28 Tons',
-    serviceableRadiusKm: 100,
-    preferredDestinations: ['Chennai', 'Bangalore'],
-    verificationStatus: 'Pending',
-    registeredAt: '2026-08-07 10:30'
-  }
-]
+interface VerifyModalState {
+  truckId: string
+  registration: string
+  action: 'Verified' | 'Rejected'
+}
 
 export function Listings() {
-  const [category, setCategory] = useState<ListingCategory>('loads')
-  const [loads, setLoads] = useState<LoadListing[]>(MOCK_LOADS)
-  const [trucks, setTrucks] = useState<TruckListing[]>(MOCK_TRUCKS)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedItem, setSelectedItem] = useState<LoadListing | TruckListing | null>(null)
-  const [actionFeedback, setActionFeedback] = useState<string | null>(null)
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [truckGroups, setTruckGroups] = useState<TruckGroup[]>([])
+  const [contributors, setContributors] = useState<UserContributor[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [verifyModal, setVerifyModal] = useState<VerifyModalState | null>(null)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
 
-  const handleFlagLoad = (id: string) => {
-    setLoads((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, status: 'Flagged' as const } : l))
-    )
-    setActionFeedback(`Load listing ${id} has been flagged & removed from public search.`)
-    setTimeout(() => setActionFeedback(null), 4000)
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const [statsRes, docsRes, usersRes] = await Promise.all([
+        api.get('/admin/stats'),
+        api.get('/admin/documents/pending'),
+        api.get('/admin/users?limit=100'),
+      ])
+
+      setStats({
+        totalLoads: statsRes.data.totalLoads,
+        totalTrucks: statsRes.data.totalTrucks,
+        totalBookings: statsRes.data.totalBookings,
+        pendingDocuments: statsRes.data.pendingDocuments,
+      })
+
+      // Group pending documents by truck
+      const docs: PendingDoc[] = docsRes.data
+      const groupMap = new Map<string, TruckGroup>()
+      docs.forEach((doc) => {
+        const existing = groupMap.get(doc.truck.id)
+        if (existing) {
+          existing.pendingDocs += 1
+        } else {
+          groupMap.set(doc.truck.id, {
+            truckId: doc.truck.id,
+            registrationNumber: doc.truck.registrationNumber,
+            bodyType: doc.truck.bodyType,
+            ownerName: doc.truck.user.name,
+            ownerPhone: doc.truck.user.phone,
+            pendingDocs: 1,
+          })
+        }
+      })
+      setTruckGroups(Array.from(groupMap.values()))
+
+      // Top contributors
+      const users: UserContributor[] = usersRes.data.users
+      const sorted = [...users]
+        .sort((a, b) => b._count.loads + b._count.trucks - (a._count.loads + a._count.trucks))
+        .slice(0, 10)
+      setContributors(sorted)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to fetch listings information'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  const handleTruckVerify = async () => {
+    if (!verifyModal) return
+    setActionLoading(verifyModal.truckId)
+    setStatusMessage(null)
+
+    try {
+      await api.patch(`/admin/trucks/${verifyModal.truckId}/verify`, {
+        status: verifyModal.action,
+      })
+      setTruckGroups((prev) => prev.filter((t) => t.truckId !== verifyModal.truckId))
+      setStatusMessage({
+        text: `Truck ${verifyModal.registration} has been marked as ${verifyModal.action.toLowerCase()}.`,
+        type: 'success',
+      })
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to update truck status'
+      setStatusMessage({ text: msg, type: 'error' })
+    } finally {
+      setActionLoading(null)
+      setVerifyModal(null)
+    }
   }
 
-  const handleFlagTruck = (id: string) => {
-    setTrucks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, verificationStatus: 'Flagged' as const } : t))
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="flex justify-between items-center">
+          <div className="h-8 bg-surface-800 rounded w-48"></div>
+          <div className="h-9 bg-surface-800 rounded w-24"></div>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-24 bg-surface-800 rounded-xl"></div>
+          ))}
+        </div>
+        <div className="h-64 bg-surface-800 rounded-xl"></div>
+      </div>
     )
-    setActionFeedback(`Truck registration ${id} has been suspended.`)
-    setTimeout(() => setActionFeedback(null), 4000)
   }
 
-  const filteredLoads = loads.filter(
-    (l) =>
-      l.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.loadingAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.unloadingAddress.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const filteredTrucks = trucks.filter(
-    (t) =>
-      t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.ownerName.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  if (error) {
+    return (
+      <div className="card p-12 text-center flex flex-col items-center">
+        <AlertCircle className="w-12 h-12 text-danger-500 mb-4" />
+        <h2 className="text-xl font-bold text-white mb-2">Failed to load Listings</h2>
+        <p className="text-surface-400 text-sm max-w-md mb-6">{error}</p>
+        <button onClick={fetchData} className="btn-primary flex items-center gap-2">
+          <RefreshCw className="w-4 h-4" /> Retry
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Package className="w-7 h-7 text-orange-500" />
-            Listings Moderation & Management
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Monitor active load postings and truck registrations, review specs, and remove suspicious listings.
+          <h1 className="text-2xl font-black tracking-tight text-white">Listings & Fleet Overview</h1>
+          <p className="text-sm text-surface-400 mt-0.5">
+            Freight loads, registered vehicles, and marketplace contributor stats
           </p>
         </div>
-
-        {/* Category Switcher */}
-        <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
-          <button
-            onClick={() => {
-              setCategory('loads')
-              setSelectedItem(null)
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              category === 'loads'
-                ? 'bg-orange-500 text-white'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Package className="w-4 h-4" />
-            Loads ({loads.length})
-          </button>
-
-          <button
-            onClick={() => {
-              setCategory('trucks')
-              setSelectedItem(null)
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              category === 'trucks'
-                ? 'bg-orange-500 text-white'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <TruckIcon className="w-4 h-4" />
-            Trucks ({trucks.length})
-          </button>
-        </div>
+        <button
+          onClick={fetchData}
+          className="btn-secondary flex items-center gap-2 text-sm self-start"
+        >
+          <RefreshCw className="w-4 h-4" /> Refresh Data
+        </button>
       </div>
 
-      {/* Action Notification */}
-      {actionFeedback && (
-        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-400 px-4 py-3 rounded-xl flex items-center justify-between text-sm">
-          <span className="flex items-center gap-2 font-medium">
-            <AlertTriangle className="w-5 h-5" />
-            {actionFeedback}
-          </span>
-          <button onClick={() => setActionFeedback(null)} className="hover:text-white">
-            <X className="w-4 h-4" />
+      {/* Notification Toast Banner */}
+      {statusMessage && (
+        <div
+          className={cn(
+            'p-4 rounded-xl text-sm font-medium flex items-center justify-between',
+            statusMessage.type === 'success'
+              ? 'bg-success-500/15 text-success-400 border border-success-500/30'
+              : 'bg-danger-500/15 text-danger-400 border border-danger-500/30'
+          )}
+        >
+          <span>{statusMessage.text}</span>
+          <button onClick={() => setStatusMessage(null)} className="text-xs underline opacity-70 hover:opacity-100">
+            Dismiss
           </button>
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex items-center gap-4">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-3.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder={
-              category === 'loads'
-                ? 'Search load ID, owner, origin, or destination address...'
-                : 'Search truck reg number, owner name, or ID...'
-            }
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-orange-500 placeholder-slate-500"
-          />
+      {/* Summary KPI Cards */}
+      {stats && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="card p-4 border-l-4 border-l-warning-500">
+            <div className="p-2 rounded-lg bg-warning-500/10 w-fit mb-2">
+              <Package className="w-4 h-4 text-warning-400" />
+            </div>
+            <p className="text-2xl font-black text-white">{stats.totalLoads}</p>
+            <p className="text-xs text-surface-400 font-medium">Total Loads Posted</p>
+          </div>
+
+          <div className="card p-4 border-l-4 border-l-success-500">
+            <div className="p-2 rounded-lg bg-success-500/10 w-fit mb-2">
+              <Truck className="w-4 h-4 text-success-400" />
+            </div>
+            <p className="text-2xl font-black text-white">{stats.totalTrucks}</p>
+            <p className="text-xs text-surface-400 font-medium">Total Trucks Registered</p>
+          </div>
+
+          <div className="card p-4 border-l-4 border-l-danger-500">
+            <div className="p-2 rounded-lg bg-danger-500/10 w-fit mb-2">
+              <ShieldCheck className="w-4 h-4 text-danger-400" />
+            </div>
+            <p className="text-2xl font-black text-white">{stats.pendingDocuments}</p>
+            <p className="text-xs text-surface-400 font-medium">Pending KYC Documents</p>
+          </div>
+
+          <div className="card p-4 border-l-4 border-l-primary-500">
+            <div className="p-2 rounded-lg bg-primary-500/10 w-fit mb-2">
+              <CalendarDays className="w-4 h-4 text-primary-400" />
+            </div>
+            <p className="text-2xl font-black text-white">{stats.totalBookings}</p>
+            <p className="text-xs text-surface-400 font-medium">Completed Bookings</p>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Table Content */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        {category === 'loads' ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-700">
-                <tr>
-                  <th className="px-6 py-4">Load ID & Owner</th>
-                  <th className="px-6 py-4">Route (Origin → Destination)</th>
-                  <th className="px-6 py-4">Truck & Tonnage</th>
-                  <th className="px-6 py-4">Offer Price</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/60">
-                {filteredLoads.map((load) => (
-                  <tr key={load.id} className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-white">{load.id}</span>
-                          {load.urgent && (
-                            <span className="bg-rose-500/20 text-rose-400 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border border-rose-500/30">
-                              Urgent
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-400 mt-0.5">{load.ownerName} ({load.ownerPhone})</p>
-                      </div>
-                    </td>
+      {/* Trucks Pending Direct Verification */}
+      <div className="card overflow-hidden">
+        <div className="px-6 py-4 border-b border-surface-700/60 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-warning-400" />
+            <h2 className="text-sm font-bold text-white">Trucks Pending Verification</h2>
+          </div>
+          <span className="badge bg-warning-500/10 text-warning-400 border border-warning-500/20">
+            {truckGroups.length} pending
+          </span>
+        </div>
 
-                    <td className="px-6 py-4 text-xs">
-                      <div className="space-y-1">
-                        <p className="flex items-center gap-1.5 text-slate-200">
-                          <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                          <span className="truncate max-w-xs">{load.loadingAddress}</span>
-                        </p>
-                        <p className="flex items-center gap-1.5 text-slate-400">
-                          <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                          <span className="truncate max-w-xs">{load.unloadingAddress}</span>
-                        </p>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4 text-slate-200">
-                      {load.truckType} • <strong className="text-orange-400">{load.tonnageRequired}</strong>
-                    </td>
-
-                    <td className="px-6 py-4 font-semibold text-emerald-400">{load.maxPrice}</td>
-
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                          load.status === 'Open'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : load.status === 'In-transit'
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                            : load.status === 'Completed'
-                            ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                        }`}
-                      >
-                        {load.status}
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setSelectedItem(load)}
-                          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          View
-                        </button>
-
-                        {load.status !== 'Flagged' && (
-                          <button
-                            onClick={() => handleFlagLoad(load.id)}
-                            className="px-3 py-1.5 bg-rose-600/80 hover:bg-rose-600 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Flag
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {truckGroups.length === 0 ? (
+          <div className="py-12 text-center text-surface-400 text-sm flex flex-col items-center">
+            <CheckCircle2 className="w-10 h-10 text-success-400 mb-2" />
+            All registered trucks are verified and active in the marketplace.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-700">
-                <tr>
-                  <th className="px-6 py-4">Reg Number</th>
-                  <th className="px-6 py-4">Truck Owner</th>
-                  <th className="px-6 py-4">Specs & Capacity</th>
-                  <th className="px-6 py-4">Service Radius & Routes</th>
-                  <th className="px-6 py-4">Verification</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-surface-800/80 border-b border-surface-700/60 text-[10px] font-bold uppercase tracking-wider text-surface-400">
+                  <th className="text-left px-6 py-3.5">Registration Number</th>
+                  <th className="text-left px-6 py-3.5">Body Type</th>
+                  <th className="text-left px-6 py-3.5">Owner Details</th>
+                  <th className="text-left px-6 py-3.5">Pending Docs</th>
+                  <th className="text-right px-6 py-3.5">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/60">
-                {filteredTrucks.map((truck) => (
-                  <tr key={truck.id} className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-6 py-4 font-mono font-bold text-white">{truck.registrationNumber}</td>
-                    <td className="px-6 py-4">
-                      <p className="font-medium text-slate-200">{truck.ownerName}</p>
-                      <p className="text-xs text-slate-400">{truck.ownerPhone}</p>
-                    </td>
-                    <td className="px-6 py-4 text-slate-200">
-                      {truck.bodyType} • <strong className="text-orange-400">{truck.tonnageCapacity}</strong>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-300">
-                      <p>Radius: {truck.serviceableRadiusKm} km</p>
-                      <p className="text-slate-400 mt-0.5">Dest: {truck.preferredDestinations.join(', ')}</p>
+              <tbody className="divide-y divide-surface-700/40">
+                {truckGroups.map((t) => (
+                  <tr key={t.truckId} className="hover:bg-surface-700/20 transition-colors">
+                    <td className="px-6 py-4 font-mono font-bold text-white text-xs">
+                      {t.registrationNumber}
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                          truck.verificationStatus === 'Verified'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : truck.verificationStatus === 'Pending'
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                        }`}
-                      >
-                        {truck.verificationStatus}
+                      <span className="badge bg-surface-700 text-surface-200">
+                        {t.bodyType}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="font-semibold text-white">{t.ownerName || '—'}</p>
+                      <p className="text-xs text-surface-400 font-mono">{formatPhone(t.ownerPhone)}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="badge bg-warning-500/10 text-warning-400 border border-warning-500/20">
+                        {t.pendingDocs} pending doc{t.pendingDocs !== 1 ? 's' : ''}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => setSelectedItem(truck)}
-                          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-medium transition-colors"
+                          type="button"
+                          disabled={actionLoading === t.truckId}
+                          onClick={() => setVerifyModal({ truckId: t.truckId, registration: t.registrationNumber, action: 'Verified' })}
+                          className="btn-primary text-xs py-1.5 px-3 bg-success-600 hover:bg-success-700 flex items-center gap-1"
                         >
-                          Details
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Verify
                         </button>
-                        {truck.verificationStatus !== 'Flagged' && (
-                          <button
-                            onClick={() => handleFlagTruck(truck.id)}
-                            className="px-3 py-1.5 bg-rose-600/80 hover:bg-rose-600 text-white rounded-lg text-xs font-medium transition-colors"
-                          >
-                            Suspend
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          disabled={actionLoading === t.truckId}
+                          onClick={() => setVerifyModal({ truckId: t.truckId, registration: t.registrationNumber, action: 'Rejected' })}
+                          className="btn-danger text-xs py-1.5 px-3 flex items-center gap-1"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          Reject
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -390,25 +323,84 @@ export function Listings() {
         )}
       </div>
 
-      {/* Modal Inspector */}
-      {selectedItem && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-3">
-              <h3 className="text-lg font-bold text-white">Listing Details</h3>
-              <button onClick={() => setSelectedItem(null)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
+      {/* Top Marketplace Contributors */}
+      {contributors.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="px-6 py-4 border-b border-surface-700/60 flex items-center gap-2">
+            <Award className="w-5 h-5 text-primary-400" />
+            <h2 className="text-sm font-bold text-white">Top Marketplace Contributors</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-surface-800/80 border-b border-surface-700/60 text-[10px] font-bold uppercase tracking-wider text-surface-400">
+                  <th className="text-left px-6 py-3.5">User</th>
+                  <th className="text-left px-6 py-3.5">Role</th>
+                  <th className="text-center px-6 py-3.5">Loads Posted</th>
+                  <th className="text-center px-6 py-3.5">Trucks Registered</th>
+                  <th className="text-center px-6 py-3.5">Subscriptions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-700/40">
+                {contributors.map((u) => (
+                  <tr key={u.id} className="hover:bg-surface-700/20 transition-colors">
+                    <td className="px-6 py-3.5">
+                      <p className="font-semibold text-white">{u.name || formatPhone(u.phone)}</p>
+                    </td>
+                    <td className="px-6 py-3.5">
+                      <span
+                        className={cn(
+                          'badge font-semibold',
+                          u.role === 'load_owner'
+                            ? 'bg-info-500/10 text-info-400 border border-info-500/20'
+                            : u.role === 'truck_owner'
+                            ? 'bg-success-500/10 text-success-400 border border-success-500/20'
+                            : 'bg-danger-500/10 text-danger-400 border border-danger-500/20'
+                        )}
+                      >
+                        {u.role.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3.5 text-center font-bold text-white">{u._count.loads}</td>
+                    <td className="px-6 py-3.5 text-center font-bold text-white">{u._count.trucks}</td>
+                    <td className="px-6 py-3.5 text-center font-bold text-white">{u._count.subscriptions}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Modal */}
+      {verifyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setVerifyModal(null)} />
+          <div className="relative z-10 w-full max-w-md bg-surface-800 border border-surface-700 rounded-2xl p-6 shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-white">
+              {verifyModal.action === 'Verified' ? 'Verify Truck' : 'Reject Truck'}
+            </h3>
+            <p className="text-sm text-surface-300">
+              {verifyModal.action === 'Verified'
+                ? `Confirm manual verification for truck ${verifyModal.registration}. This will mark the vehicle as verified in the marketplace.`
+                : `Are you sure you want to reject truck ${verifyModal.registration}?`}
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setVerifyModal(null)} className="btn-secondary text-sm">
+                Cancel
               </button>
-            </div>
-            <pre className="bg-slate-900 p-4 rounded-xl text-xs font-mono text-slate-300 overflow-x-auto border border-slate-700">
-              {JSON.stringify(selectedItem, null, 2)}
-            </pre>
-            <div className="flex justify-end">
               <button
-                onClick={() => setSelectedItem(null)}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-xl"
+                type="button"
+                disabled={actionLoading !== null}
+                onClick={handleTruckVerify}
+                className={cn(
+                  'text-sm font-semibold py-2 px-4 rounded-button shadow-sm text-white',
+                  verifyModal.action === 'Verified'
+                    ? 'bg-success-600 hover:bg-success-700'
+                    : 'bg-danger-600 hover:bg-danger-700'
+                )}
               >
-                Close
+                {actionLoading ? 'Processing...' : verifyModal.action === 'Verified' ? 'Confirm Verification' : 'Confirm Rejection'}
               </button>
             </div>
           </div>
@@ -417,3 +409,5 @@ export function Listings() {
     </div>
   )
 }
+
+export default Listings

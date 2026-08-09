@@ -73,12 +73,23 @@ export class LoadsService {
     }
   }
 
-  async findByUser(userId: string, status?: LoadStatus) {
+  async findByUser(
+    userId: string, 
+    status?: LoadStatus, 
+    page: number = 1, 
+    limit: number = 50
+  ) {
+    const safePage = Math.max(1, Number(page) || 1)
+    const safeLimit = Math.min(100, Math.max(1, Number(limit) || 50))
+    const skip = (safePage - 1) * safeLimit
+
     const where: any = { userId }
     if (status) where.status = status
 
     return prisma.load.findMany({
       where,
+      skip,
+      take: safeLimit,
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {

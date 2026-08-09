@@ -1,10 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
+import {
+  MapPinIcon,
+  TruckIcon,
+  CurrencyRupeeIcon,
+} from '@heroicons/react/24/outline'
 import { api } from '@/lib/api'
+import { DashboardLayout } from '@/components/layout'
+import { Button, Card } from '@/components/ui'
 import { AddressAutocomplete } from '@/components/AddressAutocomplete'
+import { toast } from '@/lib/toast'
 
 interface LoadFormData {
   tonnageRequired: number
@@ -25,6 +33,7 @@ export default function PostLoadPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
   const { register, handleSubmit, setValue, watch } = useForm<LoadFormData>({
     defaultValues: {
       urgent: false,
@@ -45,172 +54,231 @@ export default function PostLoadPage() {
         maxPrice: data.maxPrice ? Number(data.maxPrice) : undefined,
         advancePayable: data.advancePayable ? Number(data.advancePayable) : undefined,
       })
+
+      toast.success('Freight load posted successfully!')
       router.push('/my-loads?success=true')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to post load')
+      const msg = err.response?.data?.message || 'Failed to post freight load. Please check details.'
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-8 bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-2xl mx-auto card p-6 md:p-8">
-        <h1 className="text-2xl font-bold mb-6">Post a Load</h1>
-
+    <DashboardLayout
+      title="Post a Freight Requirement"
+      subtitle="Publish your cargo specifications to get direct bids from verified transporters within 50km."
+    >
+      <div className="max-w-3xl mx-auto">
+        {/* Error Notification */}
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-button text-sm mb-6">
-            {error}
+          <div className="mb-6 p-4 rounded-xl bg-danger-50 dark:bg-danger-950/40 border border-danger-200 dark:border-danger-900/60 text-danger-700 dark:text-danger-300 text-xs font-medium flex items-center gap-2 animate-fade-in">
+            <span>⚠️</span>
+            <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Tonnage */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Tonnage Required (Tons) *</label>
-            <input
-              type="number"
-              step="0.1"
-              {...register('tonnageRequired', { required: true, min: 0.5 })}
-              placeholder="e.g., 15.5"
-              className="input"
-            />
-          </div>
+          {/* Section 1: Route & Locations */}
+          <Card padding="lg" className="space-y-5">
+            <div className="flex items-center gap-2 pb-3 border-b border-surface-100 dark:border-surface-800">
+              <MapPinIcon className="w-5 h-5 text-primary-500" />
+              <h3 className="text-base font-bold text-surface-900 dark:text-white">
+                1. Pickup & Delivery Route
+              </h3>
+            </div>
 
-          {/* Loading Address */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <AddressAutocomplete
-                label="Pickup Address *"
-                value={watch('loadingAddress') || ''}
-                onChange={(address, pincode) => {
-                  setValue('loadingAddress', address)
-                  if (pincode) setValue('loadingPin', pincode)
-                }}
-                placeholder="Enter pickup location"
-              />
+            {/* Loading Origin */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <AddressAutocomplete
+                  label="Pickup Address / Warehouse *"
+                  value={watch('loadingAddress') || ''}
+                  onChange={(address, pincode) => {
+                    setValue('loadingAddress', address)
+                    if (pincode) setValue('loadingPin', pincode)
+                  }}
+                  placeholder="Enter pickup location (City, Industrial Area)..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-1">
+                  Pickup PIN *
+                </label>
+                <input
+                  type="text"
+                  {...register('loadingPin', { required: 'PIN code is required' })}
+                  placeholder="e.g. 411018"
+                  className="input"
+                  maxLength={6}
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">PIN Code *</label>
-              <input
-                type="text"
-                {...register('loadingPin', { required: true })}
-                placeholder="411018"
-                className="input"
-              />
-            </div>
-          </div>
 
-          {/* Unloading Address */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <AddressAutocomplete
-                label="Delivery Address *"
-                value={watch('unloadingAddress') || ''}
-                onChange={(address, pincode) => {
-                  setValue('unloadingAddress', address)
-                  if (pincode) setValue('unloadingPin', pincode)
-                }}
-                placeholder="Enter delivery location"
-              />
+            {/* Unloading Destination */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <AddressAutocomplete
+                  label="Delivery Address / Destination *"
+                  value={watch('unloadingAddress') || ''}
+                  onChange={(address, pincode) => {
+                    setValue('unloadingAddress', address)
+                    if (pincode) setValue('unloadingPin', pincode)
+                  }}
+                  placeholder="Enter delivery location (City, Warehouse)..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-1">
+                  Delivery PIN *
+                </label>
+                <input
+                  type="text"
+                  {...register('unloadingPin', { required: 'PIN code is required' })}
+                  placeholder="e.g. 560100"
+                  className="input"
+                  maxLength={6}
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">PIN Code *</label>
-              <input
-                type="text"
-                {...register('unloadingPin', { required: true })}
-                placeholder="560100"
-                className="input"
-              />
-            </div>
-          </div>
+          </Card>
 
-          {/* Truck Type */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Truck Type *</label>
-            <select {...register('truckType')} className="input">
-              <option value="Open">Open Body</option>
-              <option value="Container">Container</option>
-              <option value="OpenBody">Open Body Trailer</option>
-            </select>
-          </div>
+          {/* Section 2: Cargo & Vehicle Specifications */}
+          <Card padding="lg" className="space-y-5">
+            <div className="flex items-center gap-2 pb-3 border-b border-surface-100 dark:border-surface-800">
+              <TruckIcon className="w-5 h-5 text-primary-500" />
+              <h3 className="text-base font-bold text-surface-900 dark:text-white">
+                2. Cargo & Vehicle Specifications
+              </h3>
+            </div>
 
-          {/* Dimensions */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Min Length (ft)</label>
-              <input
-                type="number"
-                {...register('minLengthFt')}
-                placeholder="Optional"
-                className="input"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Min Height (ft)</label>
-              <input
-                type="number"
-                {...register('minHeightFt')}
-                placeholder="Optional"
-                className="input"
-              />
-            </div>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Tonnage Required */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-1">
+                  Cargo Weight (Metric Tons) *
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.5"
+                  {...register('tonnageRequired', { required: true, min: 0.5 })}
+                  placeholder="e.g. 15.5"
+                  className="input font-semibold"
+                />
+              </div>
 
-          {/* Price & Delivery */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Max Price (₹)</label>
-              <input
-                type="number"
-                {...register('maxPrice')}
-                placeholder="Optional"
-                className="input"
-              />
+              {/* Truck Type */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-1">
+                  Preferred Truck Body *
+                </label>
+                <select {...register('truckType')} className="input">
+                  <option value="Open">Open Body Truck</option>
+                  <option value="Container">Closed Container</option>
+                  <option value="OpenBody">Open Body Trailer</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Expected Delivery</label>
-              <input
-                type="datetime-local"
-                {...register('expectedDeliveryAt')}
-                className="input"
-              />
-            </div>
-          </div>
 
-          {/* Advance & Urgent */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-            <div>
-              <label className="block text-sm font-medium mb-1">Advance Payable (₹)</label>
-              <input
-                type="number"
-                {...register('advancePayable')}
-                placeholder="Optional"
-                className="input"
-              />
+            {/* Optional Dimensions */}
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div>
+                <label className="block text-xs font-semibold text-surface-600 dark:text-surface-400 mb-1">
+                  Min Deck Length (ft) <span className="text-surface-400">(Optional)</span>
+                </label>
+                <input
+                  type="number"
+                  {...register('minLengthFt')}
+                  placeholder="e.g. 24"
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-surface-600 dark:text-surface-400 mb-1">
+                  Min Container Height (ft) <span className="text-surface-400">(Optional)</span>
+                </label>
+                <input
+                  type="number"
+                  {...register('minHeightFt')}
+                  placeholder="e.g. 8"
+                  className="input"
+                />
+              </div>
             </div>
-            <div className="flex items-center space-x-2 pt-6">
-              <input
-                type="checkbox"
-                id="urgent"
-                {...register('urgent')}
-                className="w-4 h-4 text-primary-500 rounded focus:ring-primary-500"
-              />
-              <label htmlFor="urgent" className="text-sm font-medium text-red-600">
-                Mark as Urgent Load
-              </label>
-            </div>
-          </div>
+          </Card>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full text-lg py-3 disabled:opacity-50"
-          >
-            {loading ? 'Posting...' : 'Post Load'}
-          </button>
+          {/* Section 3: Commercial Terms & Pricing */}
+          <Card padding="lg" className="space-y-5">
+            <div className="flex items-center gap-2 pb-3 border-b border-surface-100 dark:border-surface-800">
+              <CurrencyRupeeIcon className="w-5 h-5 text-primary-500" />
+              <h3 className="text-base font-bold text-surface-900 dark:text-white">
+                3. Commercial Budget & Schedule
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-1">
+                  Target Freight Price (₹) <span className="text-surface-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="number"
+                  {...register('maxPrice')}
+                  placeholder="e.g. 45000"
+                  className="input font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-1">
+                  Expected Delivery Date/Time
+                </label>
+                <input
+                  type="datetime-local"
+                  {...register('expectedDeliveryAt')}
+                  className="input text-xs sm:text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Advance and Urgency */}
+            <div className="pt-3 border-t border-surface-100 dark:border-surface-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  id="urgent"
+                  {...register('urgent')}
+                  className="w-4 h-4 text-primary-500 rounded focus:ring-primary-500 cursor-pointer"
+                />
+                <label htmlFor="urgent" className="text-xs font-bold text-danger-600 dark:text-danger-400 cursor-pointer">
+                  🚨 Mark as Urgent Freight (Immediate Vehicle Needed)
+                </label>
+              </div>
+
+              <div className="text-xs text-surface-500">
+                Standard Commercial terms: 50% advance upon loading
+              </div>
+            </div>
+          </Card>
+
+          {/* Submit Action */}
+          <div className="pt-2">
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={loading}
+              className="py-3.5 text-base font-bold"
+            >
+              Publish Load Requirement
+            </Button>
+          </div>
         </form>
       </div>
-    </div>
+    </DashboardLayout>
   )
 }

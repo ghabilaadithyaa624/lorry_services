@@ -1,257 +1,405 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { api, clearAuthCookies } from '@/lib/api'
+import {
+  TruckIcon,
+  MagnifyingGlassIcon,
+  ShieldCheckIcon,
+  CheckBadgeIcon,
+  SparklesIcon,
+  ArrowPathIcon,
+} from '@heroicons/react/24/outline'
+import { api } from '@/lib/api'
+import { DashboardLayout } from '@/components/layout'
+import { Badge, Button, Skeleton } from '@/components/ui'
+import {
+  MatchScoreBadge,
+  ActionCenterCard,
+  OperationalEmptyState,
+} from '@/components/intelligence'
+import {
+  calculateMatchScore,
+  estimateFreightRate,
+  deriveOperationalTasks,
+} from '@/lib/intelligence'
+import { cn, formatINR } from '@/lib/utils'
 
 interface TruckItem {
   id: string
   registrationNumber: string
-  truckType: string
-  capacityTons: number
-  bodyType: string
-  currentLocation: string
-  status: 'AVAILABLE' | 'ON_TRIP' | 'MAINTENANCE'
+  bodyType: 'Open' | 'Container' | 'OpenBody'
+  lengthFt: number
+  heightFt: number
+  tonnageCapacity: number
+  currentLat?: number
+  currentLng?: number
+  serviceableRadiusKm?: number
+  preferredDestinations?: string[]
+  verificationStatus: 'Pending' | 'Verified' | 'Rejected'
+  documents?: Array<{ id: string; type: string; verificationStatus: string }>
+}
+
+interface MatchingLoadItem {
+  id: string
+  tonnageRequired: number
+  loadingAddress: string
+  loadingPin?: string
+  unloadingAddress: string
+  unloadingPin?: string
+  truckType: 'Open' | 'Container' | 'OpenBody'
+  maxPrice?: number
+  distanceKm?: number
+  createdAt: string
 }
 
 export default function TruckOwnerDashboard() {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [trucks, setTrucks] = useState<TruckItem[]>([])
+  const [matchingLoads, setMatchingLoads] = useState<MatchingLoadItem[]>([])
+  const [hasSubscription, setHasSubscription] = useState<boolean>(true)
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    const userData = localStorage.getItem('user')
-    if (userData) {
-      setUser(JSON.parse(userData))
-    }
-
-    // Mock registered trucks
-    setTrucks([
-      {
-        id: 'T-8821',
-        registrationNumber: 'MH-12-PQ-9821',
-        truckType: '14-Wheeler Heavy',
-        capacityTons: 25,
-        bodyType: 'Open Body',
-        currentLocation: 'Mumbai Port, MH',
-        status: 'AVAILABLE',
-      },
-      {
-        id: 'T-7402',
-        registrationNumber: 'KA-01-MJ-4102',
-        truckType: '6-Wheeler Medium',
-        capacityTons: 10,
-        bodyType: 'Closed Container',
-        currentLocation: 'Bengaluru Industrial Area',
-        status: 'ON_TRIP',
-      },
-    ])
-
-    setLoading(false)
+    loadDashboardData()
   }, [])
 
-  const logout = async () => {
+  const loadDashboardData = async () => {
     try {
-      await api.post('/auth/logout')
+      setLoading(true)
+      const [trucksRes, subRes] = await Promise.allSettled([
+        api.get('/trucks/my-trucks'),
+        api.get('/search/subscription-status'),
+      ])
+
+      let userTrucks: TruckItem[] = []
+      if (trucksRes.status === 'fulfilled') {
+        userTrucks = trucksRes.value.data || []
+        setTrucks(userTrucks)
+      }
+
+      if (subRes.status === 'fulfilled') {
+        setHasSubscription(Boolean(subRes.value.data?.hasSubscription))
+      }
+
+      // Fetch matching freight loads for the primary truck's location or corridor
+      const primaryTruck = userTrucks[0]
+      if (primaryTruck && primaryTruck.currentLat && primaryTruck.currentLng) {
+        try {
+          const loadsRes = await api.get(
+            `/search/loads?lat=${primaryTruck.currentLat}&lng=${primaryTruck.currentLng}&radius=150`
+          )
+          setMatchingLoads(loadsRes.data || [])
+        } catch {
+          setMatchingLoads([])
+        }
+      }
     } catch {
-      // Ignore error
+      setTrucks([])
+    } finally {
+      setLoading(false)
     }
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('user')
-    clearAuthCookies()
-    router.push('/login')
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-slate-500 dark:text-slate-400 font-medium text-sm">
-          Loading...
-        </div>
-      </div>
-    )
-  }
+  const verifiedCount = trucks.filter((t) => t.verificationStatus === 'Verified').length
+  const primaryTruck = trucks[0]
 
   const stats = [
-    { label: 'Registered Fleet', value: trucks.length, icon: '🚛', color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/20' },
-    { label: 'Trucks Available', value: trucks.filter(t => t.status === 'AVAILABLE').length, icon: '✅', color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' },
-    { label: 'On Active Trips', value: trucks.filter(t => t.status === 'ON_TRIP').length, icon: '🛣️', color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' },
+    {
+      label: 'Registered Fleet',
+      value: trucks.length,
+      icon: TruckIcon,
+      color: 'text-primary-600 bg-primary-50 dark:bg-primary-950/40',
+    },
+    {
+      label: 'Verified Lorries',
+      value: verifiedCount,
+      icon: ShieldCheckIcon,
+      color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40',
+    },
+    {
+      label: 'Matching Freight Leads',
+      value: matchingLoads.length,
+      icon: SparklesIcon,
+      color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/40',
+    },
+    {
+      label: 'Direct Pass Status',
+      value: hasSubscription ? 'Active' : 'Free Pass',
+      icon: CheckBadgeIcon,
+      color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40',
+    },
   ]
 
+  const operationalTasks = deriveOperationalTasks({
+    userRole: 'truck_owner',
+    trucks: trucks.map((t) => ({
+      id: t.id,
+      registrationNumber: t.registrationNumber,
+      verificationStatus: t.verificationStatus,
+      documents: t.documents,
+    })),
+    hasSubscription,
+  })
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Link href="/" className="text-xl font-bold text-orange-600 dark:text-orange-400">
-              LorryCarry
-            </Link>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-white border-l border-gray-300 dark:border-gray-700 pl-3">
-              Truck Owner Dashboard
-            </h1>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600 dark:text-gray-300 font-medium hidden sm:inline">
-              {user?.phone}
-            </span>
-            <button
-              onClick={logout}
-              className="text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Banner */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center">
+    <DashboardLayout>
+      <div className="space-y-8">
+        
+        {/* Welcome Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-extrabold">Welcome, Lorry Owner!</h2>
-            <p className="mt-1 text-blue-100 text-sm">
-              Manage your fleet, upload RC/Insurance, and find high-paying freight loads across India.
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-black text-surface-900 dark:text-white">
+                Transporter Workspace
+              </h1>
+              <Badge variant="primary" size="sm">
+                Fleet & Return Intelligence
+              </Badge>
+            </div>
+            <p className="text-xs sm:text-sm text-surface-500 dark:text-surface-400 mt-1">
+              Find nearby freight, capture return loads at destination hubs, and connect directly with cargo owners.
             </p>
           </div>
-          <Link
-            href="/register-truck"
-            className="mt-4 sm:mt-0 bg-white text-blue-700 hover:bg-blue-50 font-bold text-sm px-5 py-2.5 rounded-xl shadow transition-all flex items-center gap-2"
-          >
-            <span>+</span> Register Truck
-          </Link>
-        </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {stats.map((stat, idx) => (
-            <div
-              key={idx}
-              className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm flex items-center justify-between"
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => router.push('/search?type=load')}
+              leftIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
             >
-              <div>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{stat.label}</p>
-                <p className="text-2xl font-black mt-1 text-gray-900 dark:text-white">{stat.value}</p>
-              </div>
-              <div className={`p-3 rounded-xl text-2xl ${stat.color}`}>
-                {stat.icon}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Quick Actions */}
-        <div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Link
-              href="/register-truck"
-              className="group bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm hover:shadow-md transition-all border-l-4 border-l-blue-500"
+              Search Loads
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => router.push('/subscribe')}
+              leftIcon={<CheckBadgeIcon className="w-4 h-4 shrink-0" />}
+              className="font-bold"
             >
-              <div className="text-3xl mb-3">🚛</div>
-              <h4 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                Register Truck
-              </h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Add your truck with RC and insurance documents for Vahan verification
-              </p>
-            </Link>
-
-            <Link
-              href="/post-load"
-              className="group bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm hover:shadow-md transition-all border-l-4 border-l-orange-500"
-            >
-              <div className="text-3xl mb-3">📦</div>
-              <h4 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-orange-600 transition-colors">
-                Find Loads
-              </h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Search for loads matching your truck capacity and avoid return empty trips
-              </p>
-            </Link>
-
-            <Link
-              href="/my-trucks"
-              className="group bg-white dark:bg-slate-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm hover:shadow-md transition-all border-l-4 border-l-emerald-500"
-            >
-              <div className="text-3xl mb-3">🗺️</div>
-              <h4 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-emerald-600 transition-colors">
-                My Trips
-              </h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Track active deliveries, view payment status, and review trip history
-              </p>
-            </Link>
+              Direct Transporter Pass
+            </Button>
           </div>
         </div>
 
-        {/* Registered Fleet List */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
+        {/* Action Center */}
+        {operationalTasks.length > 0 && <ActionCenterCard tasks={operationalTasks} />}
+
+        {/* 4 Stats Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {stats.map((s) => {
+            const Icon = s.icon
+            return (
+              <div
+                key={s.label}
+                className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 shadow-card space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-surface-500 font-medium">{s.label}</span>
+                  <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', s.color)}>
+                    <Icon className="w-5 h-5 shrink-0" />
+                  </div>
+                </div>
+                <div className="text-2xl sm:text-3xl font-black text-surface-900 dark:text-white font-mono">
+                  {loading ? <Skeleton className="h-8 w-12" /> : s.value}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* ── RETURN LOAD & EARNINGS INTELLIGENCE SECTION ── */}
+        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 sm:p-6 shadow-card space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-surface-100 dark:border-surface-800">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">My Registered Fleet</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Manage your registered lorries and live availability
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                  <ArrowPathIcon className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm sm:text-base font-bold text-surface-900 dark:text-white">
+                  Where Can Your Lorries Earn Their Next Load?
+                </h2>
+              </div>
+              <p className="text-xs text-surface-500 mt-0.5">
+                Proximity-matched cargo requirements and return load opportunities along active corridors.
               </p>
             </div>
-            <Link
-              href="/register-truck"
-              className="text-blue-600 dark:text-blue-400 text-xs font-bold hover:underline"
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push('/search?type=load')}
+              className="text-xs shrink-0"
             >
-              + Add Truck
-            </Link>
+              Explore National Load Board
+            </Button>
           </div>
 
-          <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
-            {trucks.map((truck) => (
-              <div key={truck.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50/50 dark:hover:bg-slate-700/20 transition-colors">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-gray-400">{truck.id}</span>
-                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                      truck.status === 'AVAILABLE'
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
-                        : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    }`}>
-                      {truck.status}
-                    </span>
-                  </div>
+          {matchingLoads.length > 0 && primaryTruck ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {matchingLoads.slice(0, 6).map((load) => {
+                const match = calculateMatchScore(
+                  {
+                    id: load.id,
+                    tonnageRequired: load.tonnageRequired,
+                    loadingAddress: load.loadingAddress,
+                    unloadingAddress: load.unloadingAddress,
+                    truckType: load.truckType,
+                  },
+                  {
+                    id: primaryTruck.id,
+                    bodyType: primaryTruck.bodyType,
+                    tonnageCapacity: primaryTruck.tonnageCapacity,
+                    distanceKm: load.distanceKm,
+                    verificationStatus: primaryTruck.verificationStatus,
+                    preferredDestinations: primaryTruck.preferredDestinations,
+                  }
+                )
 
-                  <div className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <span>🚛 {truck.registrationNumber}</span>
-                  </div>
+                const priceEstimate = estimateFreightRate({
+                  tonnage: load.tonnageRequired,
+                  truckType: load.truckType,
+                })
 
-                  <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-4">
-                    <span>Type: {truck.truckType}</span>
-                    <span>Body: {truck.bodyType}</span>
-                    <span>Capacity: {truck.capacityTons} Tons</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="text-right text-xs text-gray-500 dark:text-gray-400">
-                    <div>Current Location</div>
-                    <div className="font-semibold text-gray-800 dark:text-gray-200">📍 {truck.currentLocation}</div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => router.push('/post-load')}
-                    className="px-4 py-2 bg-gray-100 dark:bg-slate-700 hover:bg-blue-600 hover:text-white text-gray-800 dark:text-gray-200 text-xs font-bold rounded-xl transition-all"
+                return (
+                  <div
+                    key={load.id}
+                    className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/80 dark:border-surface-700/80 flex flex-col justify-between space-y-3 hover:shadow-card transition-shadow"
                   >
-                    Find Load
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="primary" size="sm">
+                          {load.tonnageRequired}T • {load.truckType}
+                        </Badge>
+                        <MatchScoreBadge match={match} />
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] text-surface-400 uppercase font-bold">Route</span>
+                        <p className="text-xs font-bold text-surface-900 dark:text-white leading-tight">
+                          {load.loadingAddress} ➔ {load.unloadingAddress}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-surface-200/60 dark:border-surface-700">
+                        <span className="text-surface-500 font-medium">
+                          {load.distanceKm ? `${load.distanceKm.toFixed(1)} km away` : 'Nearby hub'}
+                        </span>
+                        <span className="font-bold text-primary-600 dark:text-primary-400">
+                          {load.maxPrice ? formatINR(Number(load.maxPrice)) : `Est. ${formatINR(priceEstimate.recommendedTarget)}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => router.push(`/search?type=load&location=${encodeURIComponent(load.loadingAddress)}`)}
+                      className="w-full text-xs font-bold py-2"
+                    >
+                      Connect with Shipper
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="p-8 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-200/60 dark:border-surface-700 text-center space-y-3">
+              <p className="text-xs sm:text-sm text-surface-600 dark:text-surface-400 max-w-md mx-auto">
+                No active freight loads found immediately at your vehicle GPS coordinates. Search open freight requirements across national corridors.
+              </p>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/search?type=load')}
+                className="font-bold text-xs"
+              >
+                Search National Freight Corridors
+              </Button>
+            </div>
+          )}
         </div>
-      </main>
-    </div>
+
+        {/* ── REGISTERED FLEET & KYC COMPLIANCE SECTION ── */}
+        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 shadow-card space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
+            <div className="flex items-center gap-2">
+              <TruckIcon className="w-5 h-5 text-primary-500" />
+              <h2 className="text-sm sm:text-base font-bold text-surface-900 dark:text-white">
+                Registered Fleet & Vehicle Documents ({trucks.length})
+              </h2>
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push('/search?type=load')}
+              className="text-xs"
+            >
+              Find Matching Cargo
+            </Button>
+          </div>
+
+          {loading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : trucks.length === 0 ? (
+            <OperationalEmptyState
+              role="truck_owner"
+              title="No Lorries Registered in Fleet"
+              description="Register your truck vehicle registration, body type, and tonnage capacity to receive direct freight leads without broker cuts."
+              actionLabel="Find Open Loads"
+              actionHref="/search?type=load"
+              secondaryActionLabel="Get Direct Transporter Pass"
+              secondaryActionHref="/subscribe"
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {trucks.map((t) => (
+                <div
+                  key={t.id}
+                  className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/80 dark:border-surface-700 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-mono text-sm font-black text-surface-900 dark:text-white block">
+                        {t.registrationNumber}
+                      </span>
+                      <span className="text-xs text-surface-500">
+                        {t.tonnageCapacity} Tons Capacity • {t.bodyType}
+                      </span>
+                    </div>
+
+                    <Badge
+                      variant={t.verificationStatus === 'Verified' ? 'success' : 'warning'}
+                      size="sm"
+                    >
+                      {t.verificationStatus === 'Verified' ? '✓ RC Verified' : 'KYC Pending'}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-surface-200/60 dark:border-surface-700 text-xs">
+                    <span className="text-surface-500">
+                      Radius: {t.serviceableRadiusKm || 50} km
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => router.push(`/search?type=load`)}
+                      className="text-xs py-1 text-primary-600"
+                    >
+                      Find Nearby Cargo ➔
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
+    </DashboardLayout>
   )
 }

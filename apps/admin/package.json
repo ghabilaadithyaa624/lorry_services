@@ -1,6 +1,7 @@
 {
   "name": "@lorrycarry/admin",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vite --port 3011",
     "build": "vite build",

@@ -6,6 +6,7 @@ import { KycQueue } from './pages/KycQueue'
 import { Listings } from './pages/Listings'
 import { Subscriptions } from './pages/Subscriptions'
 import { Users } from './pages/Users'
+import { Bookings } from './pages/Bookings'
 
 export function App() {
   return (
@@ -16,6 +17,7 @@ export function App() {
         <Route path="/listings" element={<Listings />} />
         <Route path="/subscriptions" element={<Subscriptions />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/bookings" element={<Bookings />} />
       </Routes>
     </Layout>
   )

@@ -1,45 +1,29 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import React, { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import {
+  MapPinIcon,
+  ArrowLeftIcon,
+  ExclamationTriangleIcon,
+  SparklesIcon,
+} from '@heroicons/react/24/outline'
 import { api } from '@/lib/api'
 import { format } from 'date-fns'
-import Link from 'next/link'
-
-interface Booking {
-  id: string
-  status: string
-  agreedPrice: number
-  advanceConfirmed: boolean
-  balanceConfirmed: boolean
-  ewayBillNumber?: string
-  load: {
-    loadingAddress: string
-    unloadingAddress: string
-    tonnageRequired: number
-  }
-  truck: {
-    registrationNumber: string
-    bodyType: string
-    user: {
-      name: string
-      phone: string
-    }
-  }
-  checkpoints: Array<{
-    seq: number
-    name: string
-    crossed: boolean
-    crossedAt?: string
-  }>
-}
+import { Navbar, Footer } from '@/components/layout'
+import { Card, Badge, Button, Spinner } from '@/components/ui'
+import { assessShipmentIntelligence } from '@/lib/intelligence'
+import { toast } from '@/lib/toast'
+import { cn, formatINR, whatsappLink } from '@/lib/utils'
 
 export default function BookingDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const id = params?.id as string
-  const [booking, setBooking] = useState<Booking | null>(null)
+  const [booking, setBooking] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -53,238 +37,315 @@ export default function BookingDetailPage() {
       const res = await api.get(`/bookings/${id}`)
       setBooking(res.data)
     } catch (err: any) {
-      console.error('Failed to load booking:', err)
       setError(err.response?.data?.message || 'Failed to load booking details')
     } finally {
       setLoading(false)
     }
   }
 
+  const handleConfirmAdvance = async () => {
+    try {
+      setActionLoading('advance')
+      await api.patch(`/bookings/${id}/confirm-advance`)
+      toast.success('50% Loading advance confirmed successfully!')
+      loadBooking()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Could not confirm advance')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleConfirmBalance = async () => {
+    try {
+      setActionLoading('balance')
+      await api.patch(`/bookings/${id}/confirm-balance`)
+      toast.success('Delivery balance confirmed successfully!')
+      loadBooking()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Could not confirm balance')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark p-4">
-        <div className="flex flex-col items-center space-y-3">
-          <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Loading booking details...</p>
+      <div className="min-h-screen bg-surface-50 dark:bg-background-dark flex flex-col justify-between">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="flex flex-col items-center gap-3">
+            <Spinner size="lg" />
+            <p className="text-sm font-semibold text-surface-500">Loading shipment tracking intelligence...</p>
+          </div>
         </div>
+        <Footer />
       </div>
     )
   }
 
   if (error || !booking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark p-4">
-        <div className="max-w-md w-full text-center p-8 bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 space-y-4">
-          <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Booking Not Found</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{error || 'The requested booking details could not be loaded.'}</p>
-          <Link href="/my-bookings" className="btn-primary inline-block text-sm">
-            Back to My Bookings
-          </Link>
+      <div className="min-h-screen bg-surface-50 dark:bg-background-dark flex flex-col justify-between">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <Card padding="lg" className="max-w-md w-full text-center space-y-4 shadow-elevated">
+            <div className="w-14 h-14 rounded-2xl bg-danger-50 text-danger-600 dark:bg-danger-950/50 flex items-center justify-center mx-auto text-2xl">
+              ⚠️
+            </div>
+            <h2 className="text-xl font-bold text-surface-900 dark:text-white">Booking Not Found</h2>
+            <p className="text-xs sm:text-sm text-surface-500">{error || 'The requested booking details could not be found.'}</p>
+            <div className="pt-2">
+              <Button variant="primary" size="md" onClick={() => router.push('/dashboard')}>
+                Return to Dashboard
+              </Button>
+            </div>
+          </Card>
         </div>
+        <Footer />
       </div>
     )
   }
 
-  const cleanPhone = booking.truck.user.phone.replace(/[^0-9]/g, '')
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hi ${booking.truck.user.name}, regarding LorryCarry Booking #${booking.id.slice(0, 8)}`)}`
+  const intelligence = assessShipmentIntelligence(booking)
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-surface-50 dark:bg-background-dark text-surface-900 dark:text-surface-100 flex flex-col justify-between">
+      <Navbar />
+
+      <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full space-y-6">
         
-        {/* Top Navigation */}
-        <div className="flex items-center justify-between">
-          <Link href="/my-bookings" className="inline-flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            My Bookings
-          </Link>
-          <span className="text-xs text-gray-500 dark:text-gray-400">ID: #{booking.id.slice(0, 8)}</span>
-        </div>
-
-        {/* Header / Status Card */}
-        <div className="card p-6 sm:p-8 relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-gray-100 dark:border-gray-800">
+        {/* Navigation & Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="p-2 rounded-xl bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 hover:bg-surface-100 text-surface-600 transition-colors"
+            >
+              <ArrowLeftIcon className="w-4 h-4" />
+            </button>
             <div>
-              <div className="flex items-center space-x-3 mb-1">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Booking Details</h1>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
-                  booking.status === 'Completed'
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                    : booking.status === 'InTransit'
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 animate-pulse'
-                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                }`}>
-                  {booking.status}
-                </span>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black text-surface-900 dark:text-white">
+                  Trip Tracking & Shipment Intelligence
+                </h1>
+                <Badge variant={intelligence.badgeVariant} size="sm">
+                  {intelligence.statusTier}
+                </Badge>
               </div>
-              {booking.ewayBillNumber && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">E-Way Bill: {booking.ewayBillNumber}</p>
-              )}
-            </div>
-
-            <div className="sm:text-right">
-              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider block">Agreed Freight</span>
-              <span className="text-2xl font-black text-primary-600 dark:text-primary-400">
-                ₹{Number(booking.agreedPrice).toLocaleString()}
-              </span>
-            </div>
-          </div>
-
-          {/* Route Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
-            <div className="flex items-start space-x-3">
-              <div className="mt-1 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Loading Address</span>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{booking.load.loadingAddress}</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <div className="mt-1 p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Unloading Address</span>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{booking.load.unloadingAddress}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Transporter Details */}
-        <div className="card p-6">
-          <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
-            <span>Transporter Information</span>
-          </h2>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <span className="text-base font-bold text-gray-900 dark:text-white">
-                  {booking.truck.registrationNumber}
-                </span>
-                <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300">
-                  {booking.truck.bodyType}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Owner/Driver: <span className="font-medium text-gray-900 dark:text-white">{booking.truck.user.name}</span>
+              <p className="text-xs text-surface-500 font-mono mt-0.5">
+                Booking ID: {booking.id}
               </p>
             </div>
+          </div>
 
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-button bg-whatsapp hover:bg-emerald-600 text-white font-semibold text-sm transition-colors shadow-sm"
-            >
-              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-1.156 4.225 4.256-1.117z"/>
-              </svg>
-              <span>Chat on WhatsApp</span>
-            </a>
+          <div className="flex items-center gap-2">
+            {booking.truck?.user?.phone && (
+              <a
+                href={whatsappLink(
+                  booking.truck.user.phone,
+                  `Hi ${booking.truck.user.name || 'Transporter'}, checking in on shipment progress for Booking #${booking.id}.`
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold transition-colors shadow-xs"
+              >
+                <span>💬 WhatsApp Driver</span>
+              </a>
+            )}
           </div>
         </div>
 
-        {/* Trip Progress / Checkpoints */}
-        <div className="card p-6 sm:p-8">
-          <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-6">
-            Trip Progress Tracking
-          </h2>
+        {/* ── Shipment Risk & Operational Intelligence Card ── */}
+        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 sm:p-6 shadow-card space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-100 dark:border-surface-800">
+            <div className="flex items-center gap-2">
+              <SparklesIcon className="w-5 h-5 text-primary-500 shrink-0" />
+              <h2 className="text-sm font-bold text-surface-900 dark:text-white">
+                Transit Health: {intelligence.riskSummary}
+              </h2>
+            </div>
+            <span className="text-xs font-mono font-bold text-surface-500">
+              {intelligence.progressPercent}% Corridor Completed
+            </span>
+          </div>
 
-          <div className="relative pl-6 space-y-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200 dark:before:bg-gray-800">
-            {booking.checkpoints.map((cp) => (
-              <div key={cp.seq} className="relative flex items-start space-x-4 group">
-                {/* Step indicator */}
-                <div className={`absolute -left-6 top-0.5 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                  cp.crossed
-                    ? 'bg-emerald-500 text-white ring-4 ring-emerald-100 dark:ring-emerald-950'
-                    : 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                }`}>
-                  {cp.crossed ? '✓' : cp.seq}
-                </div>
+          {/* Progress Bar */}
+          <div className="w-full bg-surface-100 dark:bg-surface-800 h-2.5 rounded-full overflow-hidden">
+            <div
+              className="bg-primary-500 h-full rounded-full transition-all duration-500"
+              style={{ width: `${intelligence.progressPercent}%` }}
+            />
+          </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className={`text-sm font-bold ${
-                      cp.crossed 
-                        ? 'text-gray-900 dark:text-white' 
-                        : 'text-gray-500 dark:text-gray-400'
-                    }`}>
-                      {cp.name}
-                    </p>
-                    {cp.crossed && cp.crossedAt && (
-                      <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                        Crossed {format(new Date(cp.crossedAt), 'h:mm a, MMM d')}
-                      </span>
-                    )}
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
+            <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200/60 dark:border-surface-700">
+              <span className="text-surface-400 block text-[10px] uppercase font-bold">Last Recorded Checkpoint</span>
+              <span className="font-bold text-surface-900 dark:text-white mt-0.5 block">{intelligence.currentLocationName}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200/60 dark:border-surface-700">
+              <span className="text-surface-400 block text-[10px] uppercase font-bold">Next Highway Milestone</span>
+              <span className="font-bold text-surface-900 dark:text-white mt-0.5 block">{intelligence.nextMilestoneName}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200/60 dark:border-surface-700">
+              <span className="text-surface-400 block text-[10px] uppercase font-bold">Estimated Time Remaining</span>
+              <span className="font-bold text-surface-900 dark:text-white mt-0.5 block">{intelligence.estimatedArrival}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200/60 dark:border-surface-700">
+              <span className="text-surface-400 block text-[10px] uppercase font-bold">E-Way Bill Status</span>
+              <span className="font-bold text-surface-900 dark:text-white mt-0.5 block">
+                {booking.ewayBillNumber ? `✓ #${booking.ewayBillNumber}` : 'Pending Entry'}
+              </span>
+            </div>
+          </div>
+
+          {/* Action Alerts */}
+          {intelligence.requiredActions.length > 0 && (
+            <div className="space-y-2 pt-2">
+              {intelligence.requiredActions.map((action, idx) => (
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                >
+                  <div className="flex items-start gap-2.5">
+                    <ExclamationTriangleIcon className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-amber-900 dark:text-amber-200">{action.title}</span>
+                      <p className="text-amber-800 dark:text-amber-300 text-[11px] mt-0.5">{action.description}</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {cp.crossed ? 'Geofence event confirmed' : 'Pending vehicle arrival'}
-                  </p>
+
+                  {action.actionType === 'CONFIRM_ADVANCE' && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      loading={actionLoading === 'advance'}
+                      onClick={handleConfirmAdvance}
+                      className="shrink-0 text-xs font-bold py-1.5"
+                    >
+                      Confirm 50% Advance
+                    </Button>
+                  )}
+
+                  {action.actionType === 'CONFIRM_BALANCE' && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      loading={actionLoading === 'balance'}
+                      onClick={handleConfirmBalance}
+                      className="shrink-0 text-xs font-bold py-1.5"
+                    >
+                      Confirm Final POD Balance
+                    </Button>
+                  )}
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── 5-Stage Checkpoint Timeline ── */}
+        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 sm:p-6 shadow-card space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
+            <div className="flex items-center gap-2">
+              <MapPinIcon className="w-4 h-4 text-primary-500" />
+              <h2 className="text-sm font-bold text-surface-900 dark:text-white">
+                5-Stage National Highway Milestones
+              </h2>
+            </div>
+            <span className="text-xs text-surface-400 font-medium">
+              Geofence Checkpoint Verification
+            </span>
+          </div>
+
+          <div className="space-y-4 pt-2">
+            {booking.checkpoints && booking.checkpoints.length > 0 ? (
+              booking.checkpoints.map((cp: any, idx: number) => {
+                const isCrossed = Boolean(cp.crossedAt || cp.crossed)
+                return (
+                  <div key={cp.seq || idx} className="flex items-start gap-4">
+                    <div className={cn(
+                      'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 border',
+                      isCrossed
+                        ? 'bg-success-500 text-white border-success-500'
+                        : 'bg-surface-100 dark:bg-surface-800 text-surface-400 border-surface-200 dark:border-surface-700'
+                    )}>
+                      {isCrossed ? '✓' : cp.seq || idx + 1}
+                    </div>
+
+                    <div className="flex-1 min-w-0 pb-3 border-b border-surface-100 dark:border-surface-800">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-surface-900 dark:text-white">
+                          {cp.name || `Milestone ${cp.seq || idx + 1}`}
+                        </span>
+                        <span className="text-[11px] text-surface-400 font-mono">
+                          {isCrossed
+                            ? cp.crossedAt
+                              ? format(new Date(cp.crossedAt), 'dd MMM, hh:mm a')
+                              : 'Passed'
+                            : 'Pending'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-surface-500 mt-0.5">
+                        {isCrossed
+                          ? 'Vehicle verified past geofenced checkpoint zone'
+                          : 'Awaiting arrival at highway corridor waypoint'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800/40 text-center text-xs text-surface-500">
+                Checkpoints will automatically populate as vehicle begins transit along national highway corridor.
               </div>
-            ))}
+            )}
           </div>
         </div>
 
-        {/* Payment Terms & Status */}
-        <div className="card p-6">
-          <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider mb-4">
-            Direct Payment Status
+        {/* ── Commercial Terms Overview ── */}
+        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 shadow-card space-y-3">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-surface-400">
+            50/50 Direct Commercial Terms
           </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 block">50% Advance (At Loading)</span>
-                <span className="text-base font-bold text-gray-900 dark:text-white">
-                  ₹{Math.round(Number(booking.agreedPrice) * 0.5).toLocaleString()}
-                </span>
-              </div>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                booking.advanceConfirmed
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
-              }`}>
-                {booking.advanceConfirmed ? '✓ Paid' : 'Pending'}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            <div className="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/60 dark:border-surface-700">
+              <span className="text-surface-400 block">Total Agreed Freight</span>
+              <span className="text-base font-black text-surface-900 dark:text-white mt-1 block">
+                {formatINR(Number(booking.agreedPrice))}
               </span>
             </div>
 
-            <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 block">50% Balance (At Delivery)</span>
-                <span className="text-base font-bold text-gray-900 dark:text-white">
-                  ₹{Math.round(Number(booking.agreedPrice) * 0.5).toLocaleString()}
+            <div className="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/60 dark:border-surface-700">
+              <span className="text-surface-400 block">50% Loading Advance</span>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-base font-black text-surface-900 dark:text-white">
+                  {formatINR(Math.round(Number(booking.agreedPrice) * 0.5))}
                 </span>
+                <Badge variant={booking.advanceConfirmed ? 'success' : 'warning'} size="sm">
+                  {booking.advanceConfirmed ? 'Paid' : 'Pending'}
+                </Badge>
               </div>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                booking.balanceConfirmed
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
-              }`}>
-                {booking.balanceConfirmed ? '✓ Paid' : 'Pending'}
-              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/60 dark:border-surface-700">
+              <span className="text-surface-400 block">50% Delivery Balance (POD)</span>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-base font-black text-surface-900 dark:text-white">
+                  {formatINR(Number(booking.agreedPrice) - Math.round(Number(booking.agreedPrice) * 0.5))}
+                </span>
+                <Badge variant={booking.balanceConfirmed ? 'success' : 'default'} size="sm">
+                  {booking.balanceConfirmed ? 'Settled' : 'On POD'}
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
 
-      </div>
+      </main>
+
+      <Footer />
     </div>
   )
 }

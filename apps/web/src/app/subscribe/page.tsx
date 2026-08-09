@@ -1,40 +1,66 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import {
+  CheckCircleIcon,
+  ShieldCheckIcon,
+  LockClosedIcon,
+} from '@heroicons/react/24/outline'
 import { api } from '@/lib/api'
 import { load } from '@cashfreepayments/cashfree-js'
+import { Navbar, Footer } from '@/components/layout'
+import { Button, Badge, Card, Spinner } from '@/components/ui'
+import { toast } from '@/lib/toast'
+import { cn, formatINR } from '@/lib/utils'
 
 const PLANS = [
   {
     id: 'monthly',
-    label: 'Monthly',
+    label: 'Monthly Access',
     price: 999,
     per: 'month',
     badge: null,
     highlight: false,
-    description: 'Ideal for occasional use',
-    features: ['Unlimited contact reveals', 'Priority search listing', 'Basic support'],
+    description: 'Essential access for occasional freight requirements',
+    features: [
+      'Unlimited direct phone & WhatsApp reveals',
+      '50km radius proximity search',
+      'Direct transporter negotiations',
+      'Standard email support',
+    ],
   },
   {
     id: 'quarterly',
-    label: 'Quarterly',
+    label: 'Quarterly Pass',
     price: 2499,
     per: '3 months',
-    badge: 'POPULAR',
+    badge: 'MOST POPULAR',
     highlight: true,
-    description: 'Best value for regular users',
-    features: ['Unlimited contact reveals', 'Priority search listing', 'Email & WhatsApp support', 'Save ₹498 vs monthly'],
+    description: 'Best value for active shippers & frequent transporters',
+    features: [
+      'Unlimited direct contact reveals',
+      'Priority search ranking in 50km radius',
+      'Instant WhatsApp notification alerts',
+      'Direct deal confirmation & tracking',
+      'Save ₹498 compared to monthly plan',
+    ],
   },
   {
     id: 'annual',
-    label: 'Annual',
+    label: 'Annual Enterprise',
     price: 7999,
     per: 'year',
-    badge: 'BEST VALUE',
+    badge: 'MAX SAVINGS',
     highlight: false,
-    description: 'For power users & fleet operators',
-    features: ['Unlimited contact reveals', 'Top search listing', 'Dedicated support', 'Save ₹3,989 vs monthly'],
+    description: 'For power fleet operators, factories & logistics enterprises',
+    features: [
+      'Unlimited contact reveals 365 days',
+      'Top search placement across all corridors',
+      'Dedicated relationship account manager',
+      'Bulk load dispatching tools',
+      'Save ₹3,989 compared to monthly plan',
+    ],
   },
 ]
 
@@ -49,8 +75,9 @@ function SubscribeContent() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api.get('/search/subscription-status')
-      .then(res => setHasSubscription(res.data.hasSubscription))
+    api
+      .get('/search/subscription-status')
+      .then((res) => setHasSubscription(res.data.hasSubscription))
       .catch(() => setHasSubscription(false))
   }, [])
 
@@ -63,12 +90,8 @@ function SubscribeContent() {
         plan: selectedPlan,
       })
 
-      console.log('Subscription initiate response:', res.data)
-
       const paymentSessionId = res.data?.paymentSessionId
-
       if (!paymentSessionId) {
-        console.error('Missing paymentSessionId:', res.data)
         throw new Error('Payment session was not created')
       }
 
@@ -77,7 +100,7 @@ function SubscribeContent() {
       })
 
       if (!cashfree) {
-        throw new Error('Unable to load Cashfree checkout')
+        throw new Error('Unable to load Cashfree checkout gateway')
       }
 
       await cashfree.checkout({
@@ -85,153 +108,215 @@ function SubscribeContent() {
         redirectTarget: '_self',
       })
     } catch (err: any) {
-      console.error('Subscription initiation failed:', err)
-
-      setError(
+      const msg =
         err.response?.data?.message ||
         err.message ||
         'Payment initiation failed. Please try again.'
-      )
-
+      setError(msg)
+      toast.error(msg)
       setLoading(false)
     }
   }
 
-  const plan = PLANS.find(p => p.id === selectedPlan)!
+  const activePlan = PLANS.find((p) => p.id === selectedPlan)!
 
   return (
-    <div className="min-h-screen p-4 md:p-8 bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-surface-50 dark:bg-background-dark text-surface-900 dark:text-surface-100 flex flex-col">
+      <Navbar />
 
-        {/* Paywall banner */}
+      <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full space-y-8">
+        {/* Paywall Alert Banner if redirected from reveal */}
         {reason === 'reveal' && (
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-card p-4 mb-8 flex items-start gap-3">
-            <span className="text-xl">🔒</span>
+          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-2xl p-5 flex items-start gap-4 animate-fade-in shadow-xs">
+            <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 shrink-0">
+              <LockClosedIcon className="w-5 h-5" />
+            </div>
             <div>
-              <p className="font-semibold text-amber-800 dark:text-amber-300">Subscription Required</p>
-              <p className="text-sm text-amber-700 dark:text-amber-400 mt-0.5">
-                Revealing contact details requires an active subscription. Choose a plan below to get instant access.
+              <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                Subscription Required to Reveal Direct Contacts
+              </h4>
+              <p className="text-xs sm:text-sm text-amber-800 dark:text-amber-300/90 mt-0.5 leading-relaxed">
+                Unlock direct phone numbers and WhatsApp access for all truck operators and load posters across India.
               </p>
             </div>
           </div>
         )}
 
-        {/* Already subscribed */}
+        {/* Already Subscribed Banner */}
         {hasSubscription === true && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-card p-4 mb-8 flex items-center gap-3">
-            <span className="text-xl">✅</span>
-            <div>
-              <p className="font-semibold text-green-800 dark:text-green-300">You have an active subscription</p>
-              <p className="text-sm text-green-700 dark:text-green-400">
-                You can reveal contacts freely.{' '}
-                <button
-                  onClick={() => router.push('/dashboard')}
-                  className="underline font-medium hover:text-green-900 dark:hover:text-green-200"
-                >
-                  Go back
-                </button>
-              </p>
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl p-5 flex items-center justify-between gap-4 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+                <CheckCircleIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
+                  Active Subscription Enabled
+                </h4>
+                <p className="text-xs text-emerald-700 dark:text-emerald-300/90">
+                  You have full unlimited access to transporter contacts and marketplace features.
+                </p>
+              </div>
             </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push('/dashboard')}
+            >
+              Go to Workspace
+            </Button>
           </div>
         )}
 
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold mb-2">Unlock Full Access</h1>
-          <p className="text-gray-500 max-w-lg mx-auto text-sm">
-            Reveal truck owner &amp; load poster contact details. Connect directly — no middlemen, no commissions.
+        {/* Header Title */}
+        <div className="text-center max-w-2xl mx-auto space-y-3">
+          <Badge variant="primary" size="md">
+            Direct Access Passes
+          </Badge>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-surface-900 dark:text-white">
+            Unlock Full Transporter Access
+          </h1>
+          <p className="text-xs sm:text-sm text-surface-500 dark:text-surface-400">
+            Connect directly with verified truck owners and shippers. Zero commission on your freight bookings.
           </p>
         </div>
 
-        {/* Plan cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          {PLANS.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedPlan(p.id)}
-              className={`relative rounded-card p-6 text-left transition-all border-2 ${
-                selectedPlan === p.id
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 shadow-md'
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary-300'
-              }`}
-            >
-              {p.badge && (
-                <span className={`absolute -top-3 left-4 text-xs font-bold px-3 py-1 rounded-full ${
-                  p.badge === 'POPULAR'
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-amber-400 text-amber-900'
-                }`}>
-                  {p.badge}
-                </span>
-              )}
-
-              <div className="flex justify-between items-start mb-3">
-                <span className="font-bold text-lg">{p.label}</span>
-                {selectedPlan === p.id && (
-                  <span className="text-primary-500 text-xl">✓</span>
-                )}
-              </div>
-
-              <div className="mb-1">
-                <span className="text-3xl font-bold">₹{p.price.toLocaleString()}</span>
-                <span className="text-gray-500 text-sm ml-1">/ {p.per}</span>
-              </div>
-              <p className="text-xs text-gray-500 mb-4">{p.description}</p>
-
-              <ul className="space-y-1.5">
-                {p.features.map(f => (
-                  <li key={f} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-            </button>
-          ))}
-        </div>
-
-        {/* CTA */}
-        <div className="card p-6 text-center">
-          <p className="text-sm text-gray-500 mb-4">
-            Selected: <strong>{plan.label}</strong> — ₹{plan.price.toLocaleString()} / {plan.per}
-          </p>
-
-          {error && (
-            <p className="text-red-500 text-sm mb-4">{error}</p>
-          )}
-
-          <button
-            onClick={handleSubscribe}
-            disabled={loading || hasSubscription === true}
-            className="btn-primary text-lg px-10 py-3 disabled:opacity-50 flex items-center gap-2 mx-auto"
-          >
-            {loading ? (
-              <>
-                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Redirecting to payment...
-              </>
-            ) : (
-              <>💳 Subscribe Now — ₹{plan.price.toLocaleString()}</>
-            )}
-          </button>
-
-          <div className="flex items-center justify-center gap-6 mt-5 text-xs text-gray-400">
-            <span>🔒 Secure payment via Cashfree</span>
-            <span>📱 Instant activation</span>
-            <span>↩️ Cancel anytime</span>
+        {/* Error notification */}
+        {error && (
+          <div className="p-4 rounded-xl bg-danger-50 text-danger-700 text-xs font-medium text-center">
+            {error}
           </div>
+        )}
+
+        {/* ── Plans Grid ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+          {PLANS.map((plan) => {
+            const isSelected = selectedPlan === plan.id
+            return (
+              <div
+                key={plan.id}
+                onClick={() => setSelectedPlan(plan.id)}
+                className={cn(
+                  'relative rounded-2xl p-6 sm:p-7 text-left transition-all cursor-pointer flex flex-col justify-between space-y-6',
+                  isSelected
+                    ? 'border-2 border-primary-500 bg-white dark:bg-surface-900 shadow-elevated ring-4 ring-primary-500/10'
+                    : 'border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 hover:border-primary-300 dark:hover:border-surface-600 shadow-card'
+                )}
+              >
+                {/* Badge Tag */}
+                {plan.badge && (
+                  <div className="absolute -top-3 left-6">
+                    <span
+                      className={cn(
+                        'px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs',
+                        plan.highlight
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-amber-400 text-amber-950'
+                      )}
+                    >
+                      {plan.badge}
+                    </span>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-surface-900 dark:text-white">
+                      {plan.label}
+                    </h3>
+                    {isSelected && (
+                      <div className="w-6 h-6 rounded-full bg-primary-500 text-white flex items-center justify-center text-xs font-bold">
+                        ✓
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl sm:text-4xl font-black text-surface-900 dark:text-white">
+                        {formatINR(plan.price)}
+                      </span>
+                      <span className="text-xs font-semibold text-surface-400">
+                        / {plan.per}
+                      </span>
+                    </div>
+                    <p className="text-xs text-surface-500 dark:text-surface-400 mt-1">
+                      {plan.description}
+                    </p>
+                  </div>
+
+                  {/* Features List */}
+                  <ul className="space-y-2.5 pt-4 border-t border-surface-100 dark:border-surface-800 text-xs text-surface-600 dark:text-surface-300">
+                    {plan.features.map((feat) => (
+                      <li key={feat} className="flex items-start gap-2">
+                        <CheckCircleIcon className="w-4 h-4 text-success-500 shrink-0 mt-0.5" />
+                        <span>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    className={cn(
+                      'w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all text-center',
+                      isSelected
+                        ? 'bg-primary-500 text-white shadow-xs'
+                        : 'bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 hover:bg-surface-200'
+                    )}
+                  >
+                    {isSelected ? 'Selected Plan' : 'Choose Plan'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
         </div>
-      </div>
+
+        {/* ── Checkout Action Footer Card ── */}
+        <Card padding="lg" className="text-center space-y-4 shadow-card border-surface-200/80 dark:border-surface-700/80">
+          <p className="text-xs sm:text-sm text-surface-600 dark:text-surface-400">
+            Selected: <strong className="text-surface-900 dark:text-white font-bold">{activePlan.label}</strong> — {formatINR(activePlan.price)} for {activePlan.per}
+          </p>
+
+          <Button
+            variant="primary"
+            size="lg"
+            loading={loading}
+            disabled={hasSubscription === true}
+            onClick={handleSubscribe}
+            className="px-10 py-3.5 text-base font-bold mx-auto shadow-elevated"
+          >
+            💳 Complete Payment — {formatINR(activePlan.price)}
+          </Button>
+
+          <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-xs text-surface-400">
+            <span className="flex items-center gap-1.5">
+              <ShieldCheckIcon className="w-4 h-4 text-emerald-500" />
+              <span>256-bit Encrypted Cashfree Checkout</span>
+            </span>
+            <span>⚡ Instant Account Activation</span>
+            <span>↩️ Transparent Terms</span>
+          </div>
+        </Card>
+      </main>
+
+      <Footer />
     </div>
   )
 }
 
 export default function SubscribePage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
-        <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-surface-50 dark:bg-background-dark flex items-center justify-center">
+          <Spinner size="lg" />
+        </div>
+      }
+    >
       <SubscribeContent />
     </Suspense>
   )

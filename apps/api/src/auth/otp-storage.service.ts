@@ -1,15 +1,17 @@
 import { Injectable, Inject } from '@nestjs/common'
 import { REDIS_CLIENT } from '../common/redis/redis.module'
 import Redis from 'ioredis'
+import * as crypto from 'crypto'
 
 export interface OtpData {
-  otp: string
+  otpHash: string
   attempts: number
   createdAt: number
 }
 
 /**
  * Secure OTP storage in Redis
+ * - OTP is hashed with SHA-256 before storage
  * - OTP expires in 10 minutes
  * - Max 3 verification attempts
  * - Auto-cleanup on success/failure
@@ -21,9 +23,13 @@ export class OtpStorageService {
 
   constructor(@Inject(REDIS_CLIENT) private redis: Redis) {}
 
+  private hashOtp(otp: string): string {
+    return crypto.createHash('sha256').update(otp.trim()).digest('hex')
+  }
+
   async storeOtp(phone: string, otp: string): Promise<void> {
     const data: OtpData = {
-      otp,
+      otpHash: this.hashOtp(otp),
       attempts: 0,
       createdAt: Date.now(),
     }
@@ -66,7 +72,14 @@ export class OtpStorageService {
       return { valid: false, message: 'Too many failed attempts. Please request a new OTP.' }
     }
 
-    if (data.otp !== inputOtp) {
+    const inputHash = this.hashOtp(inputOtp)
+    const expectedHash = data.otpHash || ((data as any).otp ? this.hashOtp((data as any).otp) : '')
+
+    // Constant-time comparison to prevent timing attacks
+    const isMatch = expectedHash.length === inputHash.length &&
+      crypto.timingSafeEqual(Buffer.from(expectedHash), Buffer.from(inputHash))
+
+    if (!isMatch) {
       const attempts = await this.incrementAttempts(phone)
       const remaining = this.MAX_ATTEMPTS - attempts
       return { 

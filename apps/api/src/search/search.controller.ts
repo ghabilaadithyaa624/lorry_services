@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Query, Param, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 import { SearchService } from './search.service'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
@@ -52,7 +53,8 @@ export class SearchController {
   }
 
   @Post(':type/:id/reveal')
-  @ApiOperation({ summary: 'Reveal contact details (requires subscription)' })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: 'Reveal contact details (requires subscription - throttled to 10 req/min)' })
   async revealContact(
     @Param('type') type: 'truck' | 'load',
     @Param('id') id: string,

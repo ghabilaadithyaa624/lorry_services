@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common'
 import { 
   prisma, 
   BookingStatus, 
@@ -20,105 +20,120 @@ export class BookingsService {
   constructor(private gupshup: GupshupService) {}
 
   /**
-   * Create booking with commercial terms
+   * Create booking with commercial terms within an atomic database transaction
+   * 1. Validates load status and ownership
+   * 2. Validates truck availability & verification
+   * 3. Checks load owner active subscription
+   * 4. Atomically transitions load to Matched
+   * 5. Creates booking record
+   * 6. Generates 5 highway tracking checkpoints
    */
   async create(
     loadOwnerId: string,
     dto: CreateBookingDto
   ) {
-    // Verify load exists and is open
-    const load = await prisma.load.findFirst({
-      where: { id: dto.loadId, userId: loadOwnerId, status: LoadStatus.Open },
-      include: { user: true },
-    })
-
-    if (!load) {
-      throw new NotFoundException('Load not found or not available')
-    }
-
-    // Verify truck exists and is verified
-    const truck = await prisma.truck.findFirst({
-      where: { 
-        id: dto.truckId, 
-        verificationStatus: 'Verified',
-        bookings: { none: { status: { in: [BookingStatus.Confirmed, BookingStatus.InTransit] } } }
-      },
-      include: { user: true },
-    })
-
-    if (!truck) {
-      throw new NotFoundException('Truck not found or not verified')
-    }
-
-    // Check load owner has active subscription
-    const subscription = await prisma.subscription.findFirst({
-      where: {
-        userId: loadOwnerId,
-        status: SubscriptionStatus.active,
-        expiresAt: { gt: new Date() },
-      },
-    })
-
-    if (!subscription) {
-      throw new ForbiddenException({
-        code: 'SUBSCRIPTION_REQUIRED',
-        message: 'Active subscription required to create bookings',
+    const booking = await prisma.$transaction(async (tx) => {
+      // 1. Verify load exists, belongs to user, and is open
+      const load = await tx.load.findFirst({
+        where: { id: dto.loadId, userId: loadOwnerId, status: LoadStatus.Open },
+        include: { user: true },
       })
-    }
 
-    // Create booking
-    const booking = await prisma.booking.create({
-      data: {
-        loadId: dto.loadId,
-        truckId: dto.truckId,
-        loadOwnerId,
-        truckOwnerId: truck.userId,
-        agreedPrice: dto.agreedPrice,
-        ewayBillNumber: dto.ewayBillNumber,
-        liabilityAccepted: dto.liabilityAccepted,
-        liabilityAcceptedAt: dto.liabilityAccepted ? new Date() : null,
-        status: BookingStatus.Confirmed,
-        advanceConfirmed: false,
-        balanceConfirmed: false,
-      },
-      include: {
-        load: {
-          include: {
-            user: { select: { phone: true, name: true } },
+      if (!load) {
+        throw new NotFoundException('Load not found or not available')
+      }
+
+      // 2. Verify truck exists, is verified, and has no active bookings
+      const truck = await tx.truck.findFirst({
+        where: { 
+          id: dto.truckId, 
+          verificationStatus: 'Verified',
+          bookings: { none: { status: { in: [BookingStatus.Confirmed, BookingStatus.InTransit] } } }
+        },
+        include: { user: true },
+      })
+
+      if (!truck) {
+        throw new NotFoundException('Truck not found, unverified, or currently assigned to another active trip')
+      }
+
+      // 3. Check load owner has active subscription
+      const subscription = await tx.subscription.findFirst({
+        where: {
+          userId: loadOwnerId,
+          status: SubscriptionStatus.active,
+          expiresAt: { gt: new Date() },
+        },
+      })
+
+      if (!subscription) {
+        throw new ForbiddenException({
+          code: 'SUBSCRIPTION_REQUIRED',
+          message: 'Active subscription required to create bookings',
+        })
+      }
+
+      // 4. Atomically claim and transition load status to prevent concurrent double-booking
+      const claimResult = await tx.load.updateMany({
+        where: { id: dto.loadId, userId: loadOwnerId, status: LoadStatus.Open },
+        data: { status: LoadStatus.Matched },
+      })
+
+      if (claimResult.count === 0) {
+        throw new ConflictException('Load is no longer available or has already been booked')
+      }
+
+      // 5. Create booking record
+      const createdBooking = await tx.booking.create({
+        data: {
+          loadId: dto.loadId,
+          truckId: dto.truckId,
+          loadOwnerId,
+          truckOwnerId: truck.userId,
+          agreedPrice: dto.agreedPrice,
+          ewayBillNumber: dto.ewayBillNumber,
+          liabilityAccepted: dto.liabilityAccepted,
+          liabilityAcceptedAt: dto.liabilityAccepted ? new Date() : null,
+          status: BookingStatus.Confirmed,
+          advanceConfirmed: false,
+          balanceConfirmed: false,
+        },
+        include: {
+          load: {
+            include: {
+              user: { select: { phone: true, name: true } },
+            },
+          },
+          truck: {
+            include: {
+              user: { select: { phone: true, name: true } },
+            },
           },
         },
-        truck: {
-          include: {
-            user: { select: { phone: true, name: true } },
-          },
-        },
-      },
+      })
+
+      // 6. Create checkpoints (5 major waypoints)
+      const startLat = Number(load.loadingLat ?? 18.5204)
+      const startLng = Number(load.loadingLng ?? 73.8567)
+      const endLat = Number(load.unloadingLat ?? 12.9716)
+      const endLng = Number(load.unloadingLng ?? 77.5946)
+
+      await this.createCheckpointsTx(tx, createdBooking.id, startLat, startLng, endLat, endLng)
+
+      return createdBooking
     })
 
-    // Update load status
-    await prisma.load.update({
-      where: { id: dto.loadId },
-      data: { status: LoadStatus.Matched },
-    })
-
-    // Create checkpoints (5 major waypoints)
-    const startLat = Number(load.loadingLat ?? 18.5204)
-    const startLng = Number(load.loadingLng ?? 73.8567)
-    const endLat = Number(load.unloadingLat ?? 12.9716)
-    const endLng = Number(load.unloadingLng ?? 77.5946)
-
-    await this.createCheckpoints(booking.id, startLat, startLng, endLat, endLng)
-
-    // Send WhatsApp notifications
+    // Send WhatsApp notifications asynchronously outside the transaction
     await this.sendBookingNotifications(booking)
 
     return booking
   }
 
   /**
-   * Create 5 checkpoints for trip tracking
+   * Create 5 checkpoints for trip tracking inside transaction
    */
-  private async createCheckpoints(
+  private async createCheckpointsTx(
+    tx: any,
     bookingId: string,
     startLat: number,
     startLng: number,
@@ -136,7 +151,7 @@ export class BookingsService {
 
     for (let i = 0; i < checkpoints.length; i++) {
       const cp = checkpoints[i]
-      await prisma.checkpoint.create({
+      await tx.checkpoint.create({
         data: {
           bookingId,
           seq: i + 1,

@@ -8,7 +8,8 @@ import type { NextRequest } from 'next/server'
  * - Role-based route protection
  */
 
-const PUBLIC_PATHS = ['/login', '/role-select', '/api/auth']
+const PUBLIC_EXACT_PATHS = ['/']
+const PUBLIC_PREFIXES = ['/login', '/role-select', '/search', '/subscribe', '/subscription', '/api']
 const LOAD_OWNER_PATHS = ['/dashboard/load-owner', '/post-load', '/my-loads']
 const TRUCK_OWNER_PATHS = ['/dashboard/truck-owner', '/register-truck', '/my-trucks']
 
@@ -17,8 +18,10 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('accessToken')?.value
   const userRole = request.cookies.get('userRole')?.value
 
-  // Allow public paths
-  if (PUBLIC_PATHS.some(path => pathname.startsWith(path))) {
+  // Check if current route is public
+  const isPublic = PUBLIC_EXACT_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(prefix => pathname.startsWith(prefix))
+
+  if (isPublic) {
     // If logged in and trying to access login, redirect to dashboard
     if (token && pathname === '/login') {
       const dashboard = userRole === 'load_owner' 

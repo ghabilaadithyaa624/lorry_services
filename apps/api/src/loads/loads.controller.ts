@@ -37,12 +37,19 @@ export class LoadsController {
 
   @Get('my-loads')
   @Roles(UserRole.load_owner)
-  @ApiOperation({ summary: 'Get my posted loads' })
+  @ApiOperation({ summary: 'Get my posted loads with pagination' })
   async findMyLoads(
     @CurrentUser('id') userId: string,
-    @Query('status') status?: LoadStatus
+    @Query('status') status?: LoadStatus,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
   ) {
-    return this.loadsService.findByUser(userId, status)
+    return this.loadsService.findByUser(
+      userId, 
+      status, 
+      page ? parseInt(page, 10) : 1, 
+      limit ? parseInt(limit, 10) : 50
+    )
   }
 
   @Get(':id')

@@ -222,44 +222,46 @@ export class SubscriptionsService {
   }
 
   /**
-   * Verify Cashfree payment and activate subscription
-   * Called from webhook or return URL verification
+   * Verify Cashfree payment and activate subscription atomically
+   * Called from webhook or return URL verification after Cashfree PG independently confirms success
    */
   async verifyAndActivate(orderId: string, cashfreeTxnId: string) {
-    const payment = await prisma.payment.findFirst({
-      where: { providerOrderId: orderId },
-    })
-    if (!payment) throw new BadRequestException('Payment record not found')
+    return prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findFirst({
+        where: { providerOrderId: orderId },
+      })
+      if (!payment) throw new BadRequestException('Payment record not found')
 
-    // Idempotency: check if subscription already exists for this payment
-    const existingSubscription = await prisma.subscription.findFirst({
-      where: { paymentId: payment.id },
-    })
-    if (existingSubscription) {
-      this.logger.log(`Subscription already exists for paymentId=${payment.id}, skipping creation`)
-      return { activated: true, expiresAt: existingSubscription.expiresAt }
-    }
+      // Idempotency: check if subscription already exists for this payment
+      const existingSubscription = await tx.subscription.findFirst({
+        where: { paymentId: payment.id },
+      })
+      if (existingSubscription) {
+        this.logger.log(`Subscription already exists for paymentId=${payment.id}, skipping creation`)
+        return { activated: true, expiresAt: existingSubscription.expiresAt }
+      }
 
-    const plan = (payment.metadata as any)?.plan as PlanId
-    const planConfig = PLAN_CONFIG[plan] || PLAN_CONFIG.monthly
+      const plan = (payment.metadata as any)?.plan as PlanId
+      const planConfig = PLAN_CONFIG[plan] || PLAN_CONFIG.monthly
 
-    const now = new Date()
-    const expiresAt = new Date(now)
-    expiresAt.setDate(expiresAt.getDate() + planConfig.durationDays)
+      const now = new Date()
+      const expiresAt = new Date(now)
+      expiresAt.setDate(expiresAt.getDate() + planConfig.durationDays)
 
-    this.logger.log(`Subscription activation started: userId=${payment.userId} plan=${plan}`)
+      this.logger.log(`Subscription activation started: userId=${payment.userId} plan=${plan}`)
 
-    // Update payment + create subscription atomically
-    await prisma.$transaction([
-      prisma.payment.update({
+      // Update payment record within transaction
+      await tx.payment.update({
         where: { id: payment.id },
         data: {
           status: 'Success',
           providerTxnId: cashfreeTxnId,
           paidAt: now,
         },
-      }),
-      prisma.subscription.create({
+      })
+
+      // Create active subscription within transaction
+      await tx.subscription.create({
         data: {
           userId: payment.userId,
           plan,
@@ -268,11 +270,11 @@ export class SubscriptionsService {
           expiresAt,
           paymentId: payment.id,
         },
-      }),
-    ])
+      })
 
-    this.logger.log(`Subscription activated: userId=${payment.userId} plan=${plan} expires=${expiresAt.toISOString()}`)
-    return { activated: true, expiresAt }
+      this.logger.log(`Subscription activated: userId=${payment.userId} plan=${plan} expires=${expiresAt.toISOString()}`)
+      return { activated: true, expiresAt }
+    })
   }
 
   /**

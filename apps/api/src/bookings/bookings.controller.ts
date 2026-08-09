@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { Roles } from '../common/decorators/roles.decorator'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
+import { CreateBookingDto } from './dto/create-booking.dto'
 
 @ApiTags('Bookings')
 @ApiBearerAuth()
@@ -26,16 +27,16 @@ export class BookingsController {
   @Roles(UserRole.load_owner)
   @ApiOperation({ summary: 'Create booking (requires subscription)' })
   async create(
-    @Body() dto: {
-      loadId: string
-      truckId: string
-      agreedPrice: number
-      ewayBillNumber?: string
-      liabilityAccepted: boolean
-    },
+    @Body() dto: CreateBookingDto,
     @CurrentUser('id') userId: string,
   ) {
-    return this.bookingsService.create(userId, dto)
+    return this.bookingsService.create(userId, {
+      loadId: dto.loadId,
+      truckId: dto.truckId,
+      agreedPrice: dto.agreedPrice,
+      ewayBillNumber: dto.ewayBillNumber,
+      liabilityAccepted: dto.liabilityAccepted ?? false,
+    })
   }
 
   @Get('my-bookings')

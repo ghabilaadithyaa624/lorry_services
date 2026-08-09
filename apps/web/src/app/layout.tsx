@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: 'Find trucks, find loads, book in minutes. No broker needed.',
 }
 
+import { ToastProvider } from '@/components/ui'
+
 export default function RootLayout({
   children,
 }: {
@@ -16,7 +18,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {children}
+        <ToastProvider />
+      </body>
     </html>
   )
 }
