@@ -23,6 +23,7 @@ function RoleSelectForm() {
 
   const phone = searchParams.get('phone')
   const otp = searchParams.get('otp')
+  const redirect = searchParams.get('redirect') || '/'
 
   useEffect(() => {
     if (!phone || !otp) {
@@ -45,9 +46,20 @@ function RoleSelectForm() {
       localStorage.setItem('user', JSON.stringify(user))
 
       setAuthCookies(accessToken, user.role)
-      toast.success(`Account created as ${user.role === 'truck_owner' ? 'Lorry Owner' : 'Load Owner'}!`)
+      toast.success(`Account created as ${user.role === 'truck_owner' ? 'Truck Owner' : 'Load Owner'}!`)
 
-      if (user.role === 'load_owner') {
+      if (redirect && redirect !== '/') {
+        if (redirect.startsWith('/admin')) {
+          if (user.role === 'admin') {
+            router.push(redirect)
+          } else {
+            const fallback = user.role === 'truck_owner' ? '/dashboard/truck-owner' : '/dashboard/load-owner'
+            router.push(fallback)
+          }
+        } else {
+          router.push(redirect)
+        }
+      } else if (user.role === 'load_owner') {
         router.push('/dashboard/load-owner')
       } else {
         router.push('/dashboard/truck-owner')
@@ -169,7 +181,7 @@ function RoleSelectForm() {
 
               <div>
                 <h3 className="font-bold text-base text-surface-900 dark:text-white">
-                  I Have Trucks (Lorry Owner)
+                  I Have Trucks (Truck Owner)
                 </h3>
                 <p className="text-xs text-surface-500 dark:text-surface-400 mt-1 leading-relaxed">
                   For individual truck drivers, fleet owners, and transport contractors.
@@ -206,7 +218,7 @@ function RoleSelectForm() {
             rightIcon={<ArrowRightIcon className="w-5 h-5" />}
           >
             {selectedRole
-              ? `Continue as ${selectedRole === 'truck_owner' ? 'Lorry Owner' : 'Load Owner'}`
+              ? `Continue as ${selectedRole === 'truck_owner' ? 'Truck Owner' : 'Load Owner'}`
               : 'Select an account type to proceed'}
           </Button>
         </div>

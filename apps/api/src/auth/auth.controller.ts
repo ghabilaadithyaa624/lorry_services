@@ -42,6 +42,7 @@ export class AuthController {
       success: result.success,
       message: result.message,
       channel: result.channel,
+      isExistingUser: result.isExistingUser,
       // Only include devOtp in non-production
       ...(result.devOtp && { devOtp: result.devOtp }),
     }

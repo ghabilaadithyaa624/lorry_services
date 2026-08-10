@@ -8,25 +8,51 @@ import {
   ChatBubbleLeftRightIcon,
   DevicePhoneMobileIcon,
   ShieldCheckIcon,
+  ArchiveBoxIcon,
+  CheckCircleIcon,
+  ChevronUpDownIcon,
 } from '@heroicons/react/24/outline'
 import { authApi, setAuthCookies } from '@/lib/api'
 import { Button, Card, Spinner } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
+type PublicRole = 'load_owner' | 'truck_owner'
+
 function LoginForm() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect') || '/'
+  const initialRoleParam = searchParams.get('role')
+
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
+  const [selectedRole, setSelectedRole] = useState<PublicRole | null>(() => {
+    if (initialRoleParam === 'truck_owner') return 'truck_owner'
+    if (initialRoleParam === 'load_owner') return 'load_owner'
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('selectedRole')
+      if (saved === 'truck_owner' || saved === 'load_owner') return saved
+    }
+    return 'load_owner'
+  })
+
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [channel, setChannel] = useState<'whatsapp' | 'sms'>('whatsapp')
   const [resendTimer, setResendTimer] = useState(0)
   const [devOtpNotice, setDevOtpNotice] = useState<string | null>(null)
+  const [showRolePickerInOtp, setShowRolePickerInOtp] = useState(false)
 
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const redirect = searchParams.get('redirect') || '/'
+  // Persist role choice in sessionStorage
+  const handleSelectRole = (role: PublicRole) => {
+    setSelectedRole(role)
+    setError('')
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('selectedRole', role)
+    }
+  }
 
   // Resend countdown timer
   useEffect(() => {
@@ -49,6 +75,11 @@ function LoginForm() {
     const formattedPhone = formatPhone(phone)
     if (!/^\+91[6-9]\d{9}$/.test(formattedPhone)) {
       setError('Please enter a valid 10-digit Indian mobile number (e.g. 98765 43210)')
+      return
+    }
+
+    if (!selectedRole) {
+      setError('Please select an account role before continuing')
       return
     }
 
@@ -93,26 +124,38 @@ function LoginForm() {
     setError('')
 
     try {
-      const res = await authApi.verifyOtp(formattedPhone, otp)
+      const res = await authApi.verifyOtp(
+        formattedPhone,
+        otp,
+        selectedRole || undefined
+      )
       const { accessToken, refreshToken, user } = res.data
 
-      if (user.isNewUser) {
-        toast.info('Welcome! Please select your account role.')
-        router.push(`/role-select?phone=${encodeURIComponent(formattedPhone)}&otp=${otp}`)
-        return
-      }
-
-      // Existing user session
+      // Save user session
       localStorage.setItem('accessToken', accessToken)
       localStorage.setItem('refreshToken', refreshToken)
       localStorage.setItem('user', JSON.stringify(user))
 
       setAuthCookies(accessToken, user.role)
-      toast.success('Successfully logged in!')
+      toast.success(
+        user.isNewUser
+          ? `Welcome to LorryCarry as ${user.role === 'truck_owner' ? 'Truck Owner' : 'Load Owner'}!`
+          : 'Successfully logged in!'
+      )
 
-      // Redirect destination
+      // Redirect destination handling
       if (redirect && redirect !== '/') {
-        router.push(redirect)
+        if (redirect.startsWith('/admin')) {
+          if (user.role === 'admin') {
+            router.push(redirect)
+          } else {
+            // Non-admin attempting to access /admin -> route to appropriate user dashboard
+            const fallback = user.role === 'truck_owner' ? '/dashboard/truck-owner' : '/dashboard/load-owner'
+            router.push(fallback)
+          }
+        } else {
+          router.push(redirect)
+        }
       } else if (user.role === 'admin') {
         router.push('/admin')
       } else if (user.role === 'truck_owner') {
@@ -123,6 +166,9 @@ function LoginForm() {
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Invalid or expired OTP. Please try again.'
       setError(msg)
+      if (msg.toLowerCase().includes('role')) {
+        setShowRolePickerInOtp(true)
+      }
       toast.error(msg)
     } finally {
       setLoading(false)
@@ -168,7 +214,7 @@ function LoginForm() {
         {devOtpNotice && (
           <div className="mt-4 p-3 rounded-xl bg-primary-50 dark:bg-primary-950/40 border border-primary-200 dark:border-primary-800 text-primary-800 dark:text-primary-300 text-xs font-medium flex items-center justify-between">
             <span>Dev Mode OTP: <strong>{devOtpNotice}</strong></span>
-            <span className="text-[10px] bg-primary-200/60 dark:bg-primary-900 px-2 py-0.5 rounded">Auto-filled</span>
+            <span className="text-[10px] bg-primary-200/60 dark:bg-primary-900 px-2 py-0.5 rounded font-semibold">Auto-filled</span>
           </div>
         )}
 
@@ -202,6 +248,97 @@ function LoginForm() {
                   </div>
                   <p className="text-[11px] text-surface-400 mt-1.5">
                     We will send a one-time verification code. No password needed.
+                  </p>
+                </div>
+
+                {/* Role Selection (I AM REGISTERING AS) */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300">
+                      I AM REGISTERING AS
+                    </label>
+                    <span className="text-[11px] text-surface-400">For new users</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Load Owner Card */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectRole('load_owner')}
+                      className={cn(
+                        'p-3.5 rounded-xl border-2 text-left transition-all relative flex flex-col justify-between cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary-500/40',
+                        selectedRole === 'load_owner'
+                          ? 'border-primary-500 bg-primary-50/80 dark:bg-primary-950/40 shadow-xs ring-1 ring-primary-500/30'
+                          : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 hover:border-surface-300 dark:hover:border-surface-600'
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={cn(
+                            'w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors',
+                            selectedRole === 'load_owner'
+                              ? 'bg-primary-500 text-white shadow-xs'
+                              : 'bg-surface-100 dark:bg-surface-700 text-surface-600 dark:text-surface-300 group-hover:text-primary-500'
+                          )}
+                        >
+                          <ArchiveBoxIcon className="w-5 h-5 stroke-[2]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm text-surface-900 dark:text-white">
+                              Load Owner
+                            </span>
+                            {selectedRole === 'load_owner' && (
+                              <CheckCircleIcon className="w-4 h-4 text-primary-500 shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5 leading-snug">
+                            Post loads and find suitable trucks
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Truck Owner Card */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectRole('truck_owner')}
+                      className={cn(
+                        'p-3.5 rounded-xl border-2 text-left transition-all relative flex flex-col justify-between cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary-500/40',
+                        selectedRole === 'truck_owner'
+                          ? 'border-primary-500 bg-primary-50/80 dark:bg-primary-950/40 shadow-xs ring-1 ring-primary-500/30'
+                          : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 hover:border-surface-300 dark:hover:border-surface-600'
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={cn(
+                            'w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors',
+                            selectedRole === 'truck_owner'
+                              ? 'bg-primary-500 text-white shadow-xs'
+                              : 'bg-surface-100 dark:bg-surface-700 text-surface-600 dark:text-surface-300 group-hover:text-primary-500'
+                          )}
+                        >
+                          <TruckIcon className="w-5 h-5 stroke-[2]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-sm text-surface-900 dark:text-white">
+                              Truck Owner
+                            </span>
+                            {selectedRole === 'truck_owner' && (
+                              <CheckCircleIcon className="w-4 h-4 text-primary-500 shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5 leading-snug">
+                            Register trucks and find available loads
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-surface-400 mt-1.5">
+                    Existing users will automatically log in with their registered account role.
                   </p>
                 </div>
 
@@ -247,7 +384,7 @@ function LoginForm() {
                   size="lg"
                   fullWidth
                   loading={loading}
-                  disabled={phone.length < 10}
+                  disabled={phone.length < 10 || !selectedRole}
                   onClick={handleRequestOtp}
                 >
                   Send Verification Code
@@ -255,6 +392,87 @@ function LoginForm() {
               </div>
             ) : (
               <div className="space-y-5">
+                {/* Active Role Indicator on OTP Screen */}
+                <div className="p-3 rounded-xl bg-surface-100/80 dark:bg-surface-800/80 border border-surface-200 dark:border-surface-700 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-surface-500 dark:text-surface-400">Account Type:</span>
+                      <span className="font-bold text-surface-900 dark:text-white flex items-center gap-1.5">
+                        {selectedRole === 'truck_owner' ? (
+                          <>
+                            <TruckIcon className="w-3.5 h-3.5 text-primary-500 shrink-0 inline" />
+                            Truck Owner
+                          </>
+                        ) : selectedRole === 'load_owner' ? (
+                          <>
+                            <ArchiveBoxIcon className="w-3.5 h-3.5 text-primary-500 shrink-0 inline" />
+                            Load Owner
+                          </>
+                        ) : (
+                          <span className="text-danger-500 font-semibold">Select Role</span>
+                        )}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowRolePickerInOtp((prev) => !prev)}
+                      className="text-primary-600 dark:text-primary-400 font-bold hover:underline inline-flex items-center gap-0.5"
+                    >
+                      <span>{showRolePickerInOtp ? 'Done' : 'Change role'}</span>
+                      <ChevronUpDownIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Inline Role Selector if toggled or if no role selected */}
+                  {(showRolePickerInOtp || !selectedRole) && (
+                    <div className="pt-2 border-t border-surface-200/80 dark:border-surface-700/80 grid grid-cols-2 gap-2 animate-fade-in">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleSelectRole('load_owner')
+                          setShowRolePickerInOtp(false)
+                        }}
+                        className={cn(
+                          'p-2.5 rounded-lg border text-left transition-all',
+                          selectedRole === 'load_owner'
+                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/40 font-bold text-primary-700 dark:text-primary-300 shadow-2xs'
+                            : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-300'
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5 font-bold text-xs">
+                          <ArchiveBoxIcon className="w-3.5 h-3.5" />
+                          <span>Load Owner</span>
+                        </div>
+                        <div className="text-[10px] text-surface-500 dark:text-surface-400 mt-0.5">
+                          Post freight loads
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleSelectRole('truck_owner')
+                          setShowRolePickerInOtp(false)
+                        }}
+                        className={cn(
+                          'p-2.5 rounded-lg border text-left transition-all',
+                          selectedRole === 'truck_owner'
+                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/40 font-bold text-primary-700 dark:text-primary-300 shadow-2xs'
+                            : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-300'
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5 font-bold text-xs">
+                          <TruckIcon className="w-3.5 h-3.5" />
+                          <span>Truck Owner</span>
+                        </div>
+                        <div className="text-[10px] text-surface-500 dark:text-surface-400 mt-0.5">
+                          Register trucks
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* OTP Input */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-2 text-center">

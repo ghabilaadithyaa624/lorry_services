@@ -40,7 +40,7 @@ export class AuthService {
     phone: string, 
     channel: OtpChannel = OtpChannel.WHATSAPP,
     ip: string = 'unknown'
-  ): Promise<{ success: boolean; message: string; channel: string; devOtp?: string }> {
+  ): Promise<{ success: boolean; message: string; channel: string; isExistingUser: boolean; devOtp?: string }> {
     // Validate phone format
     if (!this.isValidIndianPhone(phone)) {
       throw new UnauthorizedException('Invalid phone number. Use format: +919876543210')
@@ -51,6 +51,10 @@ export class AuthService {
     if (!rateLimit.allowed) {
       throw new UnauthorizedException(rateLimit.message)
     }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({ where: { phone } })
+    const isExistingUser = !!existingUser
 
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString()
@@ -83,6 +87,7 @@ export class AuthService {
       success: result.success,
       message: result.message,
       channel: usedChannel,
+      isExistingUser,
       // Dev mode: return OTP for testing (remove in production)
       ...(this.config.get('NODE_ENV') !== 'production' && { devOtp: otp }),
     }
@@ -113,13 +118,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid phone number')
     }
 
-    // Verify OTP
-    const verification = await this.otpStorage.verifyOtp(phone, inputOtp)
-    if (!verification.valid) {
-      throw new UnauthorizedException(verification.message)
-    }
-
-    // Find or create user
+    // Find user by phone to determine if new registration
     let user = await prisma.user.findUnique({ where: { phone } })
     let isNewUser = false
 
@@ -128,14 +127,25 @@ export class AuthService {
       if (!role) {
         throw new UnauthorizedException('Role selection required for new user')
       }
-      if (!Object.values(UserRole).includes(role)) {
-        throw new UnauthorizedException('Invalid role')
+      if (role === UserRole.admin) {
+        throw new UnauthorizedException('Admin role cannot be selected during public registration')
       }
+      if (!Object.values(UserRole).includes(role) || (role !== UserRole.load_owner && role !== UserRole.truck_owner)) {
+        throw new UnauthorizedException('Invalid registration role')
+      }
+    }
 
+    // Verify OTP
+    const verification = await this.otpStorage.verifyOtp(phone, inputOtp)
+    if (!verification.valid) {
+      throw new UnauthorizedException(verification.message)
+    }
+
+    if (!user) {
       user = await prisma.user.create({
         data: { 
           phone, 
-          role,
+          role: role!,
           name: null,
         },
       })

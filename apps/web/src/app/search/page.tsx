@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   TruckIcon,
@@ -11,7 +11,7 @@ import {
   LockClosedIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
+import { api, locationApi } from '@/lib/api'
 import { Navbar, Footer } from '@/components/layout'
 import { Button, Badge, Card, Spinner, Skeleton } from '@/components/ui'
 import { MatchScoreBadge } from '@/components/intelligence'
@@ -57,55 +57,217 @@ function SearchPageContent() {
 
   const initialType = searchParams.get('type') === 'load' ? 'loads' : 'trucks'
   const [mode, setMode] = useState<SearchMode>(initialType)
-  const [lat, setLat] = useState('19.0760') // Default to Mumbai or user location
-  const [lng, setLng] = useState('72.8777')
-  const [locationLabel, setLocationLabel] = useState('Mumbai, Maharashtra (Default Hub)')
+  const [lat, setLat] = useState('') // No default coordinates — requires GPS or manual entry
+  const [lng, setLng] = useState('')
+  const [locationLabel, setLocationLabel] = useState('')
   const [radius, setRadius] = useState('50')
   const [truckType, setTruckType] = useState('')
   const [tonnage, setTonnage] = useState('')
   const [results, setResults] = useState<TruckResult[] | LoadResult[]>([])
   const [loading, setLoading] = useState(false)
   const [revealing, setRevealing] = useState<string | null>(null)
+  const [gpsLoading, setGpsLoading] = useState(false)
+  const [suggestions, setSuggestions] = useState<Array<{ placeId: string; address: string; lat?: number; lng?: number; city?: string; state?: string }>>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [isSuggesting, setIsSuggesting] = useState(false)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
 
   // Booking modal state
   const [selectedTruckForBooking, setSelectedTruckForBooking] = useState<TruckResult | null>(null)
 
+  // Click outside to dismiss suggestions
   useEffect(() => {
-    handleSearch()
-  }, [mode])
+    function handleClickOutside(event: MouseEvent) {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
-  const detectLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported by your browser')
+  // Debounced place suggestions for manual location input
+  useEffect(() => {
+    if (!locationLabel || locationLabel.trim().length < 3 || gpsLoading) {
+      setSuggestions([])
       return
     }
 
-    toast.info('Detecting your GPS location...')
+    // If string already matches a resolved coordinate pattern or was set by GPS, skip suggestions
+    if (/^\d+(\.\d+)?°?\s*[NS]?\s*,\s*\d+(\.\d+)?°?\s*[EW]?$/i.test(locationLabel.trim())) {
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSuggesting(true)
+      try {
+        const res = await locationApi.getSuggestions(
+          locationLabel.trim(),
+          lat ? parseFloat(lat) : undefined,
+          lng ? parseFloat(lng) : undefined
+        )
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setSuggestions(res.data)
+          setShowSuggestions(true)
+        }
+      } catch {
+        // Silently catch suggestion lookup failures
+      } finally {
+        setIsSuggesting(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [locationLabel, lat, lng, gpsLoading])
+
+  useEffect(() => {
+    if (lat && lng) {
+      handleSearch()
+    }
+  }, [mode])
+
+  const detectLocation = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      toast.error('Location detection is not supported by this browser.')
+      return
+    }
+
+    setGpsLoading(true)
+    setShowSuggestions(false)
+    setLocationLabel('Detecting...')
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const latitude = pos.coords.latitude.toString()
-        const longitude = pos.coords.longitude.toString()
-        setLat(latitude)
-        setLng(longitude)
-        setLocationLabel(`${pos.coords.latitude.toFixed(4)}° N, ${pos.coords.longitude.toFixed(4)}° E`)
-        toast.success('Location detected successfully!')
+      async (pos) => {
+        const latitude = pos.coords.latitude
+        const longitude = pos.coords.longitude
+
+        // Update exact coordinates immediately for proximity search
+        const latStr = latitude.toString()
+        const lngStr = longitude.toString()
+        setLat(latStr)
+        setLng(lngStr)
+
+        // Reverse geocode via backend (Mappls API key stays securely server-side)
+        try {
+          const res = await locationApi.reverseGeocode(latitude, longitude)
+          const data = res.data
+
+          if (data && data.city && data.state) {
+            const humanAddress = `${data.city}, ${data.state}`
+            setLocationLabel(humanAddress)
+            toast.success(`📍 Location detected: ${humanAddress}`)
+          } else if (data && data.formattedAddress) {
+            setLocationLabel(data.formattedAddress)
+            toast.success(`📍 Location detected: ${data.formattedAddress}`)
+          } else {
+            // Reverse geocode returned no address — show coordinates
+            const coordLabel = `${latitude.toFixed(4)}° N, ${longitude.toFixed(4)}° E`
+            setLocationLabel(coordLabel)
+            toast.warning('Location detected. Exact coordinates will be used for proximity search.')
+          }
+        } catch {
+          // Backend reverse geocode failed — still retain actual GPS coordinates
+          const coordLabel = `${latitude.toFixed(4)}° N, ${longitude.toFixed(4)}° E`
+          setLocationLabel(coordLabel)
+          toast.warning('Location detected. Exact coordinates will be used for proximity search.')
+        } finally {
+          setGpsLoading(false)
+        }
       },
-      () => {
-        toast.warning('Could not acquire GPS position. Using default location.')
+      (error) => {
+        setGpsLoading(false)
+        // Strictly handle all geolocation error codes without fallback to fake coordinates
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setLocationLabel('')
+            toast.error('Location permission was denied. Please allow location access.')
+            break
+          case error.POSITION_UNAVAILABLE:
+            setLocationLabel('')
+            toast.error('Unable to determine your current location.')
+            break
+          case error.TIMEOUT:
+            setLocationLabel('')
+            toast.error('Location detection timed out. Please try again.')
+            break
+          default:
+            setLocationLabel('')
+            toast.error('An unknown error occurred during location detection.')
+        }
       },
-      { timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     )
   }
 
+  const handleSelectSuggestion = async (suggestion: { placeId: string; address: string; lat?: number; lng?: number; city?: string; state?: string }) => {
+    setShowSuggestions(false)
+    const display = suggestion.city && suggestion.state ? `${suggestion.city}, ${suggestion.state}` : suggestion.address
+    setLocationLabel(display)
+
+    if (suggestion.lat && suggestion.lng) {
+      setLat(suggestion.lat.toString())
+      setLng(suggestion.lng.toString())
+    } else {
+      // Geocode the selected address via backend
+      try {
+        const res = await locationApi.geocode(suggestion.address)
+        if (res.data?.lat && res.data?.lng) {
+          setLat(res.data.lat.toString())
+          setLng(res.data.lng.toString())
+        }
+      } catch {
+        toast.warning('Could not resolve exact coordinates for the selected place.')
+      }
+    }
+  }
+
   const handleSearch = async () => {
+    let searchLat = lat
+    let searchLng = lng
+
+    // If coordinates are missing but user entered a location label, attempt geocoding
+    if ((!searchLat || !searchLng) && locationLabel && locationLabel.trim().length >= 2) {
+      // Check if user typed coordinates directly like "13.0827, 80.2707"
+      const coordMatch = locationLabel.trim().match(/^([0-9.]+)\s*°?\s*[NS]?\s*,\s*([0-9.]+)\s*°?\s*[EW]?$/i)
+      if (coordMatch) {
+        searchLat = coordMatch[1]
+        searchLng = coordMatch[2]
+        setLat(searchLat)
+        setLng(searchLng)
+      } else {
+        setLoading(true)
+        try {
+          const geoRes = await locationApi.geocode(locationLabel.trim())
+          if (geoRes.data?.lat && geoRes.data?.lng) {
+            searchLat = geoRes.data.lat.toString()
+            searchLng = geoRes.data.lng.toString()
+            setLat(searchLat)
+            setLng(searchLng)
+            if (geoRes.data.city && geoRes.data.state) {
+              setLocationLabel(`${geoRes.data.city}, ${geoRes.data.state}`)
+            }
+          }
+        } catch {
+          // Geocode failed
+        }
+      }
+    }
+
+    // Guard: do not search without valid coordinates
+    if (!searchLat || !searchLng || isNaN(parseFloat(searchLat)) || isNaN(parseFloat(searchLng))) {
+      toast.warning('Please detect your GPS location or enter a location before searching.')
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setResults([])
 
     try {
       const endpoint = mode === 'trucks' ? '/search/trucks' : '/search/loads'
       const params = new URLSearchParams({
-        lat,
-        lng,
+        lat: searchLat,
+        lng: searchLng,
         radius,
       })
 
@@ -217,7 +379,7 @@ function SearchPageContent() {
           {/* Filter Inputs Grid */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Location */}
-            <div className="md:col-span-2">
+            <div className="md:col-span-2" ref={suggestionsRef}>
               <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-1.5">
                 Centerpoint Hub
               </label>
@@ -225,19 +387,62 @@ function SearchPageContent() {
                 <div className="relative flex-1">
                   <MapPinIcon className="w-4 h-4 text-surface-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
-                    readOnly
+                    type="text"
                     value={locationLabel}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setLocationLabel(val)
+                      // If user clears input, clear coordinates too
+                      if (!val.trim()) {
+                        setLat('')
+                        setLng('')
+                      }
+                    }}
+                    onFocus={() => {
+                      if (suggestions.length > 0) setShowSuggestions(true)
+                    }}
+                    placeholder="Enter city, address or click GPS"
                     className="input pl-9 text-xs sm:text-sm"
+                    autoComplete="off"
                   />
+                  {isSuggesting && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-2xs text-surface-400">
+                      Searching...
+                    </div>
+                  )}
+
+                  {/* Place Autosuggestions Dropdown */}
+                  {showSuggestions && suggestions.length > 0 && (
+                    <ul className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl shadow-lg max-h-56 overflow-y-auto divide-y divide-surface-100 dark:divide-surface-700">
+                      {suggestions.map((item, idx) => (
+                        <li
+                          key={item.placeId || idx}
+                          onClick={() => handleSelectSuggestion(item)}
+                          className="px-3.5 py-2.5 hover:bg-surface-50 dark:hover:bg-surface-700/60 cursor-pointer transition-colors"
+                        >
+                          <div className="text-xs font-semibold text-surface-900 dark:text-white truncate">
+                            {item.address}
+                          </div>
+                          {(item.city || item.state) && (
+                            <div className="text-2xs text-surface-500 truncate mt-0.5">
+                              {[item.city, item.state].filter(Boolean).join(', ')}
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <Button
                   variant="secondary"
                   size="md"
                   onClick={detectLocation}
+                  disabled={gpsLoading}
+                  loading={gpsLoading}
                   leftIcon={<MapPinIcon className="w-4 h-4 text-primary-500" />}
-                  className="shrink-0 text-xs"
+                  className="shrink-0 text-xs font-bold"
                 >
-                  GPS
+                  {gpsLoading ? 'Detecting...' : 'GPS'}
                 </Button>
               </div>
             </div>
