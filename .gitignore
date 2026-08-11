@@ -23,6 +23,8 @@ out/
 .vite/
 *.tsbuildinfo
 .eslintcache
+*.timestamp-*.mjs
+vite.config.*.timestamp-*.mjs
 
 # Database & Prisma
 prisma/dev.db

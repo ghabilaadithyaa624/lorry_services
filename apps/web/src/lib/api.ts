@@ -128,6 +128,46 @@ export const authApi = {
       clearAuthCookies()
     }
   },
+
+  logoutAll: async () => {
+    try {
+      await api.post('/auth/logout-all')
+    } catch {
+      // Ignore API failure
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
+      clearAuthCookies()
+    }
+  },
+}
+
+// User Operations Center API
+export const usersApi = {
+  getProfile: () => api.get('/users/me'),
+  updateProfile: (data: { name?: string }) => api.patch('/users/me', data),
+  getDocuments: () => api.get('/users/documents'),
+  getActivity: () => api.get('/users/activity'),
+  getNotifications: () => api.get('/users/notifications'),
+}
+
+// Trucks & Documents API
+export const trucksApi = {
+  getMyTrucks: () => api.get('/trucks/my-trucks'),
+  uploadDocument: (truckId: string, docType: 'RC' | 'Insurance', file: File, docNumber?: string) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (docNumber) {
+      formData.append('docNumber', docNumber)
+    }
+    return api.post(`/trucks/${truckId}/documents/${docType}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+  },
 }
 
 /**

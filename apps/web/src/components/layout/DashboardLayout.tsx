@@ -14,9 +14,16 @@ import {
   Bars3Icon,
   XMarkIcon,
   ShieldCheckIcon,
+  UserCircleIcon,
+  DocumentCheckIcon,
+  BellAlertIcon,
+  ClockIcon,
+  Cog6ToothIcon,
+  LockClosedIcon,
 } from '@heroicons/react/24/outline'
 import { authApi } from '@/lib/api'
 import { Badge, Button } from '@/components/ui'
+import { AIFreightAssistantDrawer } from '@/components/intelligence'
 import { cn, formatPhone } from '@/lib/utils'
 
 interface DashboardLayoutProps {
@@ -82,8 +89,8 @@ export function DashboardLayout({
           active: pathname === '/search',
         },
         {
-          name: 'My Trucks & Trips',
-          href: '/dashboard/truck-owner',
+          name: 'Fleet Operating System',
+          href: '/my-trucks',
           icon: ClipboardDocumentListIcon,
           active: pathname.startsWith('/my-trucks'),
         },
@@ -135,12 +142,57 @@ export function DashboardLayout({
           active: pathname === '/my-loads',
         },
         {
+          name: 'B2B Sourcing (RFF)',
+          href: '/procurement',
+          icon: DocumentCheckIcon,
+          active: pathname === '/procurement',
+        },
+        {
           name: 'Subscription',
           href: '/subscribe',
           icon: CreditCardIcon,
           active: pathname.startsWith('/subscribe'),
         },
       ]
+
+  const accountNavigationItems = [
+    {
+      name: 'User Profile',
+      href: '/profile',
+      icon: UserCircleIcon,
+      active: pathname === '/profile',
+    },
+    {
+      name: 'KYC & Documents',
+      href: '/documents',
+      icon: DocumentCheckIcon,
+      active: pathname === '/documents',
+    },
+    {
+      name: 'Notifications',
+      href: '/notifications',
+      icon: BellAlertIcon,
+      active: pathname === '/notifications',
+    },
+    {
+      name: 'Activity Log',
+      href: '/activity',
+      icon: ClockIcon,
+      active: pathname === '/activity',
+    },
+    {
+      name: 'Settings',
+      href: '/settings',
+      icon: Cog6ToothIcon,
+      active: pathname === '/settings',
+    },
+    {
+      name: 'Security & Sessions',
+      href: '/security',
+      icon: LockClosedIcon,
+      active: pathname === '/security',
+    },
+  ]
 
   const roleLabel = isTruckOwner
     ? 'Lorry Owner'
@@ -164,7 +216,7 @@ export function DashboardLayout({
                   Lorry<span className="text-primary-500">Carry</span>
                 </span>
                 <span className="text-[9px] font-bold text-surface-400 uppercase tracking-widest mt-0.5">
-                  Dashboard
+                  Operations Center
                 </span>
               </div>
             </Link>
@@ -172,13 +224,16 @@ export function DashboardLayout({
 
           {/* User Profile Card */}
           <div className="p-4 border-b border-surface-100 dark:border-surface-800">
-            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-100 dark:border-surface-700/50">
+            <Link
+              href="/profile"
+              className="flex items-center gap-3 p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-100 dark:border-surface-700/50 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors group"
+            >
               <div className="w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-400 font-bold text-xs flex items-center justify-center shrink-0">
                 {user?.name ? user.name.slice(0, 2).toUpperCase() : 'LC'}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-surface-900 dark:text-white truncate">
-                  {user?.phone ? formatPhone(user.phone) : 'My Account'}
+                <p className="text-xs font-bold text-surface-900 dark:text-white truncate group-hover:text-primary-600 transition-colors">
+                  {user?.name || (user?.phone ? formatPhone(user.phone) : 'My Account')}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <Badge variant={isTruckOwner ? 'info' : 'primary'} size="sm" dot>
@@ -186,29 +241,60 @@ export function DashboardLayout({
                   </Badge>
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
 
           {/* Navigation Links */}
-          <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-            {navigationItems.map((item) => {
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3.5 py-2.5 rounded-button text-sm font-semibold transition-all duration-150',
-                    item.active
-                      ? 'bg-primary-500 text-white shadow-xs font-bold'
-                      : 'text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-white'
-                  )}
-                >
-                  <Icon className={cn('w-5 h-5 shrink-0', item.active ? 'text-white' : 'text-surface-400')} />
-                  <span>{item.name}</span>
-                </Link>
-              )
-            })}
+          <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+            {/* Primary Workspace */}
+            <div className="space-y-1">
+              <span className="px-3 text-[10px] font-bold text-surface-400 uppercase tracking-wider block mb-1.5">
+                Marketplace Workspace
+              </span>
+              {navigationItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-150',
+                      item.active
+                        ? 'bg-primary-500 text-white shadow-xs'
+                        : 'text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-white'
+                    )}
+                  >
+                    <Icon className={cn('w-4 h-4 shrink-0', item.active ? 'text-white' : 'text-surface-400')} />
+                    <span>{item.name}</span>
+                  </Link>
+                )
+              })}
+            </div>
+
+            {/* Account & Operations Center */}
+            <div className="space-y-1 pt-2 border-t border-surface-100 dark:border-surface-800">
+              <span className="px-3 text-[10px] font-bold text-surface-400 uppercase tracking-wider block mb-1.5">
+                Account Center
+              </span>
+              {accountNavigationItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-150',
+                      item.active
+                        ? 'bg-primary-500 text-white shadow-xs'
+                        : 'text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-white'
+                    )}
+                  >
+                    <Icon className={cn('w-4 h-4 shrink-0', item.active ? 'text-white' : 'text-surface-400')} />
+                    <span>{item.name}</span>
+                  </Link>
+                )
+              })}
+            </div>
           </nav>
 
           {/* Quick Post / Fleet Action */}
@@ -282,26 +368,56 @@ export function DashboardLayout({
                   </button>
                 </div>
 
-                <nav className="mt-4 space-y-1">
-                  {navigationItems.map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        onClick={() => setSidebarOpen(false)}
-                        className={cn(
-                          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors',
-                          item.active
-                            ? 'bg-primary-500 text-white font-bold'
-                            : 'text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800'
-                        )}
-                      >
-                        <Icon className="w-5 h-5" />
-                        <span>{item.name}</span>
-                      </Link>
-                    )
-                  })}
+                <nav className="mt-4 space-y-4 overflow-y-auto max-h-[70vh]">
+                  <div className="space-y-1">
+                    <span className="px-3 text-[10px] font-bold text-surface-400 uppercase tracking-wider block mb-1">
+                      Workspace
+                    </span>
+                    {navigationItems.map((item) => {
+                      const Icon = item.icon
+                      return (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          onClick={() => setSidebarOpen(false)}
+                          className={cn(
+                            'flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-colors',
+                            item.active
+                              ? 'bg-primary-500 text-white font-bold'
+                              : 'text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800'
+                          )}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span>{item.name}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+
+                  <div className="space-y-1 pt-2 border-t border-surface-100 dark:border-surface-800">
+                    <span className="px-3 text-[10px] font-bold text-surface-400 uppercase tracking-wider block mb-1">
+                      Account Center
+                    </span>
+                    {accountNavigationItems.map((item) => {
+                      const Icon = item.icon
+                      return (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          onClick={() => setSidebarOpen(false)}
+                          className={cn(
+                            'flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-colors',
+                            item.active
+                              ? 'bg-primary-500 text-white font-bold'
+                              : 'text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800'
+                          )}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span>{item.name}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
                 </nav>
               </div>
 
@@ -366,6 +482,9 @@ export function DashboardLayout({
           })}
         </nav>
       </div>
+
+      {/* Floating AI Freight Assistant Drawer */}
+      <AIFreightAssistantDrawer />
     </div>
   )
 }

@@ -1,9 +1,21 @@
 'use client'
 
-import React from 'react'
-import { CurrencyRupeeIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
+import React, { useState } from 'react'
+import {
+  CurrencyRupeeIcon,
+  InformationCircleIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ArrowsRightLeftIcon,
+  ChartBarIcon,
+  TruckIcon,
+  MapPinIcon,
+  ScaleIcon,
+  ArrowTrendingUpIcon,
+} from '@heroicons/react/24/outline'
 import { estimateFreightRate, PricingInput } from '@/lib/intelligence/pricingEngine'
-import { formatINR } from '@/lib/utils'
+import { Badge } from '@/components/ui'
+import { formatINR, cn } from '@/lib/utils'
 
 interface FreightRateEstimatorCardProps {
   input: PricingInput
@@ -12,66 +24,335 @@ interface FreightRateEstimatorCardProps {
 
 export function FreightRateEstimatorCard({ input, className }: FreightRateEstimatorCardProps) {
   const estimate = estimateFreightRate(input)
+  const [activeTab, setActiveTab] = useState<'overview' | 'sensitivity' | 'comparison'>('overview')
+  const [showExplanation, setShowExplanation] = useState(false)
+
+  const confidenceBadgeVariant =
+    estimate.confidence === 'HIGH' ? 'success' : estimate.confidence === 'MEDIUM' ? 'info' : 'warning'
 
   return (
-    <div className={`bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 shadow-card ${className || ''}`}>
-      <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
+    <div
+      className={cn(
+        'bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 shadow-card space-y-4',
+        className
+      )}
+    >
+      {/* Header & Indicative Benchmark Badge */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-surface-100 dark:border-surface-800">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center font-bold">
             <CurrencyRupeeIcon className="w-4 h-4" />
           </div>
-          <span className="text-xs font-bold text-surface-900 dark:text-white uppercase tracking-wider">
-            Freight Price Intelligence
-          </span>
+          <div>
+            <h3 className="text-xs font-black text-surface-900 dark:text-white uppercase tracking-wider">
+              Freight Price Intelligence
+            </h3>
+            <span className="text-[10px] text-surface-500 font-medium">
+              Deterministic Economic Freight Rate Engine
+            </span>
+          </div>
         </div>
-        <span className="text-[10px] font-bold uppercase tracking-wider bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 px-2 py-0.5 rounded-full">
-          Transparent Estimate
-        </span>
+
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
+            Indicative benchmark estimate
+          </span>
+          <Badge variant={confidenceBadgeVariant} size="sm">
+            {estimate.confidence} CONFIDENCE
+          </Badge>
+        </div>
       </div>
 
-      {/* Price Range Breakdown */}
-      <div className="pt-4 space-y-4">
-        <div>
-          <span className="text-xs text-surface-500 font-medium">Recommended Target Rate</span>
-          <div className="text-2xl sm:text-3xl font-black text-surface-900 dark:text-white mt-0.5">
-            {formatINR(estimate.recommendedTarget)}
+      {/* Main Recommended Rate & Market Range Display */}
+      <div className="bg-gradient-to-r from-surface-50 via-white to-surface-50 dark:from-surface-800/50 dark:via-surface-900 dark:to-surface-800/50 p-4 rounded-2xl border border-surface-200/60 dark:border-surface-700/60 space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">
+              Recommended Freight Rate
+            </span>
+            <div className="text-2xl sm:text-3xl font-black text-surface-900 dark:text-white font-mono flex items-baseline gap-1.5">
+              <span>{formatINR(estimate.recommendedTarget)}</span>
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-sans">
+                Recommended
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-surface-500 mt-1">
+
+          <div className="text-left sm:text-right">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">
+              Rate / Ton-Km
+            </span>
+            <span className="text-base sm:text-lg font-black text-primary-600 dark:text-primary-400 font-mono">
+              ₹{estimate.ratePerTonKm.toFixed(2)}
+              <span className="text-2xs font-normal text-surface-500"> / T-km</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Market Range Bar */}
+        <div className="pt-2 border-t border-surface-200/50 dark:border-surface-700/50 flex flex-wrap items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5 text-surface-600 dark:text-surface-300 font-medium">
             <span>Market Range:</span>
-            <span className="font-bold text-surface-700 dark:text-surface-300">
-              {formatINR(estimate.minEstimate)} – {formatINR(estimate.maxEstimate)}
+            <span className="font-mono font-bold text-surface-900 dark:text-white">
+              {formatINR(estimate.minEstimate)} — {formatINR(estimate.maxEstimate)}
             </span>
           </div>
+
+          {estimate.isBenchmarkBased && (
+            <span className="text-[10px] text-surface-400 italic">
+              Benchmark-based regional corridor rate
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 4 Core Parameter Badges Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+        <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60">
+          <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider flex items-center gap-1">
+            <MapPinIcon className="w-3 h-3 text-blue-500 shrink-0" />
+            Distance
+          </span>
+          <span className="font-mono font-bold text-surface-900 dark:text-white mt-0.5 block">
+            {estimate.distanceKm} km
+          </span>
         </div>
 
-        {/* Route & Economics Metrics */}
-        <div className="grid grid-cols-3 gap-2 p-3 bg-surface-50 dark:bg-surface-800/60 rounded-xl border border-surface-100 dark:border-surface-700 text-center">
-          <div>
-            <span className="text-[10px] text-surface-400 block">Est. Distance</span>
-            <span className="text-xs font-bold text-surface-800 dark:text-surface-200">
-              {estimate.distanceKm} km
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] text-surface-400 block">Payload</span>
-            <span className="text-xs font-bold text-surface-800 dark:text-surface-200">
-              {estimate.tonnage} Tons
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] text-surface-400 block">Rate Metric</span>
-            <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
-              ₹{estimate.ratePerTonKm.toFixed(2)}/T-km
-            </span>
-          </div>
+        <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60">
+          <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider flex items-center gap-1">
+            <ScaleIcon className="w-3 h-3 text-emerald-500 shrink-0" />
+            Tonnage
+          </span>
+          <span className="font-mono font-bold text-surface-900 dark:text-white mt-0.5 block">
+            {estimate.tonnage} Tons
+          </span>
         </div>
 
-        {/* Explainability note */}
-        <div className="flex items-start gap-2 text-[11px] text-surface-500 leading-relaxed bg-primary-50/40 dark:bg-primary-950/20 p-2.5 rounded-lg border border-primary-100/60 dark:border-primary-900/40">
-          <InformationCircleIcon className="w-4 h-4 text-primary-500 shrink-0 mt-0.5" />
-          <span>{estimate.explanation}</span>
+        <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60">
+          <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider flex items-center gap-1">
+            <TruckIcon className="w-3 h-3 text-primary-500 shrink-0" />
+            Vehicle Type
+          </span>
+          <span className="font-bold text-surface-900 dark:text-white mt-0.5 block truncate">
+            {estimate.truckType} Body
+          </span>
         </div>
+
+        <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60">
+          <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider flex items-center gap-1">
+            <CurrencyRupeeIcon className="w-3 h-3 text-amber-500 shrink-0" />
+            Handling
+          </span>
+          <span className="font-mono font-bold text-surface-900 dark:text-white mt-0.5 block">
+            {formatINR(estimate.baseHandlingCharge)}
+          </span>
+        </div>
+      </div>
+
+      {/* Navigation Sub-Tabs */}
+      <div className="flex border-b border-surface-200 dark:border-surface-700 text-xs font-bold gap-4">
+        <button
+          type="button"
+          onClick={() => setActiveTab('overview')}
+          className={cn(
+            'pb-2 border-b-2 transition-colors cursor-pointer',
+            activeTab === 'overview'
+              ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-surface-500 hover:text-surface-900'
+          )}
+        >
+          Pricing Breakdown
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('sensitivity')}
+          className={cn(
+            'pb-2 border-b-2 transition-colors cursor-pointer flex items-center gap-1',
+            activeTab === 'sensitivity'
+              ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-surface-500 hover:text-surface-900'
+          )}
+        >
+          <ChartBarIcon className="w-3.5 h-3.5" />
+          Price Sensitivity
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('comparison')}
+          className={cn(
+            'pb-2 border-b-2 transition-colors cursor-pointer flex items-center gap-1',
+            activeTab === 'comparison'
+              ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-surface-500 hover:text-surface-900'
+          )}
+        >
+          <ArrowsRightLeftIcon className="w-3.5 h-3.5" />
+          Route & Vehicle Options
+        </button>
+      </div>
+
+      {/* TAB CONTENT 1: OVERVIEW & BREAKDOWN */}
+      {activeTab === 'overview' && (
+        <div className="space-y-3 pt-1">
+          {/* Adjustments Pills */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60 space-y-1">
+              <span className="text-[10px] text-surface-400 uppercase font-bold flex items-center gap-1">
+                <ArrowTrendingUpIcon className="w-3 h-3 text-purple-500" />
+                Long-Haul Adjustment
+              </span>
+              <p className="font-bold text-surface-900 dark:text-white text-[11px]">
+                {estimate.longHaulAdjustment.label}
+              </p>
+              <p className="text-[10px] text-surface-500 leading-tight">
+                {estimate.longHaulAdjustment.description}
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60 space-y-1">
+              <span className="text-[10px] text-surface-400 uppercase font-bold flex items-center gap-1">
+                <TruckIcon className="w-3 h-3 text-indigo-500" />
+                Truck-Type Adjustment
+              </span>
+              <p className="font-bold text-surface-900 dark:text-white text-[11px]">
+                ₹{estimate.truckTypeAdjustment.baseRatePerTonKm.toFixed(2)}/T-km + ₹{estimate.truckTypeAdjustment.handlingFee.toLocaleString('en-IN')} Handling
+              </p>
+              <p className="text-[10px] text-surface-500 leading-tight">
+                {estimate.truckTypeAdjustment.description}
+              </p>
+            </div>
+          </div>
+
+          {/* Collapsible Pricing Explanation */}
+          <div className="bg-primary-50/40 dark:bg-primary-950/20 p-3 rounded-xl border border-primary-100/60 dark:border-primary-900/40 space-y-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setShowExplanation(!showExplanation)}
+              className="w-full flex items-center justify-between font-bold text-primary-800 dark:text-primary-200 cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5 text-[11px]">
+                <InformationCircleIcon className="w-4 h-4 text-primary-500 shrink-0" />
+                Pricing Engine Formula Explanation
+              </span>
+              {showExplanation ? (
+                <ChevronUpIcon className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDownIcon className="w-3.5 h-3.5" />
+              )}
+            </button>
+
+            {showExplanation && (
+              <div className="pt-2 text-[11px] text-surface-600 dark:text-surface-300 space-y-1.5 leading-relaxed border-t border-primary-100 dark:border-primary-900/40">
+                <p>{estimate.explanation}</p>
+                <div className="p-2 rounded-lg bg-white/70 dark:bg-surface-900/70 font-mono text-[10px] space-y-0.5 text-surface-800 dark:text-surface-200">
+                  <div>Base Freight = {estimate.distanceKm} km × {estimate.tonnage} T × ₹{estimate.ratePerTonKm.toFixed(2)} = ₹{Math.round(estimate.distanceKm * estimate.tonnage * estimate.ratePerTonKm).toLocaleString('en-IN')}</div>
+                  <div>Handling Buffer = ₹{estimate.baseHandlingCharge.toLocaleString('en-IN')}</div>
+                  <div>Recommended Target = ₹{estimate.recommendedTarget.toLocaleString('en-IN')}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT 2: PRICE SENSITIVITY */}
+      {activeTab === 'sensitivity' && (
+        <div className="space-y-3 pt-1 text-xs">
+          <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">
+              Tonnage Volume Sensitivity Analysis (±10% Payload)
+            </span>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700">
+                <span className="text-[10px] text-surface-400 font-bold block">
+                  {estimate.priceSensitivity.minus10Percent.label}
+                </span>
+                <span className="font-mono font-bold text-surface-900 dark:text-white block mt-0.5">
+                  {formatINR(estimate.priceSensitivity.minus10Percent.cost)}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-lg bg-primary-50 dark:bg-primary-950 border border-primary-200 dark:border-primary-800">
+                <span className="text-[10px] text-primary-600 dark:text-primary-400 font-bold block">
+                  {estimate.priceSensitivity.current.label}
+                </span>
+                <span className="font-mono font-black text-primary-700 dark:text-primary-300 block mt-0.5">
+                  {formatINR(estimate.priceSensitivity.current.cost)}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700">
+                <span className="text-[10px] text-surface-400 font-bold block">
+                  {estimate.priceSensitivity.plus10Percent.label}
+                </span>
+                <span className="font-mono font-bold text-surface-900 dark:text-white block mt-0.5">
+                  {formatINR(estimate.priceSensitivity.plus10Percent.cost)}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-surface-500 pt-1">
+              Marginal cost per additional ton on this route is approximately{' '}
+              <strong className="text-surface-800 dark:text-surface-200">
+                {formatINR(estimate.priceSensitivity.costPerAdditionalTon)}/ton
+              </strong>.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT 3: ROUTE & VEHICLE COMPARISON */}
+      {activeTab === 'comparison' && (
+        <div className="space-y-3 pt-1 text-xs">
+          <div className="overflow-x-auto rounded-xl border border-surface-200 dark:border-surface-700">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-100 dark:bg-surface-800 text-[10px] uppercase font-bold text-surface-500">
+                  <th className="p-2.5">Configuration / Route</th>
+                  <th className="p-2.5">Distance</th>
+                  <th className="p-2.5">Rate / T-km</th>
+                  <th className="p-2.5 text-right">Est. Target</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-100 dark:divide-surface-800 text-[11px]">
+                {estimate.routeComparison.map((opt, idx) => (
+                  <tr
+                    key={idx}
+                    className={cn(
+                      opt.isCurrent
+                        ? 'bg-primary-50/50 dark:bg-primary-950/30 font-bold text-surface-900 dark:text-white'
+                        : 'text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/40'
+                    )}
+                  >
+                    <td className="p-2.5 flex items-center gap-1.5">
+                      <span>{opt.label}</span>
+                      {opt.isCurrent && (
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-primary-500 text-white">
+                          Selected
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-2.5 font-mono">{opt.distanceKm} km</td>
+                    <td className="p-2.5 font-mono">₹{opt.ratePerTonKm.toFixed(2)}</td>
+                    <td className="p-2.5 font-mono font-bold text-right text-surface-900 dark:text-white">
+                      {formatINR(opt.recommendedTarget)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Explicit Disclaimer Footer */}
+      <div className="pt-2 border-t border-surface-100 dark:border-surface-800 text-[10px] text-surface-400 flex items-start gap-1.5 leading-tight">
+        <InformationCircleIcon className="w-3.5 h-3.5 text-surface-400 shrink-0 mt-0.5" />
+        <span>{estimate.disclaimer}</span>
       </div>
     </div>
   )
 }
+

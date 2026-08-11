@@ -10,6 +10,8 @@ import {
   CreditCardIcon,
   UsersIcon,
   CalendarDaysIcon,
+  ShieldExclamationIcon,
+  GlobeAsiaAustraliaIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
@@ -28,7 +30,9 @@ interface UserState {
 
 const NAV_ITEMS = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon },
+  { name: 'Intelligence', href: '/admin/intelligence', icon: GlobeAsiaAustraliaIcon },
   { name: 'KYC Queue', href: '/admin/kyc', icon: DocumentCheckIcon },
+  { name: 'Trust & Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
   { name: 'Listings', href: '/admin/listings', icon: ClipboardDocumentListIcon },
   { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCardIcon },
   { name: 'Users', href: '/admin/users', icon: UsersIcon },

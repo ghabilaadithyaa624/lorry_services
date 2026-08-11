@@ -7,12 +7,15 @@ import {
   ArrowLeftIcon,
   ExclamationTriangleIcon,
   SparklesIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import { api } from '@/lib/api'
 import { format } from 'date-fns'
 import { Navbar, Footer } from '@/components/layout'
 import { Card, Badge, Button, Spinner } from '@/components/ui'
 import { assessShipmentIntelligence } from '@/lib/intelligence'
+import { ReturnLoadOpportunityCard, DigitalDocumentChainCard } from '@/components/intelligence'
+import { evaluateBackhaulOpportunities, BackhaulOpportunity } from '@/lib/intelligence/matchingEngine'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, whatsappLink } from '@/lib/utils'
 
@@ -24,6 +27,7 @@ export default function BookingDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [backhaulOpps, setBackhaulOpps] = useState<BackhaulOpportunity[]>([])
 
   useEffect(() => {
     if (id) {
@@ -35,7 +39,35 @@ export default function BookingDetailPage() {
     try {
       setLoading(true)
       const res = await api.get(`/bookings/${id}`)
-      setBooking(res.data)
+      const bk = res.data
+      setBooking(bk)
+
+      // Discover potential return loads from destination hub
+      try {
+        const destLat = bk.unloadingLat || bk.load?.unloadingLat || 12.9716
+        const destLng = bk.unloadingLng || bk.load?.unloadingLng || 77.5946
+        const loadsRes = await api.get(`/search/loads?lat=${destLat}&lng=${destLng}&radius=150`)
+        const openLoads = loadsRes.data || []
+        
+        const mockTruck = {
+          id: bk.truck?.id || 'truck-active',
+          bodyType: bk.truck?.truckType || bk.truck?.bodyType || 'Open',
+          currentLat: destLat,
+          currentLng: destLng,
+          tonnageCapacity: Number(bk.truck?.capacityTons) || 16,
+          verificationStatus: 'Verified',
+          preferredDestinations: [bk.loadingAddress || 'Origin'],
+        }
+
+        const opps = evaluateBackhaulOpportunities(
+          mockTruck,
+          openLoads,
+          { lat: destLat, lng: destLng, label: bk.unloadingAddress || 'Destination' }
+        )
+        setBackhaulOpps(opps)
+      } catch (err) {
+        console.warn('Could not fetch return loads:', err)
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load booking details')
     } finally {
@@ -159,11 +191,23 @@ export default function BookingDetailPage() {
         {/* ── Shipment Risk & Operational Intelligence Card ── */}
         <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 sm:p-6 shadow-card space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-100 dark:border-surface-800">
-            <div className="flex items-center gap-2">
-              <SparklesIcon className="w-5 h-5 text-primary-500 shrink-0" />
-              <h2 className="text-sm font-bold text-surface-900 dark:text-white">
-                Transit Health: {intelligence.riskSummary}
-              </h2>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <SparklesIcon className="w-5 h-5 text-primary-500 shrink-0" />
+                <h2 className="text-sm font-bold text-surface-900 dark:text-white">
+                  Operational Control Risk: {intelligence.statusTier}
+                </h2>
+              </div>
+              <p className="text-xs font-bold text-surface-700 dark:text-surface-300">
+                <span>Why: </span>
+                <span className={cn(
+                  intelligence.statusTier === 'ACTION REQUIRED' && 'text-danger-600 dark:text-danger-400 font-black',
+                  intelligence.statusTier === 'ATTENTION REQUIRED' && 'text-amber-600 dark:text-amber-400 font-black',
+                  intelligence.statusTier === 'ON TRACK' && 'text-emerald-600 dark:text-emerald-400 font-black'
+                )}>
+                  {intelligence.whyReason}
+                </span>
+              </p>
             </div>
             <span className="text-xs font-mono font-bold text-surface-500">
               {intelligence.progressPercent}% Corridor Completed
@@ -341,6 +385,79 @@ export default function BookingDetailPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ── DIGITAL FREIGHT DOCUMENT CHAIN (PHASE 9) ── */}
+        <DigitalDocumentChainCard
+          bookingId={booking.id}
+          bookingNumber={booking.id.slice(0, 8).toUpperCase()}
+          loadOwnerName={booking.load?.user?.name || 'Cargo Owner'}
+          truckRegNumber={booking.truck?.registrationNumber || 'MH 12 QT 8492'}
+          status={booking.status}
+          advanceConfirmed={Boolean(booking.advanceConfirmed)}
+          balanceConfirmed={Boolean(booking.balanceConfirmed)}
+          onRefresh={loadBooking}
+        />
+        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 sm:p-6 shadow-card space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-100 dark:border-surface-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <ArrowPathIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <h2 className="text-base font-bold text-surface-900 dark:text-white">
+                  Potential Return Load Opportunities
+                </h2>
+              </div>
+              <p className="text-xs text-surface-500 mt-0.5">
+                Capture return freight originating near {booking.unloadingAddress || 'destination terminal'} to eliminate empty deadhead runs.
+              </p>
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                router.push(
+                  `/search?type=load&sort=RETURN_LOAD&location=${encodeURIComponent(
+                    booking.unloadingAddress || ''
+                  )}`
+                )
+              }
+              className="font-bold text-xs shrink-0"
+              leftIcon={<ArrowPathIcon className="w-4 h-4 text-purple-500" />}
+            >
+              Find Return Loads
+            </Button>
+          </div>
+
+          {backhaulOpps.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+              {backhaulOpps.slice(0, 3).map((opp) => (
+                <ReturnLoadOpportunityCard
+                  key={opp.loadId}
+                  opportunity={opp}
+                  onConnect={() =>
+                    router.push(
+                      `/search?type=load&location=${encodeURIComponent(opp.loadingAddress)}`
+                    )
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 rounded-xl bg-surface-50 dark:bg-surface-800/40 text-center space-y-3">
+              <p className="text-xs text-surface-500">
+                Searching real-time load board for potential return freight near {booking.unloadingAddress || 'destination'}...
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => router.push('/search?type=load&sort=RETURN_LOAD')}
+                className="text-xs font-bold"
+              >
+                Browse All Potential Return Loads
+              </Button>
+            </div>
+          )}
         </div>
 
       </main>

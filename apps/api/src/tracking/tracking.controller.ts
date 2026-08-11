@@ -32,4 +32,24 @@ export class TrackingController {
       { lat: body.lat, lng: body.lng }
     )
   }
+
+  @Post(':bookingId/pod')
+  @ApiOperation({ summary: 'Submit Proof of Delivery (POD) photo & sign-off' })
+  async submitPod(
+    @Param('bookingId') bookingId: string,
+    @CurrentUser('id') userId: string,
+    @Body() body: { podUrl?: string; consigneeName?: string; notes?: string }
+  ) {
+    return this.trackingService.recordPodUpload(bookingId, userId, body)
+  }
+
+  @Post(':bookingId/incident')
+  @ApiOperation({ summary: 'Report operational delay or incident to dispatch' })
+  async reportIncident(
+    @Param('bookingId') bookingId: string,
+    @CurrentUser('id') userId: string,
+    @Body() body: { category: string; description: string; impactMinutes?: number }
+  ) {
+    return this.trackingService.reportIncident(bookingId, userId, body)
+  }
 }

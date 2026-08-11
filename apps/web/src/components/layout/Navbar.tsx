@@ -14,6 +14,7 @@ import {
   XMarkIcon,
   ChevronDownIcon,
   SparklesIcon,
+  LockClosedIcon,
 } from '@heroicons/react/24/outline'
 import { authApi } from '@/lib/api'
 import { Button, Badge } from '@/components/ui'
@@ -79,6 +80,12 @@ export function Navbar() {
   }
 
   const navLinks = [
+    {
+      name: 'Control Tower',
+      href: '/tracking',
+      icon: SparklesIcon,
+      active: pathname === '/tracking',
+    },
     {
       name: 'Find Trucks',
       href: '/search?type=truck',
@@ -205,8 +212,8 @@ export function Navbar() {
                   </button>
 
                   {userDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-surface-800 rounded-card shadow-elevated border border-surface-200 dark:border-surface-700 py-1 z-50 animate-fade-in">
-                      <div className="px-4 py-3 border-b border-surface-100 dark:border-surface-700">
+                    <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-surface-800 rounded-2xl shadow-elevated border border-surface-200 dark:border-surface-700 py-1.5 z-50 animate-fade-in divide-y divide-surface-100 dark:divide-surface-700">
+                      <div className="px-4 py-3">
                         <p className="text-xs text-surface-500 font-medium">Signed in as</p>
                         <p className="text-sm font-bold text-surface-900 dark:text-white truncate">
                           {user.phone ? formatPhone(user.phone) : 'Transporter'}
@@ -216,25 +223,70 @@ export function Navbar() {
                       <div className="py-1">
                         <Link
                           href={getDashboardHref()}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
                         >
-                          <UserCircleIcon className="w-4 h-4" />
+                          <UserCircleIcon className="w-4 h-4 text-primary-500" />
                           Dashboard
                         </Link>
                         <Link
+                          href="/profile"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
+                        >
+                          <UserCircleIcon className="w-4 h-4 text-surface-400" />
+                          User Profile
+                        </Link>
+                        <Link
+                          href="/documents"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
+                        >
+                          <CreditCardIcon className="w-4 h-4 text-surface-400" />
+                          KYC & Documents
+                        </Link>
+                        <Link
+                          href="/notifications"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
+                        >
+                          <SparklesIcon className="w-4 h-4 text-amber-500" />
+                          Notifications
+                        </Link>
+                        <Link
+                          href="/activity"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
+                        >
+                          <MagnifyingGlassIcon className="w-4 h-4 text-surface-400" />
+                          Activity Log
+                        </Link>
+                      </div>
+
+                      <div className="py-1">
+                        <Link
                           href="/subscribe"
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
                         >
                           <SparklesIcon className="w-4 h-4 text-primary-500" />
                           Subscription & Credits
                         </Link>
+                        <Link
+                          href="/settings"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
+                        >
+                          <Bars3Icon className="w-4 h-4 text-surface-400" />
+                          Settings
+                        </Link>
+                        <Link
+                          href="/security"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-700 transition-colors"
+                        >
+                          <LockClosedIcon className="w-4 h-4 text-surface-400" />
+                          Security & Sessions
+                        </Link>
                       </div>
 
-                      <div className="border-t border-surface-100 dark:border-surface-700 pt-1">
+                      <div className="pt-1">
                         <button
                           type="button"
                           onClick={handleLogout}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors font-medium text-left"
+                          className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors font-bold text-left cursor-pointer"
                         >
                           <ArrowRightOnRectangleIcon className="w-4 h-4" />
                           Logout

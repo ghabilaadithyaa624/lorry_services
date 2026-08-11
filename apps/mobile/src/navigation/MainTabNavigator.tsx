@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 
 import { HomeScreen } from '../screens/HomeScreen'
 import { MyTripScreen } from '../screens/MyTripScreen'
+import { DriverTripScreen } from '../screens/DriverTripScreen'
 import { PaymentScreen } from '../screens/PaymentScreen'
 import { HelpScreen } from '../screens/HelpScreen'
 
@@ -27,6 +28,7 @@ export function MainTabNavigator() {
         tabBarIcon: ({ color, size }) => {
           let icon = '🏠'
           if (route.name === 'Home') icon = '🏠'
+          else if (route.name === 'Driver Mode') icon = '🚚'
           else if (route.name === 'My Trips') icon = '📋'
           else if (route.name === 'Payments') icon = '💳'
           else if (route.name === 'Help') icon = '❓'
@@ -36,6 +38,7 @@ export function MainTabNavigator() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Driver Mode" component={DriverTripScreen} />
       <Tab.Screen name="My Trips" component={MyTripScreen} />
       <Tab.Screen name="Payments" component={PaymentScreen} />
       <Tab.Screen name="Help" component={HelpScreen} />

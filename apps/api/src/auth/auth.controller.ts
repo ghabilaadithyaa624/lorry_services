@@ -6,12 +6,15 @@ import {
   HttpStatus, 
   Ip,
   Headers,
-  UnauthorizedException 
+  UnauthorizedException,
+  UseGuards 
 } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger'
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger'
 import { AuthService, OtpChannel } from './auth.service'
 import { RequestOtpDto, VerifyOtpDto, RefreshTokenDto } from './dto'
 import { Public } from '../common/decorators/public.decorator'
+import { CurrentUser } from '../common/decorators/current-user.decorator'
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -82,4 +85,15 @@ export class AuthController {
     await this.authService.logout(dto.refreshToken)
     return { success: true, message: 'Logged out successfully' }
   }
-}
+
+  @Post('logout-all')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Logout from all devices / revoke all active sessions' })
+  @ApiResponse({ status: 200, description: 'All active sessions revoked' })
+  async logoutAll(@CurrentUser('id') userId: string) {
+    await this.authService.logoutAll(userId)
+    return { success: true, message: 'All active sessions have been revoked successfully' }
+  }
+}

@@ -367,6 +367,39 @@ export class AuthService {
   }
 
   /**
+   * Logout from all devices - revoke all active refresh tokens and session families for the user
+   */
+  async logoutAll(userId: string): Promise<void> {
+    if (!userId) return
+
+    try {
+      const familyIds = await this.redis.smembers(`auth:user:families:${userId}`)
+      for (const familyId of familyIds) {
+        const familyDataStr = await this.redis.get(`auth:family:${familyId}`)
+        if (familyDataStr) {
+          try {
+            const familyData = JSON.parse(familyDataStr)
+            if (familyData.activeTokenId) {
+              await this.redis.del(`auth:rt:active:${familyData.activeTokenId}`)
+              await this.redis.set(
+                `auth:rt:revoked:${familyData.activeTokenId}`,
+                JSON.stringify({ userId, familyId, revokedAt: Date.now(), reason: 'logout_all' }),
+                'EX',
+                REFRESH_TOKEN_TTL
+              )
+            }
+          } catch (_) {}
+          await this.redis.del(`auth:family:${familyId}`)
+        }
+      }
+      await this.redis.del(`auth:user:families:${userId}`)
+      this.logger.log(`All sessions revoked for user ${userId}`)
+    } catch (err: any) {
+      this.logger.warn(`Logout all sessions error: ${err.message}`)
+    }
+  }
+
+  /**
    * Validate Indian phone number format
    */
   private isValidIndianPhone(phone: string): boolean {

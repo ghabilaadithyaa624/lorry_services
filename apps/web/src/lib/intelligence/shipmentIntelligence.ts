@@ -52,6 +52,9 @@ export interface ShipmentRiskAssessment {
   currentLocationName: string
   nextMilestoneName: string
   estimatedArrival: string
+  isEtaEstimated: boolean
+  isLocationEstimated: boolean
+  whyReason: string
   requiredActions: Array<{
     title: string
     description: string
@@ -73,7 +76,7 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
   const crossedCheckpoints = checkpoints.filter(cp => Boolean(cp.crossedAt))
   const crossedCount = crossedCheckpoints.length
   
-  const progressPercent = Math.round((crossedCount / totalCheckpoints) * 100)
+  const progressPercent = booking.status === 'Completed' ? 100 : Math.round((crossedCount / totalCheckpoints) * 100)
   
   const agreedPrice = Number(booking.agreedPrice) || 0
   const advanceAmount = Math.round(agreedPrice * 0.5)
@@ -84,7 +87,7 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
   // 1. Check commercial terms
   if (!booking.advanceConfirmed && booking.status !== 'Cancelled') {
     requiredActions.push({
-      title: '50% Loading Advance Pending',
+      title: '50% Loading Advance Confirmation Pending',
       description: `Release ₹${advanceAmount.toLocaleString('en-IN')} loading advance to transporter upon dispatch confirmation.`,
       urgency: 'HIGH',
       actionType: 'CONFIRM_ADVANCE',
@@ -122,33 +125,38 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
     nextMilestoneName = nextCp ? nextCp.name : 'Destination Terminal'
   }
 
-  // Calculate risk status
+  // Calculate risk status & explicit why explanations
   let statusTier: ShipmentRiskAssessment['statusTier'] = 'ON TRACK'
   let badgeVariant: ShipmentRiskAssessment['badgeVariant'] = 'success'
   let riskSummary = 'Vehicle is moving on schedule along the national corridor.'
+  let whyReason = 'Vehicle progressing through checkpoints'
 
   if (booking.status === 'Completed') {
     statusTier = 'COMPLETED'
     badgeVariant = 'success'
     riskSummary = 'Consignment successfully delivered at destination.'
-  } else if (!booking.advanceConfirmed && booking.status === 'InTransit') {
+    whyReason = 'All highway checkpoints crossed & POD verified'
+  } else if (!booking.advanceConfirmed && (booking.status === 'InTransit' || booking.status === 'Confirmed')) {
     statusTier = 'ACTION REQUIRED'
     badgeVariant = 'danger'
-    riskSummary = 'Shipment is in transit but 50% advance confirmation is pending.'
+    riskSummary = 'Shipment action required: 50% loading advance confirmation pending.'
+    whyReason = '50% advance confirmation pending'
   } else if (!booking.ewayBillNumber) {
     statusTier = 'ATTENTION REQUIRED'
     badgeVariant = 'warning'
-    riskSummary = 'Consignment is in transit without recorded E-Way Bill documentation.'
+    riskSummary = 'Shipment attention required: E-Way Bill documentation missing.'
+    whyReason = 'E-Way Bill missing'
   } else if (crossedCount === 0 && booking.status === 'Confirmed') {
     statusTier = 'LOW RISK'
     badgeVariant = 'info'
     riskSummary = 'Booking confirmed. Awaiting vehicle departure from origin.'
+    whyReason = 'Booking confirmed, awaiting initial checkpoint check-in'
   }
 
   // Estimated Arrival time based on remaining milestones
-  const remainingCheckpoints = totalCheckpoints - crossedCount
-  const estimatedHours = Math.max(4, remainingCheckpoints * 7)
-  const estimatedArrival = `${estimatedHours} hours (${nextMilestoneName} ETA)`
+  const remainingCheckpoints = Math.max(1, totalCheckpoints - crossedCount)
+  const estimatedHours = Math.max(2, remainingCheckpoints * 6)
+  const estimatedArrival = `~${estimatedHours} hours to ${nextMilestoneName}`
 
   return {
     statusTier,
@@ -159,6 +167,9 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
     currentLocationName,
     nextMilestoneName,
     estimatedArrival,
+    isEtaEstimated: true,
+    isLocationEstimated: true,
+    whyReason,
     requiredActions,
     commercialState: {
       advancePaid: booking.advanceConfirmed,
@@ -167,5 +178,78 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
       balanceAmount,
     },
     riskSummary,
+  }
+}
+
+export interface ControlTowerSummary {
+  totalActive: number
+  actionRequiredCount: number
+  attentionRequiredCount: number
+  onTrackCount: number
+  completedCount: number
+  delayedCount: number
+  lowRiskCount: number
+  highPriorityActions: Array<{
+    bookingId: string
+    loadRoute: string
+    statusTier: ShipmentRiskAssessment['statusTier']
+    whyReason: string
+  }>
+}
+
+export function summarizeActiveShipmentsControlTower(bookings: BookingData[]): ControlTowerSummary {
+  let actionRequiredCount = 0
+  let attentionRequiredCount = 0
+  let onTrackCount = 0
+  let completedCount = 0
+  let delayedCount = 0
+  let lowRiskCount = 0
+  const highPriorityActions: ControlTowerSummary['highPriorityActions'] = []
+
+  for (const bk of bookings) {
+    const intel = assessShipmentIntelligence(bk)
+    switch (intel.statusTier) {
+      case 'ACTION REQUIRED':
+        actionRequiredCount++
+        highPriorityActions.push({
+          bookingId: bk.id,
+          loadRoute: `${bk.load?.loadingAddress || 'Origin'} ➔ ${bk.load?.unloadingAddress || 'Destination'}`,
+          statusTier: intel.statusTier,
+          whyReason: intel.whyReason,
+        })
+        break
+      case 'ATTENTION REQUIRED':
+        attentionRequiredCount++
+        highPriorityActions.push({
+          bookingId: bk.id,
+          loadRoute: `${bk.load?.loadingAddress || 'Origin'} ➔ ${bk.load?.unloadingAddress || 'Destination'}`,
+          statusTier: intel.statusTier,
+          whyReason: intel.whyReason,
+        })
+        break
+      case 'DELAYED':
+        delayedCount++
+        break
+      case 'ON TRACK':
+        onTrackCount++
+        break
+      case 'LOW RISK':
+        lowRiskCount++
+        break
+      case 'COMPLETED':
+        completedCount++
+        break
+    }
+  }
+
+  return {
+    totalActive: bookings.length,
+    actionRequiredCount,
+    attentionRequiredCount,
+    onTrackCount,
+    completedCount,
+    delayedCount,
+    lowRiskCount,
+    highPriorityActions,
   }
 }

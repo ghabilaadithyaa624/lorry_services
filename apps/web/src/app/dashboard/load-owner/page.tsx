@@ -12,6 +12,9 @@ import {
   ChatBubbleBottomCenterTextIcon,
   ShieldCheckIcon,
   SparklesIcon,
+  ArrowsUpDownIcon,
+  ScaleIcon,
+  MapPinIcon,
 } from '@heroicons/react/24/outline'
 import { api } from '@/lib/api'
 import { DashboardLayout } from '@/components/layout'
@@ -25,6 +28,8 @@ import {
 import {
   calculateMatchScore,
   deriveOperationalTasks,
+  sortMarketplaceItems,
+  MatchSortOption,
 } from '@/lib/intelligence'
 import { cn, formatINR, timeAgo } from '@/lib/utils'
 
@@ -59,6 +64,7 @@ export default function LoadOwnerDashboard() {
   const [nearbyTrucks, setNearbyTrucks] = useState<NearbyTruckItem[]>([])
   const [hasSubscription, setHasSubscription] = useState<boolean>(true)
   const [loading, setLoading] = useState(true)
+  const [recSortBy, setRecSortBy] = useState<MatchSortOption>('BEST_MATCH')
   const router = useRouter()
 
   useEffect(() => {
@@ -155,10 +161,33 @@ export default function LoadOwnerDashboard() {
     hasSubscription,
   })
 
+  // Evaluate matching lorries against active load
+  const evaluatedTrucks = nearbyTrucks.map((t) => {
+    const match = activeFocusLoad
+      ? calculateMatchScore(activeFocusLoad, {
+          id: t.id,
+          bodyType: t.bodyType,
+          tonnageCapacity: t.tonnageCapacity,
+          distanceKm: t.distanceKm,
+          verificationStatus: t.verificationStatus,
+        })
+      : undefined
+
+    return {
+      ...t,
+      match,
+    }
+  })
+
+  const sortedTrucks = sortMarketplaceItems(
+    evaluatedTrucks,
+    recSortBy,
+    activeFocusLoad?.tonnageRequired
+  )
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        
         {/* Welcome Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -167,7 +196,7 @@ export default function LoadOwnerDashboard() {
                 Shipper Workspace
               </h1>
               <Badge variant="primary" size="sm">
-                Freight Intelligence
+                Smart Match Active
               </Badge>
             </div>
             <p className="text-xs sm:text-sm text-surface-500 dark:text-surface-400 mt-1">
@@ -196,7 +225,7 @@ export default function LoadOwnerDashboard() {
           </div>
         </div>
 
-        {/* Action Center (Only rendered when real operational actions exist) */}
+        {/* Action Center */}
         {operationalTasks.length > 0 && <ActionCenterCard tasks={operationalTasks} />}
 
         {/* 4 Metric Stats Cards */}
@@ -225,7 +254,6 @@ export default function LoadOwnerDashboard() {
         {/* ── FREIGHT INTELLIGENCE SECTION ── */}
         {activeFocusLoad && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
             {/* Left: Active Load Compatibility & Market Rate Intelligence */}
             <div className="lg:col-span-5 space-y-4">
               <FreightRateEstimatorCard
@@ -251,9 +279,25 @@ export default function LoadOwnerDashboard() {
                     Smart Lorry Matching Engine
                   </h3>
                 </div>
-                <Badge variant="success" size="sm">
-                  Active Requirement
-                </Badge>
+                
+                {/* Sorting Filter */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-surface-500 flex items-center gap-1">
+                    <ArrowsUpDownIcon className="w-3 h-3" />
+                    Sort:
+                  </span>
+                  <select
+                    value={recSortBy}
+                    onChange={(e) => setRecSortBy(e.target.value as MatchSortOption)}
+                    className="px-2 py-0.5 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-lg text-xs font-bold text-surface-900 dark:text-white outline-hidden"
+                  >
+                    <option value="BEST_MATCH">Best Match</option>
+                    <option value="NEAREST">Nearest</option>
+                    <option value="CAPACITY_FIT">Capacity Fit</option>
+                    <option value="VERIFIED">Verified</option>
+                    <option value="RETURN_LOAD">Potential Return Load</option>
+                  </select>
+                </div>
               </div>
 
               {/* Active Load Quick Summary */}
@@ -274,43 +318,60 @@ export default function LoadOwnerDashboard() {
               {/* Matching Lorries Result List */}
               <div className="space-y-3">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-surface-400 block">
-                  {nearbyTrucks.length > 0
-                    ? `${nearbyTrucks.length} Compatible Lorries Available Within 50km`
+                  {sortedTrucks.length > 0
+                    ? `${sortedTrucks.length} Compatible Lorries Available Within 50km`
                     : 'Searching National Corridor for Verified Lorries...'}
                 </span>
 
-                {nearbyTrucks.length > 0 ? (
-                  nearbyTrucks.slice(0, 3).map((t) => {
-                    const match = calculateMatchScore(activeFocusLoad, {
-                      id: t.id,
-                      bodyType: t.bodyType,
-                      tonnageCapacity: t.tonnageCapacity,
-                      distanceKm: t.distanceKm,
-                      verificationStatus: t.verificationStatus,
-                    })
+                {sortedTrucks.length > 0 ? (
+                  sortedTrucks.slice(0, 3).map((t) => {
+                    const match = t.match!
 
                     return (
                       <div
                         key={t.id}
-                        className="p-3 rounded-xl bg-white dark:bg-surface-900 border border-surface-200/80 dark:border-surface-700 flex items-center justify-between gap-3 shadow-xs"
+                        className="p-3 rounded-xl bg-white dark:bg-surface-900 border border-surface-200/80 dark:border-surface-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
                       >
-                        <div className="space-y-1">
+                        <div className="space-y-1.5 flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-surface-900 dark:text-white">
+                            <span className="text-xs font-black text-surface-900 dark:text-white">
                               {t.tonnageCapacity}T {t.bodyType}
                             </span>
-                            <MatchScoreBadge match={match} />
+                            {match && <MatchScoreBadge match={match} />}
                           </div>
-                          <p className="text-[11px] text-surface-500">
-                            {t.distanceKm ? `${t.distanceKm.toFixed(1)} km from pickup` : 'Within corridor'} • {t.verificationStatus === 'Verified' ? '✓ RC Verified' : 'Verification pending'}
-                          </p>
+
+                          {/* Factor indicators */}
+                          {match && (
+                            <div className="flex flex-wrap gap-2 text-[11px] text-surface-600 dark:text-surface-300">
+                              <span className="flex items-center gap-1">
+                                <ScaleIcon className="w-3 h-3 text-emerald-500" />
+                                {match.factors.capacity.value}
+                              </span>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <MapPinIcon className="w-3 h-3 text-blue-500" />
+                                {match.factors.proximity.value}
+                              </span>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <ShieldCheckIcon className="w-3 h-3 text-purple-500" />
+                                {match.factors.verification.value}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => router.push(`/search?type=truck&location=${encodeURIComponent(activeFocusLoad.loadingAddress)}`)}
-                          className="shrink-0 text-xs py-1.5"
+                          onClick={() =>
+                            router.push(
+                              `/search?type=truck&location=${encodeURIComponent(
+                                activeFocusLoad.loadingAddress
+                              )}`
+                            )
+                          }
+                          className="shrink-0 text-xs py-1.5 self-end sm:self-center"
                         >
                           View Direct
                         </Button>
@@ -325,7 +386,13 @@ export default function LoadOwnerDashboard() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => router.push(`/search?type=truck&location=${encodeURIComponent(activeFocusLoad.loadingAddress)}`)}
+                      onClick={() =>
+                        router.push(
+                          `/search?type=truck&location=${encodeURIComponent(
+                            activeFocusLoad.loadingAddress
+                          )}`
+                        )
+                      }
                       className="text-xs"
                     >
                       Find Trucks on This Route
@@ -334,7 +401,6 @@ export default function LoadOwnerDashboard() {
                 )}
               </div>
             </div>
-
           </div>
         )}
 
@@ -402,7 +468,11 @@ export default function LoadOwnerDashboard() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => router.push(`/search?type=truck&location=${encodeURIComponent(l.loadingAddress)}`)}
+                      onClick={() =>
+                        router.push(
+                          `/search?type=truck&location=${encodeURIComponent(l.loadingAddress)}`
+                        )
+                      }
                       className="text-xs"
                     >
                       Find Trucks
@@ -413,7 +483,6 @@ export default function LoadOwnerDashboard() {
             </div>
           )}
         </div>
-
       </div>
     </DashboardLayout>
   )
