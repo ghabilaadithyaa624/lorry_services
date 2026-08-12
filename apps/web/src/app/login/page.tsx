@@ -260,10 +260,12 @@ function LoginForm() {
                     <span className="text-[11px] text-surface-400">For new users</span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="I am registering as">
                     {/* Load Owner Card */}
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={selectedRole === 'load_owner'}
                       onClick={() => handleSelectRole('load_owner')}
                       className={cn(
                         'p-3.5 rounded-xl border-2 text-left transition-all relative flex flex-col justify-between cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary-500/40',
@@ -302,6 +304,8 @@ function LoginForm() {
                     {/* Truck Owner Card */}
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={selectedRole === 'truck_owner'}
                       onClick={() => handleSelectRole('truck_owner')}
                       className={cn(
                         'p-3.5 rounded-xl border-2 text-left transition-all relative flex flex-col justify-between cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary-500/40',
@@ -347,9 +351,11 @@ function LoginForm() {
                   <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-700 dark:text-surface-400 mb-2">
                     Deliver Code Via
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Deliver verification code via">
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={channel === 'whatsapp'}
                       onClick={() => setChannel('whatsapp')}
                       className={cn(
                         'flex items-center justify-center gap-2 py-3 px-3 rounded-xl border text-xs font-bold transition-all',
@@ -364,6 +370,8 @@ function LoginForm() {
 
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={channel === 'sms'}
                       onClick={() => setChannel('sms')}
                       className={cn(
                         'flex items-center justify-center gap-2 py-3 px-3 rounded-xl border text-xs font-bold transition-all',
@@ -425,9 +433,11 @@ function LoginForm() {
 
                   {/* Inline Role Selector if toggled or if no role selected */}
                   {(showRolePickerInOtp || !selectedRole) && (
-                    <div className="pt-2 border-t border-surface-200/80 dark:border-surface-700/80 grid grid-cols-2 gap-2 animate-fade-in">
+                    <div className="pt-2 border-t border-surface-200/80 dark:border-surface-700/80 grid grid-cols-2 gap-2 animate-fade-in" role="radiogroup" aria-label="Change account type to">
                       <button
                         type="button"
+                        role="radio"
+                        aria-checked={selectedRole === 'load_owner'}
                         onClick={() => {
                           handleSelectRole('load_owner')
                           setShowRolePickerInOtp(false)
@@ -450,6 +460,8 @@ function LoginForm() {
 
                       <button
                         type="button"
+                        role="radio"
+                        aria-checked={selectedRole === 'truck_owner'}
                         onClick={() => {
                           handleSelectRole('truck_owner')
                           setShowRolePickerInOtp(false)
