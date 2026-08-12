@@ -7,7 +7,7 @@ interface ContactRevealModalProps {
 
 export function ContactRevealModal({ onClose, onSubscribe }: ContactRevealModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 ">
       <div className="bg-white dark:bg-gray-900 rounded-card p-6 md:p-8 max-w-md w-full shadow-2xl border border-gray-100 dark:border-gray-800">
         <div className="text-center">
           <div className="w-16 h-16 bg-orange-100 text-primary-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">

@@ -33,73 +33,73 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
   return (
     <div
       className={cn(
-        'bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 shadow-card space-y-4',
+        'bg-[#0F131D] rounded-[20px] border border-white/10 p-6 shadow-modal space-y-4 font-sans',
         className
       )}
     >
       {/* Header & Indicative Benchmark Badge */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-surface-100 dark:border-surface-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center font-bold">
+          <div className="w-8 h-8 rounded-xl bg-primary-500/10 text-primary-400 flex items-center justify-center font-bold border border-primary-500/20">
             <CurrencyRupeeIcon className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-black text-surface-900 dark:text-white uppercase tracking-wider">
+            <h3 className="text-xs font-mono font-bold text-white uppercase tracking-widest">
               Freight Price Intelligence
             </h3>
-            <span className="text-[10px] text-surface-500 font-medium">
+            <span className="text-[10px] text-surface-400 font-mono">
               Deterministic Economic Freight Rate Engine
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-center">
-          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
             Indicative benchmark estimate
           </span>
-          <Badge variant={confidenceBadgeVariant} size="sm">
+          <Badge variant={confidenceBadgeVariant} size="sm" className="font-mono text-[10px]">
             {estimate.confidence} CONFIDENCE
           </Badge>
         </div>
       </div>
 
       {/* Main Recommended Rate & Market Range Display */}
-      <div className="bg-gradient-to-r from-surface-50 via-white to-surface-50 dark:from-surface-800/50 dark:via-surface-900 dark:to-surface-800/50 p-4 rounded-2xl border border-surface-200/60 dark:border-surface-700/60 space-y-2">
-        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+      <div className="bg-surface-950/80 p-5 rounded-2xl border border-white/5 space-y-3 shadow-card">
+        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-surface-400 block">
               Recommended Freight Rate
             </span>
-            <div className="text-2xl sm:text-3xl font-black text-surface-900 dark:text-white font-mono flex items-baseline gap-1.5">
+            <div className="text-2xl sm:text-3xl font-black text-white font-mono flex items-baseline gap-2 mt-0.5">
               <span>{formatINR(estimate.recommendedTarget)}</span>
-              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-sans">
+              <span className="text-xs font-mono font-bold text-emerald-400">
                 Recommended
               </span>
             </div>
           </div>
 
           <div className="text-left sm:text-right">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-surface-400 block">
               Rate / Ton-Km
             </span>
-            <span className="text-base sm:text-lg font-black text-primary-600 dark:text-primary-400 font-mono">
+            <span className="text-base sm:text-lg font-black text-primary-400 font-mono mt-0.5 block">
               ₹{estimate.ratePerTonKm.toFixed(2)}
-              <span className="text-2xs font-normal text-surface-500"> / T-km</span>
+              <span className="text-2xs font-normal text-surface-400"> / T-km</span>
             </span>
           </div>
         </div>
 
         {/* Market Range Bar */}
-        <div className="pt-2 border-t border-surface-200/50 dark:border-surface-700/50 flex flex-wrap items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5 text-surface-600 dark:text-surface-300 font-medium">
+        <div className="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between text-xs font-mono">
+          <div className="flex items-center gap-2 text-surface-300 font-medium">
             <span>Market Range:</span>
-            <span className="font-mono font-bold text-surface-900 dark:text-white">
+            <span className="font-bold text-emerald-400">
               {formatINR(estimate.minEstimate)} — {formatINR(estimate.maxEstimate)}
             </span>
           </div>
 
           {estimate.isBenchmarkBased && (
-            <span className="text-[10px] text-surface-400 italic">
+            <span className="text-[10px] text-surface-400">
               Benchmark-based regional corridor rate
             </span>
           )}

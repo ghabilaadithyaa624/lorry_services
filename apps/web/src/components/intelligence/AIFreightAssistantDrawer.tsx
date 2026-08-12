@@ -5,12 +5,11 @@ import {
   SparklesIcon,
   XMarkIcon,
   PaperAirplaneIcon,
-  ShieldExclamationIcon,
 } from '@heroicons/react/24/outline'
 import { AssistantResponse } from '@/lib/intelligence/aiAssistantEngine'
 import { ReturnLoadOpportunityCard } from './ReturnLoadOpportunityCard'
 import { FreightRateEstimatorCard } from './FreightRateEstimatorCard'
-import { Button, Badge, Spinner } from '@/components/ui'
+import { Button, Spinner } from '@/components/ui'
 import { api } from '@/lib/api'
 import { formatINR, cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
@@ -125,52 +124,51 @@ export function AIFreightAssistantDrawer() {
     <>
       {/* Floating Assistant Trigger Pill */}
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-primary-600 to-purple-600 text-white font-bold text-xs shadow-elevated hover:shadow-card-hover hover:scale-105 transition-all duration-200 cursor-pointer"
+        className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-button bg-surface-900/90 text-white font-semibold text-xs shadow-elevated hover:shadow-card-hover border border-white/10 font-sans"
       >
-        <SparklesIcon className="w-5 h-5 animate-pulse" />
+        <SparklesIcon className="w-4 h-4 animate-pulse" />
         <span>AI Freight Assistant</span>
-      </button>
-
-      {/* Drawer Overlay */}
+      </button>      {/* Drawer Overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-surface-950/60 backdrop-blur-xs transition-opacity animate-fade-in">
-          <div className="w-full max-w-lg bg-white dark:bg-surface-900 h-full shadow-2xl flex flex-col justify-between border-l border-surface-200 dark:border-surface-800">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/80  transition-opacity animate-fade-in font-sans">
+          <div className="w-full max-w-lg bg-[#0F131D] text-white h-full shadow-modal flex flex-col justify-between border-l border-white/10">
             
             {/* Drawer Header */}
-            <div className="p-4 border-b border-surface-100 dark:border-surface-800 flex items-center justify-between bg-surface-50 dark:bg-surface-800/60">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-surface-950/80">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary-500 to-purple-600 flex items-center justify-center text-white">
+                <div className="w-8 h-8 rounded-lg bg-surface-800 flex items-center justify-center text-primary-400 border border-white/10">
                   <SparklesIcon className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-surface-900 dark:text-white">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     LorryCarry AI Freight Assistant
                   </h3>
-                  <span className="text-[10px] text-surface-500 font-mono block">
-                    Grounded strictly in live database records
+                  <span className="text-[10px] text-surface-400 font-sans block">
+                    Operations Intelligence
                   </span>
                 </div>
               </div>
 
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700 transition-colors"
+                className="p-1.5 rounded-xl text-surface-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
             {/* Quick Sample Prompts Bar */}
-            <div className="p-3 border-b border-surface-100 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-900 overflow-x-auto scrollbar-none flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400 shrink-0">
+            <div className="p-3 border-b border-white/10 bg-surface-950/60 overflow-x-auto no-scrollbar flex items-center gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-surface-400 shrink-0">
                 Prompts:
               </span>
               {SAMPLE_PROMPTS.map((prompt, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleSendQuery(prompt)}
-                  className="px-2.5 py-1 rounded-full bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 text-[11px] font-medium text-surface-700 dark:text-surface-300 hover:border-primary-400 transition-colors shrink-0 cursor-pointer"
+                  className="px-3 py-1 rounded-full bg-surface-900/80 border border-white/10 text-[11px] font-mono text-surface-300 hover:border-primary-400 hover:text-white transition-colors shrink-0 cursor-pointer"
                 >
                   {prompt}
                 </button>
@@ -192,61 +190,44 @@ export function AIFreightAssistantDrawer() {
                     className={cn(
                       'p-3.5 rounded-2xl text-xs space-y-1.5',
                       msg.sender === 'user'
-                        ? 'bg-primary-600 text-white rounded-br-none font-medium'
-                        : 'bg-surface-100 dark:bg-surface-800 text-surface-900 dark:text-white rounded-bl-none border border-surface-200/60 dark:border-surface-700/60'
+                        ? 'bg-primary-500 text-white rounded-br-none font-bold shadow-glow-primary'
+                        : 'bg-surface-950/80 text-surface-100 rounded-bl-none border border-white/10 shadow-card'
                     )}
                   >
                     <p className="leading-relaxed">{msg.text}</p>
                   </div>
 
-                  {/* Assistant Structured Result Cards */}
-                  {msg.response && (
+                  {/* Assistant Interactive Structured Result Rendering */}
+                  {msg.sender === 'assistant' && msg.response && (
                     <div className="w-full space-y-3 pt-1">
-                      
-                      {/* Structured Intent Badge */}
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-surface-400">
-                        <span>Intent:</span>
-                        <Badge variant="info" size="sm">
-                          {msg.response.intent.operation}
-                        </Badge>
-                      </div>
-
-                      {/* Prepared Financial Booking Card */}
+                      {/* Actionable Intent Execution Button */}
                       {msg.response.preparedAction && (
-                        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 space-y-3">
-                          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-                            <ShieldExclamationIcon className="w-5 h-5 text-amber-600 shrink-0" />
-                            <h4 className="text-xs font-bold uppercase tracking-wider">
-                              Explicit User Confirmation Required
-                            </h4>
-                          </div>
-
-                          <div className="p-3 rounded-lg bg-white dark:bg-surface-900 border border-amber-200 text-xs space-y-1">
-                            <p className="font-black text-surface-900 dark:text-white text-sm">
-                              Create booking for {formatINR(msg.response.preparedAction.details.agreedPrice)}?
-                            </p>
-                            <p className="text-surface-600 dark:text-surface-300 text-[11px]">
-                              Route: {msg.response.preparedAction.details.routeLabel} ({msg.response.preparedAction.details.tonnage}T {msg.response.preparedAction.details.truckType})
-                            </p>
-                          </div>
-
+                        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-primary-950/60 via-purple-950/40 to-surface-950 border border-purple-500/40 space-y-2.5 shadow-card">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-400 block">
+                            Direct Commercial Dispatch Agreement
+                          </span>
+                          <p className="text-xs text-white font-bold">
+                            {msg.response.preparedAction.details.routeLabel} @ {formatINR(msg.response.preparedAction.details.agreedPrice)}
+                          </p>
+                          <p className="text-[11px] text-surface-300 font-mono">
+                            Terms: Standard 50% Loading Advance / 50% Balance on POD unloading.
+                          </p>
                           <Button
                             variant="primary"
-                            size="md"
-                            fullWidth
+                            size="sm"
                             loading={actionLoading}
                             onClick={() => handleExecuteConfirmedBooking(msg.response?.preparedAction)}
-                            className="font-bold text-xs py-2.5"
+                            className="w-full text-xs font-bold py-2 shadow-glow-primary bg-primary-500 border border-purple-400/30"
                           >
-                            [Confirm Booking]
+                            Execute Confirmed Direct Booking
                           </Button>
                         </div>
                       )}
 
-                      {/* Return Load Opportunity Cards */}
+                      {/* Return Load Opportunity Cards Stream */}
                       {msg.response.returnLoads && msg.response.returnLoads.length > 0 && (
-                        <div className="space-y-3">
-                          {msg.response.returnLoads.slice(0, 2).map((opp) => (
+                        <div className="space-y-2">
+                          {msg.response.returnLoads.slice(0, 2).map((opp: any) => (
                             <ReturnLoadOpportunityCard key={opp.loadId} opportunity={opp} />
                           ))}
                         </div>
@@ -268,7 +249,7 @@ export function AIFreightAssistantDrawer() {
               ))}
 
               {loading && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-surface-50 dark:bg-surface-800 text-xs font-semibold text-surface-500">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-surface-950/80 border border-white/10 text-xs font-mono text-surface-400">
                   <Spinner size="sm" />
                   <span>Converting intent & querying live database records...</span>
                 </div>
@@ -276,7 +257,7 @@ export function AIFreightAssistantDrawer() {
             </div>
 
             {/* Input Form */}
-            <div className="p-4 border-t border-surface-100 dark:border-surface-800 bg-white dark:bg-surface-900">
+            <div className="p-4 border-t border-white/10 bg-surface-950">
               <form
                 onSubmit={(e) => {
                   e.preventDefault()
@@ -289,14 +270,14 @@ export function AIFreightAssistantDrawer() {
                   value={inputQuery}
                   onChange={(e) => setInputQuery(e.target.value)}
                   placeholder="Ask LorryCarry AI (e.g. Find 20T Container Chennai to Bengaluru)..."
-                  className="input flex-1 text-xs py-2.5"
+                  className="input flex-1 text-xs py-2.5 bg-surface-900 border-white/10 text-white placeholder:text-surface-400"
                 />
                 <Button
                   type="submit"
                   variant="primary"
                   size="md"
                   disabled={loading || !inputQuery.trim()}
-                  className="shrink-0"
+                  className="shrink-0 font-bold shadow-glow-primary"
                 >
                   <PaperAirplaneIcon className="w-4 h-4" />
                 </Button>

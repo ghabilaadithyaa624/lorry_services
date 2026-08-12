@@ -76,12 +76,12 @@ function RoleSelectForm() {
   if (!phone || !otp) return null
 
   return (
-    <div className="min-h-screen bg-surface-50 dark:bg-background-dark flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
+    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
       <div className="sm:mx-auto sm:w-full sm:max-w-xl relative z-10 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-400 flex items-center justify-center text-white shadow-sm">
+            <div className="w-10 h-10 rounded-2xl bg-primary-500 flex items-center justify-center text-white shadow-sm">
               <TruckIcon className="w-6 h-6 stroke-[2.2]" />
             </div>
             <span className="text-2xl font-black tracking-tight text-surface-900 dark:text-white leading-none">

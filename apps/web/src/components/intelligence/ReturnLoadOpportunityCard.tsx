@@ -21,15 +21,15 @@ export function ReturnLoadOpportunityCard({
   return (
     <div
       className={cn(
-        'bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 shadow-card hover:shadow-card-hover transition-all flex flex-col justify-between space-y-4',
+        'bg-[#0F131D] rounded-[20px] border border-white/10 p-5 shadow-card hover:border-purple-500/40 transition-all flex flex-col justify-between space-y-4 font-sans',
         className
       )}
     >
       {/* Header: Potential Return Load Badge & Match Score */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/80 text-[10px] font-black uppercase tracking-wider">
-            <ArrowPathIcon className="w-3 h-3 text-purple-600 shrink-0" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-primary-500/20 via-amber-500/20 to-purple-600/20 text-purple-300 border border-purple-500/40 text-[10px] font-mono font-bold uppercase tracking-wider">
+            <ArrowPathIcon className="w-3.5 h-3.5 text-purple-400 shrink-0 animate-spin-slow" />
             <span>Potential Return Load</span>
           </span>
           <MatchScoreBadge match={opportunity.matchResult} />
@@ -37,33 +37,33 @@ export function ReturnLoadOpportunityCard({
 
         {/* Route Header */}
         <div>
-          <span className="text-[10px] text-surface-400 uppercase font-bold tracking-wider block">
-            Return Corridor Route
+          <span className="text-[11px] font-sans text-surface-500 font-semibold uppercase tracking-[0.06em] block">
+            Return corridor route
           </span>
-          <h4 className="text-base sm:text-lg font-black text-surface-900 dark:text-white flex items-center gap-2 truncate mt-0.5">
+          <h4 className="text-base sm:text-lg font-black text-white flex items-center gap-2 truncate mt-0.5">
             <span className="truncate">{opportunity.loadingAddress}</span>
-            <span className="text-primary-500 shrink-0">➔</span>
+            <span className="text-primary-400 font-mono shrink-0">➔</span>
             <span className="truncate">{opportunity.unloadingAddress}</span>
           </h4>
         </div>
       </div>
 
       {/* Tonnage & Freight Commercials */}
-      <div className="flex items-center justify-between p-3 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-100 dark:border-surface-700/60">
+      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-surface-950/80 border border-white/5">
         <div>
-          <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider block">
-            Cargo Specs
+          <span className="text-[11px] font-sans text-surface-500 font-semibold uppercase tracking-[0.06em] block">
+            Cargo specs
           </span>
-          <span className="font-mono font-bold text-xs text-surface-900 dark:text-white mt-0.5 block">
+          <span className="font-mono font-bold text-xs text-white mt-0.5 block">
             {opportunity.tonnageRequired}T {opportunity.truckType}
           </span>
         </div>
 
         <div className="text-right">
-          <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider block">
-            Estimated Freight
+          <span className="text-[11px] font-sans text-surface-500 font-semibold uppercase tracking-[0.06em] block">
+            Estimated freight
           </span>
-          <span className="font-mono font-black text-base text-primary-600 dark:text-primary-400 mt-0.5 block">
+          <span className="font-mono font-black text-base text-emerald-400 mt-0.5 block">
             {formatINR(opportunity.estimatedFreight)}
           </span>
         </div>
@@ -71,39 +71,39 @@ export function ReturnLoadOpportunityCard({
 
       {/* Proximity & Empty-Run Reduction Highlights */}
       <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60">
-          <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider block">
-            Pickup Proximity
+        <div className="p-2.5 rounded-xl bg-surface-950/60 border border-white/5 space-y-0.5">
+          <span className="text-[11px] font-sans text-surface-500 font-semibold uppercase tracking-[0.06em] block">
+            Pickup proximity
           </span>
-          <span className="font-bold text-surface-900 dark:text-white mt-0.5 block truncate">
-            {opportunity.pickupDistanceFromDestinationKm.toFixed(1)} km from destination
+          <span className="font-mono font-bold text-white text-[11px] block truncate">
+            {opportunity.pickupDistanceFromDestinationKm.toFixed(1)} km away
           </span>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/60">
-          <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold uppercase tracking-wider block">
-            Empty-Run Reduction
+        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-0.5">
+          <span className="text-[11px] font-sans text-emerald-500 font-semibold uppercase tracking-[0.06em] block">
+            Empty-run reduction
           </span>
-          <span className="font-mono font-black text-emerald-800 dark:text-emerald-200 mt-0.5 block truncate">
+          <span className="font-mono font-black text-emerald-300 text-[11px] block truncate">
             {opportunity.potentialEmptyRunReductionKm} km saved
           </span>
         </div>
       </div>
 
       {/* Disclaimer */}
-      <div className="text-[10px] text-surface-400 flex items-start gap-1 leading-tight">
-        <InformationCircleIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+      <div className="text-[10px] font-sans text-surface-400 flex items-start gap-1 leading-tight">
+        <InformationCircleIcon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-surface-400" />
         <span>{opportunity.disclaimer}</span>
       </div>
 
       {/* Action Button */}
-      <div className="pt-2 border-t border-surface-100 dark:border-surface-800">
+      <div className="pt-2 border-t border-white/5">
         <Button
           variant="primary"
           size="md"
           fullWidth
           onClick={() => onConnect && onConnect(opportunity)}
-          className="font-bold text-xs py-2.5"
+          className="font-bold text-xs py-2.5 shadow-glow-primary bg-primary-500 border border-purple-400/30"
         >
           Connect for Potential Return Load
         </Button>

@@ -41,9 +41,9 @@ export function Footer() {
   ]
 
   return (
-    <footer className="bg-surface-900 text-surface-300 border-t border-surface-800">
+    <footer className="bg-[#0F131D] text-surface-300 border-t border-white/10">
       {/* Trust Highlights Section */}
-      <div className="border-b border-surface-800/80 bg-surface-950/40">
+      <div className="border-b border-white/10 bg-[#070A11]/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {trustBadges.map((badge) => {
@@ -70,7 +70,7 @@ export function Footer() {
           {/* Brand & Mission Column */}
           <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary-600 to-primary-400 flex items-center justify-center text-white shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-primary-500 flex items-center justify-center text-white shadow-sm">
                 <TruckIcon className="w-6 h-6 stroke-[2.2]" />
               </div>
               <span className="text-xl font-black tracking-tight text-white leading-none">

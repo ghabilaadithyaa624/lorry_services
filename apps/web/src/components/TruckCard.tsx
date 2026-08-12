@@ -87,60 +87,62 @@ export function TruckCard({ truck, targetLoad, onBook }: TruckCardProps) {
 
   return (
     <>
-      <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 shadow-card hover:shadow-card-hover transition-all flex flex-col justify-between space-y-4">
+      <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-5 shadow-card hover:border-primary-500/40 transition-all duration-300 flex flex-col justify-between space-y-4 group">
         {/* Header: Title, Verification Badge, Match Score */}
         <div className="space-y-2.5">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-base font-black text-surface-900 dark:text-white flex items-center gap-1.5">
-                <TruckIcon className="w-5 h-5 text-primary-500" />
+              <span className="text-base font-black text-white flex items-center gap-2 group-hover:text-primary-400 transition-colors">
+                <div className="w-8 h-8 rounded-xl bg-primary-500/10 text-primary-400 flex items-center justify-center border border-primary-500/20">
+                  <TruckIcon className="w-4 h-4 shrink-0" />
+                </div>
                 {truck.bodyType} Body
               </span>
-              <Badge variant={isVerified ? 'success' : 'warning'} size="sm">
-                {isVerified ? 'Verified' : 'Pending'}
+              <Badge variant={isVerified ? 'success' : 'warning'} size="sm" className="font-mono text-[10px]">
+                {isVerified ? '✓ Vahan Verified' : 'Pending'}
               </Badge>
             </div>
             <MatchScoreBadge match={matchResult} />
           </div>
 
           {/* Registration & Distance */}
-          <div className="flex items-center justify-between text-xs text-surface-500 font-medium">
-            <span className="font-mono text-surface-700 dark:text-surface-300 font-bold">
+          <div className="flex items-center justify-between text-xs text-surface-400 font-medium">
+            <span className="font-mono text-white font-bold tracking-wider">
               {truck.registrationNumber || 'MH-12-XXXX'}
             </span>
-            <span className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 font-bold">
+            <span className="inline-flex items-center gap-1 text-primary-400 font-bold font-mono">
               <MapPinIcon className="w-3.5 h-3.5" />
               {typeof truck.distanceKm === 'number' ? `${truck.distanceKm.toFixed(1)} km away` : 'Nearby'}
             </span>
           </div>
         </div>
 
-        {/* Transparent Match Intelligence Factor Breakdown */}
+        {/* Match Intelligence Breakdown */}
         <MatchInlineBreakdown match={matchResult} />
 
         {/* Technical Specs Summary */}
-        <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60 text-center text-xs">
+        <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-surface-950/80 border border-white/5 text-center text-xs">
           <div>
-            <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider block">
+            <span className="text-[10px] font-mono text-surface-400 uppercase tracking-widest block">
               Capacity
             </span>
-            <span className="font-mono font-black text-xs text-surface-900 dark:text-white mt-0.5 block">
+            <span className="font-mono font-black text-sm text-emerald-400 mt-0.5 block">
               {truck.tonnageCapacity}T
             </span>
           </div>
           <div>
-            <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider block">
+            <span className="text-[10px] font-mono text-surface-400 uppercase tracking-widest block">
               Length
             </span>
-            <span className="font-mono font-bold text-xs text-surface-800 dark:text-surface-200 mt-0.5 block">
+            <span className="font-mono font-bold text-xs text-surface-200 mt-0.5 block">
               {truck.lengthFt ? `${truck.lengthFt}ft` : 'Standard'}
             </span>
           </div>
           <div>
-            <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider block">
+            <span className="text-[10px] font-mono text-surface-400 uppercase tracking-widest block">
               Radius
             </span>
-            <span className="font-mono font-bold text-xs text-surface-800 dark:text-surface-200 mt-0.5 block">
+            <span className="font-mono font-bold text-xs text-surface-200 mt-0.5 block">
               {truck.serviceableRadiusKm ? `${truck.serviceableRadiusKm}km` : '50km'}
             </span>
           </div>
@@ -148,16 +150,16 @@ export function TruckCard({ truck, targetLoad, onBook }: TruckCardProps) {
 
         {/* Preferred Corridor & Destinations */}
         {truck.preferredDestinations && truck.preferredDestinations.length > 0 && (
-          <div className="text-xs space-y-1">
-            <span className="text-[10px] font-bold text-surface-400 uppercase tracking-wider flex items-center gap-1">
-              <ArrowPathRoundedSquareIcon className="w-3.5 h-3.5 text-primary-500" />
-              Preferred Freight Corridor:
+          <div className="text-xs space-y-1.5">
+            <span className="text-[10px] font-mono font-bold text-surface-400 uppercase tracking-widest flex items-center gap-1">
+              <ArrowPathRoundedSquareIcon className="w-3.5 h-3.5 text-primary-400" />
+              Freight Corridor:
             </span>
             <div className="flex flex-wrap gap-1">
               {truck.preferredDestinations.map((dest, idx) => (
                 <span
                   key={idx}
-                  className="px-2 py-0.5 rounded-md bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 text-[11px] font-medium"
+                  className="px-2 py-0.5 rounded-md bg-white/5 text-surface-300 text-[10px] font-mono border border-white/5"
                 >
                   {dest}
                 </span>
@@ -167,14 +169,14 @@ export function TruckCard({ truck, targetLoad, onBook }: TruckCardProps) {
         )}
 
         {/* Actions Area: Contact / Book */}
-        <div className="pt-2 border-t border-surface-100 dark:border-surface-800 space-y-2">
+        <div className="pt-3 border-t border-white/10 space-y-2">
           {contactData?.owner ? (
-            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 space-y-2">
+            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-emerald-900 dark:text-emerald-200">
+                <span className="font-bold text-emerald-200">
                   {contactData.owner.name || 'Transporter'}
                 </span>
-                <span className="font-mono font-bold text-emerald-800 dark:text-emerald-300">
+                <span className="font-mono font-bold text-emerald-400">
                   {formatPhone(contactData.owner.phone)}
                 </span>
               </div>
@@ -185,7 +187,7 @@ export function TruckCard({ truck, targetLoad, onBook }: TruckCardProps) {
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-2 px-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-colors"
+                className="w-full py-2 px-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold text-center flex items-center justify-center gap-1.5 transition-colors shadow-glow-primary"
               >
                 <span>💬 Direct WhatsApp</span>
               </a>
@@ -196,9 +198,9 @@ export function TruckCard({ truck, targetLoad, onBook }: TruckCardProps) {
                 type="button"
                 onClick={handleViewContact}
                 disabled={revealing}
-                className="flex-1 py-2 px-3 rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800 hover:bg-surface-100 text-xs font-bold text-surface-800 dark:text-surface-200 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex-1 py-2.5 px-3 rounded-xl border border-white/10 bg-surface-950/80 hover:bg-white/5 text-xs font-bold text-surface-200 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
               >
-                <LockClosedIcon className="w-3.5 h-3.5 text-primary-500" />
+                <LockClosedIcon className="w-3.5 h-3.5 text-primary-400" />
                 <span>{revealing ? 'Unlocking...' : 'Reveal Contact'}</span>
               </button>
 
@@ -207,7 +209,7 @@ export function TruckCard({ truck, targetLoad, onBook }: TruckCardProps) {
                   variant="primary"
                   size="sm"
                   onClick={() => onBook(truck)}
-                  className="font-bold"
+                  className="font-bold shadow-glow-primary px-4"
                 >
                   Book
                 </Button>

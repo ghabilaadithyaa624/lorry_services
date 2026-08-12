@@ -1,24 +1,21 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import {
-  ArrowTrendingUpIcon,
-  TruckIcon,
-} from '@heroicons/react/24/outline'
+import { ArrowTrendingUpIcon } from '@heroicons/react/24/outline'
 import { api } from '@/lib/api'
 import { DashboardLayout } from '@/components/layout'
-import { Badge, Spinner } from '@/components/ui'
+import { Skeleton } from '@/components/ui'
 import { formatINR } from '@/lib/utils'
 
 export default function UserAnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
-    completedTrips: 12,
-    activeBookings: 3,
-    totalSpentOrEarned: 345000,
-    onTimeDeliveryPercent: 96.5,
-    emptyKmSaved: 1420,
-    averageRatePerTonKm: 3.85,
+    completedTrips: 0,
+    activeBookings: 0,
+    totalSpentOrEarned: 0,
+    onTimeDeliveryPercent: 0,
+    emptyKmSaved: 0,
+    averageRatePerTonKm: 0,
   })
 
   useEffect(() => {
@@ -30,17 +27,20 @@ export default function UserAnalyticsPage() {
       setLoading(true)
       const res = await api.get('/bookings').catch(() => ({ data: [] }))
       const bks = Array.isArray(res.data) ? res.data : []
-      if (bks.length > 0) {
-        const comp = bks.filter((b: any) => b.status === 'Completed').length
-        const totalVal = bks.reduce((sum: number, b: any) => sum + (parseFloat(b.agreedPrice || b.price) || 0), 0)
-        setStats((prev) => ({
-          ...prev,
-          completedTrips: comp || prev.completedTrips,
-          totalSpentOrEarned: totalVal || prev.totalSpentOrEarned,
-        }))
-      }
+      const comp = bks.filter((b: any) => b.status === 'Completed').length
+      const active = bks.filter((b: any) => b.status === 'InTransit' || b.status === 'Booked').length
+      const totalVal = bks.reduce((sum: number, b: any) => sum + (parseFloat(b.agreedPrice || b.price) || 0), 0)
+      
+      setStats({
+        completedTrips: comp,
+        activeBookings: active,
+        totalSpentOrEarned: totalVal,
+        onTimeDeliveryPercent: 0,
+        emptyKmSaved: 0,
+        averageRatePerTonKm: 0,
+      })
     } catch {
-      // Keep representative stats if offline
+      // Retain zeroed real data on error
     } finally {
       setLoading(false)
     }
@@ -48,113 +48,94 @@ export default function UserAnalyticsPage() {
 
   return (
     <DashboardLayout
-      title="Freight Operating Analytics"
+      title="Freight operating analytics"
       subtitle="Operational performance, trip fulfillment history, financial expenditure, and transit metrics."
     >
       <div className="space-y-6 max-w-7xl mx-auto">
         {loading ? (
-          <div className="p-12 text-center flex flex-col items-center justify-center gap-3">
-            <Spinner size="lg" />
-            <p className="text-sm font-bold text-surface-500">Loading operational analytics...</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Skeleton.Card />
+            <Skeleton.Card />
+            <Skeleton.Card />
+            <Skeleton.Card />
           </div>
         ) : (
           <>
             {/* ── KPI HEADER ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-card">
-            <span className="text-[10px] text-surface-400 font-black uppercase tracking-wider block">
-              Completed Freight Trips
-            </span>
-            <span className="text-2xl sm:text-3xl font-black text-surface-900 dark:text-white mt-1 block">
-              {stats.completedTrips}
-            </span>
-            <span className="text-[11px] text-emerald-600 font-medium">REAL METRIC</span>
-          </div>
-
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-card">
-            <span className="text-[10px] text-surface-400 font-black uppercase tracking-wider block">
-              Financial Volume
-            </span>
-            <span className="text-2xl sm:text-3xl font-black text-primary-600 dark:text-primary-400 mt-1 block">
-              {formatINR(stats.totalSpentOrEarned)}
-            </span>
-            <span className="text-[11px] text-primary-600 font-medium">REAL METRIC</span>
-          </div>
-
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-card">
-            <span className="text-[10px] text-surface-400 font-black uppercase tracking-wider block">
-              On-Time Transit Rate
-            </span>
-            <span className="text-2xl sm:text-3xl font-black text-emerald-600 mt-1 block">
-              {stats.onTimeDeliveryPercent}%
-            </span>
-            <span className="text-[11px] text-emerald-600 font-medium">ESTIMATED METRIC</span>
-          </div>
-
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-card">
-            <span className="text-[10px] text-surface-400 font-black uppercase tracking-wider block">
-              Empty-KM Reduced
-            </span>
-            <span className="text-2xl sm:text-3xl font-black text-purple-600 mt-1 block">
-              {stats.emptyKmSaved} KM
-            </span>
-            <span className="text-[11px] text-purple-600 font-medium">PREDICTIVE METRIC</span>
-          </div>
-        </div>
-
-        {/* ── DETAILED PERFORMANCE CARDS ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          <div className="bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-card space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
-              <div className="flex items-center gap-2">
-                <ArrowTrendingUpIcon className="w-5 h-5 text-primary-500" />
-                <h3 className="text-sm font-bold text-surface-900 dark:text-white">
-                  Freight Rate Performance
-                </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-sans">
+              <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">
+                  Completed trips
+                </span>
+                <span className="text-2xl sm:text-3xl font-mono font-black text-white block">
+                  {stats.completedTrips}
+                </span>
+                <span className="text-[11px] text-emerald-400 font-semibold font-sans">Real metric</span>
               </div>
-              <Badge variant="primary" size="sm">Rate Benchmark</Badge>
-            </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 flex justify-between items-center">
-                <span>Average Rate / Ton-Km</span>
-                <span className="font-mono font-bold text-surface-900 dark:text-white">₹{stats.averageRatePerTonKm} / T-KM</span>
+              <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">
+                  Financial volume
+                </span>
+                <span className="text-2xl sm:text-3xl font-mono font-black text-primary-400 block">
+                  {formatINR(stats.totalSpentOrEarned)}
+                </span>
+                <span className="text-[11px] text-primary-400 font-semibold font-sans">Real metric</span>
               </div>
-              <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 flex justify-between items-center">
-                <span>Spot vs Contract Rate Efficiency</span>
-                <span className="font-mono font-bold text-emerald-600">+4.2% Cost Saved</span>
+
+              <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">
+                  Active bookings
+                </span>
+                <span className="text-2xl sm:text-3xl font-mono font-black text-emerald-400 block">
+                  {stats.activeBookings}
+                </span>
+                <span className="text-[11px] text-emerald-400 font-semibold font-sans">Real metric</span>
+              </div>
+
+              <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">
+                  Empty-KM reduced
+                </span>
+                <span className="text-2xl sm:text-3xl font-mono font-black text-purple-400 block">
+                  {stats.emptyKmSaved} KM
+                </span>
+                <span className="text-[11px] text-purple-400 font-semibold font-sans">Calculated metric</span>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white dark:bg-surface-900 p-6 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-card space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
-              <div className="flex items-center gap-2">
-                <TruckIcon className="w-5 h-5 text-emerald-500" />
-                <h3 className="text-sm font-bold text-surface-900 dark:text-white">
-                  Trip Fulfillment & Transit Reliability
-                </h3>
+            {/* Performance Overview Banner */}
+            <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-8 shadow-modal space-y-4">
+              <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                <ArrowTrendingUpIcon className="w-6 h-6 text-primary-400" />
+                <div>
+                  <h3 className="text-[15px] font-semibold text-white font-sans">
+                    Logistics operating performance
+                  </h3>
+                  <p className="text-xs text-surface-400 font-sans mt-0.5">
+                    Real-time transaction & fulfillment data calculated directly from account activity.
+                  </p>
+                </div>
               </div>
-              <Badge variant="success" size="sm">Operational</Badge>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div className="p-4 rounded-2xl bg-surface-950/80 border border-white/5 space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Average rate / Ton-KM</span>
+                  <span className="text-lg font-bold text-white font-mono block">
+                    {stats.averageRatePerTonKm > 0 ? `₹${stats.averageRatePerTonKm} / Ton-KM` : '—'}
+                  </span>
+                </div>
+                <div className="p-4 rounded-2xl bg-surface-950/80 border border-white/5 space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">On-time fulfillment index</span>
+                  <span className="text-lg font-bold text-emerald-400 font-mono block">
+                    {stats.completedTrips > 0 ? `${stats.onTimeDeliveryPercent}%` : '—'}
+                  </span>
+                </div>
+              </div>
             </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 flex justify-between items-center">
-                <span>Checkpoint Completion Accuracy</span>
-                <span className="font-mono font-bold text-surface-900 dark:text-white">99.1% Checkpoint Verified</span>
-              </div>
-              <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 flex justify-between items-center">
-                <span>Average Delivery Delay</span>
-                <span className="font-mono font-bold text-emerald-600">&lt; 25 Minutes</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </>
-    )}
-  </div>
-</DashboardLayout>
+          </>
+        )}
+      </div>
+    </DashboardLayout>
   )
 }

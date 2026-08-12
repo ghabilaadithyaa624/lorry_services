@@ -2,111 +2,59 @@
 
 import React from 'react'
 import { cn } from '@/lib/utils'
+import { StatusDot, type StatusDotVariant } from './StatusDot'
 
-/**
- * Visual variants for the Badge component.
- */
 export type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'primary'
-
-/**
- * Size variants for the Badge component.
- */
 export type BadgeSize = 'sm' | 'md'
 
-/**
- * Props for the Badge component.
- */
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  /**
-   * Color variant of the badge.
-   * @default 'default'
-   */
   variant?: BadgeVariant
-  /**
-   * Size of the badge.
-   * @default 'md'
-   */
   size?: BadgeSize
-  /**
-   * Displays a status dot indicator before badge text.
-   * @default false
-   */
   dot?: boolean
-  /**
-   * Additional CSS class names.
-   */
   className?: string
-  /**
-   * Badge content.
-   */
   children?: React.ReactNode
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  default: 'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-300',
-  success: 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400',
-  warning: 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400',
-  danger: 'bg-danger-50 text-danger-700 dark:bg-danger-500/10 dark:text-danger-400',
-  info: 'bg-info-50 text-info-700 dark:bg-info-500/10 dark:text-info-400',
-  primary: 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400',
+  default: 'bg-surface-800/80 text-surface-300 border border-white/10',
+  success: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  warning: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+  danger: 'bg-danger-500/15 text-danger-400 border border-danger-500/30',
+  info: 'bg-sky-500/15 text-sky-400 border border-sky-500/30',
+  primary: 'bg-primary-500/15 text-primary-400 border border-primary-500/30',
 }
 
 const sizeClasses: Record<BadgeSize, string> = {
-  sm: 'text-2xs px-2 py-0.5 gap-1',
-  md: 'text-xs px-2.5 py-0.5 gap-1.5',
+  sm: 'text-[10px] px-2 py-0.5 gap-1 font-sans font-bold',
+  md: 'text-xs px-2.5 py-0.5 gap-1.5 font-sans font-bold',
 }
 
-const dotColorClasses: Record<BadgeVariant, string> = {
-  default: 'bg-surface-500 dark:bg-surface-400',
-  success: 'bg-success-500 dark:bg-success-400',
-  warning: 'bg-warning-500 dark:bg-warning-400',
-  danger: 'bg-danger-500 dark:bg-danger-400',
-  info: 'bg-info-500 dark:bg-info-400',
-  primary: 'bg-primary-500 dark:bg-primary-400',
-}
-
-const dotSizeClasses: Record<BadgeSize, string> = {
-  sm: 'w-1.5 h-1.5',
-  md: 'w-1.5 h-1.5',
+const dotVariantMap: Record<BadgeVariant, StatusDotVariant> = {
+  default: 'default',
+  success: 'success',
+  warning: 'warning',
+  danger: 'danger',
+  info: 'info',
+  primary: 'active',
 }
 
 /**
- * Badge component for tags, status indicators, and labels in LorryCarry.
- * Supports default, success, warning, danger, info, and primary variants with optional status dots.
+ * Badge component for tags, status indicators, and operational telemetry labels.
  */
 export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
-  (
-    {
-      variant = 'default',
-      size = 'md',
-      dot = false,
-      className,
-      children,
-      ...props
-    },
-    ref
-  ) => {
+  ({ variant = 'default', size = 'md', dot = false, className, children, ...props }, ref) => {
     return (
       <span
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center font-medium rounded-badge shrink-0 select-none whitespace-nowrap',
+          'inline-flex items-center justify-center rounded-lg shrink-0 select-none whitespace-nowrap uppercase tracking-wider',
           variantClasses[variant],
           sizeClasses[size],
           className
         )}
         {...props}
       >
-        {dot && (
-          <span
-            className={cn(
-              'rounded-full shrink-0',
-              dotSizeClasses[size],
-              dotColorClasses[variant]
-            )}
-            aria-hidden="true"
-          />
-        )}
+        {dot && <StatusDot variant={dotVariantMap[variant]} size="sm" />}
         {children}
       </span>
     )

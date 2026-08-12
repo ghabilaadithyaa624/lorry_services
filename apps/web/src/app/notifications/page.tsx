@@ -14,23 +14,49 @@ import {
 } from '@heroicons/react/24/outline'
 import { DashboardLayout } from '@/components/layout'
 import { usersApi } from '@/lib/api'
-import { Badge, Spinner } from '@/components/ui'
+import { Badge, GlassPanel, StatusDot, Skeleton } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+
+type PriorityTier = 'ACTION_REQUIRED' | 'ATTENTION' | 'INFORMATION' | 'COMPLETED'
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<string>('ALL')
+  const [error, setError] = useState('')
+  const [activePriority, setActivePriority] = useState<string>('ALL')
 
   const fetchNotifications = async () => {
     try {
       setLoading(true)
+      setError('')
       const res = await usersApi.getNotifications()
-      setNotifications(res.data.notifications || [])
+      const rawList = res.data.notifications || []
+
+      // Map raw notifications into priority tiers
+      const mapped = rawList.map((item: any) => {
+        let priority: PriorityTier = 'INFORMATION'
+        if (item.category === 'KYC' && item.title?.includes('Action')) {
+          priority = 'ACTION_REQUIRED'
+        } else if (item.category === 'PAYMENT' || item.category === 'BOOKING') {
+          if (item.message?.includes('pending') || item.message?.includes('required')) {
+            priority = 'ACTION_REQUIRED'
+          } else if (item.message?.includes('confirmed') || item.message?.includes('settled')) {
+            priority = 'COMPLETED'
+          } else {
+            priority = 'ATTENTION'
+          }
+        } else if (item.category === 'TRACKING') {
+          priority = 'INFORMATION'
+        }
+        return { ...item, priority }
+      })
+
+      setNotifications(mapped)
       setUnreadCount(res.data.unreadCount || 0)
     } catch {
+      setError('Failed to load notifications')
       toast.error('Failed to load notifications')
     } finally {
       setLoading(false)
@@ -40,6 +66,19 @@ export default function NotificationsPage() {
   useEffect(() => {
     fetchNotifications()
   }, [])
+
+  const getPriorityBadge = (priority: PriorityTier) => {
+    switch (priority) {
+      case 'ACTION_REQUIRED':
+        return <Badge variant="danger" size="sm" className="font-mono text-[10px]">🚨 ACTION REQUIRED</Badge>
+      case 'ATTENTION':
+        return <Badge variant="warning" size="sm" className="font-mono text-[10px]">🟡 ATTENTION</Badge>
+      case 'COMPLETED':
+        return <Badge variant="success" size="sm" className="font-mono text-[10px]">✓ COMPLETED</Badge>
+      default:
+        return <Badge variant="info" size="sm" className="font-mono text-[10px]">ℹ INFORMATION</Badge>
+    }
+  }
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -60,68 +99,47 @@ export default function NotificationsPage() {
     }
   }
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'TRACKING':
-        return 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400'
-      case 'PAYMENT':
-        return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400'
-      case 'KYC':
-        return 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400'
-      case 'BOOKING':
-        return 'bg-primary-50 text-primary-600 dark:bg-primary-950/50 dark:text-primary-400'
-      default:
-        return 'bg-surface-100 text-surface-600 dark:bg-surface-800 dark:text-surface-300'
-    }
-  }
+  const filteredNotifications = notifications.filter((n) => {
+    if (activePriority === 'ALL') return true
+    if (activePriority === 'UNREAD') return !n.read
+    return n.priority === activePriority || n.category === activePriority
+  })
 
-  const filteredNotifications =
-    activeTab === 'ALL'
-      ? notifications
-      : notifications.filter((n) => n.category === activeTab)
-
-  const tabs = [
-    { id: 'ALL', label: 'All Alerts' },
-    { id: 'TRACKING', label: 'Tracking & Checkpoints' },
-    { id: 'BOOKING', label: 'Bookings' },
-    { id: 'KYC', label: 'KYC & Compliance' },
-    { id: 'PAYMENT', label: 'Payments & Passes' },
+  const priorityTabs = [
+    { id: 'ALL', label: `All Alerts (${notifications.length})` },
+    { id: 'UNREAD', label: `Unread (${unreadCount})` },
+    { id: 'ACTION_REQUIRED', label: 'Action required' },
+    { id: 'ATTENTION', label: 'Attention' },
+    { id: 'INFORMATION', label: 'Information' },
+    { id: 'COMPLETED', label: 'Completed' },
   ]
-
-  if (loading) {
-    return (
-      <DashboardLayout title="Notification Center" subtitle="Real-time operational alerts and dispatch updates">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Spinner size="lg" />
-        </div>
-      </DashboardLayout>
-    )
-  }
 
   return (
     <DashboardLayout
-      title="Notification Center"
-      subtitle="Operational alerts, checkpoint crossing updates, payment confirmations, and KYC verification notices"
+      title="Notifications"
+      subtitle="Operational alerts and account activity"
       action={
         unreadCount > 0 ? (
-          <Badge variant="warning" size="md">
-            {unreadCount} Unread Alert{unreadCount > 1 ? 's' : ''}
+          <Badge variant="danger" size="md" className="text-xs">
+            {unreadCount} unread
           </Badge>
         ) : undefined
       }
     >
-      <div className="space-y-6 max-w-4xl">
-        {/* Category Tabs */}
-        <div className="flex flex-wrap gap-2 pb-1">
-          {tabs.map((tab) => (
+      <div className="space-y-6 max-w-4xl mx-auto font-sans">
+        
+        {/* Priority Filter Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none border-b border-white/10 pb-3">
+          {priorityTabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              type="button"
+              onClick={() => setActivePriority(tab.id)}
               className={cn(
-                'px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer',
-                activeTab === tab.id
-                  ? 'bg-primary-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800'
+                'px-3.5 py-1.5 rounded-xl text-xs font-sans font-semibold transition-all whitespace-nowrap cursor-pointer',
+                activePriority === tab.id
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-surface-900/80 text-surface-400 hover:text-white hover:bg-white/5 border border-white/10'
               )}
             >
               {tab.label}
@@ -129,59 +147,63 @@ export default function NotificationsPage() {
           ))}
         </div>
 
-        {/* Notification List Card */}
-        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-card overflow-hidden">
-          {filteredNotifications.length === 0 ? (
+        {/* Notifications List Panel */}
+        <GlassPanel padding="none" className="overflow-hidden">
+          {loading ? (
+            <div className="p-6 space-y-4">
+              <Skeleton.Card />
+              <Skeleton.Card />
+            </div>
+          ) : error ? (
+            <div className="p-8 text-center text-sm font-sans text-danger-300">
+              {error}
+            </div>
+          ) : filteredNotifications.length === 0 ? (
             <div className="p-12 text-center space-y-3">
-              <div className="w-14 h-14 rounded-full bg-surface-100 dark:bg-surface-800 text-surface-400 flex items-center justify-center mx-auto">
-                <BellAlertIcon className="w-7 h-7" />
+              <div className="flex items-center justify-center gap-2 text-emerald-400">
+                <StatusDot variant="active" pulse />
+                <span className="text-sm font-semibold text-emerald-400">Network clear</span>
               </div>
-              <h3 className="text-sm font-bold text-surface-900 dark:text-white">
-                No Notifications Found
-              </h3>
-              <p className="text-xs text-surface-500 dark:text-surface-400 max-w-sm mx-auto">
-                You are all caught up! Real-time alerts for bookings, checkpoints, and KYC will appear here as they occur.
+              <p className="text-xs text-surface-400 max-w-sm mx-auto font-sans">
+                No new operational notifications requiring your attention.
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-surface-100 dark:divide-surface-800">
+            <div className="divide-y divide-white/5">
               {filteredNotifications.map((item) => {
                 const Icon = getCategoryIcon(item.category)
-                const colorClass = getCategoryColor(item.category)
 
                 return (
                   <div
                     key={item.id}
                     className={cn(
-                      'p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors',
+                      'p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors',
                       item.read
-                        ? 'hover:bg-surface-50/50 dark:hover:bg-surface-800/30'
-                        : 'bg-primary-50/30 dark:bg-primary-950/20 hover:bg-primary-50/50'
+                        ? 'hover:bg-white/5'
+                        : 'bg-primary-950/20 hover:bg-primary-950/40 border-l-4 border-l-primary-500'
                     )}
                   >
                     <div className="flex items-start gap-4">
-                      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5', colorClass)}>
+                      <div className="w-10 h-10 rounded-xl bg-surface-950 text-primary-400 border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
                         <Icon className="w-5 h-5" />
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-sm text-surface-900 dark:text-white">
+                          <span className="font-bold text-sm text-white">
                             {item.title}
                           </span>
-                          <span className="text-[10px] uppercase font-bold text-surface-500 bg-surface-100 dark:bg-surface-800 px-2 py-0.5 rounded-md">
-                            {item.category}
-                          </span>
+                          {getPriorityBadge(item.priority || 'INFORMATION')}
                           {!item.read && (
-                            <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0" />
+                            <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0 shadow-glow-primary" />
                           )}
                         </div>
 
-                        <p className="text-xs text-surface-600 dark:text-surface-300 leading-relaxed">
+                        <p className="text-xs text-surface-300 leading-relaxed font-sans">
                           {item.message}
                         </p>
 
-                        <p className="text-[11px] text-surface-400 font-mono">
+                        <p className="text-[11px] text-surface-500 font-mono">
                           {new Date(item.timestamp).toLocaleDateString('en-IN', {
                             day: 'numeric',
                             month: 'short',
@@ -196,10 +218,10 @@ export default function NotificationsPage() {
                     {item.actionUrl && (
                       <Link
                         href={item.actionUrl}
-                        className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-surface-900 text-white dark:bg-white dark:text-surface-900 hover:opacity-90 text-xs font-bold shrink-0 transition-opacity self-end sm:self-center"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-500 text-white hover:from-primary-600 hover:to-primary-700 text-xs font-mono font-bold shrink-0 transition-all shadow-glow-primary self-end sm:self-center"
                       >
                         <span>Open Action</span>
-                        <ArrowRightIcon className="w-3 h-3" />
+                        <ArrowRightIcon className="w-3.5 h-3.5" />
                       </Link>
                     )}
                   </div>
@@ -207,7 +229,8 @@ export default function NotificationsPage() {
               })}
             </div>
           )}
-        </div>
+        </GlassPanel>
+
       </div>
     </DashboardLayout>
   )

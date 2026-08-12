@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
   CheckCircleIcon,
   XCircleIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
   ArrowTopRightOnSquareIcon,
+  DocumentCheckIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
-import { Modal, Badge, Button, Skeleton } from '@/components/ui'
+import { adminApi } from '@/lib/api'
+import { Modal, Badge, Button, Spinner } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { formatPhone } from '@/lib/utils'
 
@@ -48,7 +50,7 @@ export default function KycQueuePage() {
     setLoading(true)
     setError('')
     try {
-      const res = await api.get('/admin/documents/pending')
+      const res = await adminApi.getPendingDocuments()
       setDocs(res.data)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load documents'
@@ -58,20 +60,18 @@ export default function KycQueuePage() {
     }
   }, [])
 
-  useEffect(() => { fetchDocs() }, [fetchDocs])
+  useEffect(() => {
+    fetchDocs()
+  }, [fetchDocs])
 
   const handleAction = async () => {
     if (!confirm) return
     const { doc, action } = confirm
     setActionLoading(doc.id)
     try {
-      const body: { status: string; notes?: string } = { status: action }
-      if (action === 'Rejected' && rejectionNote.trim()) {
-        body.notes = rejectionNote.trim()
-      }
-      await api.patch(`/admin/documents/${doc.id}/verify`, body)
-      setDocs(prev => prev.filter(d => d.id !== doc.id))
-      toast.success(`Document ${action === 'Verified' ? 'verified' : 'rejected'} successfully`)
+      await adminApi.verifyDocument(doc.id, action, action === 'Rejected' && rejectionNote.trim() ? rejectionNote.trim() : undefined)
+      setDocs((prev) => prev.filter((d) => d.id !== doc.id))
+      toast.success(`Document ${doc.type} for truck ${doc.truck.registrationNumber} marked as ${action}!`)
     } catch (err: unknown) {
       const errorData = (err as { response?: { data?: { message?: string } } })?.response?.data
       toast.error(errorData?.message || 'Action failed. Please try again.')
@@ -82,121 +82,173 @@ export default function KycQueuePage() {
     }
   }
 
+  // Calculate pending duration helper
+  const getPendingDuration = (createdAt: string) => {
+    const diffMs = Date.now() - new Date(createdAt).getTime()
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    if (diffHours < 1) return 'Just now'
+    if (diffHours < 24) return `${diffHours} hours ago`
+    const diffDays = Math.floor(diffHours / 24)
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} pending`
+  }
+
   if (loading) {
     return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <Skeleton width={250} className="h-7" />
-          <Skeleton width={100} className="h-9" />
-        </div>
-        <div className="card overflow-hidden">
-          <div className="p-4 space-y-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <Skeleton variant="circular" width={40} height={40} />
-                <div className="flex-1 space-y-2">
-                  <Skeleton width="60%" className="h-4" />
-                  <Skeleton width="40%" className="h-3" />
-                </div>
-                <Skeleton width={80} className="h-8" />
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="p-12 text-center flex flex-col items-center justify-center gap-3">
+        <Spinner size="lg" />
+        <p className="text-xs font-mono font-bold text-surface-400 uppercase tracking-widest">
+          Loading KYC verification queue...
+        </p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <ExclamationTriangleIcon className="w-12 h-12 text-danger-400 mb-4" />
-        <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">Failed to load KYC queue</h3>
-        <p className="text-sm text-surface-500 mb-6">{error}</p>
-        <button onClick={fetchDocs} className="btn-primary flex items-center gap-2">
-          <ArrowPathIcon className="w-4 h-4" /> Retry
+      <div className="p-12 bg-[#0F131D] rounded-[20px] border border-white/10 text-center space-y-4 max-w-md mx-auto font-sans">
+        <ExclamationTriangleIcon className="w-12 h-12 text-danger-400 mx-auto" />
+        <h3 className="text-base font-bold text-white">Failed to Load KYC Queue</h3>
+        <p className="text-xs font-mono text-surface-400">{error}</p>
+        <button
+          onClick={fetchDocs}
+          className="px-5 py-2.5 rounded-xl bg-primary-600 text-white font-mono text-xs font-bold shadow-glow-primary hover:bg-primary-500 transition-colors inline-flex items-center gap-2"
+        >
+          <ArrowPathIcon className="w-4 h-4" /> Retry Fetch
         </button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-surface-900 dark:text-white tracking-tight">KYC Queue</h1>
-          <p className="text-sm text-surface-500 mt-0.5">
-            {docs.length > 0 ? `${docs.length} document${docs.length !== 1 ? 's' : ''} pending review` : 'All documents reviewed'}
+    <div className="space-y-6 max-w-7xl mx-auto font-sans">
+      
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0F131D] p-6 rounded-[20px] border border-white/10 shadow-modal relative overflow-hidden">
+        {/* Ambient Background Glow & Grid */}
+
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-2">
+            <DocumentCheckIcon className="w-5 h-5 text-primary-400" />
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              KYC & Document Verification Workspace
+            </h1>
+          </div>
+          <p className="text-xs font-mono text-surface-400 mt-1">
+            Review submitted RTO RC books and commercial insurance policies before approving fleet capacity.
           </p>
         </div>
-        <button onClick={fetchDocs} className="btn-secondary flex items-center gap-2 text-sm self-start">
-          <ArrowPathIcon className="w-4 h-4" /> Refresh
+
+        <button
+          onClick={fetchDocs}
+          className="px-4 py-2 rounded-xl bg-surface-950 border border-white/10 hover:border-white/20 text-xs font-mono font-bold text-white transition-colors flex items-center gap-2 shrink-0 cursor-pointer"
+        >
+          <ArrowPathIcon className="w-4 h-4 text-primary-400" />
+          <span>Refresh Queue ({docs.length})</span>
         </button>
       </div>
 
       {/* Empty State */}
       {docs.length === 0 ? (
-        <div className="card p-12 text-center">
-          <CheckCircleIcon className="w-16 h-16 text-success-400 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">All caught up!</h3>
-          <p className="text-sm text-surface-500">No pending KYC documents to review.</p>
+        <div className="p-12 bg-[#0F131D] rounded-[20px] border border-white/10 text-center space-y-3 shadow-modal font-mono">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto text-2xl">
+            ✓
+          </div>
+          <h3 className="text-base font-bold text-white">All KYC Submissions Processed</h3>
+          <p className="text-xs text-surface-400 max-w-sm mx-auto">
+            No pending vehicle RC or insurance documents require verification at this moment.
+          </p>
         </div>
       ) : (
-        /* Documents Table */
-        <div className="card overflow-hidden">
+        /* KYC Queue Table Card */
+        <div className="bg-[#0F131D] rounded-[20px] border border-white/10 shadow-modal overflow-hidden font-mono">
+          <div className="p-5 border-b border-white/10 flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-white">
+              Pending KYC Items ({docs.length})
+            </span>
+            <span className="text-[11px] text-surface-400">AWS S3 Encrypted Storage</span>
+          </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
+            <table className="w-full text-xs">
               <thead>
-                <tr className="bg-surface-50 dark:bg-surface-800/60 border-b border-surface-200 dark:border-surface-700">
-                  {['Truck Owner', 'Truck', 'Document', 'Doc Number', 'Submitted', 'Actions'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-surface-400">{h}</th>
-                  ))}
+                <tr className="border-b border-white/10 bg-surface-950/60 text-surface-400 uppercase text-[10px]">
+                  <th className="text-left py-3 px-4 font-bold">Driver / User</th>
+                  <th className="text-left py-3 px-4 font-bold">Vehicle</th>
+                  <th className="text-left py-3 px-4 font-bold">Document Type</th>
+                  <th className="text-left py-3 px-4 font-bold">Status</th>
+                  <th className="text-left py-3 px-4 font-bold">Pending Duration</th>
+                  <th className="text-right py-3 px-4 font-bold">Review & Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
-                {docs.map(doc => (
-                  <tr key={doc.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-surface-900 dark:text-white">{doc.truck.user.name || '—'}</p>
-                      <p className="text-xs text-surface-500">{formatPhone(doc.truck.user.phone)}</p>
+              <tbody className="divide-y divide-white/5">
+                {docs.map((doc) => (
+                  <tr key={doc.id} className="hover:bg-white/5 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <p className="font-bold text-white">{doc.truck.user.name || 'Transporter'}</p>
+                      <p className="text-[11px] text-surface-400">{formatPhone(doc.truck.user.phone)}</p>
                     </td>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-surface-900 dark:text-white">{doc.truck.registrationNumber}</p>
-                      <Badge variant="default" size="sm">{doc.truck.bodyType}</Badge>
+
+                    <td className="py-3.5 px-4">
+                      <p className="font-bold text-white">🆔 {doc.truck.registrationNumber}</p>
+                      <Badge variant="default" size="sm" className="font-mono text-[10px]">{doc.truck.bodyType}</Badge>
                     </td>
-                    <td className="px-4 py-3">
+
+                    <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
-                        <Badge variant={doc.type === 'RC' ? 'info' : 'primary'} size="sm">{doc.type}</Badge>
-                        <a href={doc.s3Url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
-                          <ArrowTopRightOnSquareIcon className="w-4 h-4" />
-                        </a>
+                        <Badge variant={doc.type === 'RC' ? 'info' : 'primary'} size="sm" className="font-mono text-[10px]">
+                          {doc.type}
+                        </Badge>
+                        {doc.docNumber && (
+                          <span className="text-surface-300 font-bold">#{doc.docNumber}</span>
+                        )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-surface-600 dark:text-surface-400 font-mono text-xs">
-                      {doc.docNumber || '—'}
+
+                    <td className="py-3.5 px-4">
+                      <Badge variant="warning" size="sm" className="font-mono text-[10px]">
+                        PENDING
+                      </Badge>
                     </td>
-                    <td className="px-4 py-3 text-surface-500 text-xs">
-                      {new Date(doc.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+
+                    <td className="py-3.5 px-4 text-surface-300">
+                      <div className="flex items-center gap-1.5">
+                        <ClockIcon className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{getPendingDuration(doc.createdAt)}</span>
+                      </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <a
+                          href={doc.s3Url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-xl bg-surface-950 border border-white/10 hover:border-white/20 text-white font-bold text-[11px] inline-flex items-center gap-1 transition-colors"
+                        >
+                          <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5 text-primary-400" />
+                          <span>Review</span>
+                        </a>
+
                         <Button
                           variant="primary"
                           size="sm"
                           disabled={actionLoading === doc.id}
-                          loading={actionLoading === doc.id}
                           onClick={() => setConfirm({ doc, action: 'Verified' })}
-                          leftIcon={<CheckCircleIcon className="w-4 h-4" />}
+                          leftIcon={<CheckCircleIcon className="w-3.5 h-3.5" />}
+                          className="font-bold text-xs py-1.5 shadow-glow-primary"
                         >
                           Verify
                         </Button>
+
                         <Button
                           variant="danger"
                           size="sm"
                           disabled={actionLoading === doc.id}
                           onClick={() => setConfirm({ doc, action: 'Rejected' })}
-                          leftIcon={<XCircleIcon className="w-4 h-4" />}
+                          leftIcon={<XCircleIcon className="w-3.5 h-3.5" />}
+                          className="font-bold text-xs py-1.5"
                         >
                           Reject
                         </Button>
@@ -210,50 +262,67 @@ export default function KycQueuePage() {
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Confirmation Dialog Modal */}
       {confirm && (
         <Modal
           open={true}
-          onClose={() => { setConfirm(null); setRejectionNote('') }}
-          title={confirm.action === 'Verified' ? 'Verify Document' : 'Reject Document'}
-          description={`${confirm.doc.type} for truck ${confirm.doc.truck.registrationNumber}`}
+          onClose={() => {
+            setConfirm(null)
+            setRejectionNote('')
+          }}
+          title={confirm.action === 'Verified' ? 'Confirm Document Verification' : 'Reject Document Verification'}
+          description={`${confirm.doc.type} Document for Vehicle ${confirm.doc.truck.registrationNumber}`}
           size="sm"
         >
-          {confirm.action === 'Rejected' && (
-            <div className="mb-4">
-              <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-2">
-                Rejection Reason (optional)
-              </label>
-              <textarea
-                value={rejectionNote}
-                onChange={(e) => setRejectionNote(e.target.value)}
-                placeholder="Enter reason for rejection..."
-                className="input min-h-[80px] resize-none"
-                rows={3}
-              />
+          <div className="space-y-4 font-mono text-xs">
+            {confirm.action === 'Rejected' && (
+              <div>
+                <label className="block text-xs font-bold uppercase text-surface-300 mb-1.5">
+                  Rejection Reason Notes (optional)
+                </label>
+                <textarea
+                  value={rejectionNote}
+                  onChange={(e) => setRejectionNote(e.target.value)}
+                  placeholder="Explain why document was rejected (e.g. unreadable scan)..."
+                  className="w-full p-3 bg-surface-950 border border-white/10 rounded-xl text-white outline-none focus:border-primary-500 min-h-[80px]"
+                  rows={3}
+                />
+              </div>
+            )}
+
+            <p className="text-surface-300 leading-relaxed">
+              {confirm.action === 'Verified'
+                ? 'Are you sure you want to mark this document as VERIFIED? If all vehicle documents are verified, the truck status will update to Verified.'
+                : 'Are you sure you want to REJECT this document? The truck owner will be notified to upload a new document.'}
+            </p>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-white/10">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setConfirm(null)
+                  setRejectionNote('')
+                }}
+                disabled={actionLoading !== null}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                variant={confirm.action === 'Verified' ? 'primary' : 'danger'}
+                size="sm"
+                loading={actionLoading !== null}
+                onClick={handleAction}
+                className="font-bold shadow-glow-primary"
+              >
+                {confirm.action === 'Verified' ? 'Confirm Verification' : 'Confirm Rejection'}
+              </Button>
             </div>
-          )}
-          <p className="text-sm text-surface-600 dark:text-surface-400">
-            {confirm.action === 'Verified'
-              ? 'Are you sure you want to verify this document? This will mark it as approved.'
-              : 'Are you sure you want to reject this document? The truck owner will need to re-upload.'}
-          </p>
-          <Modal.Footer>
-            <Button variant="secondary" size="md" onClick={() => { setConfirm(null); setRejectionNote('') }}>
-              Cancel
-            </Button>
-            <Button
-              variant={confirm.action === 'Verified' ? 'primary' : 'danger'}
-              size="md"
-              loading={actionLoading !== null}
-              disabled={actionLoading !== null}
-              onClick={handleAction}
-            >
-              {confirm.action === 'Verified' ? 'Verify Document' : 'Reject Document'}
-            </Button>
-          </Modal.Footer>
+          </div>
         </Modal>
       )}
+
     </div>
   )
 }

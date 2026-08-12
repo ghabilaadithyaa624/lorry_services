@@ -78,18 +78,18 @@ module.exports = {
         // ── Background aliases (backward-compat) ──
         background: {
           light: '#F8FAFC',
-          dark:  '#0B0F19',
+          dark:  '#070A11',
         },
         text: {
           light: '#0F172A',
-          dark:  '#F1F5F9',
+          dark:  '#F6DED3',
         },
       },
 
       fontFamily: {
-        sans:    ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        mono:    ['Geist Mono', 'JetBrains Mono', 'monospace'],
+        sans:    ['var(--font-inter)', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['var(--font-inter)', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono:    ['var(--font-geist-mono)', 'Geist Mono', 'JetBrains Mono', 'monospace'],
       },
 
       fontSize: {
@@ -100,6 +100,8 @@ module.exports = {
         'card':   '16px',
         'button': '10px',
         'input':  '10px',
+        'panel':  '20px',
+        'modal':  '24px',
         'badge':  '8px',
         'pill':   '9999px',
       },

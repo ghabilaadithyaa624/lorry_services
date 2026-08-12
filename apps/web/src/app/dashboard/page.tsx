@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Spinner } from '@/components/ui'
 
 export default function DashboardIndexPage() {
   const router = useRouter()
@@ -43,7 +44,6 @@ export default function DashboardIndexPage() {
       if (!token) {
         router.replace('/login?redirect=/dashboard')
       } else {
-        // Default to load-owner dashboard
         router.replace('/dashboard/load-owner')
       }
     } catch (err) {
@@ -53,11 +53,11 @@ export default function DashboardIndexPage() {
   }, [router])
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col items-center justify-center p-4 font-sans">
       <div className="flex flex-col items-center space-y-4">
-        <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-          Redirecting to your dashboard...
+        <Spinner size="lg" />
+        <p className="text-xs font-mono font-bold text-surface-400 uppercase tracking-widest">
+          Navigating to your logistics cockpit...
         </p>
       </div>
     </div>

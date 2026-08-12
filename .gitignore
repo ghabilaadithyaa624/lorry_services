@@ -68,3 +68,5 @@ coverage/
 tmp/
 temp/
 *.tmp
+
+vite.config.ts.timestamp-*.mjs

@@ -4,28 +4,28 @@
 
 @layer base {
   body {
-    @apply bg-surface-900 text-surface-50 antialiased font-sans;
+    @apply bg-[#070A11] text-surface-50 antialiased font-sans;
     margin: 0;
   }
 }
 
 @layer components {
   .card {
-    @apply bg-surface-800 border border-surface-700/60 rounded-card shadow-card;
+    @apply bg-[#0F131D] border border-white/10 rounded-card shadow-modal;
   }
   .input {
-    @apply w-full bg-surface-900 border border-surface-700 rounded-input px-3.5 py-2 text-sm text-surface-100 placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all;
+    @apply w-full bg-[#070A11] border border-white/10 rounded-input px-3.5 py-2.5 text-sm text-white placeholder-surface-400 focus:outline-none focus:border-primary-500 transition-colors duration-150;
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center px-4 py-2 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white text-sm font-semibold rounded-button shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-surface-900 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[0.98] text-white text-sm font-semibold rounded-button shadow-glow-primary transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center px-4 py-2 bg-surface-800 hover:bg-surface-700 active:bg-surface-600 border border-surface-700 text-surface-200 text-sm font-semibold rounded-button transition-all focus:outline-none focus:ring-2 focus:ring-surface-500 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center px-4 py-2.5 bg-[#0F131D] hover:bg-white/5 active:scale-[0.98] border border-white/10 text-surface-200 text-sm font-semibold rounded-button transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center px-4 py-2 bg-danger-600 hover:bg-danger-700 active:bg-danger-800 text-white text-sm font-semibold rounded-button shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-danger-500 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center px-4 py-2.5 bg-danger-600 hover:bg-danger-700 active:scale-[0.98] text-white text-sm font-semibold rounded-button shadow-sm transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-badge text-xs font-semibold;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-badge text-xs font-semibold border border-white/10;
   }
 }

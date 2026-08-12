@@ -12,28 +12,10 @@ interface CardContextValue {
 const CardContext = createContext<CardContextValue>({ padding: 'md' })
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  /**
-   * Adds hover elevation shadow when true.
-   * @default false
-   */
   hover?: boolean
-  /**
-   * Adds interactive state (hover shadow, border highlights, pointer cursor).
-   * @default false
-   */
   interactive?: boolean
-  /**
-   * Base padding applied to Card.Body unless overridden.
-   * @default 'md'
-   */
   padding?: CardPadding
-  /**
-   * Additional CSS class names.
-   */
   className?: string
-  /**
-   * Card content.
-   */
   children?: React.ReactNode
 }
 
@@ -43,9 +25,6 @@ export interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export interface CardBodyProps extends React.HTMLAttributes<HTMLDivElement> {
-  /**
-   * Override padding for this body section.
-   */
   padding?: CardPadding
   className?: string
   children?: React.ReactNode
@@ -66,36 +45,18 @@ const paddingClasses: Record<CardPadding, string> = {
 /**
  * Card Component
  *
- * Base surface container component with support for headers, bodies, and footers.
- *
- * @example
- * <Card hover interactive>
- *   <Card.Header>Title</Card.Header>
- *   <Card.Body>Content</Card.Body>
- *   <Card.Footer>Actions</Card.Footer>
- * </Card>
+ * Dark glassmorphic surface container component with header, body, and footer sections.
  */
 const CardRoot = forwardRef<HTMLDivElement, CardProps>(
-  (
-    {
-      hover = false,
-      interactive = false,
-      padding = 'md',
-      className,
-      children,
-      ...props
-    },
-    ref
-  ) => {
+  ({ hover = false, interactive = false, padding = 'md', className, children, ...props }, ref) => {
     return (
       <CardContext.Provider value={{ padding }}>
         <div
           ref={ref}
           className={cn(
-            'bg-white dark:bg-surface-900 rounded-card shadow-card border border-surface-100 dark:border-surface-800 transition-all duration-200',
-            hover && 'hover:shadow-card-hover',
-            interactive &&
-              'hover:shadow-card-hover hover:border-surface-200 dark:hover:border-surface-700 cursor-pointer',
+            'bg-[#0F131D] rounded-2xl border border-white/10 text-white shadow-modal transition-transform duration-200 ease-out relative overflow-hidden',
+            hover && 'hover:border-white/20 hover:-translate-y-0.5',
+            interactive && 'hover:border-primary-500/40 hover:-translate-y-1 active:translate-y-0 cursor-pointer',
             className
           )}
           {...props}
@@ -109,20 +70,12 @@ const CardRoot = forwardRef<HTMLDivElement, CardProps>(
 
 CardRoot.displayName = 'Card'
 
-/**
- * Card.Header Component
- *
- * Header section with border bottom and flex layout for title and actions.
- */
 export const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <div
         ref={ref}
-        className={cn(
-          'px-6 py-4 border-b border-surface-100 dark:border-surface-800 flex justify-between items-center',
-          className
-        )}
+        className={cn('px-6 py-4 border-b border-white/10 flex justify-between items-center bg-transparent', className)}
         {...props}
       >
         {children}
@@ -133,22 +86,13 @@ export const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
 
 CardHeader.displayName = 'Card.Header'
 
-/**
- * Card.Body Component
- *
- * Main body content section with customizable padding scale.
- */
 export const CardBody = forwardRef<HTMLDivElement, CardBodyProps>(
   ({ padding: bodyPadding, className, children, ...props }, ref) => {
     const context = useContext(CardContext)
     const padding = bodyPadding ?? context.padding ?? 'md'
 
     return (
-      <div
-        ref={ref}
-        className={cn(paddingClasses[padding], className)}
-        {...props}
-      >
+      <div ref={ref} className={cn(paddingClasses[padding], className)} {...props}>
         {children}
       </div>
     )
@@ -157,20 +101,12 @@ export const CardBody = forwardRef<HTMLDivElement, CardBodyProps>(
 
 CardBody.displayName = 'Card.Body'
 
-/**
- * Card.Footer Component
- *
- * Footer section with top border and right-aligned flex layout for actions.
- */
 export const CardFooter = forwardRef<HTMLDivElement, CardFooterProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <div
         ref={ref}
-        className={cn(
-          'px-6 py-4 border-t border-surface-100 dark:border-surface-800 flex justify-end items-center gap-3',
-          className
-        )}
+        className={cn('px-6 py-4 border-t border-white/10 bg-surface-950/60 flex justify-end items-center gap-3', className)}
         {...props}
       >
         {children}

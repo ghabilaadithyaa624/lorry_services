@@ -38,6 +38,9 @@ api.interceptors.response.use(
         localStorage.removeItem('accessToken')
         localStorage.removeItem('refreshToken')
         localStorage.removeItem('user')
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login'
+        }
         return Promise.reject(error)
       }
 
@@ -54,6 +57,9 @@ api.interceptors.response.use(
             localStorage.removeItem('accessToken')
             localStorage.removeItem('refreshToken')
             localStorage.removeItem('user')
+            if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+              window.location.href = '/login'
+            }
             return Promise.reject(refreshError)
           })
           .finally(() => {
@@ -78,6 +84,12 @@ api.interceptors.response.use(
 )
 
 export const authApi = {
+  requestOtp: (phone: string, channel: 'whatsapp' | 'sms' = 'whatsapp') =>
+    api.post('/auth/otp/request', { phone, channel }),
+
+  verifyOtp: (phone: string, otp: string, role?: string) =>
+    api.post('/auth/otp/verify', { phone, otp, role }),
+
   logout: async () => {
     const refreshToken = localStorage.getItem('refreshToken')
     try {
@@ -92,3 +104,4 @@ export const authApi = {
     localStorage.removeItem('user')
   },
 }
+

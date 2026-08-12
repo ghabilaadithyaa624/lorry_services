@@ -54,7 +54,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     } catch {
       // Ignore
     }
-    navigate('/')
+    navigate('/login')
   }
 
   const isCurrent = (path: string) => {
@@ -145,9 +145,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const activeLabel = navItems.find((item) => isCurrent(item.path))?.label || 'Admin'
 
   return (
-    <div className="min-h-screen bg-surface-900 text-surface-100 flex">
+    <div className="min-h-screen bg-[#070A11] text-surface-100 flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:w-64 lg:flex-col shrink-0 bg-surface-800/90 border-r border-surface-700/60 fixed inset-y-0 left-0 z-30">
+      <aside className="hidden lg:flex lg:w-64 lg:flex-col shrink-0 bg-[#0F131D] border-r border-white/10 fixed inset-y-0 left-0 z-30">
         <div className="flex flex-col h-full">
           <SidebarContent />
         </div>
@@ -156,13 +156,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-          <div className="relative z-50 w-64 bg-surface-800 h-full flex flex-col shadow-2xl border-r border-surface-700">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+          <div className="relative z-50 w-64 bg-[#0F131D] h-full flex flex-col shadow-2xl border-r border-white/10">
             <div className="absolute top-4 right-4">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-1 rounded-lg text-surface-400 hover:text-white hover:bg-surface-700"
+                className="p-1 rounded-lg text-surface-400 hover:text-white hover:bg-white/5"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -175,7 +175,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Main Container */}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         {/* Top Header */}
-        <header className="sticky top-0 z-20 bg-surface-900/90 backdrop-blur-md border-b border-surface-700/60 h-16 flex items-center px-4 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-20 bg-[#070A11]/90 backdrop-blur-md border-b border-white/10 h-16 flex items-center px-4 sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}

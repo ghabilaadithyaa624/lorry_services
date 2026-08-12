@@ -7,7 +7,7 @@ export default function NotFound() {
     <div className="min-h-screen bg-surface-50 dark:bg-background-dark flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 relative text-center">
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 space-y-6">
         <div className="inline-flex items-center gap-2.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-400 flex items-center justify-center text-white shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-primary-500 flex items-center justify-center text-white shadow-sm">
             <TruckIcon className="w-7 h-7 stroke-[2.2]" />
           </div>
           <span className="text-2xl font-black tracking-tight text-surface-900 dark:text-white leading-none">

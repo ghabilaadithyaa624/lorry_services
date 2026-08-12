@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   DocumentCheckIcon,
-  ShieldCheckIcon,
   ArrowUpTrayIcon,
   TruckIcon,
   EyeIcon,
@@ -12,14 +11,26 @@ import {
 } from '@heroicons/react/24/outline'
 import { DashboardLayout } from '@/components/layout'
 import { usersApi, trucksApi } from '@/lib/api'
-import { Button, Badge, Modal, Spinner } from '@/components/ui'
+import {
+  Button,
+  Badge,
+  Modal,
+  GlassPanel,
+  TelemetryMetric,
+  Skeleton,
+} from '@/components/ui'
 import { DigitalDocumentChainCard } from '@/components/intelligence'
 import { toast } from '@/lib/toast'
+import { cn } from '@/lib/utils'
+
+type DocFilterTab = 'ALL' | 'VERIFIED' | 'PENDING' | 'REJECTED' | 'EXPIRED'
 
 export default function DocumentsPage() {
   const [data, setData] = useState<any>(null)
   const [trucks, setTrucks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState<DocFilterTab>('ALL')
 
   // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(false)
@@ -32,6 +43,7 @@ export default function DocumentsPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
+      setError('')
       const [docsRes, trucksRes] = await Promise.all([
         usersApi.getDocuments(),
         trucksApi.getMyTrucks().catch(() => ({ data: [] })),
@@ -42,6 +54,7 @@ export default function DocumentsPage() {
         setUploadTruckId(trucksRes.data[0].id)
       }
     } catch {
+      setError('Failed to load compliance documents')
       toast.error('Failed to load documents')
     } finally {
       setLoading(false)
@@ -71,7 +84,7 @@ export default function DocumentsPage() {
         selectedFile,
         uploadDocNumber.trim() || undefined
       )
-      toast.success(`${uploadDocType} document uploaded successfully. Verification pending.`)
+      toast.success(`${uploadDocType} document uploaded to S3 successfully. Verification pending.`)
       setShowUploadModal(false)
       setSelectedFile(null)
       setUploadDocNumber('')
@@ -84,102 +97,136 @@ export default function DocumentsPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <DashboardLayout title="KYC & Vehicle Documents" subtitle="Compliance verification and RC certificates">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Spinner size="lg" />
-        </div>
-      </DashboardLayout>
-    )
-  }
-
   const documents = data?.documents || []
+
+  // Filter documents by tab
+  const filteredDocuments = documents.filter((doc: any) => {
+    if (activeTab === 'VERIFIED') return doc.verificationStatus === 'Verified'
+    if (activeTab === 'PENDING') return doc.verificationStatus === 'Pending'
+    if (activeTab === 'REJECTED') return doc.verificationStatus === 'Rejected'
+    if (activeTab === 'EXPIRED') return doc.isExpired || doc.verificationStatus === 'Expired'
+    return true
+  })
+
+  const verifiedCount = documents.filter((d: any) => d.verificationStatus === 'Verified').length
+  const pendingCount = documents.filter((d: any) => d.verificationStatus === 'Pending').length
+  const rejectedCount = documents.filter((d: any) => d.verificationStatus === 'Rejected').length
+  const expiredCount = documents.filter((d: any) => d.isExpired || d.verificationStatus === 'Expired').length
 
   return (
     <DashboardLayout
-      title="KYC & Compliance Documents"
-      subtitle="Manage your fleet RC copies, commercial insurance policies, and compliance verifications"
+      title="Documents"
+      subtitle="Keep your freight and fleet documentation compliant."
       action={
         trucks.length > 0 ? (
           <Button
             variant="primary"
-            size="sm"
+            size="md"
             onClick={() => setShowUploadModal(true)}
-            leftIcon={<ArrowUpTrayIcon className="w-4 h-4" />}
+            leftIcon={<ArrowUpTrayIcon className="w-4 h-4 shrink-0" />}
+            className="shadow-glow-primary"
           >
-            Upload New Document
+            Upload document
           </Button>
         ) : undefined
       }
     >
-      <div className="space-y-6 max-w-5xl">
-        {/* Compliance Summary Statistics Bar */}
+      <div className="space-y-6 max-w-6xl mx-auto font-sans">
+        
+        {/* ── COMPLIANCE TELEMETRY ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-card">
-            <span className="text-[11px] text-surface-400 font-bold uppercase tracking-wider block">
-              Total Documents
-            </span>
-            <span className="text-2xl font-black text-surface-900 dark:text-white mt-1 block">
-              {data?.totalCount || 0}
-            </span>
-          </div>
+          <TelemetryMetric
+            label="Verified"
+            value={loading ? <Skeleton className="h-8 w-12" /> : verifiedCount}
+            subtitle="Active & compliant"
+            classification="REAL METRIC"
+            variant="success"
+          />
 
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-card">
-            <span className="text-[11px] text-success-600 dark:text-success-400 font-bold uppercase tracking-wider block">
-              Verified
-            </span>
-            <span className="text-2xl font-black text-success-600 dark:text-success-400 mt-1 block">
-              {data?.verifiedCount || 0}
-            </span>
-          </div>
+          <TelemetryMetric
+            label="Pending"
+            value={loading ? <Skeleton className="h-8 w-12" /> : pendingCount}
+            subtitle="Under review"
+            classification="REAL METRIC"
+            variant="warning"
+          />
 
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-card">
-            <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider block">
-              In Review (Pending)
-            </span>
-            <span className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1 block">
-              {data?.pendingCount || 0}
-            </span>
-          </div>
+          <TelemetryMetric
+            label="Rejected"
+            value={loading ? <Skeleton className="h-8 w-12" /> : rejectedCount}
+            subtitle="Re-upload required"
+            classification="REAL METRIC"
+            variant="danger"
+          />
 
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-card">
-            <span className="text-[11px] text-danger-600 dark:text-danger-400 font-bold uppercase tracking-wider block">
-              Action Required
-            </span>
-            <span className="text-2xl font-black text-danger-600 dark:text-danger-400 mt-1 block">
-              {data?.rejectedCount || 0}
-            </span>
-          </div>
+          <TelemetryMetric
+            label="Expired"
+            value={loading ? <Skeleton className="h-8 w-12" /> : expiredCount}
+            subtitle="Renewal required"
+            classification="REAL METRIC"
+            variant="default"
+          />
         </div>
 
-        {/* Documents Table / List Card */}
-        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-card overflow-hidden">
-          <div className="p-5 border-b border-surface-100 dark:border-surface-800 flex items-center justify-between">
+        {/* ── FILTER TABS ── */}
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none border-b border-white/10 pb-3">
+          {[
+            { id: 'ALL', label: `All (${documents.length})` },
+            { id: 'VERIFIED', label: `Verified (${verifiedCount})` },
+            { id: 'PENDING', label: `Pending (${pendingCount})` },
+            { id: 'REJECTED', label: `Rejected (${rejectedCount})` },
+            { id: 'EXPIRED', label: `Expired (${expiredCount})` },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as DocFilterTab)}
+              className={cn(
+                'px-4 py-2 rounded-xl text-xs font-sans font-semibold transition-all whitespace-nowrap cursor-pointer',
+                activeTab === tab.id
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-surface-900/80 text-surface-400 hover:text-white hover:bg-white/5 border border-white/10'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── DOCUMENTS LIST PANEL ── */}
+        <GlassPanel padding="lg" className="space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-white/10">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center">
-                <DocumentCheckIcon className="w-5 h-5" />
-              </div>
-              <h2 className="text-sm font-bold uppercase tracking-wider text-surface-900 dark:text-white">
-                Fleet Verification Records
+              <DocumentCheckIcon className="w-5 h-5 text-primary-400" />
+              <h2 className="text-[15px] font-semibold text-white font-sans">
+                Compliance records
               </h2>
             </div>
-            <span className="text-xs text-surface-400">AWS S3 Encrypted Storage</span>
+            <span className="text-xs text-surface-500 font-sans">Encrypted vault</span>
           </div>
 
-          {documents.length === 0 ? (
+          {loading ? (
+            <div className="space-y-3">
+              <Skeleton.Card />
+              <Skeleton.Card />
+            </div>
+          ) : error ? (
+            <div className="p-6 rounded-2xl bg-danger-950/40 border border-danger-900/60 text-center text-sm font-sans text-danger-300">
+              {error}
+            </div>
+          ) : filteredDocuments.length === 0 ? (
             <div className="p-12 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-surface-100 dark:bg-surface-800 text-surface-400 flex items-center justify-center mx-auto">
-                <DocumentTextIcon className="w-8 h-8" />
+              <div className="w-12 h-12 rounded-2xl bg-surface-950 text-surface-400 flex items-center justify-center mx-auto border border-white/5">
+                <DocumentCheckIcon className="w-6 h-6" />
               </div>
               <div className="space-y-1 max-w-sm mx-auto">
-                <h3 className="text-sm font-bold text-surface-900 dark:text-white">
-                  No Compliance Documents Found
+                <h3 className="text-sm font-semibold text-white font-sans">
+                  No documents in this category
                 </h3>
-                <p className="text-xs text-surface-500 dark:text-surface-400">
+                <p className="text-xs text-surface-400 font-sans">
                   {trucks.length === 0
-                    ? 'Register your fleet trucks first to upload RC and Insurance certificates.'
-                    : 'Upload your vehicle RC (Registration Certificate) and Commercial Insurance to get verified.'}
+                    ? 'Register your fleet trucks first to upload RC and insurance certificates.'
+                    : 'Upload your vehicle RC (Registration Certificate) and commercial insurance to get verified.'}
                 </p>
               </div>
               {trucks.length > 0 ? (
@@ -188,38 +235,39 @@ export default function DocumentsPage() {
                   size="sm"
                   onClick={() => setShowUploadModal(true)}
                   leftIcon={<ArrowUpTrayIcon className="w-4 h-4" />}
+                  className="shadow-glow-primary"
                 >
-                  Upload Vehicle Document
+                  Upload document
                 </Button>
               ) : (
                 <Link
                   href="/dashboard/truck-owner"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 text-white text-xs font-bold hover:bg-primary-700 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-sans font-semibold hover:bg-primary-500 transition-colors shadow-glow-primary"
                 >
                   <TruckIcon className="w-4 h-4" />
-                  Register a Truck
+                  Register a truck
                 </Link>
               )}
             </div>
           ) : (
-            <div className="divide-y divide-surface-100 dark:divide-surface-800">
-              {documents.map((doc: any) => {
+            <div className="divide-y divide-white/5">
+              {filteredDocuments.map((doc: any) => {
                 const isVerified = doc.verificationStatus === 'Verified'
                 const isPending = doc.verificationStatus === 'Pending'
 
                 return (
                   <div
                     key={doc.id}
-                    className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-surface-50/50 dark:hover:bg-surface-800/30 transition-colors"
+                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/5 transition-colors text-xs"
                   >
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 flex items-center justify-center shrink-0 mt-0.5">
-                        <DocumentTextIcon className="w-6 h-6" />
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-surface-950 text-primary-400 flex items-center justify-center shrink-0 border border-white/10 mt-0.5">
+                        <DocumentTextIcon className="w-5 h-5" />
                       </div>
 
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-sm text-surface-900 dark:text-white">
+                          <span className="font-bold text-sm text-white">
                             {doc.type === 'RC' ? 'Registration Certificate (RC)' : 'Commercial Insurance'}
                           </span>
                           <Badge
@@ -230,12 +278,12 @@ export default function DocumentsPage() {
                           </Badge>
                         </div>
 
-                        <p className="text-xs text-surface-500 dark:text-surface-400 flex flex-wrap items-center gap-2 font-mono">
-                          <span className="font-bold text-surface-700 dark:text-surface-300">
+                        <p className="text-xs text-surface-400 font-sans flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-white">
                             {doc.truckRegistration}
                           </span>
-                          <span>•</span>
-                          <span>{doc.truckBodyType} Body</span>
+                          <span>&bull;</span>
+                          <span>{doc.truckBodyType}</span>
                           {doc.docNumber && (
                             <>
                               <span>•</span>
@@ -245,8 +293,8 @@ export default function DocumentsPage() {
                         </p>
 
                         {doc.verificationNotes && (
-                          <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-1.5 rounded-md mt-1">
-                            Note: {doc.verificationNotes}
+                          <p className="text-[11px] text-amber-300 bg-amber-950/40 border border-amber-500/30 p-2 rounded-xl mt-1">
+                            Rejection Reason: {doc.verificationNotes}
                           </p>
                         )}
                       </div>
@@ -262,10 +310,10 @@ export default function DocumentsPage() {
                           href={doc.s3Url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 text-xs font-bold text-surface-800 dark:text-surface-200 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-950 border border-white/10 hover:border-white/20 text-xs font-bold text-white transition-colors"
                         >
-                          <EyeIcon className="w-4 h-4" />
-                          View File
+                          <EyeIcon className="w-4 h-4 text-primary-400" />
+                          VIEW FILE
                         </a>
                       )}
                     </div>
@@ -274,15 +322,15 @@ export default function DocumentsPage() {
               })}
             </div>
           )}
-        </div>
+        </GlassPanel>
 
-        {/* ── DIGITAL FREIGHT DOCUMENT CHAIN (PHASE 9) ── */}
+        {/* ── DIGITAL FREIGHT DOCUMENT CHAIN ── */}
         <DigitalDocumentChainCard
           bookingId="b-freight-active-8492"
           bookingNumber="LC-8492-MAA"
-          loadOwnerName="Chennai Steel Works Ltd"
+          loadOwnerName="Shipper Enterprise Depot"
           truckRegNumber={trucks[0]?.registrationNumber || 'MH 12 QT 8492'}
-          consigneeName="Ramesh Kumar (Bengaluru Depot Manager)"
+          consigneeName="Depot Receiving Manager"
           status="InTransit"
           ewayBillNumber="EWB-2940-1928-3910"
           advanceConfirmed={true}
@@ -290,34 +338,6 @@ export default function DocumentsPage() {
           podSubmittedAt={new Date().toISOString()}
           onRefresh={fetchData}
         />
-        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-6 shadow-card space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-surface-100 dark:border-surface-800">
-            <ShieldCheckIcon className="w-5 h-5 text-primary-500" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-surface-900 dark:text-white">
-              Vahan & Compliance Standards
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-surface-600 dark:text-surface-400 leading-relaxed">
-            <div className="p-3.5 bg-surface-50 dark:bg-surface-800/40 rounded-xl border border-surface-100 dark:border-surface-700 space-y-1">
-              <span className="font-bold text-surface-900 dark:text-white block">
-                RC Verification (Form 23)
-              </span>
-              <p className="text-[11px]">
-                Must clearly display Vehicle Registration Number, Gross Vehicle Weight (GVW), Chassis Number, and National Permit validity.
-              </p>
-            </div>
-
-            <div className="p-3.5 bg-surface-50 dark:bg-surface-800/40 rounded-xl border border-surface-100 dark:border-surface-700 space-y-1">
-              <span className="font-bold text-surface-900 dark:text-white block">
-                Commercial Goods Insurance
-              </span>
-              <p className="text-[11px]">
-                Comprehensive or Third-Party Commercial Goods Carrying Vehicle insurance policy with active validity.
-              </p>
-            </div>
-          </div>
-        </div>
 
         {/* Modal: Upload Document */}
         <Modal
@@ -326,15 +346,15 @@ export default function DocumentsPage() {
           title="Upload Vehicle KYC Document"
           size="md"
         >
-          <form onSubmit={handleUpload} className="space-y-4">
+          <form onSubmit={handleUpload} className="space-y-4 font-mono text-xs">
             <div>
-              <label className="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1.5">
+              <label className="text-xs font-bold text-surface-300 block mb-1.5">
                 Select Truck
               </label>
               <select
                 value={uploadTruckId}
                 onChange={(e) => setUploadTruckId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm font-medium text-surface-900 dark:text-white outline-hidden focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-3 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-primary-500"
                 required
               >
                 {trucks.map((t) => (
@@ -347,13 +367,13 @@ export default function DocumentsPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1.5">
+                <label className="text-xs font-bold text-surface-300 block mb-1.5">
                   Document Type
                 </label>
                 <select
                   value={uploadDocType}
                   onChange={(e) => setUploadDocType(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm font-medium text-surface-900 dark:text-white outline-hidden focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3.5 py-3 bg-surface-950 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-primary-500"
                 >
                   <option value="RC">RC Certificate</option>
                   <option value="Insurance">Insurance Policy</option>
@@ -361,7 +381,7 @@ export default function DocumentsPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1.5">
+                <label className="text-xs font-bold text-surface-300 block mb-1.5">
                   Document # (Optional)
                 </label>
                 <input
@@ -369,25 +389,25 @@ export default function DocumentsPage() {
                   value={uploadDocNumber}
                   onChange={(e) => setUploadDocNumber(e.target.value)}
                   placeholder="e.g. MH12AB1234"
-                  className="w-full px-3.5 py-2.5 bg-surface-50 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl text-sm font-medium text-surface-900 dark:text-white outline-hidden focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3.5 py-3 bg-surface-950 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-primary-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1.5">
+              <label className="text-xs font-bold text-surface-300 block mb-1.5">
                 Upload File (PDF / JPG / PNG, Max 5MB)
               </label>
               <input
                 type="file"
                 accept="application/pdf,image/jpeg,image/png,image/webp"
                 onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                className="w-full text-xs text-surface-600 dark:text-surface-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary-50 file:text-primary-700 dark:file:bg-primary-950 dark:file:text-primary-300 hover:file:bg-primary-100 cursor-pointer"
+                className="w-full text-xs text-surface-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary-500 file:text-white cursor-pointer"
                 required
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t border-surface-100 dark:border-surface-800">
+            <div className="flex justify-end gap-2 pt-4 border-t border-white/10">
               <Button
                 variant="ghost"
                 size="sm"
@@ -402,6 +422,7 @@ export default function DocumentsPage() {
                 size="sm"
                 type="submit"
                 loading={uploading}
+                className="shadow-glow-primary font-bold"
               >
                 Upload to S3
               </Button>

@@ -35,17 +35,17 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
   }
 
   return (
-    <div className={cn('bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-5 shadow-card space-y-4', className)}>
-      <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
+    <div className={cn('bg-[#0F131D] rounded-[20px] border border-white/10 p-6 shadow-modal space-y-4 font-sans', className)}>
+      <div className="flex items-center justify-between pb-3 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
             <BellAlertIcon className="w-4 h-4" />
           </div>
-          <h3 className="text-xs font-bold text-surface-900 dark:text-white uppercase tracking-wider">
+          <h3 className="text-xs font-mono font-bold text-white uppercase tracking-widest">
             Operational Action Center
           </h3>
         </div>
-        <Badge variant="warning" size="sm">
+        <Badge variant="warning" size="sm" className="font-mono text-[10px]">
           {tasks.length} Action{tasks.length > 1 ? 's' : ''} Required
         </Badge>
       </div>
@@ -56,22 +56,22 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
           return (
             <div
               key={task.id}
-              className="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/60 dark:border-surface-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              className="p-4 rounded-2xl bg-surface-950/70 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-white/15 transition-all shadow-card"
             >
               <div className="flex items-start gap-3">
                 <div className={cn(
-                  'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
+                  'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border',
                   task.urgency === 'HIGH'
-                    ? 'bg-danger-50 text-danger-600 dark:bg-danger-950/40 dark:text-danger-400'
-                    : 'bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-400'
+                    ? 'bg-danger-500/10 text-danger-400 border-danger-500/30'
+                    : 'bg-primary-500/10 text-primary-400 border-primary-500/30'
                 )}>
                   <Icon className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-surface-900 dark:text-white">
+                  <h4 className="text-xs font-bold text-white">
                     {task.title}
                   </h4>
-                  <p className="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5 leading-relaxed">
+                  <p className="text-[11px] text-surface-300 mt-0.5 leading-relaxed">
                     {task.description}
                   </p>
                 </div>
@@ -79,10 +79,10 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
 
               <Link
                 href={task.actionUrl}
-                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-surface-900 text-white dark:bg-white dark:text-surface-900 hover:opacity-90 text-xs font-bold shrink-0 transition-opacity"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-primary-500 hover:from-primary-600 hover:to-primary-700 text-white shadow-glow-primary text-xs font-bold shrink-0 transition-all cursor-pointer border border-primary-400/30"
               >
                 <span>{task.actionLabel}</span>
-                <ArrowRightIcon className="w-3 h-3 shrink-0" />
+                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0" />
               </Link>
             </div>
           )

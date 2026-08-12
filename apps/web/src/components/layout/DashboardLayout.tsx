@@ -20,9 +20,16 @@ import {
   ClockIcon,
   Cog6ToothIcon,
   LockClosedIcon,
+  MapIcon,
+  BriefcaseIcon,
+  ChartBarIcon,
+  ShieldExclamationIcon,
+  BanknotesIcon,
+  UsersIcon,
+  CommandLineIcon
 } from '@heroicons/react/24/outline'
 import { authApi } from '@/lib/api'
-import { Badge, Button } from '@/components/ui'
+import { Badge } from '@/components/ui'
 import { AIFreightAssistantDrawer } from '@/components/intelligence'
 import { cn, formatPhone } from '@/lib/utils'
 
@@ -74,278 +81,175 @@ export function DashboardLayout({
   const isTruckOwner = user?.role === 'truck_owner'
   const isAdmin = user?.role === 'admin'
 
-  const navigationItems = isTruckOwner
-    ? [
-        {
-          name: 'Overview',
-          href: '/dashboard/truck-owner',
-          icon: HomeIcon,
-          active: pathname === '/dashboard/truck-owner',
-        },
-        {
-          name: 'Find Loads',
-          href: '/search?type=load',
-          icon: MagnifyingGlassIcon,
-          active: pathname === '/search',
-        },
-        {
-          name: 'Fleet Operating System',
-          href: '/my-trucks',
-          icon: ClipboardDocumentListIcon,
-          active: pathname.startsWith('/my-trucks'),
-        },
-        {
-          name: 'Subscription',
-          href: '/subscribe',
-          icon: CreditCardIcon,
-          active: pathname.startsWith('/subscribe'),
-        },
-      ]
-    : isAdmin
-    ? [
-        {
-          name: 'Admin Console',
-          href: '/admin',
-          icon: ShieldCheckIcon,
-          active: pathname === '/admin',
-        },
-        {
-          name: 'Marketplace Search',
-          href: '/search',
-          icon: MagnifyingGlassIcon,
-          active: pathname === '/search',
-        },
-      ]
-    : [
-        {
-          name: 'Overview',
-          href: '/dashboard/load-owner',
-          icon: HomeIcon,
-          active: pathname === '/dashboard/load-owner',
-        },
-        {
-          name: 'Find Trucks',
-          href: '/search?type=truck',
-          icon: MagnifyingGlassIcon,
-          active: pathname === '/search',
-        },
-        {
-          name: 'Post a Load',
-          href: '/post-load',
-          icon: PlusCircleIcon,
-          active: pathname === '/post-load',
-        },
-        {
-          name: 'My Posted Loads',
-          href: '/my-loads',
-          icon: ClipboardDocumentListIcon,
-          active: pathname === '/my-loads',
-        },
-        {
-          name: 'B2B Sourcing (RFF)',
-          href: '/procurement',
-          icon: DocumentCheckIcon,
-          active: pathname === '/procurement',
-        },
-        {
-          name: 'Subscription',
-          href: '/subscribe',
-          icon: CreditCardIcon,
-          active: pathname.startsWith('/subscribe'),
-        },
-      ]
-
-  const accountNavigationItems = [
-    {
-      name: 'User Profile',
-      href: '/profile',
-      icon: UserCircleIcon,
-      active: pathname === '/profile',
-    },
-    {
-      name: 'KYC & Documents',
-      href: '/documents',
-      icon: DocumentCheckIcon,
-      active: pathname === '/documents',
-    },
-    {
-      name: 'Notifications',
-      href: '/notifications',
-      icon: BellAlertIcon,
-      active: pathname === '/notifications',
-    },
-    {
-      name: 'Activity Log',
-      href: '/activity',
-      icon: ClockIcon,
-      active: pathname === '/activity',
-    },
-    {
-      name: 'Settings',
-      href: '/settings',
-      icon: Cog6ToothIcon,
-      active: pathname === '/settings',
-    },
-    {
-      name: 'Security & Sessions',
-      href: '/security',
-      icon: LockClosedIcon,
-      active: pathname === '/security',
-    },
+  const loadOwnerNav = [
+    { name: 'Overview', href: '/dashboard/load-owner', icon: HomeIcon },
+    { name: 'Find Trucks', href: '/search?type=truck', icon: MagnifyingGlassIcon },
+    { name: 'Post Freight', href: '/post-load', icon: PlusCircleIcon },
+    { name: 'My Loads', href: '/my-loads', icon: ClipboardDocumentListIcon },
+    { name: 'Bookings', href: '/bookings', icon: BriefcaseIcon },
+    { name: 'Tracking', href: '/tracking', icon: MapIcon },
+    { name: 'Documents', href: '/documents', icon: DocumentCheckIcon },
+    { name: 'Activity', href: '/activity', icon: ClockIcon },
+    { name: 'Notifications', href: '/notifications', icon: BellAlertIcon },
+    { name: 'Subscription', href: '/subscribe', icon: CreditCardIcon },
+    { name: 'Profile', href: '/profile', icon: UserCircleIcon },
+    { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+    { name: 'Security', href: '/security', icon: LockClosedIcon },
   ]
 
+  const truckOwnerNav = [
+    { name: 'Overview', href: '/dashboard/truck-owner', icon: HomeIcon },
+    { name: 'Find Loads', href: '/search?type=load', icon: MagnifyingGlassIcon },
+    { name: 'My Fleet', href: '/my-trucks', icon: TruckIcon },
+    { name: 'Trips', href: '/trips', icon: MapIcon },
+    { name: 'Tracking', href: '/tracking', icon: MapIcon },
+    { name: 'Documents', href: '/documents', icon: DocumentCheckIcon },
+    { name: 'Activity', href: '/activity', icon: ClockIcon },
+    { name: 'Notifications', href: '/notifications', icon: BellAlertIcon },
+    { name: 'Subscription', href: '/subscribe', icon: CreditCardIcon },
+    { name: 'Profile', href: '/profile', icon: UserCircleIcon },
+    { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+    { name: 'Security', href: '/security', icon: LockClosedIcon },
+  ]
+
+  const adminNav = [
+    { name: 'Control Tower', href: '/admin', icon: ShieldCheckIcon },
+    { name: 'Users', href: '/admin/users', icon: UsersIcon },
+    { name: 'Freight', href: '/admin/listings', icon: ClipboardDocumentListIcon },
+    { name: 'Fleet', href: '/admin/fleet', icon: TruckIcon },
+    { name: 'Bookings', href: '/admin/bookings', icon: BriefcaseIcon },
+    { name: 'Payments', href: '/admin/payments', icon: BanknotesIcon },
+    { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCardIcon },
+    { name: 'Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
+    { name: 'Audit', href: '/admin/audit', icon: ClockIcon },
+    { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
+    { name: 'System', href: '/admin/system', icon: CommandLineIcon },
+  ]
+
+  const navItems = isTruckOwner ? truckOwnerNav : isAdmin ? adminNav : loadOwnerNav
+
   const roleLabel = isTruckOwner
-    ? 'Lorry Owner'
+    ? 'Truck Owner'
     : isAdmin
     ? 'Admin'
     : 'Load Owner'
 
   return (
-    <div className="min-h-screen bg-surface-50 dark:bg-background-dark text-surface-900 dark:text-surface-100 flex flex-col md:flex-row">
-      {/* ── Desktop Sidebar Navigation ── */}
-      <aside className="hidden md:flex md:w-64 md:flex-col shrink-0 bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-800">
+    <div className="min-h-screen bg-[#070A11] text-surface-100 flex font-sans selection:bg-primary-500 selection:text-white relative overflow-hidden">
+      {/* ── Level 1 Sidebar Navigation ── */}
+      <aside className="hidden md:flex md:w-[280px] md:flex-col shrink-0 bg-[#0F131D] border-r border-white/10 relative z-20">
         <div className="flex flex-col h-full min-h-screen">
           {/* Brand Header */}
-          <div className="h-16 flex items-center px-6 border-b border-surface-100 dark:border-surface-800">
+          <div className="h-16 flex items-center px-6 border-b border-white/10 shrink-0">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary-600 to-primary-400 flex items-center justify-center text-white shadow-sm">
+              <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white font-black text-xs">
                 <TruckIcon className="w-5 h-5 stroke-[2.2]" />
               </div>
-              <div className="flex flex-col">
-                <span className="text-lg font-black tracking-tight leading-none">
-                  Lorry<span className="text-primary-500">Carry</span>
-                </span>
-                <span className="text-[9px] font-bold text-surface-400 uppercase tracking-widest mt-0.5">
-                  Operations Center
-                </span>
-              </div>
-            </Link>
-          </div>
-
-          {/* User Profile Card */}
-          <div className="p-4 border-b border-surface-100 dark:border-surface-800">
-            <Link
-              href="/profile"
-              className="flex items-center gap-3 p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-100 dark:border-surface-700/50 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors group"
-            >
-              <div className="w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-400 font-bold text-xs flex items-center justify-center shrink-0">
-                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'LC'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-surface-900 dark:text-white truncate group-hover:text-primary-600 transition-colors">
-                  {user?.name || (user?.phone ? formatPhone(user.phone) : 'My Account')}
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <Badge variant={isTruckOwner ? 'info' : 'primary'} size="sm" dot>
-                    {roleLabel}
-                  </Badge>
-                </div>
-              </div>
+              <span className="font-bold text-lg tracking-tight text-white">
+                Lorry<span className="text-primary-500">Carry</span>
+              </span>
             </Link>
           </div>
 
           {/* Navigation Links */}
-          <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
-            {/* Primary Workspace */}
-            <div className="space-y-1">
-              <span className="px-3 text-[10px] font-bold text-surface-400 uppercase tracking-wider block mb-1.5">
-                Marketplace Workspace
-              </span>
-              {navigationItems.map((item) => {
-                const Icon = item.icon
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-150',
-                      item.active
-                        ? 'bg-primary-500 text-white shadow-xs'
-                        : 'text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-white'
-                    )}
-                  >
-                    <Icon className={cn('w-4 h-4 shrink-0', item.active ? 'text-white' : 'text-surface-400')} />
-                    <span>{item.name}</span>
-                  </Link>
-                )
-              })}
-            </div>
-
-            {/* Account & Operations Center */}
-            <div className="space-y-1 pt-2 border-t border-surface-100 dark:border-surface-800">
-              <span className="px-3 text-[10px] font-bold text-surface-400 uppercase tracking-wider block mb-1.5">
-                Account Center
-              </span>
-              {accountNavigationItems.map((item) => {
-                const Icon = item.icon
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-150',
-                      item.active
-                        ? 'bg-primary-500 text-white shadow-xs'
-                        : 'text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-900 dark:hover:text-white'
-                    )}
-                  >
-                    <Icon className={cn('w-4 h-4 shrink-0', item.active ? 'text-white' : 'text-surface-400')} />
-                    <span>{item.name}</span>
-                  </Link>
-                )
-              })}
-            </div>
+          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+            {navItems.map((item) => {
+              const Icon = item.icon
+              // Make active states strict for homepage vs deep links
+              const isActive = item.href === '/admin' || item.href === '/dashboard/load-owner' || item.href === '/dashboard/truck-owner'
+                ? pathname === item.href
+                : pathname.startsWith(item.href)
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary-500/10 text-primary-400 border-l-2 border-primary-500'
+                      : 'text-surface-400 hover:bg-white/5 hover:text-white border-l-2 border-transparent'
+                  )}
+                >
+                  <Icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-primary-400' : 'text-surface-500')} />
+                  <span>{item.name}</span>
+                </Link>
+              )
+            })}
           </nav>
 
-          {/* Quick Post / Fleet Action */}
-          <div className="p-4 border-t border-surface-100 dark:border-surface-800">
-            {!isTruckOwner && !isAdmin && (
-              <Button
-                variant="primary"
-                size="md"
-                fullWidth
-                onClick={() => router.push('/post-load')}
-                leftIcon={<PlusCircleIcon className="w-5 h-5" />}
-                className="mb-2"
-              >
-                Post New Load
-              </Button>
-            )}
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-button text-xs font-semibold text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors"
-            >
-              <ArrowRightOnRectangleIcon className="w-4 h-4" />
-              <span>Sign Out</span>
-            </button>
+          {/* User Profile / Status */}
+          <div className="p-4 border-t border-white/10 shrink-0 space-y-3">
+            <div className="flex items-center justify-between">
+              <Badge variant="success" size="sm" className="font-sans">
+                Network Online
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-surface-800 text-surface-300 font-bold text-xs flex items-center justify-center shrink-0 border border-white/10">
+                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'LC'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-white truncate">
+                  {user?.name || (user?.phone ? formatPhone(user.phone) : 'My Account')}
+                </p>
+                <p className="text-[10px] text-surface-400">{roleLabel}</p>
+              </div>
+            </div>
           </div>
         </div>
       </aside>
 
-      {/* ── Main Content Area ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* ── Main Content Area (Level 0) ── */}
+      <div className="flex-1 flex flex-col min-w-0 relative z-10 h-screen overflow-hidden">
+        {/* Top Command Bar (Level 1) */}
+        <header className="hidden md:flex h-16 bg-[#0F131D] border-b border-white/10 px-8 items-center justify-between shrink-0">
+          <div className="flex items-center gap-4 text-sm font-medium text-surface-400">
+            <span>{roleLabel} Console</span>
+            <span className="text-surface-600">/</span>
+            <span className="text-white">{title || 'Dashboard'}</span>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <div className="relative group">
+              <MagnifyingGlassIcon className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Global Search (Ctrl+K)"
+                className="pl-9 pr-4 py-1.5 bg-surface-900 border border-white/10 rounded-md text-xs text-white focus:outline-none focus:border-primary-500 transition-colors w-64"
+              />
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button className="text-surface-400 hover:text-white transition-colors relative">
+                <BellAlertIcon className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
+              </button>
+              <button onClick={handleLogout} className="text-surface-400 hover:text-danger-400 transition-colors" title="Sign Out">
+                <ArrowRightOnRectangleIcon className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </header>
+
         {/* Mobile Header Bar */}
-        <header className="md:hidden sticky top-0 z-30 bg-white dark:bg-surface-900 border-b border-surface-200 dark:border-surface-800 px-4 h-14 flex items-center justify-between">
+        <header className="md:hidden sticky top-0 z-30 bg-[#0F131D] border-b border-white/10 px-4 h-14 flex items-center justify-between shrink-0">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white font-black text-xs">
               LC
             </div>
-            <span className="font-bold text-base text-surface-900 dark:text-white">
+            <span className="font-bold text-base text-white">
               Lorry<span className="text-primary-500">Carry</span>
             </span>
           </Link>
 
           <div className="flex items-center gap-2">
-            <Badge variant={isTruckOwner ? 'info' : 'primary'} size="sm">
+            <Badge variant={isTruckOwner ? 'info' : 'primary'} size="sm" className="font-sans">
               {roleLabel}
             </Badge>
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg text-surface-600 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800"
-              aria-label="Open sidebar navigation"
+              className="p-1.5 rounded-lg text-surface-300 hover:bg-white/5"
             >
               {sidebarOpen ? <XMarkIcon className="w-5 h-5" /> : <Bars3Icon className="w-5 h-5" />}
             </button>
@@ -354,81 +258,56 @@ export function DashboardLayout({
 
         {/* Mobile Drawer Overlay */}
         {sidebarOpen && (
-          <div className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-xs flex">
-            <div className="w-64 bg-white dark:bg-surface-900 h-full p-4 flex flex-col justify-between shadow-2xl">
-              <div>
-                <div className="flex items-center justify-between pb-4 border-b border-surface-100 dark:border-surface-800">
-                  <span className="font-bold text-sm">Navigation</span>
+          <div className="md:hidden fixed inset-0 z-40 bg-black/80  flex">
+            <div className="w-64 bg-[#0F131D] border-r border-white/10 h-full flex flex-col justify-between shadow-2xl">
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
+                  <span className="font-bold text-sm text-white">Menu</span>
                   <button
                     type="button"
                     onClick={() => setSidebarOpen(false)}
-                    className="p-1 text-surface-400 hover:text-surface-600"
+                    className="p-1 text-surface-400 hover:text-white"
                   >
                     <XMarkIcon className="w-5 h-5" />
                   </button>
                 </div>
 
-                <nav className="mt-4 space-y-4 overflow-y-auto max-h-[70vh]">
-                  <div className="space-y-1">
-                    <span className="px-3 text-[10px] font-bold text-surface-400 uppercase tracking-wider block mb-1">
-                      Workspace
-                    </span>
-                    {navigationItems.map((item) => {
-                      const Icon = item.icon
-                      return (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          onClick={() => setSidebarOpen(false)}
-                          className={cn(
-                            'flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-colors',
-                            item.active
-                              ? 'bg-primary-500 text-white font-bold'
-                              : 'text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800'
-                          )}
-                        >
-                          <Icon className="w-4 h-4" />
-                          <span>{item.name}</span>
-                        </Link>
-                      )
-                    })}
-                  </div>
-
-                  <div className="space-y-1 pt-2 border-t border-surface-100 dark:border-surface-800">
-                    <span className="px-3 text-[10px] font-bold text-surface-400 uppercase tracking-wider block mb-1">
-                      Account Center
-                    </span>
-                    {accountNavigationItems.map((item) => {
-                      const Icon = item.icon
-                      return (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          onClick={() => setSidebarOpen(false)}
-                          className={cn(
-                            'flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-colors',
-                            item.active
-                              ? 'bg-primary-500 text-white font-bold'
-                              : 'text-surface-700 dark:text-surface-300 hover:bg-surface-100 dark:hover:bg-surface-800'
-                          )}
-                        >
-                          <Icon className="w-4 h-4" />
-                          <span>{item.name}</span>
-                        </Link>
-                      )
-                    })}
-                  </div>
+                <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+                  {navItems.map((item) => {
+                    const Icon = item.icon
+                    const isActive = item.href === '/admin' || item.href === '/dashboard/load-owner' || item.href === '/dashboard/truck-owner'
+                      ? pathname === item.href
+                      : pathname.startsWith(item.href)
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setSidebarOpen(false)}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors font-sans',
+                          isActive
+                            ? 'bg-primary-500/10 text-primary-400 border-l-2 border-primary-500'
+                            : 'text-surface-400 hover:bg-white/5 hover:text-white border-l-2 border-transparent'
+                        )}
+                      >
+                        <Icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-primary-400' : 'text-surface-500')} />
+                        <span>{item.name}</span>
+                      </Link>
+                    )
+                  })}
                 </nav>
               </div>
 
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-danger-600 dark:text-danger-400 rounded-xl hover:bg-danger-50 dark:hover:bg-danger-950/30"
-              >
-                <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                <span>Logout</span>
-              </button>
+              <div className="p-4 border-t border-white/10 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-danger-400 rounded-md hover:bg-danger-950/30"
+                >
+                  <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                  <span>Logout</span>
+                </button>
+              </div>
             </div>
             <div className="flex-1" onClick={() => setSidebarOpen(false)} />
           </div>
@@ -436,16 +315,16 @@ export function DashboardLayout({
 
         {/* Optional Page Subheader */}
         {(title || action) && (
-          <div className="bg-white dark:bg-surface-900/60 border-b border-surface-100 dark:border-surface-800 py-5 px-4 sm:px-6 lg:px-8">
+          <div className="bg-[#0F131D]/80  border-b border-white/10 py-5 px-4 sm:px-6 lg:px-8 shrink-0">
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 {title && (
-                  <h1 className="text-xl sm:text-2xl font-extrabold text-surface-900 dark:text-white tracking-tight">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-sans">
                     {title}
                   </h1>
                 )}
                 {subtitle && (
-                  <p className="text-xs sm:text-sm text-surface-500 dark:text-surface-400 mt-0.5">
+                  <p className="text-sm text-surface-300 mt-1 max-w-3xl leading-relaxed font-sans">
                     {subtitle}
                   </p>
                 )}
@@ -455,35 +334,39 @@ export function DashboardLayout({
           </div>
         )}
 
-        {/* Main Body Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-20 md:pb-8">
-          {children}
+        {/* Main Body Content Scrollable Area */}
+        <main className="flex-1 overflow-y-auto bg-[#070A11] p-4 sm:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto pb-20 md:pb-8">
+            {children}
+          </div>
         </main>
 
-        {/* ── Mobile Bottom Navigation Bar (Thumb navigation) ── */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-surface-900/95 backdrop-blur-md border-t border-surface-200 dark:border-surface-800 px-2 py-1.5 flex items-center justify-around">
-          {navigationItems.slice(0, 4).map((item) => {
+        {/* ── Mobile Bottom Navigation Bar ── */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#0F131D] border-t border-white/10 px-1 py-1 flex items-center justify-around shrink-0 pb-safe">
+          {navItems.slice(0, 5).map((item) => {
             const Icon = item.icon
+            const isActive = item.href === '/admin' || item.href === '/dashboard/load-owner' || item.href === '/dashboard/truck-owner'
+              ? pathname === item.href
+              : pathname.startsWith(item.href)
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors',
-                  item.active
-                    ? 'text-primary-600 dark:text-primary-400 font-bold'
-                    : 'text-surface-500 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white'
+                  'flex flex-col items-center justify-center py-1.5 px-2 rounded-lg gap-1 min-w-0 flex-1 transition-colors font-sans',
+                  isActive
+                    ? 'text-primary-400'
+                    : 'text-surface-500 hover:text-white'
                 )}
               >
-                <Icon className={cn('w-5 h-5 mb-0.5', item.active ? 'text-primary-500 stroke-[2.2]' : '')} />
-                <span>{item.name}</span>
+                <Icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-primary-400' : '')} />
+                <span className="text-[10px] font-medium truncate w-full text-center leading-none">{item.name}</span>
               </Link>
             )
           })}
         </nav>
       </div>
 
-      {/* Floating AI Freight Assistant Drawer */}
       <AIFreightAssistantDrawer />
     </div>
   )

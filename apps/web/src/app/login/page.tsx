@@ -176,7 +176,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-50 dark:bg-background-dark flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
+    <div className="min-h-screen bg-[#070A11] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative font-sans">
       {/* Background ambient lighting */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -184,18 +184,18 @@ function LoginForm() {
         {/* Brand Header */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2.5 group">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-400 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform duration-200">
+            <div className="w-11 h-11 rounded-2xl bg-primary-500 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform duration-200">
               <TruckIcon className="w-6 h-6 stroke-[2.2]" />
             </div>
-            <span className="text-2xl font-black tracking-tight text-surface-900 dark:text-white leading-none">
+            <span className="text-2xl font-black tracking-tight text-white leading-none">
               Lorry<span className="text-primary-500">Carry</span>
             </span>
           </Link>
 
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-surface-900 dark:text-white tracking-tight pt-2">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight pt-2">
             {step === 'phone' ? 'Log in or Register' : 'Verify Your Number'}
           </h2>
-          <p className="text-xs sm:text-sm text-surface-500 dark:text-surface-400">
+          <p className="text-xs sm:text-sm text-surface-400">
             {step === 'phone'
               ? 'Enter your mobile number to access loads, trucks, and bookings'
               : `We sent a 6-digit OTP to +91 ${phone}`}
@@ -225,7 +225,7 @@ function LoginForm() {
               <div className="space-y-5">
                 {/* Mobile Phone Input */}
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-700 dark:text-surface-400 mb-2">
                     Mobile Number
                   </label>
                   <div className="flex rounded-input border border-surface-300 dark:border-surface-700 overflow-hidden focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:border-primary-500 bg-white dark:bg-surface-800 transition-all">
@@ -254,7 +254,7 @@ function LoginForm() {
                 {/* Role Selection (I AM REGISTERING AS) */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300">
+                    <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-700 dark:text-surface-400">
                       I AM REGISTERING AS
                     </label>
                     <span className="text-[11px] text-surface-400">For new users</span>
@@ -344,7 +344,7 @@ function LoginForm() {
 
                 {/* Channel Selection */}
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-700 dark:text-surface-400 mb-2">
                     Deliver Code Via
                   </label>
                   <div className="grid grid-cols-2 gap-3">
@@ -475,7 +475,7 @@ function LoginForm() {
 
                 {/* OTP Input */}
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-2 text-center">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-700 dark:text-surface-400 mb-2 text-center">
                     Enter 6-Digit Code
                   </label>
                   <input

@@ -53,19 +53,19 @@ export function OperationalEmptyState({
   const steps = role === 'load_owner' ? loadOwnerWorkflow : truckOwnerWorkflow
 
   return (
-    <div className={cn('bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-6 sm:p-8 shadow-card text-center space-y-6', className)}>
+    <div className={cn('bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-8 shadow-modal text-center space-y-6 font-sans', className)}>
       <div className="max-w-md mx-auto space-y-2">
-        <h3 className="text-lg sm:text-xl font-bold text-surface-900 dark:text-white">
+        <h3 className="text-lg sm:text-xl font-bold text-white">
           {title}
         </h3>
-        <p className="text-xs sm:text-sm text-surface-500 dark:text-surface-400 leading-relaxed">
+        <p className="text-xs sm:text-sm text-surface-300 leading-relaxed">
           {description}
         </p>
       </div>
 
       {/* 4-Step Operational Flow Guide */}
       <div className="pt-2">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-surface-400 block mb-4">
+        <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-surface-400 block mb-4">
           LorryCarry Direct Operating Workflow
         </span>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-left">
@@ -74,18 +74,18 @@ export function OperationalEmptyState({
             return (
               <div
                 key={s.step}
-                className="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/60 dark:border-surface-700/60 space-y-1.5"
+                className="p-4 rounded-2xl bg-surface-950/70 border border-white/5 space-y-2 hover:border-white/15 transition-all"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold text-primary-600 dark:text-primary-400">
+                  <span className="text-xs font-mono font-bold text-primary-400">
                     {s.step}
                   </span>
                   <Icon className="w-4 h-4 text-surface-400" />
                 </div>
-                <h4 className="text-xs font-bold text-surface-900 dark:text-white">
+                <h4 className="text-xs font-bold text-white">
                   {s.title}
                 </h4>
-                <p className="text-[11px] text-surface-500 leading-relaxed">
+                <p className="text-[11px] text-surface-300 leading-relaxed">
                   {s.desc}
                 </p>
               </div>
@@ -101,7 +101,7 @@ export function OperationalEmptyState({
             variant="primary"
             size="md"
             onClick={() => router.push(actionHref)}
-            className="font-bold px-6"
+            className="font-bold px-6 shadow-glow-primary text-xs"
           >
             {actionLabel}
           </Button>
@@ -111,7 +111,7 @@ export function OperationalEmptyState({
             variant="secondary"
             size="md"
             onClick={() => router.push(secondaryActionHref)}
-            className="font-bold px-6"
+            className="font-bold px-6 text-xs border-white/10 hover:border-white/20"
           >
             {secondaryActionLabel}
           </Button>

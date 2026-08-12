@@ -90,6 +90,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['Geist Mono', 'JetBrains Mono', 'monospace'],
       },
       borderRadius: {
         'card':   '16px',
@@ -100,6 +101,8 @@ export default {
       boxShadow: {
         'card': '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
         'card-hover': '0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.04)',
+        'modal': '0 20px 60px -12px rgb(0 0 0 / 0.25)',
+        'glow-primary': '0 0 20px -4px rgb(249 115 22 / 0.3)',
       },
     },
   },

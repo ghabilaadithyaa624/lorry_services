@@ -35,6 +35,60 @@ services:
     volumes:
       - minio_svc_data:/data
 
+  migration:
+    image: node:20-alpine
+    container_name: lorrycarry-migration
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: "postgresql://lorrycarry:localdev@postgres:5432/lorrycarry_dev?schema=public"
+    command: sh -c "npm i -g prisma && cd packages/database && npx prisma migrate deploy"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: lorrycarry-api
+    ports:
+      - "3002:3002"
+    env_file:
+      - .env.staging.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      migration:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: lorrycarry-web
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.staging.example
+    depends_on:
+      - api
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: lorrycarry-admin
+    ports:
+      - "3001:80"
+    env_file:
+      - .env.staging.example
+    depends_on:
+      - api
+
 volumes:
   postgres_svc_data:
   minio_svc_data:

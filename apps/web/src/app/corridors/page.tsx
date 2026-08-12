@@ -9,12 +9,12 @@ import {
 } from '@heroicons/react/24/outline'
 import { api } from '@/lib/api'
 import { DashboardLayout } from '@/components/layout'
-import { Badge, Spinner } from '@/components/ui'
+import { Badge, Skeleton } from '@/components/ui'
 import {
   evaluateNationalLogistics,
   CorridorStat,
 } from '@/lib/intelligence/nationalLogisticsEngine'
-import { formatINR, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 
 export default function NationalCorridorsPage() {
@@ -35,22 +35,9 @@ export default function NationalCorridorsPage() {
         api.get('/bookings').catch(() => ({ data: [] })),
       ])
 
-      const fetchedLoads: any[] = loadsRes.status === 'fulfilled' ? (loadsRes.value as any)?.data || [] : []
-      const fetchedTrucks: any[] = trucksRes.status === 'fulfilled' ? (trucksRes.value as any)?.data || [] : []
-      const fetchedBookings: any[] = bookingsRes.status === 'fulfilled' ? (bookingsRes.value as any)?.data || [] : []
-
-      const loads = fetchedLoads.length > 0 ? fetchedLoads : [
-        { id: 'l1', origin: 'Chennai', destination: 'Bengaluru', status: 'Open' },
-        { id: 'l2', origin: 'Chennai', destination: 'Bengaluru', status: 'Matched' },
-      ]
-      const trucks = fetchedTrucks.length > 0 ? fetchedTrucks : [
-        { id: 't1', currentLocation: 'Chennai', verificationStatus: 'Verified' },
-        { id: 't2', currentLocation: 'Bengaluru', verificationStatus: 'Verified' },
-      ]
-      const bookings = fetchedBookings.length > 0 ? fetchedBookings : [
-        { id: 'b1', origin: 'Chennai', destination: 'Bengaluru', status: 'Completed', price: 31500 },
-        { id: 'b2', origin: 'Chennai', destination: 'Bengaluru', status: 'InTransit', price: 30800 },
-      ]
+      const loads: any[] = loadsRes.status === 'fulfilled' ? (loadsRes.value as any)?.data || [] : []
+      const trucks: any[] = trucksRes.status === 'fulfilled' ? (trucksRes.value as any)?.data || [] : []
+      const bookings: any[] = bookingsRes.status === 'fulfilled' ? (bookingsRes.value as any)?.data || [] : []
 
       const summary = evaluateNationalLogistics(loads, trucks, bookings, [])
       setCorridors(summary.corridors)
@@ -69,21 +56,21 @@ export default function NationalCorridorsPage() {
 
   return (
     <DashboardLayout
-      title="National Freight Corridor Intelligence"
+      title="National freight corridor intelligence"
       subtitle="Corridor density, indicative benchmark rate/ton-km, transit performance, and empty-run reduction metrics."
     >
       <div className="space-y-6 max-w-7xl mx-auto">
         
         {/* ── HEADER BANNER ── */}
-        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-6 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 shadow-modal flex flex-col md:flex-row md:items-center justify-between gap-4 font-sans">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <MapPinIcon className="w-6 h-6 text-primary-500" />
-              <h1 className="text-lg font-black text-surface-900 dark:text-white">
-                Major Indian Logistics & Industrial Corridors
+              <MapPinIcon className="w-6 h-6 text-primary-400" />
+              <h1 className="text-[15px] font-semibold text-white font-sans">
+                Major Indian logistics & industrial corridors
               </h1>
             </div>
-            <p className="text-xs text-surface-500 max-w-2xl">
+            <p className="text-xs text-surface-300 max-w-2xl">
               Real-time corridor freight rates, vehicle density, transit duration, and return load availability. Metrics strictly obey empirical sample verification.
             </p>
           </div>
@@ -95,19 +82,28 @@ export default function NationalCorridorsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search origin or destination..."
-              className="input text-xs pl-9 py-2.5"
+              className="input text-xs pl-9 py-2.5 bg-surface-950/80 border-white/10 text-white placeholder:text-surface-400"
             />
           </div>
         </div>
 
         {/* ── CORRIDORS GRID ── */}
         {loading ? (
-          <div className="p-12 text-center flex flex-col items-center justify-center gap-3">
-            <Spinner size="lg" />
-            <p className="text-sm font-bold text-surface-500">Loading freight corridor statistics...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Skeleton.Card />
+            <Skeleton.Card />
+          </div>
+        ) : filteredCorridors.length === 0 ? (
+          <div className="p-12 text-center bg-[#0F131D] rounded-[20px] border border-white/10 space-y-3 shadow-modal">
+            <h3 className="text-sm font-semibold text-white font-sans">
+              No corridor metrics available
+            </h3>
+            <p className="text-xs text-surface-400 max-w-sm mx-auto font-sans">
+              Corridor metrics will generate automatically as trips are booked and completed along national highways.
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
             {filteredCorridors.map((c) => {
               const isInsufficient = c.dataStatus === 'INSUFFICIENT_DATA'
 
@@ -115,37 +111,37 @@ export default function NationalCorridorsPage() {
                 <div
                   key={c.corridorId}
                   className={cn(
-                    'bg-white dark:bg-surface-900 rounded-2xl border p-6 shadow-card space-y-4 transition-all',
+                    'bg-[#0F131D] rounded-[20px] border p-6 shadow-modal space-y-4 transition-all',
                     isInsufficient
-                      ? 'border-surface-200/80 dark:border-surface-800 opacity-90'
-                      : 'border-surface-200 dark:border-surface-800 hover:border-primary-500/50'
+                      ? 'border-white/5 opacity-80'
+                      : 'border-white/10 hover:border-primary-500/40'
                   )}
                 >
                   {/* Corridor Header */}
-                  <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
                     <div className="flex items-center gap-2">
-                      <span className="text-base font-black text-surface-900 dark:text-white font-mono">
+                      <span className="text-base font-black text-white font-mono">
                         {c.origin}
                       </span>
-                      <ArrowRightIcon className="w-4 h-4 text-surface-400" />
-                      <span className="text-base font-black text-surface-900 dark:text-white font-mono">
+                      <ArrowRightIcon className="w-4 h-4 text-primary-400" />
+                      <span className="text-base font-black text-white font-mono">
                         {c.destination}
                       </span>
                     </div>
 
                     <Badge variant={isInsufficient ? 'default' : 'primary'} size="sm">
-                      {isInsufficient ? 'INSUFFICIENT DATA' : 'ACTIVE CORRIDOR'}
+                      {isInsufficient ? 'Insufficient data' : 'Active corridor'}
                     </Badge>
                   </div>
 
                   {/* Insufficient Data State */}
                   {isInsufficient ? (
-                    <div className="p-6 rounded-xl bg-surface-50 dark:bg-surface-800/40 text-center space-y-2">
+                    <div className="p-6 rounded-2xl bg-surface-950/60 border border-white/5 text-center space-y-2">
                       <InformationCircleIcon className="w-6 h-6 text-surface-400 mx-auto" />
-                      <span className="font-extrabold text-xs text-surface-700 dark:text-surface-300 block">
-                        "Insufficient data"
+                      <span className="font-semibold text-sm text-white block font-sans">
+                        Insufficient data
                       </span>
-                      <p className="text-[11px] text-surface-400 max-w-xs mx-auto">
+                      <p className="text-xs font-sans text-surface-400 max-w-xs mx-auto">
                         This corridor requires at least 2 completed trips or open loads before displaying benchmark rates and transit metrics.
                       </p>
                     </div>
@@ -153,41 +149,40 @@ export default function NationalCorridorsPage() {
                     <div className="space-y-4">
                       {/* Metric Callouts */}
                       <div className="grid grid-cols-3 gap-3 text-center">
-                        <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-800">
-                          <span className="text-[10px] text-surface-400 font-bold uppercase block">Completed Trips</span>
-                          <span className="text-lg font-black text-surface-900 dark:text-white mt-0.5 block">
+                        <div className="p-3 rounded-2xl bg-surface-950/70 border border-white/5">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Trips</span>
+                          <span className="text-lg font-black text-white font-mono mt-0.5 block">
                             {c.realMetrics.completedTrips}
                           </span>
                         </div>
 
-                        <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-800">
-                          <span className="text-[10px] text-primary-600 font-bold uppercase block">Benchmark Rate</span>
-                          <span className="text-lg font-black text-primary-600 dark:text-primary-400 mt-0.5 block">
+                        <div className="p-3 rounded-2xl bg-surface-950/70 border border-white/5">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Rate / T-KM</span>
+                          <span className="text-lg font-black text-primary-400 font-mono mt-0.5 block">
                             ₹{c.estimatedMetrics.avgRatePerTonKmINR}
                           </span>
-                          <span className="text-[9px] text-surface-400 font-mono">/ Ton-Km</span>
                         </div>
 
-                        <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-800">
-                          <span className="text-[10px] text-emerald-600 font-bold uppercase block">Avg Transit</span>
-                          <span className="text-lg font-black text-emerald-600 mt-0.5 block">
+                        <div className="p-3 rounded-2xl bg-surface-950/70 border border-white/5">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Avg transit</span>
+                          <span className="text-lg font-black text-emerald-400 font-mono mt-0.5 block">
                             {c.estimatedMetrics.avgTransitHours} hrs
                           </span>
                         </div>
                       </div>
 
                       {/* Explicit Metric Labels */}
-                      <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-100 dark:border-surface-800 space-y-1 text-xs">
+                      <div className="p-3.5 rounded-2xl bg-surface-950/80 border border-white/5 space-y-1.5 text-sm font-sans">
                         <div className="flex justify-between">
-                          <span className="text-surface-500">Gross Booking Value (REAL METRIC):</span>
-                          <span className="font-mono font-bold text-surface-900 dark:text-white">
-                            {formatINR(c.realMetrics.grossBookingValueINR)}
+                          <span className="text-surface-400">Total freight volume:</span>
+                          <span className="font-semibold text-white">
+                            {c.realMetrics.totalTonnage} Tons
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-surface-500">Empty-KM Reduction (ESTIMATED METRIC):</span>
-                          <span className="font-mono font-bold text-emerald-600">
-                            {c.estimatedMetrics.emptyKmSavedTotal} Empty-KM
+                          <span className="text-surface-400">Total corridor bookings:</span>
+                          <span className="font-semibold text-white">
+                            {c.realMetrics.totalBookings} bookings
                           </span>
                         </div>
                       </div>
@@ -198,7 +193,6 @@ export default function NationalCorridorsPage() {
             })}
           </div>
         )}
-
       </div>
     </DashboardLayout>
   )

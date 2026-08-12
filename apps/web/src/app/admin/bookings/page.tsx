@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
   CalendarDaysIcon,
   ChevronLeftIcon,
@@ -10,8 +10,8 @@ import {
   MapPinIcon,
   ArrowLongRightIcon,
 } from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
-import { Badge, Button, Skeleton } from '@/components/ui'
+import { adminApi } from '@/lib/api'
+import { Badge, Button, Spinner } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { formatINR, formatPhone, truncate } from '@/lib/utils'
 
@@ -38,14 +38,14 @@ interface Booking {
 }
 
 const STATUS_BADGE: Record<string, { variant: 'warning' | 'info' | 'primary' | 'success' | 'danger' | 'default'; label: string }> = {
-  'Pending': { variant: 'warning', label: 'Pending' },
-  'Confirmed': { variant: 'info', label: 'Confirmed' },
-  'In-transit': { variant: 'primary', label: 'In Transit' },
-  'Completed': { variant: 'success', label: 'Completed' },
-  'Cancelled': { variant: 'danger', label: 'Cancelled' },
+  Pending: { variant: 'warning', label: 'BOOKED' },
+  Confirmed: { variant: 'info', label: 'MATCHED' },
+  'In-transit': { variant: 'primary', label: 'IN TRANSIT' },
+  Completed: { variant: 'success', label: 'COMPLETED' },
+  Cancelled: { variant: 'danger', label: 'CANCELLED' },
 }
 
-export default function BookingsPage() {
+export default function FreightBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -57,10 +57,10 @@ export default function BookingsPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await api.get(`/admin/bookings?page=${page}&limit=20`)
-      setBookings(res.data.bookings)
-      setTotal(res.data.total)
-      setPages(res.data.pages)
+      const res = await adminApi.listBookings(page, 20)
+      setBookings(res.data.bookings || [])
+      setTotal(res.data.total || 0)
+      setPages(res.data.pages || 1)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load bookings'
       setError(msg)
@@ -70,99 +70,177 @@ export default function BookingsPage() {
     }
   }, [page])
 
-  useEffect(() => { fetchBookings() }, [fetchBookings])
+  useEffect(() => {
+    fetchBookings()
+  }, [fetchBookings])
 
-  if (error && !loading) {
+  const activeCount = bookings.filter((b) => b.status === 'In-transit' || b.status === 'Confirmed').length
+  const completedCount = bookings.filter((b) => b.status === 'Completed').length
+  const totalPageVolume = bookings.reduce((sum, b) => sum + Number(b.agreedPrice || 0), 0)
+
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <ExclamationTriangleIcon className="w-12 h-12 text-danger-400 mb-4" />
-        <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">Failed to load bookings</h3>
-        <p className="text-sm text-surface-500 mb-6">{error}</p>
-        <button onClick={fetchBookings} className="btn-primary flex items-center gap-2">
-          <ArrowPathIcon className="w-4 h-4" /> Retry
+      <div className="p-12 text-center flex flex-col items-center justify-center gap-3 font-mono">
+        <Spinner size="lg" />
+        <p className="text-xs font-bold text-surface-400 uppercase tracking-widest">
+          Loading freight booking operations...
+        </p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-12 bg-[#0F131D] rounded-[20px] border border-white/10 text-center space-y-4 max-w-md mx-auto font-sans">
+        <ExclamationTriangleIcon className="w-12 h-12 text-danger-400 mx-auto" />
+        <h3 className="text-base font-bold text-white">Failed to Load Freight Bookings</h3>
+        <p className="text-xs font-mono text-surface-400">{error}</p>
+        <button
+          onClick={fetchBookings}
+          className="px-5 py-2.5 rounded-xl bg-primary-600 text-white font-mono text-xs font-bold shadow-glow-primary hover:bg-primary-500 transition-colors inline-flex items-center gap-2"
+        >
+          <ArrowPathIcon className="w-4 h-4" /> Retry Fetch
         </button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-surface-900 dark:text-white tracking-tight">Bookings</h1>
-          <p className="text-sm text-surface-500 mt-0.5">{total} total booking{total !== 1 ? 's' : ''}</p>
+    <div className="space-y-6 max-w-7xl mx-auto font-sans">
+      
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0F131D] p-6 rounded-[20px] border border-white/10 shadow-modal relative overflow-hidden">
+        {/* Ambient Background Glow & Grid */}
+
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-2">
+            <CalendarDaysIcon className="w-5 h-5 text-primary-400" />
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              Freight Booking Operations
+            </h1>
+          </div>
+          <p className="text-xs font-mono text-surface-400 mt-1">
+            Real-time consignment dispatching, corridor routes, agreed freight prices, and status telemetry.
+          </p>
         </div>
-        <button onClick={fetchBookings} className="btn-secondary flex items-center gap-2 text-sm self-start">
-          <ArrowPathIcon className="w-4 h-4" /> Refresh
+
+        <button
+          onClick={fetchBookings}
+          className="px-4 py-2 rounded-xl bg-surface-950 border border-white/10 hover:border-white/20 text-xs font-mono font-bold text-white transition-colors flex items-center gap-2 shrink-0 cursor-pointer"
+        >
+          <ArrowPathIcon className="w-4 h-4 text-primary-400" />
+          <span>Refresh Bookings ({total})</span>
         </button>
       </div>
 
-      {/* Table */}
-      <div className="card overflow-hidden">
-        {loading ? (
-          <div className="p-4 space-y-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="flex-1 space-y-2">
-                  <Skeleton width="70%" className="h-4" />
-                  <Skeleton width="40%" className="h-3" />
-                </div>
-                <Skeleton width={80} className="h-5" />
-              </div>
-            ))}
-          </div>
-        ) : bookings.length === 0 ? (
-          <div className="py-12 text-center">
-            <CalendarDaysIcon className="w-12 h-12 text-surface-300 mx-auto mb-3" />
-            <p className="text-sm text-surface-500 font-medium">No bookings yet</p>
+      {/* Booking Operations KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono">
+        <div className="p-5 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+          <span className="text-[10px] font-black uppercase tracking-widest text-surface-400 block">Total Bookings</span>
+          <span className="text-2xl sm:text-3xl font-black text-white block">{total}</span>
+          <span className="text-[11px] text-surface-400 block">All-time freight bookings</span>
+        </div>
+
+        <div className="p-5 rounded-[20px] bg-primary-950/40 border border-primary-500/30 shadow-card space-y-1">
+          <span className="text-[10px] font-black uppercase tracking-widest text-primary-400 block">Active Corridors</span>
+          <span className="text-2xl sm:text-3xl font-black text-primary-300 block">{activeCount}</span>
+          <span className="text-[11px] text-primary-300/80 block">In-transit on page</span>
+        </div>
+
+        <div className="p-5 rounded-[20px] bg-emerald-950/40 border border-emerald-500/30 shadow-card space-y-1">
+          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">Completed Trips</span>
+          <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">{completedCount}</span>
+          <span className="text-[11px] text-emerald-300/80 block">Delivered on page</span>
+        </div>
+
+        <div className="p-5 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+          <span className="text-[10px] font-black uppercase tracking-widest text-surface-400 block">Agreed Freight Volume</span>
+          <span className="text-xl sm:text-2xl font-black text-white block truncate">{formatINR(totalPageVolume)}</span>
+          <span className="text-[11px] text-surface-400 block">Value on page</span>
+        </div>
+      </div>
+
+      {/* Bookings Table Card */}
+      <div className="bg-[#0F131D] rounded-[20px] border border-white/10 shadow-modal overflow-hidden font-mono text-xs">
+        <div className="p-5 border-b border-white/10 flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-white">
+            Freight Booking Operations Directory (Page {page} of {pages})
+          </span>
+          <span className="text-[11px] text-surface-400">Deterministic API Mapping</span>
+        </div>
+
+        {bookings.length === 0 ? (
+          <div className="p-12 text-center text-xs text-surface-400 space-y-2">
+            <CalendarDaysIcon className="w-12 h-12 text-surface-500 mx-auto" />
+            <p className="font-bold text-white">No freight bookings recorded yet</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[900px]">
+            <table className="w-full">
               <thead>
-                <tr className="bg-surface-50 dark:bg-surface-800/60 border-b border-surface-200 dark:border-surface-700">
-                  {['Booking ID', 'Route', 'Truck', 'Load Owner', 'Truck Owner', 'Price', 'Status', 'Created'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-surface-400">{h}</th>
-                  ))}
+                <tr className="border-b border-white/10 bg-surface-950/60 text-surface-400 uppercase text-[10px]">
+                  <th className="text-left py-3 px-4 font-bold">Booking ID</th>
+                  <th className="text-left py-3 px-4 font-bold">Corridor Route</th>
+                  <th className="text-left py-3 px-4 font-bold">Vehicle</th>
+                  <th className="text-left py-3 px-4 font-bold">Load Owner</th>
+                  <th className="text-left py-3 px-4 font-bold">Transporter</th>
+                  <th className="text-right py-3 px-4 font-bold">Agreed Price</th>
+                  <th className="text-center py-3 px-4 font-bold">Lifecycle Status</th>
+                  <th className="text-right py-3 px-4 font-bold">Created Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
-                {bookings.map(b => {
+              <tbody className="divide-y divide-white/5">
+                {bookings.map((b) => {
                   const statusBadge = STATUS_BADGE[b.status] || { variant: 'default' as const, label: b.status }
+
                   return (
-                    <tr key={b.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors">
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-xs text-surface-600 dark:text-surface-400">
-                          {b.id.slice(0, 8)}…
-                        </span>
+                    <tr key={b.id} className="hover:bg-white/5 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-white">
+                        #{b.id.slice(0, 8)}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 text-xs text-surface-700 dark:text-surface-300">
-                          <MapPinIcon className="w-3.5 h-3.5 text-success-500 shrink-0" />
-                          <span className="truncate max-w-[120px]" title={b.load.loadingAddress}>{truncate(b.load.loadingAddress, 20)}</span>
-                          <ArrowLongRightIcon className="w-3.5 h-3.5 text-surface-400 shrink-0 mx-0.5" />
-                          <MapPinIcon className="w-3.5 h-3.5 text-danger-500 shrink-0" />
-                          <span className="truncate max-w-[120px]" title={b.load.unloadingAddress}>{truncate(b.load.unloadingAddress, 20)}</span>
+
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5 text-[11px]">
+                          <MapPinIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span className="truncate max-w-[110px]" title={b.load.loadingAddress}>
+                            {truncate(b.load.loadingAddress, 18)}
+                          </span>
+                          <ArrowLongRightIcon className="w-3.5 h-3.5 text-surface-400 shrink-0" />
+                          <MapPinIcon className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                          <span className="truncate max-w-[110px]" title={b.load.unloadingAddress}>
+                            {truncate(b.load.unloadingAddress, 18)}
+                          </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-semibold text-surface-900 dark:text-white text-xs">
-                        {b.truck.registrationNumber}
+
+                      <td className="py-3.5 px-4 font-bold text-white">
+                        🆔 {b.truck.registrationNumber}
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="text-surface-900 dark:text-white text-xs font-medium">{b.loadOwner.name || formatPhone(b.loadOwner.phone)}</p>
+
+                      <td className="py-3.5 px-4">
+                        <p className="font-bold text-white">{b.loadOwner.name || 'Shipper'}</p>
+                        <p className="text-[11px] text-surface-400">{formatPhone(b.loadOwner.phone)}</p>
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="text-surface-900 dark:text-white text-xs font-medium">{b.truckOwner.name || formatPhone(b.truckOwner.phone)}</p>
+
+                      <td className="py-3.5 px-4">
+                        <p className="font-bold text-white">{b.truckOwner.name || 'Transporter'}</p>
+                        <p className="text-[11px] text-surface-400">{formatPhone(b.truckOwner.phone)}</p>
                       </td>
-                      <td className="px-4 py-3 font-bold text-success-600 text-xs">
+
+                      <td className="py-3.5 px-4 text-right font-black text-emerald-400">
                         {formatINR(Number(b.agreedPrice))}
                       </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={statusBadge.variant} size="sm" dot>{statusBadge.label}</Badge>
+
+                      <td className="py-3.5 px-4 text-center">
+                        <Badge variant={statusBadge.variant} size="sm" className="font-mono text-[10px]">
+                          {statusBadge.label}
+                        </Badge>
                       </td>
-                      <td className="px-4 py-3 text-surface-500 text-xs">
-                        {new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+
+                      <td className="py-3.5 px-4 text-right text-surface-400">
+                        {new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
                     </tr>
                   )
@@ -172,20 +250,35 @@ export default function BookingsPage() {
           </div>
         )}
 
-        {/* Pagination */}
-        {!loading && bookings.length > 0 && pages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-surface-100 dark:border-surface-800">
-            <p className="text-xs text-surface-500">Page {page} of {pages} · {total} total</p>
+        {/* Pagination Bar */}
+        {pages > 1 && (
+          <div className="p-4 border-t border-white/10 bg-surface-950/60 flex items-center justify-between text-xs">
+            <span className="text-surface-400">Page {page} of {pages} · {total} Total Bookings</span>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-                leftIcon={<ChevronLeftIcon className="w-4 h-4" />}>Previous</Button>
-              <Button variant="secondary" size="sm" disabled={page >= pages} onClick={() => setPage(p => p + 1)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+                leftIcon={<ChevronLeftIcon className="w-4 h-4" />}
+                className="font-bold border-white/10"
+              >
+                Previous
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={page >= pages}
+                onClick={() => setPage((p) => p + 1)}
+                className="font-bold border-white/10"
+              >
                 Next <ChevronRightIcon className="w-4 h-4 ml-1" />
               </Button>
             </div>
           </div>
         )}
       </div>
+
     </div>
   )
 }

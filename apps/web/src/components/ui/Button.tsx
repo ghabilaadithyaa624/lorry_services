@@ -15,78 +15,39 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'succ
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
 /**
- * Props for the Button component, supporting custom icons, loading states, full width, and polymorphic element rendering.
+ * Props for the Button component.
  */
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  /**
-   * Visual style variant.
-   * @default 'primary'
-   */
   variant?: ButtonVariant
-  /**
-   * Button size.
-   * @default 'md'
-   */
   size?: ButtonSize
-  /**
-   * If true, shows a spinner and disables user interaction.
-   * @default false
-   */
   loading?: boolean
-  /**
-   * If true, disables the button.
-   * @default false
-   */
   disabled?: boolean
-  /**
-   * Element or icon to display before button text.
-   */
   leftIcon?: React.ReactNode
-  /**
-   * Element or icon to display after button text.
-   */
   rightIcon?: React.ReactNode
-  /**
-   * If true, button expands to 100% width of parent container.
-   * @default false
-   */
   fullWidth?: boolean
-  /**
-   * Polymorphic component type to render (e.g., 'button', 'a', or router Link).
-   * @default 'button'
-   */
   as?: React.ElementType
-  /**
-   * Target URL when rendered as a link element.
-   */
   href?: string
-  /**
-   * Additional CSS class names.
-   */
   className?: string
-  /**
-   * Button content.
-   */
   children?: React.ReactNode
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white shadow-sm hover:shadow-md focus:ring-primary-500/50',
+    'bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white shadow-glow-primary border border-primary-400/30 focus-visible:ring-primary-500/50',
   secondary:
-    'bg-surface-100 hover:bg-surface-200 active:bg-surface-300 text-surface-800 dark:bg-surface-800 dark:hover:bg-surface-700 dark:text-surface-100 border border-surface-200 dark:border-surface-700 focus:ring-surface-400/50',
+    'bg-surface-900/80 hover:bg-surface-800 active:bg-surface-950 text-white border border-white/10 hover:border-white/20  focus-visible:ring-surface-400/50',
   ghost:
-    'bg-transparent hover:bg-surface-100 active:bg-surface-200 text-surface-600 hover:text-surface-900 dark:text-surface-300 dark:hover:text-surface-100 dark:hover:bg-surface-800 focus:ring-surface-400/50',
+    'bg-transparent hover:bg-white/5 active:bg-white/10 text-surface-300 hover:text-white border border-transparent focus-visible:ring-surface-400/50',
   danger:
-    'bg-danger-600 hover:bg-danger-700 active:bg-danger-800 text-white shadow-sm focus:ring-danger-500/50',
+    'bg-danger-600 hover:bg-danger-700 active:bg-danger-800 text-white border border-danger-500/30 shadow-sm focus-visible:ring-danger-500/50',
   success:
-    'bg-success-600 hover:bg-success-700 active:bg-success-800 text-white shadow-sm focus:ring-success-500/50',
+    'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border border-emerald-500/30 shadow-sm focus-visible:ring-emerald-500/50',
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'text-sm py-2 px-4 gap-1.5',
-  md: 'text-sm py-2.5 px-5 gap-2',
-  lg: 'text-base py-3 px-6 gap-2.5',
+  sm: 'text-xs py-2 px-3.5 gap-1.5 font-sans font-semibold',
+  md: 'text-sm py-2.5 px-5 gap-2 font-sans font-semibold',
+  lg: 'text-base py-3 px-6 gap-2.5 font-sans font-semibold',
 }
 
 const spinnerSizeMap: Record<ButtonSize, SpinnerSize> = {
@@ -96,8 +57,7 @@ const spinnerSizeMap: Record<ButtonSize, SpinnerSize> = {
 }
 
 /**
- * Button component for actions and navigation in the LorryCarry design system.
- * Supports primary, secondary, ghost, danger, and success variants, loading states, icons, and polymorphic rendering.
+ * Button component for actions and navigation in LorryCarry Kinetic Command design system.
  */
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
@@ -117,9 +77,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
-    const Component = as || 'button'
+    const Tag = (as || 'button') as any
     const isDisabled = disabled || loading
-    const isButton = Component === 'button'
+    const isButton = Tag === 'button'
 
     const renderLeftIcon = () => {
       if (loading) {
@@ -143,14 +103,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       : { 'aria-disabled': isDisabled, role: props.role || 'button' }
 
     return (
-      <Component
+      <Tag
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center font-medium rounded-button transition-all duration-200 outline-none select-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-surface-900',
+          'inline-flex items-center justify-center rounded-button transition-transform duration-200 ease-out outline-none select-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070A11] cursor-pointer active:scale-[0.98]',
           variantClasses[variant],
           sizeClasses[size],
           fullWidth ? 'w-full' : 'w-auto',
-          isDisabled && 'opacity-50 cursor-not-allowed pointer-events-none shadow-none',
+          isDisabled && 'opacity-50 cursor-not-allowed pointer-events-none shadow-none transform-none',
           className
         )}
         {...elementProps}
@@ -159,7 +119,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {renderLeftIcon()}
         {children && <span>{children}</span>}
         {renderRightIcon()}
-      </Component>
+      </Tag>
     )
   }
 )

@@ -53,8 +53,8 @@ export function AddressAutocomplete({
     const timer = setTimeout(async () => {
       setLoading(true)
       try {
-        // Using MapmyIndia API through our backend
-        const res = await api.get(`/mapmyindia/suggestions?query=${encodeURIComponent(query)}`)
+        // Using Mappls/MapmyIndia API through our backend search proxy
+        const res = await api.get(`/search/suggestions?query=${encodeURIComponent(query)}`)
         setSuggestions(res.data)
         setShowSuggestions(true)
       } catch {

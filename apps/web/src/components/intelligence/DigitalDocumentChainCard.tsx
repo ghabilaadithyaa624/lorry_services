@@ -61,7 +61,6 @@ export function DigitalDocumentChainCard({
   const [uploadStage, setUploadStage] = useState<string>('POD')
   const [consigneeInput, setConsigneeInput] = useState(consigneeName)
   const [docNumberInput, setDocNumberInput] = useState('')
-  const [simulatingUpload, setSimulatingUpload] = useState(false)
   const [previewPhotoModal, setPreviewPhotoModal] = useState<string | null>(null)
 
   // Construct 7-stage document lifecycle chain
@@ -147,33 +146,28 @@ export function DigitalDocumentChainCard({
 
   const handleSimulateUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSimulatingUpload(true)
-    setTimeout(() => {
-      setSimulatingUpload(false)
-      setUploadModalOpen(false)
-      toast.success(`Document uploaded to AWS S3 encrypted bucket under booking #${bookingId.slice(0, 8).toUpperCase()}!`)
-      if (onRefresh) onRefresh()
-    }, 1200)
+    toast.error('Document Upload API missing: S3 Pre-signed URL generation not implemented on backend')
+    if (onRefresh) onRefresh()
   }
 
   const completedStagesCount = documentChain.filter((d) => d.status === 'COMPLETED' || d.status === 'VERIFIED').length
 
   return (
-    <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-6 shadow-card space-y-6">
+    <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 shadow-modal space-y-6 font-sans">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-surface-100 dark:border-surface-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <DocumentTextIcon className="w-5 h-5 text-primary-500" />
-            <h2 className="text-base font-bold text-surface-900 dark:text-white">
+            <DocumentTextIcon className="w-5 h-5 text-primary-400" />
+            <h2 className="text-base font-bold text-white">
               Digital Freight Document Chain
             </h2>
-            <Badge variant="primary" size="sm">
+            <Badge variant="primary" size="sm" className="font-mono text-[10px]">
               {completedStagesCount}/7 Stages Verified
             </Badge>
           </div>
-          <p className="text-xs text-surface-500 dark:text-surface-400">
+          <p className="text-xs text-surface-300">
             End-to-end audit trail from booking advice to POD sign-off and balance settlement.
           </p>
         </div>
@@ -183,20 +177,20 @@ export function DigitalDocumentChainCard({
           size="sm"
           onClick={() => setUploadModalOpen(true)}
           leftIcon={<ArrowUpTrayIcon className="w-4 h-4" />}
-          className="text-xs font-bold shrink-0"
+          className="text-xs font-bold shrink-0 border-white/10 hover:border-white/20"
         >
           Upload Chain Document
         </Button>
       </div>
 
       {/* S3 Security Banner */}
-      <div className="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/50 border border-surface-200/60 dark:border-surface-700/60 flex items-center gap-3 text-xs">
-        <LockClosedIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+      <div className="p-3.5 rounded-2xl bg-surface-950/80 border border-white/5 flex items-center gap-3 text-xs">
+        <LockClosedIcon className="w-5 h-5 text-emerald-400 shrink-0" />
         <div className="flex-1">
-          <span className="font-bold text-surface-900 dark:text-white block">
+          <span className="font-bold text-white block">
             AWS S3 Encrypted Storage & Time-Limited Pre-Signed Links
           </span>
-          <span className="text-[11px] text-surface-500 dark:text-surface-400 block">
+          <span className="text-[11px] text-surface-400 font-mono block">
             Bucket permissions are strictly private. All document access tokens expire in 3600 seconds. Credentials are never exposed to client browsers.
           </span>
         </div>
@@ -211,19 +205,19 @@ export function DigitalDocumentChainCard({
             <div
               key={doc.stageId}
               className={cn(
-                'p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs',
+                'p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs',
                 isDone
-                  ? 'bg-surface-50/70 dark:bg-surface-800/30 border-surface-200/80 dark:border-surface-700/80'
-                  : 'bg-amber-50/30 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-800/60'
+                  ? 'bg-surface-950/70 border-white/5 hover:border-white/15'
+                  : 'bg-amber-500/5 border-amber-500/20'
               )}
             >
               <div className="flex items-start gap-3">
                 <div
                   className={cn(
-                    'w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 mt-0.5',
+                    'w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 border',
                     isDone
-                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                      : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
                   )}
                 >
                   {isDone ? <CheckIcon className="w-4 h-4 stroke-[3]" /> : <ClockIcon className="w-4 h-4" />}
@@ -231,14 +225,14 @@ export function DigitalDocumentChainCard({
 
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-surface-900 dark:text-white text-xs sm:text-sm">
+                    <span className="font-bold text-white text-xs sm:text-sm">
                       {doc.title}
                     </span>
-                    <Badge variant={isDone ? 'success' : 'warning'} size="sm">
+                    <Badge variant={isDone ? 'success' : 'warning'} size="sm" className="font-mono text-[10px]">
                       {doc.status}
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-surface-500 dark:text-surface-400">{doc.subtitle}</p>
+                  <p className="text-[11px] text-surface-300">{doc.subtitle}</p>
                   
                   {isDone && (
                     <div className="flex flex-wrap items-center gap-3 text-[10px] text-surface-400 font-mono mt-1">
@@ -306,7 +300,7 @@ export function DigitalDocumentChainCard({
 
       {/* ── UPLOAD MODAL ── */}
       {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/60 backdrop-blur-xs p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
           <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
               <h3 className="text-base font-bold text-surface-900 dark:text-white">
@@ -383,7 +377,6 @@ export function DigitalDocumentChainCard({
                   variant="primary"
                   size="lg"
                   fullWidth
-                  loading={simulatingUpload}
                   className="font-bold py-3 text-xs"
                 >
                   Upload & Sign S3 Document
@@ -396,7 +389,7 @@ export function DigitalDocumentChainCard({
 
       {/* ── PHOTO PREVIEW MODAL ── */}
       {previewPhotoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/70 backdrop-blur-xs p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
           <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-lg w-full p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-surface-100 dark:border-surface-800">
               <h3 className="text-sm font-bold text-surface-900 dark:text-white">

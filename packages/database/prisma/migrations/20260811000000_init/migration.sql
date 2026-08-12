@@ -1,4 +1,6 @@
-﻿-- CreateEnum
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('load_owner', 'truck_owner', 'admin');
 
 -- CreateEnum

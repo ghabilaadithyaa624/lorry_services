@@ -62,26 +62,26 @@ export function MatchScoreBadge({
       {isDetailsVisible && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute z-40 left-0 sm:right-0 sm:left-auto mt-2 w-80 sm:w-96 bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-700 p-4 text-xs shadow-elevated animate-fade-in divide-y divide-surface-100 dark:divide-surface-800"
+          className="absolute z-40 left-0 sm:right-0 sm:left-auto mt-2 w-80 sm:w-96 bg-[#0F131D] rounded-2xl border border-white/10 p-4 text-xs shadow-modal animate-fade-in divide-y divide-white/10 text-white font-sans"
         >
           {/* Header */}
           <div className="pb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950 px-2 py-0.5 rounded-md">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-primary-400 bg-primary-500/10 px-2 py-0.5 rounded-md border border-primary-500/20">
                 Match Intelligence
               </span>
-              <span className="text-xs font-bold text-surface-900 dark:text-white">
+              <span className="text-xs font-bold text-white">
                 Deterministic Score
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-black font-mono text-surface-900 dark:text-white">
+              <span className="text-sm font-black font-mono text-emerald-400">
                 {match.score}%
               </span>
               <button
                 type="button"
                 onClick={() => setExpanded(false)}
-                className="p-1 text-surface-400 hover:text-surface-600 rounded-md"
+                className="p-1 text-surface-400 hover:text-white rounded-md"
               >
                 <XMarkIcon className="w-4 h-4" />
               </button>
@@ -134,12 +134,12 @@ export function MatchScoreBadge({
 
           {/* Warnings (if any) */}
           {match.warnings.length > 0 && (
-            <div className="py-2.5 space-y-1 bg-amber-50/50 dark:bg-amber-950/20 -mx-4 px-4">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 block">
+            <div className="py-2.5 space-y-1 bg-amber-500/10 border-t border-b border-amber-500/20 -mx-4 px-4 font-mono">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block">
                 Match Warnings & Constraints:
               </span>
               {match.warnings.map((w, i) => (
-                <div key={i} className="flex items-start gap-1.5 text-amber-700 dark:text-amber-300">
+                <div key={i} className="flex items-start gap-1.5 text-amber-300">
                   <ExclamationTriangleIcon className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                   <span className="text-[11px] leading-tight">{w}</span>
                 </div>
@@ -148,9 +148,9 @@ export function MatchScoreBadge({
           )}
 
           {/* Footer note */}
-          <div className="pt-2.5 flex items-center justify-between text-[10px] text-surface-400">
+          <div className="pt-2.5 flex items-center justify-between text-[10px] text-surface-400 font-mono">
             <span className="flex items-center gap-1">
-              <InformationCircleIcon className="w-3.5 h-3.5" />
+              <InformationCircleIcon className="w-3.5 h-3.5 text-surface-400" />
               Empirical Rule-Based Fit
             </span>
             <span>Zero Black-Box Scoring</span>

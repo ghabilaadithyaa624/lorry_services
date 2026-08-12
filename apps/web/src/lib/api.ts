@@ -153,6 +153,25 @@ export const usersApi = {
   getNotifications: () => api.get('/users/notifications'),
 }
 
+// Admin Operations Command Center API
+export const adminApi = {
+  getStats: () => api.get('/admin/stats'),
+  listUsers: (role?: string, page = 1, limit = 20) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+    if (role) params.set('role', role)
+    return api.get(`/admin/users?${params.toString()}`)
+  },
+  getPendingDocuments: () => api.get('/admin/documents/pending'),
+  verifyDocument: (documentId: string, status: 'Verified' | 'Rejected', notes?: string) =>
+    api.patch(`/admin/documents/${documentId}/verify`, { status, notes }),
+  verifyTruck: (truckId: string, status: 'Verified' | 'Rejected') =>
+    api.patch(`/admin/trucks/${truckId}/verify`, { status }),
+  listSubscriptions: (page = 1, limit = 20) =>
+    api.get(`/admin/subscriptions?page=${page}&limit=${limit}`),
+  listBookings: (page = 1, limit = 20) =>
+    api.get(`/admin/bookings?page=${page}&limit=${limit}`),
+}
+
 // Trucks & Documents API
 export const trucksApi = {
   getMyTrucks: () => api.get('/trucks/my-trucks'),

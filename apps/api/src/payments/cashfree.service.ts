@@ -35,7 +35,7 @@ export class CashfreeService {
     this.baseUrl = isProd 
       ? 'https://api.cashfree.com/pg' 
       : 'https://sandbox.cashfree.com/pg'
-    this.appId = config.get('CASHFREE_APP_ID', '')
+    this.appId = config.get('CASHFREE_APP_ID') || config.get('CASHFREE_API_KEY', '')
     this.secretKey = config.get('CASHFREE_SECRET_KEY', '')
   }
 

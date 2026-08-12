@@ -13,6 +13,7 @@ import { PaymentsModule } from './payments/payments.module'
 import { WebhooksModule } from './webhooks/webhooks.module'
 import { AdminModule } from './admin/admin.module'
 import { TrackingModule } from './tracking/tracking.module'
+import { DocumentsModule } from './documents/documents.module'
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard'
 import { CommonModule } from './common/common.module'
 import { RedisModule } from './common/redis/redis.module'
@@ -40,6 +41,7 @@ import { RedisModule } from './common/redis/redis.module'
     WebhooksModule,
     AdminModule,
     TrackingModule,
+    DocumentsModule,
   ],
   providers: [
     // Rate limiting guard

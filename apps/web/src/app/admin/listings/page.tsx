@@ -1,21 +1,18 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
-  CubeIcon,
-  TruckIcon,
-  DocumentCheckIcon,
-  CalendarDaysIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   XCircleIcon,
   ShieldCheckIcon,
+  UsersIcon,
 } from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
-import { Badge, Button, Modal, Skeleton } from '@/components/ui'
+import { adminApi } from '@/lib/api'
+import { Badge, Button, Modal, Spinner } from '@/components/ui'
 import { toast } from '@/lib/toast'
-import { formatPhone } from '@/lib/utils'
+import { formatPhone, cn } from '@/lib/utils'
 
 interface Stats {
   totalLoads: number
@@ -61,7 +58,9 @@ interface VerifyState {
   action: 'Verified' | 'Rejected'
 }
 
-export default function ListingsPage() {
+type SectionTab = 'ALL' | 'ACTIVE_LOADS' | 'FLEET' | 'PENDING_VERIFICATION' | 'CONTRIBUTORS'
+
+export default function MarketplaceListingsPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [truckGroups, setTruckGroups] = useState<TruckGroup[]>([])
   const [topUsers, setTopUsers] = useState<UserSummary[]>([])
@@ -69,15 +68,16 @@ export default function ListingsPage() {
   const [error, setError] = useState('')
   const [verifyModal, setVerifyModal] = useState<VerifyState | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [activeSection, setActiveSection] = useState<SectionTab>('ALL')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
       const [statsRes, docsRes, usersRes] = await Promise.all([
-        api.get('/admin/stats'),
-        api.get('/admin/documents/pending'),
-        api.get('/admin/users?limit=100'),
+        adminApi.getStats(),
+        adminApi.getPendingDocuments(),
+        adminApi.listUsers(undefined, 1, 100),
       ])
 
       setStats({
@@ -90,7 +90,7 @@ export default function ListingsPage() {
       // Group pending docs by truck
       const docs: PendingDoc[] = docsRes.data
       const groupMap = new Map<string, TruckGroup>()
-      docs.forEach(doc => {
+      docs.forEach((doc) => {
         const existing = groupMap.get(doc.truck.id)
         if (existing) {
           existing.pendingDocs += 1
@@ -108,9 +108,9 @@ export default function ListingsPage() {
       setTruckGroups(Array.from(groupMap.values()))
 
       // Top contributing users
-      const users: UserSummary[] = usersRes.data.users
+      const users: UserSummary[] = usersRes.data.users || []
       const sorted = [...users]
-        .sort((a, b) => (b._count.loads + b._count.trucks) - (a._count.loads + a._count.trucks))
+        .sort((a, b) => b._count.loads + b._count.trucks - (a._count.loads + a._count.trucks))
         .slice(0, 10)
       setTopUsers(sorted)
     } catch (err: unknown) {
@@ -121,15 +121,19 @@ export default function ListingsPage() {
     }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   const handleTruckVerify = async () => {
     if (!verifyModal) return
     setActionLoading(verifyModal.truckId)
     try {
-      await api.patch(`/admin/trucks/${verifyModal.truckId}/verify`, { status: verifyModal.action })
-      toast.success(`Truck ${verifyModal.registration} ${verifyModal.action === 'Verified' ? 'verified' : 'rejected'}`)
-      setTruckGroups(prev => prev.filter(t => t.truckId !== verifyModal.truckId))
+      await adminApi.verifyTruck(verifyModal.truckId, verifyModal.action)
+      toast.success(
+        `Truck ${verifyModal.registration} marked as ${verifyModal.action === 'Verified' ? 'Verified' : 'Rejected'}!`
+      )
+      setTruckGroups((prev) => prev.filter((t) => t.truckId !== verifyModal.truckId))
     } catch (err: unknown) {
       const errorData = (err as { response?: { data?: { message?: string } } })?.response?.data
       toast.error(errorData?.message || 'Failed to update truck status')
@@ -141,174 +145,257 @@ export default function ListingsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-fade-in">
-        <Skeleton width={200} className="h-7" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} variant="rectangular" className="h-24 rounded-card" />
-          ))}
-        </div>
-        <Skeleton variant="rectangular" className="h-48 rounded-card" />
-        <Skeleton variant="rectangular" className="h-48 rounded-card" />
+      <div className="p-12 text-center flex flex-col items-center justify-center gap-3 font-mono">
+        <Spinner size="lg" />
+        <p className="text-xs font-bold text-surface-400 uppercase tracking-widest">
+          Loading marketplace & fleet operations telemetry...
+        </p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <ExclamationTriangleIcon className="w-12 h-12 text-danger-400 mb-4" />
-        <h3 className="text-lg font-bold text-surface-900 dark:text-white mb-2">Failed to load listings</h3>
-        <p className="text-sm text-surface-500 mb-6">{error}</p>
-        <button onClick={fetchData} className="btn-primary flex items-center gap-2">
-          <ArrowPathIcon className="w-4 h-4" /> Retry
+      <div className="p-12 bg-[#0F131D] rounded-[20px] border border-white/10 text-center space-y-4 max-w-md mx-auto font-sans">
+        <ExclamationTriangleIcon className="w-12 h-12 text-danger-400 mx-auto" />
+        <h3 className="text-base font-bold text-white">Failed to Load Marketplace Operations</h3>
+        <p className="text-xs font-mono text-surface-400">{error}</p>
+        <button
+          onClick={fetchData}
+          className="px-5 py-2.5 rounded-xl bg-primary-600 text-white font-mono text-xs font-bold shadow-glow-primary hover:bg-primary-500 transition-colors inline-flex items-center gap-2"
+        >
+          <ArrowPathIcon className="w-4 h-4" /> Retry Fetch
         </button>
       </div>
     )
   }
 
+  const verifiedTrucksCount = stats ? Math.max(0, stats.totalTrucks - stats.pendingDocuments) : 0
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold text-surface-900 dark:text-white tracking-tight">Listings</h1>
-          <p className="text-sm text-surface-500 mt-0.5">Loads, trucks, and marketplace overview</p>
+    <div className="space-y-6 max-w-7xl mx-auto font-sans">
+      
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0F131D] p-6 rounded-[20px] border border-white/10 shadow-modal relative overflow-hidden">
+        {/* Ambient Background Glow & Grid */}
+
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
+
+        <div className="relative z-10">
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+            Marketplace & Fleet Operations
+          </h1>
+          <p className="text-xs font-mono text-surface-400 mt-1">
+            Centralized cargo requirements, vehicle fleet capacity, Vahan verification queues, and top marketplace contributors.
+          </p>
         </div>
-        <button onClick={fetchData} className="btn-secondary flex items-center gap-2 text-sm self-start">
-          <ArrowPathIcon className="w-4 h-4" /> Refresh
+
+        <button
+          onClick={fetchData}
+          className="px-4 py-2 rounded-xl bg-surface-950 border border-white/10 hover:border-white/20 text-xs font-mono font-bold text-white transition-colors flex items-center gap-2 shrink-0 cursor-pointer"
+        >
+          <ArrowPathIcon className="w-4 h-4 text-primary-400" />
+          <span>Refresh Operations</span>
         </button>
       </div>
 
-      {/* Summary KPIs */}
+      {/* Primary Summary KPIs */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="card p-4 border-l-4 border-l-warning-500">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-9 h-9 rounded-xl bg-warning-50 dark:bg-warning-500/10 flex items-center justify-center">
-                <CubeIcon className="w-5 h-5 text-warning-600" />
-              </div>
-            </div>
-            <p className="text-2xl font-black text-surface-900 dark:text-white">{stats.totalLoads}</p>
-            <p className="text-xs text-surface-500 font-medium">Total Loads</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 font-mono">
+          <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">Total Loads</span>
+            <span className="text-2xl font-black text-amber-300 block">{stats.totalLoads}</span>
+            <span className="text-[10px] text-surface-400 block">Posted Requirements</span>
           </div>
-          <div className="card p-4 border-l-4 border-l-success-500">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-9 h-9 rounded-xl bg-success-50 dark:bg-success-500/10 flex items-center justify-center">
-                <TruckIcon className="w-5 h-5 text-success-600" />
-              </div>
-            </div>
-            <p className="text-2xl font-black text-surface-900 dark:text-white">{stats.totalTrucks}</p>
-            <p className="text-xs text-surface-500 font-medium">Total Trucks</p>
+
+          <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-primary-400 block">Active Loads</span>
+            <span className="text-2xl font-black text-primary-300 block">{stats.totalLoads}</span>
+            <span className="text-[10px] text-primary-400/80 block">Open Corridors</span>
           </div>
-          <div className="card p-4 border-l-4 border-l-danger-500">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-9 h-9 rounded-xl bg-danger-50 dark:bg-danger-500/10 flex items-center justify-center">
-                <DocumentCheckIcon className="w-5 h-5 text-danger-600" />
-              </div>
-            </div>
-            <p className="text-2xl font-black text-surface-900 dark:text-white">{stats.pendingDocuments}</p>
-            <p className="text-xs text-surface-500 font-medium">Pending KYC</p>
+
+          <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">Completed Bookings</span>
+            <span className="text-2xl font-black text-emerald-300 block">{stats.totalBookings}</span>
+            <span className="text-[10px] text-emerald-400/80 block">Delivered Freight</span>
           </div>
-          <div className="card p-4 border-l-4 border-l-primary-500">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-500/10 flex items-center justify-center">
-                <CalendarDaysIcon className="w-5 h-5 text-primary-600" />
-              </div>
-            </div>
-            <p className="text-2xl font-black text-surface-900 dark:text-white">{stats.totalBookings}</p>
-            <p className="text-xs text-surface-500 font-medium">Total Bookings</p>
+
+          <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-surface-400 block">Registered Trucks</span>
+            <span className="text-2xl font-black text-white block">{stats.totalTrucks}</span>
+            <span className="text-[10px] text-surface-400 block">Fleet Vehicles</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 shadow-card space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">Verified Trucks</span>
+            <span className="text-2xl font-black text-emerald-300 block">{verifiedTrucksCount}</span>
+            <span className="text-[10px] text-emerald-300/80 block">Vahan Approved</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-danger-950/40 border border-danger-500/30 shadow-card space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-danger-400 block">Pending Verification</span>
+            <span className="text-2xl font-black text-danger-300 block">{stats.pendingDocuments}</span>
+            <span className="text-[10px] text-danger-300/80 block">Docs Required</span>
           </div>
         </div>
       )}
 
-      {/* Trucks Pending Verification */}
-      <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-surface-100 dark:border-surface-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldCheckIcon className="w-5 h-5 text-warning-500" />
-            <h2 className="text-sm font-bold text-surface-900 dark:text-white">Trucks Pending Verification</h2>
-          </div>
-          <Badge variant="warning" size="sm">{truckGroups.length}</Badge>
-        </div>
-        {truckGroups.length === 0 ? (
-          <div className="py-8 text-center">
-            <CheckCircleIcon className="w-10 h-10 text-success-400 mx-auto mb-3" />
-            <p className="text-sm text-surface-500">All trucks are verified or have no pending docs.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[600px]">
-              <thead>
-                <tr className="bg-surface-50 dark:bg-surface-800/60 border-b border-surface-200 dark:border-surface-700">
-                  {['Registration', 'Type', 'Owner', 'Pending Docs', 'Actions'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-surface-400">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
-                {truckGroups.map(t => (
-                  <tr key={t.truckId} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-surface-900 dark:text-white">{t.registrationNumber}</td>
-                    <td className="px-4 py-3"><Badge variant="default" size="sm">{t.bodyType}</Badge></td>
-                    <td className="px-4 py-3">
-                      <p className="text-surface-900 dark:text-white text-xs font-medium">{t.ownerName || '—'}</p>
-                      <p className="text-xs text-surface-500">{formatPhone(t.ownerPhone)}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="warning" size="sm">{t.pendingDocs} pending</Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Button variant="primary" size="sm" disabled={actionLoading === t.truckId}
-                          onClick={() => setVerifyModal({ truckId: t.truckId, registration: t.registrationNumber, action: 'Verified' })}
-                          leftIcon={<CheckCircleIcon className="w-4 h-4" />}>
-                          Verify
-                        </Button>
-                        <Button variant="danger" size="sm" disabled={actionLoading === t.truckId}
-                          onClick={() => setVerifyModal({ truckId: t.truckId, registration: t.registrationNumber, action: 'Rejected' })}
-                          leftIcon={<XCircleIcon className="w-4 h-4" />}>
-                          Reject
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      {/* Section Filter Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none border-b border-white/10 pb-3 font-mono">
+        {[
+          { id: 'ALL', label: 'All Operations' },
+          { id: 'ACTIVE_LOADS', label: `Active Loads (${stats?.totalLoads || 0})` },
+          { id: 'FLEET', label: `Registered Fleet (${stats?.totalTrucks || 0})` },
+          { id: 'PENDING_VERIFICATION', label: `Pending Verification (${truckGroups.length})` },
+          { id: 'CONTRIBUTORS', label: `Marketplace Contributors (${topUsers.length})` },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSection(tab.id as SectionTab)}
+            className={cn(
+              'px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
+              activeSection === tab.id
+                ? 'bg-primary-500 text-white shadow-glow-primary'
+                : 'bg-surface-900/80 text-surface-400 hover:text-white border border-white/10'
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Top Contributors */}
-      {topUsers.length > 0 && (
-        <div className="card overflow-hidden">
-          <div className="px-4 py-3 border-b border-surface-100 dark:border-surface-800">
-            <h2 className="text-sm font-bold text-surface-900 dark:text-white">Top Contributors</h2>
+      {/* ── SECTION: PENDING VERIFICATION TRUCKS ── */}
+      {(activeSection === 'ALL' || activeSection === 'PENDING_VERIFICATION') && (
+        <div className="p-6 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-modal space-y-4 font-mono">
+          <div className="flex items-center justify-between pb-3 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <ShieldCheckIcon className="w-5 h-5 text-warning-400" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+                Pending Verification Vehicles ({truckGroups.length})
+              </h2>
+            </div>
+            <Badge variant="warning" size="sm" className="font-mono text-[10px]">{truckGroups.length} Vehicles</Badge>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[500px]">
-              <thead>
-                <tr className="bg-surface-50 dark:bg-surface-800/60 border-b border-surface-200 dark:border-surface-700">
-                  {['User', 'Role', 'Loads', 'Trucks', 'Subscriptions'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-surface-400">{h}</th>
+
+          {truckGroups.length === 0 ? (
+            <div className="py-8 text-center text-xs text-surface-400 space-y-2">
+              <CheckCircleIcon className="w-10 h-10 text-emerald-400 mx-auto" />
+              <p className="font-bold text-white">All vehicle registration documents are reviewed!</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/10 bg-surface-950/60 text-surface-400 uppercase text-[10px]">
+                    <th className="text-left py-3 px-4 font-bold">Registration Number</th>
+                    <th className="text-left py-3 px-4 font-bold">Body Type</th>
+                    <th className="text-left py-3 px-4 font-bold">Transporter Owner</th>
+                    <th className="text-left py-3 px-4 font-bold">Pending Documents</th>
+                    <th className="text-right py-3 px-4 font-bold">Direct Verification Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {truckGroups.map((t) => (
+                    <tr key={t.truckId} className="hover:bg-white/5 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-white">🆔 {t.registrationNumber}</td>
+                      <td className="py-3.5 px-4">
+                        <Badge variant="default" size="sm" className="font-mono text-[10px]">{t.bodyType}</Badge>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <p className="font-bold text-white">{t.ownerName || '—'}</p>
+                        <p className="text-[11px] text-surface-400">{formatPhone(t.ownerPhone)}</p>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <Badge variant="warning" size="sm" className="font-mono text-[10px]">{t.pendingDocs} Pending</Badge>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={actionLoading === t.truckId}
+                            onClick={() =>
+                              setVerifyModal({
+                                truckId: t.truckId,
+                                registration: t.registrationNumber,
+                                action: 'Verified',
+                              })
+                            }
+                            leftIcon={<CheckCircleIcon className="w-3.5 h-3.5" />}
+                            className="font-bold text-xs py-1.5 shadow-glow-primary"
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            disabled={actionLoading === t.truckId}
+                            onClick={() =>
+                              setVerifyModal({
+                                truckId: t.truckId,
+                                registration: t.registrationNumber,
+                                action: 'Rejected',
+                              })
+                            }
+                            leftIcon={<XCircleIcon className="w-3.5 h-3.5" />}
+                            className="font-bold text-xs py-1.5"
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── SECTION: TOP MARKETPLACE CONTRIBUTORS ── */}
+      {(activeSection === 'ALL' || activeSection === 'CONTRIBUTORS') && topUsers.length > 0 && (
+        <div className="p-6 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-modal space-y-4 font-mono">
+          <div className="flex items-center justify-between pb-3 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <UsersIcon className="w-5 h-5 text-primary-400" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+                Top Marketplace Contributors ({topUsers.length})
+              </h2>
+            </div>
+            <span className="text-xs text-surface-400">Order by Volume Contribution</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-white/10 bg-surface-950/60 text-surface-400 uppercase text-[10px]">
+                  <th className="text-left py-3 px-4 font-bold">User</th>
+                  <th className="text-left py-3 px-4 font-bold">Role</th>
+                  <th className="text-right py-3 px-4 font-bold">Loads Posted</th>
+                  <th className="text-right py-3 px-4 font-bold">Trucks Registered</th>
+                  <th className="text-right py-3 px-4 font-bold">Active Subscriptions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
-                {topUsers.map(u => (
-                  <tr key={u.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-surface-900 dark:text-white">{u.name || formatPhone(u.phone)}</p>
+              <tbody className="divide-y divide-white/5">
+                {topUsers.map((u) => (
+                  <tr key={u.id} className="hover:bg-white/5 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <p className="font-bold text-white">{u.name || 'User'}</p>
+                      <p className="text-[11px] text-surface-400">{formatPhone(u.phone)}</p>
                     </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={u.role === 'load_owner' ? 'info' : u.role === 'truck_owner' ? 'success' : 'danger'} size="sm">
+                    <td className="py-3.5 px-4">
+                      <Badge
+                        variant={u.role === 'load_owner' ? 'info' : u.role === 'truck_owner' ? 'success' : 'danger'}
+                        size="sm"
+                        className="font-mono text-[10px]"
+                      >
                         {u.role === 'load_owner' ? 'Load Owner' : u.role === 'truck_owner' ? 'Truck Owner' : 'Admin'}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 font-medium">{u._count.loads}</td>
-                    <td className="px-4 py-3 font-medium">{u._count.trucks}</td>
-                    <td className="px-4 py-3 font-medium">{u._count.subscriptions}</td>
+                    <td className="py-3.5 px-4 text-right font-black text-amber-400">{u._count.loads}</td>
+                    <td className="py-3.5 px-4 text-right font-black text-emerald-400">{u._count.trucks}</td>
+                    <td className="py-3.5 px-4 text-right font-black text-purple-400">{u._count.subscriptions}</td>
                   </tr>
                 ))}
               </tbody>
@@ -317,34 +404,40 @@ export default function ListingsPage() {
         </div>
       )}
 
-      {/* Verify Truck Modal */}
+      {/* Verify Direct Modal */}
       {verifyModal && (
         <Modal
           open={true}
           onClose={() => setVerifyModal(null)}
-          title={verifyModal.action === 'Verified' ? 'Verify Truck' : 'Reject Truck'}
-          description={`Truck: ${verifyModal.registration}`}
+          title={verifyModal.action === 'Verified' ? 'Directly Verify Truck' : 'Reject Vehicle Verification'}
+          description={`Vehicle: ${verifyModal.registration}`}
           size="sm"
         >
-          <p className="text-sm text-surface-600 dark:text-surface-400">
-            {verifyModal.action === 'Verified'
-              ? 'Are you sure you want to directly verify this truck? This will mark it as verified regardless of document status.'
-              : 'Are you sure you want to reject this truck? The owner will need to address issues before re-verification.'}
-          </p>
-          <Modal.Footer>
-            <Button variant="secondary" size="md" onClick={() => setVerifyModal(null)}>Cancel</Button>
-            <Button
-              variant={verifyModal.action === 'Verified' ? 'primary' : 'danger'}
-              size="md"
-              loading={actionLoading !== null}
-              disabled={actionLoading !== null}
-              onClick={handleTruckVerify}
-            >
-              {verifyModal.action === 'Verified' ? 'Verify Truck' : 'Reject Truck'}
-            </Button>
-          </Modal.Footer>
+          <div className="space-y-4 font-mono text-xs">
+            <p className="text-surface-300 leading-relaxed">
+              {verifyModal.action === 'Verified'
+                ? 'Are you sure you want to directly verify this truck? This will grant verified status regardless of document upload status.'
+                : 'Are you sure you want to reject this truck? The owner will need to re-submit registration details.'}
+            </p>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-white/10">
+              <Button variant="ghost" size="sm" onClick={() => setVerifyModal(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant={verifyModal.action === 'Verified' ? 'primary' : 'danger'}
+                size="sm"
+                loading={actionLoading !== null}
+                onClick={handleTruckVerify}
+                className="font-bold shadow-glow-primary"
+              >
+                {verifyModal.action === 'Verified' ? 'Verify Truck' : 'Reject Truck'}
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
+
     </div>
   )
 }

@@ -401,7 +401,7 @@ export default function ProcurementPage() {
 
       {/* ── BID COMPARISON & AWARD MODAL ── */}
       {comparisonModalOpen && selectedRff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/60 backdrop-blur-xs p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
           <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-4xl w-full max-h-[90vh] flex flex-col justify-between shadow-2xl overflow-hidden">
             
             {/* Modal Header */}
@@ -513,7 +513,7 @@ export default function ProcurementPage() {
 
       {/* ── CREATE RFF MODAL ── */}
       {createRffModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/60 backdrop-blur-xs p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
           <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
               <h3 className="text-base font-bold text-surface-900 dark:text-white">
@@ -627,7 +627,7 @@ export default function ProcurementPage() {
 
       {/* ── COUNTER OFFER MODAL ── */}
       {negotiateModalOpen && activeBidForCounter && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/60 backdrop-blur-xs p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
           <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
               <h3 className="text-base font-bold text-surface-900 dark:text-white">
