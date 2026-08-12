@@ -10,6 +10,10 @@ on:
       - main
       - staging
 
+env:
+  DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/lorrycarry"
+  DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/lorrycarry"
+
 jobs:
   test_and_build:
     name: Build & Test
