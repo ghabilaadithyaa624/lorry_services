@@ -14,6 +14,8 @@ jobs:
   test_and_build:
     name: Build & Test
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/db"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
