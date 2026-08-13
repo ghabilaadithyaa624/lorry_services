@@ -48,6 +48,49 @@ describe('S3Service', () => {
     expect(service).toBeDefined()
   })
 
+  describe('constructor', () => {
+    it('should initialize with default config when options are not provided', async () => {
+      const mockConfigService = {
+        get: jest.fn((key: string, defaultValue?: any) => {
+          return defaultValue
+        }),
+      } as unknown as ConfigService
+
+      const testService = new S3Service(mockConfigService)
+      expect(testService).toBeDefined()
+      expect(testService['bucket']).toBe('lorrycarry-kyc')
+
+      const s3Config = await testService['s3Client'].config
+      expect(s3Config.region()).resolves.toBe('ap-south-1')
+      expect(s3Config.endpoint).toBeUndefined()
+    })
+
+    it('should configure S3Client endpoint and forcePathStyle when specified', async () => {
+      const mockConfigService = {
+        get: jest.fn((key: string, defaultValue?: any) => {
+          if (key === 'AWS_S3_BUCKET') return 'custom-bucket'
+          if (key === 'AWS_REGION') return 'us-west-2'
+          if (key === 'AWS_S3_ENDPOINT') return 'http://localhost:9000'
+          if (key === 'AWS_S3_FORCE_PATH_STYLE') return 'true'
+          if (key === 'AWS_ACCESS_KEY_ID') return 'key'
+          if (key === 'AWS_SECRET_ACCESS_KEY') return 'secret'
+          return defaultValue
+        }),
+      } as unknown as ConfigService
+
+      const testService = new S3Service(mockConfigService)
+      expect(testService['bucket']).toBe('custom-bucket')
+
+      const s3Config = await testService['s3Client'].config
+      expect(s3Config.region()).resolves.toBe('us-west-2')
+      expect(s3Config.endpoint).toBeDefined()
+      // Evaluate endpoint function if dynamic
+      const endpointObj = typeof s3Config.endpoint === 'function' ? await (s3Config.endpoint as any)() : s3Config.endpoint
+      expect(endpointObj.hostname).toBe('localhost')
+      expect(s3Config.forcePathStyle).toBe(true)
+    })
+  })
+
   describe('validateFile', () => {
     const mockFile = (size: number, mimetype: string): Express.Multer.File => {
       return {
@@ -178,6 +221,27 @@ describe('S3Service', () => {
 
       expect(loggerSpy).toHaveBeenCalledWith(`Upload failed: ${mockError.message}`)
       loggerSpy.mockRestore()
+    })
+
+    it('should fallback to default Amazon S3 domain when AWS_S3_ENDPOINT is not configured', async () => {
+      const mockConfigService = {
+        get: jest.fn((key: string, defaultValue?: any) => {
+          if (key === 'AWS_S3_BUCKET') return 'test-fallback-bucket'
+          if (key === 'AWS_REGION') return 'us-east-1'
+          if (key === 'AWS_S3_ENDPOINT') return undefined
+          return defaultValue
+        }),
+      } as unknown as ConfigService
+
+      const testService = new S3Service(mockConfigService)
+      const mockGetSignedUrl = getSignedUrl as jest.Mock
+      mockGetSignedUrl.mockResolvedValueOnce('https://mocked-signed-url')
+
+      const testSendSpy = jest.spyOn(testService['s3Client'], 'send') as jest.SpyInstance
+      testSendSpy.mockResolvedValueOnce({} as any)
+
+      const result = await testService.uploadFile(mockFileBuffer, mimeType, folder, userId)
+      expect(result.url).toContain('https://s3.amazonaws.com/test-fallback-bucket/')
     })
   })
 })
