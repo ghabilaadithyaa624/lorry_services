@@ -4,7 +4,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
   describe('Subscription Checks', () => {
     it('should generate a direct transporter pass upgrade task when hasSubscription is false', () => {
       const result = deriveOperationalTasks({
-        userRole: 'admin',
+        userRole: 'load_owner',
         hasSubscription: false,
       })
 
@@ -23,7 +23,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
 
     it('should NOT generate subscription upgrade task when hasSubscription is true', () => {
       const result = deriveOperationalTasks({
-        userRole: 'admin',
+        userRole: 'load_owner',
         hasSubscription: true,
       })
 
@@ -33,7 +33,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
 
     it('should NOT generate subscription upgrade task when hasSubscription is undefined', () => {
       const result = deriveOperationalTasks({
-        userRole: 'admin',
+        userRole: 'load_owner',
       })
 
       const subUpgradeTask = result.find((task) => task.id === 'sub-upgrade')

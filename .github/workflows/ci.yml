@@ -16,12 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -36,8 +36,11 @@ jobs:
       - name: Lint Code
         run: npm run lint
 
-      - name: Run Tests
+      - name: Run API Tests
         run: npm --prefix apps/api test
+
+      - name: Run Web Tests
+        run: npm --prefix apps/web test
 
       - name: Build Database Package
         run: npm run build --workspace=@lorrycarry/database
@@ -60,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
