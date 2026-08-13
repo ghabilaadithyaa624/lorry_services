@@ -90,10 +90,10 @@ export class MapmyIndiaService {
       return this.handleDevFallback(cleanAddress, 'API key missing')
     }
 
-    // Try primary Mappls API endpoint first, fallback to MapmyIndia legacy domain if network routing requires
+    // Try both primary Mappls API and legacy MapmyIndia endpoints concurrently to improve response time
     const baseUrls = [this.primaryBaseUrl, this.fallbackBaseUrl]
 
-    for (const baseUrl of baseUrls) {
+    const requests = baseUrls.map(async (baseUrl) => {
       try {
         const response = await axios.get(
           `${baseUrl}/${apiKey}/geo_code`,
@@ -110,8 +110,7 @@ export class MapmyIndiaService {
         const results = data?.results || (Array.isArray(data?.copResults) ? data.copResults : null)
 
         if (!results || results.length === 0) {
-          this.logger.debug(`Mappls returned zero geocoding results for query`)
-          return this.handleDevFallback(cleanAddress, 'No results found')
+          throw new Error('No results found')
         }
 
         const result = results[0]
@@ -121,8 +120,7 @@ export class MapmyIndiaService {
         // Strict validation: Coordinates must be valid numbers within realistic Indian bounding box
         // India bounding box approx: Lat 6.0 to 38.0, Lng 68.0 to 98.0
         if (isNaN(lat) || isNaN(lng) || lat < 6.0 || lat > 38.0 || lng < 68.0 || lng > 98.0) {
-          this.logger.warn(`Mappls returned out-of-bounds coordinates (${lat}, ${lng}) for query`)
-          return this.handleDevFallback(cleanAddress, 'Invalid coordinates returned')
+          throw new Error('Invalid coordinates returned')
         }
 
         return {
@@ -138,10 +136,16 @@ export class MapmyIndiaService {
       } catch (err: any) {
         const sanitized = this.sanitizeError(err, apiKey)
         this.logger.warn(`Mappls geocoding attempt failed on ${baseUrl}: ${sanitized}`)
+        throw err
       }
-    }
+    })
 
-    return this.handleDevFallback(cleanAddress, 'All Mappls geocoding attempts failed')
+    try {
+      return await Promise.any(requests)
+    } catch (err: any) {
+      this.logger.warn(`All Mappls geocoding attempts failed concurrently`)
+      return this.handleDevFallback(cleanAddress, 'All Mappls geocoding attempts failed')
+    }
   }
 
   /**
@@ -167,7 +171,7 @@ export class MapmyIndiaService {
 
     const baseUrls = [this.primaryBaseUrl, this.fallbackBaseUrl]
 
-    for (const baseUrl of baseUrls) {
+    const requests = baseUrls.map(async (baseUrl) => {
       try {
         const response = await axios.get(
           `${baseUrl}/${apiKey}/rev_geocode`,
@@ -184,8 +188,7 @@ export class MapmyIndiaService {
         const results = data?.results || (Array.isArray(data?.copResults) ? data.copResults : null)
 
         if (!results || results.length === 0) {
-          this.logger.debug(`Mappls reverse geocode returned no address for (${lat}, ${lng})`)
-          return null
+          throw new Error(`Mappls reverse geocode returned no address for (${lat}, ${lng})`)
         }
 
         const result = results[0]
@@ -202,10 +205,16 @@ export class MapmyIndiaService {
       } catch (err: any) {
         const sanitized = this.sanitizeError(err, apiKey)
         this.logger.warn(`Mappls reverse geocode attempt failed on ${baseUrl}: ${sanitized}`)
+        throw err
       }
-    }
+    })
 
-    return null
+    try {
+      return await Promise.any(requests)
+    } catch (err: any) {
+      this.logger.warn(`All Mappls reverse geocoding attempts failed concurrently`)
+      return null
+    }
   }
 
   /**
