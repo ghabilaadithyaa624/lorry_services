@@ -38,4 +38,11 @@ describe('WebhooksController', () => {
       .rejects.toThrow(BadRequestException);
     expect(paymentsService.handleWebhook).not.toHaveBeenCalled();
   });
+
+  it('should reject cashfree webhook with missing signature when verification fails', async () => {
+    (cashfreeService.verifyWebhookSignature as jest.Mock).mockReturnValue(false);
+    await expect(controller.handleCashfreeWebhook({ data: 'test' }))
+      .rejects.toThrow(BadRequestException);
+    expect(paymentsService.handleWebhook).not.toHaveBeenCalled();
+  });
 });

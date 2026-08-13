@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MMKV } from 'react-native-mmkv'
 import { api } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 
 const storage = new MMKV()
 const LOCAL_SUB_KEY = 'lorrycarry_local_subscription'
@@ -91,6 +92,7 @@ const PLANS: PlanConfig[] = [
 type Tab = 'pass' | 'upgrade' | 'history'
 
 export function PaymentScreen() {
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('pass')
   const [loading, setLoading] = useState(false)
   const [subscription, setSubscription] = useState<SubscriptionState>({
@@ -294,7 +296,9 @@ export function PaymentScreen() {
             <Text style={styles.noPassIcon}>🎫</Text>
             <Text style={styles.noPassTitle}>No Active Transporter Pass</Text>
             <Text style={styles.noPassDesc}>
-              Contact details, direct phone calls, and direct booking triggers are restricted. Get direct logistics intelligence without third-party broker friction.
+              {user?.role === 'truck_owner'
+                ? 'Contact details, direct phone calls, and direct load booking triggers are restricted. Get direct load logistics intelligence without third-party broker friction.'
+                : 'Contact details, direct phone calls, and direct truck booking triggers are restricted. Get direct truck logistics intelligence without third-party broker friction.'}
             </Text>
             <TouchableOpacity
               style={styles.activateBtn}
@@ -462,8 +466,28 @@ export function PaymentScreen() {
     <SafeAreaView style={styles.container}>
       {/* Title block */}
       <View style={styles.headerBlock}>
-        <Text style={styles.title}>Payments & Passes</Text>
-        <Text style={styles.subtitle}>Direct Marketplace Access Dashboard</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.title}>Payments & Passes</Text>
+            <Text style={styles.subtitle}>Direct Marketplace Access Dashboard</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={loadData}
+              disabled={loading}
+              style={styles.refreshBtn}
+              accessibilityLabel="Refresh payment records"
+              accessibilityRole="button"
+            >
+              <Text style={styles.refreshIcon}>{loading ? '⏳' : '🔄'}</Text>
+            </TouchableOpacity>
+            {user && (
+              <View style={styles.userBadge}>
+                <Text style={styles.userBadgeText}>👤 {user.name || user.role.replace('_', ' ')}</Text>
+              </View>
+            )}
+          </View>
+        </View>
       </View>
 
       {/* Segmented Tabs */}
@@ -1119,5 +1143,43 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     textAlign: 'center',
     marginTop: 4,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refreshBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshIcon: {
+    fontSize: 14,
+  },
+  userBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+  },
+  userBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#C2410C',
+    textTransform: 'capitalize',
   },
 })

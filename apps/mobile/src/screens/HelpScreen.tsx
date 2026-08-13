@@ -91,7 +91,14 @@ export function HelpScreen() {
         </View>
 
         {/* WhatsApp Quick Support Link */}
-        <TouchableOpacity style={styles.whatsappCard} onPress={handleWhatsAppSupport} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={styles.whatsappCard}
+          onPress={handleWhatsAppSupport}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Chat on WhatsApp"
+          accessibilityHint="Opens WhatsApp to start a conversation with our 24/7 support team."
+        >
           <Text style={styles.whatsappIcon}>💬</Text>
           <View style={styles.whatsappTextContainer}>
             <Text style={styles.whatsappTitle}>Chat on WhatsApp</Text>
@@ -110,6 +117,10 @@ export function HelpScreen() {
                   style={styles.faqHeader}
                   onPress={() => toggleFaq(item.id)}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`FAQ Question: ${item.question}`}
+                  accessibilityHint="Double tap to expand or collapse the answer."
+                  accessibilityState={{ expanded: isExpanded }}
                 >
                   <Text style={styles.faqQuestion}>{item.question}</Text>
                   <Text style={styles.faqToggleIcon}>{isExpanded ? '▲' : '▼'}</Text>
@@ -135,6 +146,8 @@ export function HelpScreen() {
               placeholderTextColor="#94A3B8"
               value={subject}
               onChangeText={setSubject}
+              accessibilityLabel="Subject Input"
+              accessibilityHint="Enter the main subject of your help request."
             />
 
             <Text style={styles.label}>Message</Text>
@@ -147,12 +160,18 @@ export function HelpScreen() {
               textAlignVertical="top"
               value={message}
               onChangeText={setMessage}
+              accessibilityLabel="Message Input"
+              accessibilityHint="Enter the details of your inquiry or problem."
             />
 
             <TouchableOpacity
               style={[styles.button, isSubmitting && styles.buttonDisabled]}
               onPress={handleContactSubmit}
               disabled={isSubmitting}
+              accessibilityRole="button"
+              accessibilityLabel="Submit Support Request"
+              accessibilityHint="Submits your inquiry to LorryCarry support team."
+              accessibilityState={{ disabled: isSubmitting }}
             >
               <Text style={styles.buttonText}>
                 {isSubmitting ? 'Sending...' : 'Submit Support Request'}
