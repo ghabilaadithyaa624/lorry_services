@@ -69,6 +69,7 @@ describe('MapmyIndiaService', () => {
       expect(result?.city).toBe('Bengaluru') // fallback mapping for 'bangalore'
     })
 
+    it('should return null on geocode failure in production even if dev fallback is enabled', async () => {
     it('should fall back to dev fallback if returned latitude is below Indian bounds (< 6.0)', async () => {
       mockedAxios.get.mockResolvedValueOnce({
         data: {
@@ -172,6 +173,7 @@ describe('MapmyIndiaService', () => {
         return defaultValue
       })
 
+      mockedAxios.get.mockRejectedValue(new Error('Network error'))
       mockedAxios.get.mockResolvedValueOnce({
         data: {
           results: [
@@ -189,6 +191,7 @@ describe('MapmyIndiaService', () => {
       expect(result).toBeNull()
     })
 
+    it('should return null on geocode failure if dev fallback is explicitly disabled', async () => {
     it('should return null if returned coordinates are out-of-bounds and dev fallback is disabled', async () => {
       jest.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: any) => {
         if (key === 'MAPMYINDIA_API_KEY') return 'test-api-key'
@@ -197,6 +200,7 @@ describe('MapmyIndiaService', () => {
         return defaultValue
       })
 
+      mockedAxios.get.mockRejectedValue(new Error('Network error'))
       mockedAxios.get.mockResolvedValueOnce({
         data: {
           results: [
