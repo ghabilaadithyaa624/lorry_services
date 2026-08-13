@@ -56,6 +56,9 @@ jobs:
       - name: Build Database Package
         run: npm run build --workspace=@lorrycarry/database
 
+      - name: Run Tests
+        run: npm --prefix apps/api test
+
       - name: Build API
         run: npm run build --workspace=@lorrycarry/api
 
