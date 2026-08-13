@@ -4,6 +4,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { ConfigService } from '@nestjs/config'
 import helmet from 'helmet'
 import { AppModule } from './app.module'
+import { getAllowedOrigins } from './common/utils/cors.util'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true })
@@ -15,14 +16,7 @@ async function bootstrap() {
   }))
 
   // Enable CORS with fallbacks
-  const allowedOrigins = Array.from(new Set([
-    configService.get('CLIENT_URL'),
-    configService.get('ADMIN_URL'),
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3010',
-    'http://localhost:3011',
-  ].filter(Boolean)))
+  const allowedOrigins = getAllowedOrigins(configService)
 
   app.enableCors({
     origin: allowedOrigins,
