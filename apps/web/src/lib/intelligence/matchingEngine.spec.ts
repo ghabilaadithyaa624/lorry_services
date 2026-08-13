@@ -100,11 +100,60 @@ describe('Matching Engine — Scoring compatibility factors', () => {
       expect(result.factors.bodyType.fit).toBe(true)
     })
 
+    it('should award 18 pts for compatible body type (OpenBody vs Open)', () => {
+      const load: LoadItem = { ...baseLoad, truckType: 'OpenBody' }
+      const truck: TruckItem = { ...baseTruck, bodyType: 'Open' }
+      const result = calculateMatchScore(load, truck)
+      expect(result.factors.bodyType.score).toBe(18)
+      expect(result.factors.bodyType.fit).toBe(true)
+    })
+
     it('should award 0 pts for body type mismatch', () => {
       const truck: TruckItem = { ...baseTruck, bodyType: 'Container' }
       const result = calculateMatchScore(baseLoad, truck)
       expect(result.factors.bodyType.score).toBe(0)
       expect(result.factors.bodyType.fit).toBe(false)
+    })
+  })
+
+  describe('Score Capping and Normalization', () => {
+    it('should cap the minimum score at 10 when calculated points are very low', () => {
+      const load: LoadItem = {
+        id: 'load-1',
+        tonnageRequired: 50,
+        truckType: 'Container',
+      }
+      const truck: TruckItem = {
+        id: 'truck-1',
+        bodyType: 'Open',
+        tonnageCapacity: 1,
+        distanceKm: 500, // Beyond typical radius
+        verificationStatus: 'Pending', // 4 points
+      }
+      const result = calculateMatchScore(load, truck)
+      // calculated: capacity 0, body 0, proximity 0, verification 4, corridor 0. Total = 4.
+      expect(result.score).toBe(10)
+    })
+
+    it('should return 100 for a perfect match', () => {
+      const load: LoadItem = {
+        id: 'load-1',
+        tonnageRequired: 10,
+        truckType: 'Open',
+        loadingAddress: 'Bangalore',
+        unloadingAddress: 'Chennai',
+      }
+      const truck: TruckItem = {
+        id: 'truck-1',
+        bodyType: 'Open',
+        tonnageCapacity: 10,
+        distanceKm: 5,
+        verificationStatus: 'Verified',
+        preferredDestinations: ['Chennai'],
+      }
+      const result = calculateMatchScore(load, truck)
+      expect(result.score).toBe(100)
+      expect(result.rating).toBe('PERFECT')
     })
   })
 
@@ -249,6 +298,71 @@ describe('Matching Engine — sortMarketplaceItems', () => {
     expect(result[0].id).toBe('item-2') // Return Load
     expect(result[1].id).toBe('item-1') // Standard Route, score 60
     expect(result[2].id).toBe('item-3') // Standard Route, score 40
+  })
+
+  it('should fall back to score 50 in BEST_MATCH sorting when match is missing', () => {
+    const itemsWithoutMatch: MockItem[] = [
+      { id: 'item-1', match: { score: 45 } as MatchResult },
+      { id: 'item-2' }, // falls back to 50
+      { id: 'item-3', match: { score: 55 } as MatchResult },
+    ]
+    const result = sortMarketplaceItems(itemsWithoutMatch, 'BEST_MATCH')
+    expect(result[0].id).toBe('item-3') // 55
+    expect(result[1].id).toBe('item-2') // fallback 50
+    expect(result[2].id).toBe('item-1') // 45
+  })
+
+  it('should fall back to 9999 in NEAREST sorting when distanceKm is missing', () => {
+    const itemsWithoutDist: MockItem[] = [
+      { id: 'item-1', distanceKm: 150 },
+      { id: 'item-2' }, // falls back to 9999
+      { id: 'item-3', distanceKm: 10 },
+    ]
+    const result = sortMarketplaceItems(itemsWithoutDist, 'NEAREST')
+    expect(result[0].id).toBe('item-3') // 10
+    expect(result[1].id).toBe('item-1') // 150
+    expect(result[2].id).toBe('item-2') // fallback 9999
+  })
+
+  it('should fall back correctly when tonnage capacity/required is missing in CAPACITY_FIT sorting with targetTonnage', () => {
+    const itemsWithoutTonnage: MockItem[] = [
+      { id: 'item-1', tonnageCapacity: 10 },
+      { id: 'item-2' }, // falls back to 0 capacity
+      { id: 'item-3', tonnageRequired: 8 },
+    ]
+    const result = sortMarketplaceItems(itemsWithoutTonnage, 'CAPACITY_FIT', 5)
+    // differences: item-1: |10-5| = 5, item-2: |0-5| = 5, item-3: |8-5| = 3
+    expect(result[0].id).toBe('item-3') // diff 3
+    expect(result[1].id).toBe('item-1') // diff 5
+    expect(result[2].id).toBe('item-2') // diff 5
+  })
+
+  it('should sort by match score fallback in CAPACITY_FIT sorting when matches are present but no targetTonnage', () => {
+    const itemsNoTarget: MockItem[] = [
+      { id: 'item-1', match: { isCapacityFit: true, score: 60 } as MatchResult },
+      { id: 'item-2', match: { isCapacityFit: true, score: 80 } as MatchResult },
+      { id: 'item-3', match: { isCapacityFit: false, score: 40 } as MatchResult },
+    ]
+    const result = sortMarketplaceItems(itemsNoTarget, 'CAPACITY_FIT')
+    expect(result[0].id).toBe('item-2') // isCapacityFit: true, score 80
+    expect(result[1].id).toBe('item-1') // isCapacityFit: true, score 60
+    expect(result[2].id).toBe('item-3') // isCapacityFit: false, score 40
+  })
+
+  it('should sort by match score fallback in VERIFIED/RETURN_LOAD sorting when status is equal', () => {
+    const itemsVerified: MockItem[] = [
+      { id: 'item-1', verificationStatus: 'Verified', match: { score: 60 } as MatchResult },
+      { id: 'item-2', verificationStatus: 'Verified', match: { score: 80 } as MatchResult },
+    ]
+    const result = sortMarketplaceItems(itemsVerified, 'VERIFIED')
+    expect(result[0].id).toBe('item-2') // score 80
+    expect(result[1].id).toBe('item-1') // score 60
+  })
+
+  it('should return cloned array unmodified for default sorting option', () => {
+    const result = sortMarketplaceItems(items, 'INVALID_SORT_OPTION' as MatchSortOption)
+    expect(result).toEqual(items)
+    expect(result).not.toBe(items)
   })
 })
 
