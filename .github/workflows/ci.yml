@@ -18,17 +18,24 @@ jobs:
   test_and_build:
     name: Build & Test
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/lorrycarry?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/lorrycarry?schema=public"
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
+      - name: Install specified npm version
+        run: npm install -g npm@11.12.1
+
       - name: Install Dependencies
+        run: npm install --no-audit --no-fund
         run: npm install --legacy-peer-deps
 
       - name: Validate Prisma Schema
@@ -40,8 +47,11 @@ jobs:
       - name: Lint Code
         run: npm run lint
 
-      - name: Run Tests
+      - name: Run API Tests
         run: npm --prefix apps/api test
+
+      - name: Run Web Tests
+        run: npm --prefix apps/web test
 
       - name: Build Database Package
         run: npm run build --workspace=@lorrycarry/database
@@ -64,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
