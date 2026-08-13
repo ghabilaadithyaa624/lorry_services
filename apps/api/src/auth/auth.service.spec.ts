@@ -190,6 +190,60 @@ describe('AuthService', () => {
         expect.any(Number)
       )
     })
+
+    it('should throw UnauthorizedException if refreshToken is missing or empty', async () => {
+      await expect(service.refreshToken('')).rejects.toThrow(
+        new UnauthorizedException('Refresh token is required')
+      )
+    })
+
+    it('should throw UnauthorizedException if jwt verify fails', async () => {
+      jwtService.verify.mockImplementationOnce(() => {
+        throw new Error('JWT verify failed')
+      })
+      await expect(service.refreshToken('invalid-token')).rejects.toThrow(
+        new UnauthorizedException('Invalid or expired refresh token')
+      )
+    })
+
+    it('should throw UnauthorizedException if essential claims are missing', async () => {
+      const mockPayload = { sub: 'usr-1' } // missing jti or fam
+      jwtService.verify.mockReturnValueOnce(mockPayload)
+      await expect(service.refreshToken('incomplete-token')).rejects.toThrow(
+        new UnauthorizedException('Invalid or expired refresh token')
+      )
+    })
+
+    it('should throw UnauthorizedException if token is not active in redis', async () => {
+      const mockPayload = { sub: 'usr-1', jti: 'inactive-token-123', fam: 'fam-456' }
+      jwtService.verify.mockReturnValueOnce(mockPayload)
+      redisClient.get.mockImplementation((key: string) => {
+        if (key === 'auth:rt:revoked:inactive-token-123') return Promise.resolve(null)
+        if (key === 'auth:rt:active:inactive-token-123') return Promise.resolve(null)
+        return Promise.resolve(null)
+      })
+
+      await expect(service.refreshToken('inactive-token')).rejects.toThrow(
+        new UnauthorizedException('Invalid or expired refresh token')
+      )
+    })
+
+    it('should throw UnauthorizedException if user does not exist in database', async () => {
+      const mockPayload = { sub: 'non-existent-user', jti: 'token-123', fam: 'fam-456' }
+      jwtService.verify.mockReturnValueOnce(mockPayload)
+      redisClient.get.mockImplementation((key: string) => {
+        if (key === 'auth:rt:revoked:token-123') return Promise.resolve(null)
+        if (key === 'auth:rt:active:token-123') return Promise.resolve(JSON.stringify({ userId: 'non-existent-user', familyId: 'fam-456' }))
+        return Promise.resolve(null)
+      })
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null)
+
+      await expect(service.refreshToken('valid-token-but-no-user')).rejects.toThrow(
+        new UnauthorizedException('User no longer exists')
+      )
+      expect(redisClient.del).toHaveBeenCalledWith('auth:rt:active:token-123')
+      expect(redisClient.del).toHaveBeenCalledWith('auth:family:fam-456')
+    })
   })
 
   describe('Refresh Token Replay / Reuse Rejection', () => {
