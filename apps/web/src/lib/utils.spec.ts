@@ -1,4 +1,31 @@
-import { formatINR } from './utils'
+import { formatINR, formatPhone } from './utils'
+
+describe('formatPhone', () => {
+  it('should return empty string when input is falsy or empty', () => {
+    expect(formatPhone('')).toBe('')
+    expect(formatPhone(null as any)).toBe('')
+    expect(formatPhone(undefined as any)).toBe('')
+  })
+
+  it('should correctly format a valid 13-character +91 phone number without spaces', () => {
+    expect(formatPhone('+918072025106')).toBe('+91 80720 25106')
+  })
+
+  it('should correctly format a valid 13-character +91 phone number that has spaces', () => {
+    expect(formatPhone('+91 80720 25106')).toBe('+91 80720 25106')
+    expect(formatPhone(' +91  80720  25106 ')).toBe('+91 80720 25106')
+  })
+
+  it('should return the original phone number if it does not start with +91', () => {
+    expect(formatPhone('+18072025106')).toBe('+18072025106')
+    expect(formatPhone('918072025106')).toBe('918072025106')
+  })
+
+  it('should return the original phone number if start is +91 but length is not 13 after cleaning', () => {
+    expect(formatPhone('+91807202510')).toBe('+91807202510') // 12 chars
+    expect(formatPhone('+9180720251067')).toBe('+9180720251067') // 14 chars
+  })
+})
 
 describe('formatINR', () => {
   describe('Positive numbers', () => {
