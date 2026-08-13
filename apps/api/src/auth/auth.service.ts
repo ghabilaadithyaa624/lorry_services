@@ -88,8 +88,8 @@ export class AuthService {
       message: result.message,
       channel: usedChannel,
       isExistingUser,
-      // Dev mode: return OTP for testing (remove in production)
-      ...(this.config.get('NODE_ENV') !== 'production' && { devOtp: otp }),
+      // Dev mode: return static mock OTP '123456' for testing (never expose the actual dynamic OTP)
+      ...(this.config.get('NODE_ENV') !== 'production' && { devOtp: '123456' }),
     }
   }
 
@@ -136,7 +136,15 @@ export class AuthService {
     }
 
     // Verify OTP
-    const verification = await this.otpStorage.verifyOtp(phone, inputOtp)
+    let verification: { valid: boolean; message: string }
+    const isDevMode = this.config.get('NODE_ENV') !== 'production'
+    if (isDevMode && inputOtp === '123456') {
+      verification = { valid: true, message: 'OTP verified successfully (Dev Mode)' }
+      await this.otpStorage.deleteOtp(phone)
+    } else {
+      verification = await this.otpStorage.verifyOtp(phone, inputOtp)
+    }
+
     if (!verification.valid) {
       throw new UnauthorizedException(verification.message)
     }

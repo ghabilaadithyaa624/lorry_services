@@ -95,6 +95,7 @@ describe('AuthService', () => {
           useValue: {
             storeOtp: jest.fn().mockResolvedValue(true),
             verifyOtp: jest.fn().mockResolvedValue({ valid: true }),
+            deleteOtp: jest.fn().mockResolvedValue(true),
           },
         },
         {
@@ -133,6 +134,56 @@ describe('AuthService', () => {
       expect(res.channel).toBe(OtpChannel.WHATSAPP)
       expect(gupshupService.sendOtp).toHaveBeenCalled()
       expect(otpStorageService.storeOtp).toHaveBeenCalled()
+    })
+
+    it('should return devOtp as static "123456" in non-production environments', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      configService.get.mockImplementation((key: string, defaultVal?: any) => {
+        if (key === 'NODE_ENV') return 'development'
+        return defaultVal
+      })
+      const res = await service.requestOtp('+919876543210', OtpChannel.WHATSAPP)
+      expect(res.devOtp).toBe('123456')
+    })
+
+    it('should not return any devOtp in production environment', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      configService.get.mockImplementation((key: string, defaultVal?: any) => {
+        if (key === 'NODE_ENV') return 'production'
+        return defaultVal
+      })
+      const res = await service.requestOtp('+919876543210', OtpChannel.WHATSAPP)
+      expect(res.devOtp).toBeUndefined()
+    })
+
+    it('should verify static OTP 123456 in non-production environments', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      ;(prisma.user.create as jest.Mock).mockResolvedValueOnce({
+        id: 'usr-1',
+        phone: '+919876543210',
+        role: UserRole.load_owner,
+        name: null,
+      })
+      configService.get.mockImplementation((key: string, defaultVal?: any) => {
+        if (key === 'NODE_ENV') return 'development'
+        return defaultVal
+      })
+
+      const res = await service.verifyOtp('+919876543210', '123456', UserRole.load_owner)
+      expect(res.user.id).toBe('usr-1')
+      expect(otpStorageService.deleteOtp).toHaveBeenCalledWith('+919876543210')
+    })
+
+    it('should not allow static OTP 123456 in production environment', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      configService.get.mockImplementation((key: string, defaultVal?: any) => {
+        if (key === 'NODE_ENV') return 'production'
+        return defaultVal
+      })
+      otpStorageService.verifyOtp.mockResolvedValueOnce({ valid: false, message: 'Invalid OTP' })
+
+      await expect(service.verifyOtp('+919876543210', '123456', UserRole.load_owner)).rejects.toThrow(UnauthorizedException)
+      expect(otpStorageService.verifyOtp).toHaveBeenCalledWith('+919876543210', '123456')
     })
 
     it('should fall back to SMS if WhatsApp fails', async () => {
