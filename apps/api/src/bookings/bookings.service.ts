@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common'
+import { randomUUID } from 'crypto'
 import { 
   prisma, 
   BookingStatus, 
@@ -149,19 +150,17 @@ export class BookingsService {
       { name: 'Unloading Point', lat: endLat, lng: endLng, radiusM: 500 },
     ]
 
-    for (let i = 0; i < checkpoints.length; i++) {
-      const cp = checkpoints[i]
-      await tx.checkpoint.create({
-        data: {
-          bookingId,
-          seq: i + 1,
-          name: cp.name,
-          lat: cp.lat,
-          lng: cp.lng,
-          radiusM: cp.radiusM,
-        },
-      })
-    }
+    await tx.checkpoint.createMany({
+      data: checkpoints.map((cp, i) => ({
+        id: randomUUID(),
+        bookingId,
+        seq: i + 1,
+        name: cp.name,
+        lat: cp.lat,
+        lng: cp.lng,
+        radiusM: cp.radiusM,
+      })),
+    })
   }
 
   /**
