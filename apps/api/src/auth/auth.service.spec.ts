@@ -95,6 +95,7 @@ describe('AuthService', () => {
           useValue: {
             storeOtp: jest.fn().mockResolvedValue(true),
             verifyOtp: jest.fn().mockResolvedValue({ valid: true }),
+            deleteOtp: jest.fn().mockResolvedValue(true),
           },
         },
         {
@@ -133,6 +134,56 @@ describe('AuthService', () => {
       expect(res.channel).toBe(OtpChannel.WHATSAPP)
       expect(gupshupService.sendOtp).toHaveBeenCalled()
       expect(otpStorageService.storeOtp).toHaveBeenCalled()
+    })
+
+    it('should return devOtp as static "123456" in non-production environments', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      configService.get.mockImplementation((key: string, defaultVal?: any) => {
+        if (key === 'NODE_ENV') return 'development'
+        return defaultVal
+      })
+      const res = await service.requestOtp('+919876543210', OtpChannel.WHATSAPP)
+      expect(res.devOtp).toBe('123456')
+    })
+
+    it('should not return any devOtp in production environment', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      configService.get.mockImplementation((key: string, defaultVal?: any) => {
+        if (key === 'NODE_ENV') return 'production'
+        return defaultVal
+      })
+      const res = await service.requestOtp('+919876543210', OtpChannel.WHATSAPP)
+      expect(res.devOtp).toBeUndefined()
+    })
+
+    it('should verify static OTP 123456 in non-production environments', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      ;(prisma.user.create as jest.Mock).mockResolvedValueOnce({
+        id: 'usr-1',
+        phone: '+919876543210',
+        role: UserRole.load_owner,
+        name: null,
+      })
+      configService.get.mockImplementation((key: string, defaultVal?: any) => {
+        if (key === 'NODE_ENV') return 'development'
+        return defaultVal
+      })
+
+      const res = await service.verifyOtp('+919876543210', '123456', UserRole.load_owner)
+      expect(res.user.id).toBe('usr-1')
+      expect(otpStorageService.deleteOtp).toHaveBeenCalledWith('+919876543210')
+    })
+
+    it('should not allow static OTP 123456 in production environment', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      configService.get.mockImplementation((key: string, defaultVal?: any) => {
+        if (key === 'NODE_ENV') return 'production'
+        return defaultVal
+      })
+      otpStorageService.verifyOtp.mockResolvedValueOnce({ valid: false, message: 'Invalid OTP' })
+
+      await expect(service.verifyOtp('+919876543210', '123456', UserRole.load_owner)).rejects.toThrow(UnauthorizedException)
+      expect(otpStorageService.verifyOtp).toHaveBeenCalledWith('+919876543210', '123456')
     })
 
     it('should fall back to SMS if WhatsApp fails', async () => {
@@ -189,6 +240,60 @@ describe('AuthService', () => {
         'EX',
         expect.any(Number)
       )
+    })
+
+    it('should throw UnauthorizedException if refreshToken is missing or empty', async () => {
+      await expect(service.refreshToken('')).rejects.toThrow(
+        new UnauthorizedException('Refresh token is required')
+      )
+    })
+
+    it('should throw UnauthorizedException if jwt verify fails', async () => {
+      jwtService.verify.mockImplementationOnce(() => {
+        throw new Error('JWT verify failed')
+      })
+      await expect(service.refreshToken('invalid-token')).rejects.toThrow(
+        new UnauthorizedException('Invalid or expired refresh token')
+      )
+    })
+
+    it('should throw UnauthorizedException if essential claims are missing', async () => {
+      const mockPayload = { sub: 'usr-1' } // missing jti or fam
+      jwtService.verify.mockReturnValueOnce(mockPayload)
+      await expect(service.refreshToken('incomplete-token')).rejects.toThrow(
+        new UnauthorizedException('Invalid or expired refresh token')
+      )
+    })
+
+    it('should throw UnauthorizedException if token is not active in redis', async () => {
+      const mockPayload = { sub: 'usr-1', jti: 'inactive-token-123', fam: 'fam-456' }
+      jwtService.verify.mockReturnValueOnce(mockPayload)
+      redisClient.get.mockImplementation((key: string) => {
+        if (key === 'auth:rt:revoked:inactive-token-123') return Promise.resolve(null)
+        if (key === 'auth:rt:active:inactive-token-123') return Promise.resolve(null)
+        return Promise.resolve(null)
+      })
+
+      await expect(service.refreshToken('inactive-token')).rejects.toThrow(
+        new UnauthorizedException('Invalid or expired refresh token')
+      )
+    })
+
+    it('should throw UnauthorizedException if user does not exist in database', async () => {
+      const mockPayload = { sub: 'non-existent-user', jti: 'token-123', fam: 'fam-456' }
+      jwtService.verify.mockReturnValueOnce(mockPayload)
+      redisClient.get.mockImplementation((key: string) => {
+        if (key === 'auth:rt:revoked:token-123') return Promise.resolve(null)
+        if (key === 'auth:rt:active:token-123') return Promise.resolve(JSON.stringify({ userId: 'non-existent-user', familyId: 'fam-456' }))
+        return Promise.resolve(null)
+      })
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null)
+
+      await expect(service.refreshToken('valid-token-but-no-user')).rejects.toThrow(
+        new UnauthorizedException('User no longer exists')
+      )
+      expect(redisClient.del).toHaveBeenCalledWith('auth:rt:active:token-123')
+      expect(redisClient.del).toHaveBeenCalledWith('auth:family:fam-456')
     })
   })
 

@@ -1,10 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { ConfigService } from '@nestjs/config'
 import { S3Service } from './s3.service'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: jest.fn(),
+}))
 
 describe('S3Service', () => {
   let service: S3Service
   let configService: ConfigService
+  let s3SendSpy: jest.SpyInstance
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -18,6 +25,7 @@ describe('S3Service', () => {
               if (key === 'AWS_REGION') return 'us-east-1'
               if (key === 'AWS_ACCESS_KEY_ID') return 'test-access-key'
               if (key === 'AWS_SECRET_ACCESS_KEY') return 'test-secret-key'
+              if (key === 'AWS_S3_ENDPOINT') return 'https://s3.amazonaws.com'
               return defaultValue
             }),
           },
@@ -27,6 +35,13 @@ describe('S3Service', () => {
 
     service = module.get<S3Service>(S3Service)
     configService = module.get<ConfigService>(ConfigService)
+
+    // Spy on the s3Client's send method
+    s3SendSpy = jest.spyOn(service['s3Client'], 'send')
+  })
+
+  afterEach(() => {
+    jest.clearAllMocks()
   })
 
   it('should be defined', () => {
@@ -92,6 +107,77 @@ describe('S3Service', () => {
         valid: false,
         error: 'Invalid file type. Allowed: image/png, image/jpeg',
       })
+    })
+  })
+
+  describe('getSignedUrl', () => {
+    it('should call getSignedUrl with correct parameters and return signed URL', async () => {
+      const mockSignedUrl = 'https://mocked-signed-url'
+      const key = 'test-folder/test-user/test-file.png'
+      const expiresIn = 3600
+
+      const mockGetSignedUrl = getSignedUrl as jest.Mock
+      mockGetSignedUrl.mockResolvedValueOnce(mockSignedUrl)
+
+      const result = await service.getSignedUrl(key, expiresIn)
+
+      expect(result).toBe(mockSignedUrl)
+      expect(mockGetSignedUrl).toHaveBeenCalledWith(
+        service['s3Client'],
+        expect.any(GetObjectCommand),
+        { expiresIn }
+      )
+    })
+  })
+
+  describe('uploadFile', () => {
+    const mockFileBuffer = Buffer.from('test file content')
+    const mimeType = 'image/png'
+    const folder = 'documents'
+    const userId = 'user-123'
+
+    it('should upload a file successfully and return keys, url, and signedUrl', async () => {
+      const mockSignedUrl = 'https://mocked-signed-url/file'
+      const mockGetSignedUrl = getSignedUrl as jest.Mock
+      mockGetSignedUrl.mockResolvedValueOnce(mockSignedUrl)
+
+      s3SendSpy.mockResolvedValueOnce({})
+
+      const result = await service.uploadFile(mockFileBuffer, mimeType, folder, userId)
+
+      // Verify returned upload results
+      expect(result.key).toContain(`${folder}/${userId}/`)
+      expect(result.url).toContain(`https://s3.amazonaws.com/test-bucket/${result.key}`)
+      expect(result.signedUrl).toBe(mockSignedUrl)
+
+      // Verify S3 Client send was called with PutObjectCommand and correct parameters
+      expect(s3SendSpy).toHaveBeenCalledTimes(1)
+      const sentCommand = s3SendSpy.mock.calls[0][0]
+      expect(sentCommand).toBeInstanceOf(PutObjectCommand)
+      expect(sentCommand.input).toMatchObject({
+        Bucket: 'test-bucket',
+        Key: result.key,
+        Body: mockFileBuffer,
+        ContentType: mimeType,
+        Metadata: {
+          'x-amz-meta-userid': userId,
+          'x-amz-meta-uploadedat': expect.any(String),
+        },
+      })
+    })
+
+    it('should throw Error and log error message when s3Client.send throws an error', async () => {
+      const mockError = new Error('AWS connection timeout')
+      s3SendSpy.mockRejectedValueOnce(mockError)
+
+      const loggerSpy = jest.spyOn(service['logger'], 'error').mockImplementation(() => {})
+
+      await expect(
+        service.uploadFile(mockFileBuffer, mimeType, folder, userId)
+      ).rejects.toThrow('File upload failed')
+
+      expect(loggerSpy).toHaveBeenCalledWith(`Upload failed: ${mockError.message}`)
+      loggerSpy.mockRestore()
     })
   })
 })

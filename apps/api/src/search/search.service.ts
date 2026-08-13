@@ -32,6 +32,23 @@ export class SearchService {
       whereConditions.push(Prisma.sql`tonnage_capacity >= ${minTonnage}`)
     }
     
+    const radiusMeters = radiusKm * 1000
+
+    const whereConditions: Prisma.Sql[] = [
+      Prisma.sql`ST_DWithin(t.current_location::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${radiusMeters})`,
+      Prisma.sql`t.verification_status = 'Verified'`
+    ]
+    
+    if (truckType) {
+      whereConditions.push(Prisma.sql`t.body_type::text = ${truckType}`)
+    }
+    
+    if (minTonnage) {
+      whereConditions.push(Prisma.sql`t.tonnage_capacity >= ${minTonnage}`)
+    }
+    
+    const whereClause = Prisma.join(whereConditions, ' AND ')
+
     const query = Prisma.sql`
       SELECT 
         t.id,
@@ -49,6 +66,7 @@ export class SearchService {
         NULL as "ownerName"
       FROM trucks t
       WHERE ${Prisma.join(whereConditions, ' AND ')}
+      WHERE ${whereClause}
       ORDER BY "distanceKm" ASC
       LIMIT 50
     `
@@ -83,6 +101,23 @@ export class SearchService {
       whereConditions.push(Prisma.sql`tonnage_required <= ${maxTonnage}`)
     }
     
+    const radiusMeters = radiusKm * 1000
+
+    const whereConditions: Prisma.Sql[] = [
+      Prisma.sql`ST_DWithin(l.loading_point::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${radiusMeters})`,
+      Prisma.sql`l.status = 'Open'`
+    ]
+    
+    if (truckType) {
+      whereConditions.push(Prisma.sql`l.truck_type::text = ${truckType}`)
+    }
+    
+    if (maxTonnage) {
+      whereConditions.push(Prisma.sql`l.tonnage_required <= ${maxTonnage}`)
+    }
+    
+    const whereClause = Prisma.join(whereConditions, ' AND ')
+
     const query = Prisma.sql`
       SELECT 
         l.id,
@@ -104,6 +139,7 @@ export class SearchService {
         NULL as "ownerName"
       FROM loads l
       WHERE ${Prisma.join(whereConditions, ' AND ')}
+      WHERE ${whereClause}
       ORDER BY 
         l.urgent DESC,
         "distanceKm" ASC,
