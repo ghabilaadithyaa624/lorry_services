@@ -228,8 +228,55 @@ export class MapmyIndiaService {
         eLoc: result.eLoc || result.placeId,
       }
     } catch (err: any) {
+      this.logger.warn(`Mappls primary geocoding failed, trying legacy concurrent backup: ${err.message}`)
+    }
+
+    // Try both primary Mappls API and legacy MapmyIndia endpoints concurrently to improve response time
+    const baseUrls = [this.primaryBaseUrl, this.fallbackBaseUrl]
+
+    const requests = baseUrls.map(async (baseUrl) => {
+      try {
+        const response = await axios.get(
+          `${baseUrl}/${apiKey}/geo_code`,
+          {
+            params: { address: cleanAddress },
+            timeout: this.requestTimeoutMs,
+            headers: {
+              'User-Agent': 'LorryCarry-Logistics-Platform/1.0',
+            },
+          }
+        )
+
+        const data = response.data
+        const results = data?.results || (Array.isArray(data?.copResults) ? data.copResults : null)
+
+        if (!results || results.length === 0) {
+          throw new Error('No results found')
+        }
+
+        const result = results[0]
+        const lat = parseFloat(result.lat ?? result.latitude)
+        const lng = parseFloat(result.lng ?? result.longitude)
+
+      return {
+        lat: Math.round(lat * 1000000) / 1000000,
+        lng: Math.round(lng * 1000000) / 1000000,
+        formattedAddress: result.formatted_address || result.formattedAddress || cleanAddress,
+        pincode: result.pincode || result.pinCode || this.extractPincode(cleanAddress),
+        city: result.city || result.district || '',
+        state: result.state || '',
+        district: result.district || result.subDistrict || '',
+        eLoc: result.eLoc || result.placeId,
+      }
+    } catch (err: any) {
       // Try both primary Mappls API and legacy MapmyIndia endpoints concurrently to improve response time
       const baseUrls = [this.primaryBaseUrl, this.fallbackBaseUrl]
+        // Strict validation: Coordinates must be valid numbers within realistic Indian bounding box
+        // India bounding box approx: Lat 6.0 to 38.0, Lng 68.0 to 98.0
+        if (isNaN(lat) || isNaN(lng) || lat < 6.0 || lat > 38.0 || lng < 68.0 || lng > 98.0) {
+          this.logger.warn(`Mappls returned out-of-bounds coordinates (${lat}, ${lng}) for query`)
+          return this.handleDevFallback(cleanAddress, 'Invalid coordinates returned')
+        }
 
       const requests = baseUrls.map(async (baseUrl) => {
         try {
