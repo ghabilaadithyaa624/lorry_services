@@ -5,6 +5,7 @@ import {
   LoadItem,
   TruckItem,
   MatchResult,
+  MatchSortOption,
 } from './matchingEngine'
 
 describe('Matching Engine — Distance calculation edge cases', () => {

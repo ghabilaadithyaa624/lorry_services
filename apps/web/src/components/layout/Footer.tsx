@@ -41,7 +41,7 @@ export function Footer() {
   ]
 
   return (
-    <footer className="bg-[#0F131D] text-surface-300 border-t border-white/10">
+    <footer className="bg-[#0F131D] text-surface-300 border-t border-white/10 pb-24 md:pb-0">
       {/* Trust Highlights Section */}
       <div className="border-b border-white/10 bg-[#070A11]/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">

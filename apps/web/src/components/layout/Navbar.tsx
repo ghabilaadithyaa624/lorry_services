@@ -136,7 +136,7 @@ export function Navbar() {
                     key={link.name}
                     href={link.href}
                     className={cn(
-                      'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-150',
+                      'flex items-center gap-2 px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-150',
                       isActive
                         ? 'text-primary-400 bg-primary-500/10'
                         : 'text-surface-300 hover:text-white hover:bg-white/5'
@@ -148,6 +148,19 @@ export function Navbar() {
                 )
               })}
             </nav>
+
+            {/* Product Mechanism Pill */}
+            <div className="hidden lg:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-surface-950/90 border border-white/10 text-[10px] sm:text-[11px] font-mono font-bold text-surface-300 tracking-wider">
+              <span className="text-primary-400">POST</span>
+              <span className="text-surface-600">➔</span>
+              <span className="text-primary-400">MATCH</span>
+              <span className="text-surface-600">➔</span>
+              <span className="text-primary-400">CONTACT</span>
+              <span className="text-surface-600">➔</span>
+              <span className="text-primary-400">BOOK</span>
+              <span className="text-surface-600">➔</span>
+              <span className="text-emerald-400">TRACK</span>
+            </div>
           </div>
 
           {/* Right Action / Auth Buttons */}

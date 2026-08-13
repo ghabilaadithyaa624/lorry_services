@@ -2,7 +2,6 @@ import {
   assessShipmentIntelligence,
   summarizeActiveShipmentsControlTower,
   BookingData,
-  CheckpointData,
 } from './shipmentIntelligence'
 
 describe('Shipment & Transit Intelligence Unit Tests', () => {
