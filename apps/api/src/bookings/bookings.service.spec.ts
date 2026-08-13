@@ -25,6 +25,7 @@ jest.mock('@lorrycarry/database', () => {
     },
     checkpoint: {
       create: jest.fn(),
+      createMany: jest.fn(),
     },
     $transaction: jest.fn((cb) => cb(mockPrisma)),
   }
@@ -130,7 +131,16 @@ describe('BookingsService', () => {
         where: { id: 'load-1', userId: 'owner-1', status: LoadStatus.Open },
         data: { status: LoadStatus.Matched },
       })
-      expect(prisma.checkpoint.create).toHaveBeenCalledTimes(5)
+      expect(prisma.checkpoint.createMany).toHaveBeenCalledTimes(1)
+      expect(prisma.checkpoint.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({ name: 'Loading Point', seq: 1 }),
+          expect.objectContaining({ name: 'Checkpoint 1', seq: 2 }),
+          expect.objectContaining({ name: 'Checkpoint 2', seq: 3 }),
+          expect.objectContaining({ name: 'Checkpoint 3', seq: 4 }),
+          expect.objectContaining({ name: 'Unloading Point', seq: 5 }),
+        ]),
+      })
       expect(gupshupService.sendNotification).toHaveBeenCalledTimes(2)
     })
 
@@ -182,7 +192,7 @@ describe('BookingsService', () => {
 
       ;(prisma.load.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 })
       ;(prisma.booking.create as jest.Mock).mockResolvedValueOnce({ id: 'b1' })
-      ;(prisma.checkpoint.create as jest.Mock).mockRejectedValueOnce(new Error('DB transaction error'))
+      ;(prisma.checkpoint.createMany as jest.Mock).mockRejectedValueOnce(new Error('DB transaction error'))
 
       await expect(service.create('owner-1', mockDto)).rejects.toThrow('DB transaction error')
       expect(gupshupService.sendNotification).not.toHaveBeenCalled()

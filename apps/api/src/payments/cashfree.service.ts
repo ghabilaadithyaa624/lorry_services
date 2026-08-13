@@ -100,12 +100,13 @@ export class CashfreeService {
         this.logger.error('CASHFREE_WEBHOOK_SECRET is not configured in production. Rejecting webhook.')
         return false
       }
+      this.logger.warn('CASHFREE_WEBHOOK_SECRET is not configured. Webhook security signature check is skipped in dev environment.')
       return true // Allow in dev environment if secret is unconfigured
     }
 
     if (!signature) {
-      if (isProd) return false
-      return true
+      this.logger.error('Missing webhook signature.')
+      return false
     }
 
     try {

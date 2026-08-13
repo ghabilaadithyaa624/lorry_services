@@ -1,5 +1,5 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common'
-import { prisma } from '@lorrycarry/database'
+import { prisma, Prisma } from '@lorrycarry/database'
 
 @Injectable()
 export class SearchService {
@@ -18,24 +18,24 @@ export class SearchService {
   }) {
     const { lat, lng, radiusKm = 50, truckType, minTonnage, userId } = params
     
-    // Raw query with PostGIS ST_DWithin for radius search
-    const whereConditions = [
-      `ST_DWithin(current_location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)`,
-      `verification_status = 'Verified'`,
+    const radiusMeters = radiusKm * 1000
+
+    const whereConditions: Prisma.Sql[] = [
+      Prisma.sql`ST_DWithin(t.current_location::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${radiusMeters})`,
+      Prisma.sql`t.verification_status = 'Verified'`
     ]
-    const queryParams: any[] = [lng, lat, radiusKm * 1000] // Convert to meters
     
     if (truckType) {
-      whereConditions.push(`body_type::text = $${queryParams.length + 1}`)
-      queryParams.push(truckType)
+      whereConditions.push(Prisma.sql`t.body_type::text = ${truckType}`)
     }
     
     if (minTonnage) {
-      whereConditions.push(`tonnage_capacity >= $${queryParams.length + 1}`)
-      queryParams.push(minTonnage)
+      whereConditions.push(Prisma.sql`t.tonnage_capacity >= ${minTonnage}`)
     }
     
-    const query = `
+    const whereClause = Prisma.join(whereConditions, ' AND ')
+
+    const query = Prisma.sql`
       SELECT 
         t.id,
         t.body_type as "bodyType",
@@ -45,18 +45,18 @@ export class SearchService {
         t.serviceable_radius_km as "serviceableRadiusKm",
         t.preferred_destinations as "preferredDestinations",
         t.verification_status as "verificationStatus",
-        ST_Distance(t.current_location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 as "distanceKm",
+        ST_Distance(t.current_location::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography) / 1000 as "distanceKm",
         -- MASKED: user_id, registration_number hidden for non-subscribers
         NULL as "registrationNumber",
         NULL as "ownerPhone",
         NULL as "ownerName"
       FROM trucks t
-      WHERE ${whereConditions.join(' AND ')}
+      WHERE ${whereClause}
       ORDER BY "distanceKm" ASC
       LIMIT 50
     `
     
-    const trucks = await prisma.$queryRawUnsafe(query, ...queryParams)
+    const trucks = await prisma.$queryRaw<any[]>(query)
     return trucks
   }
 
@@ -73,23 +73,24 @@ export class SearchService {
   }) {
     const { lat, lng, radiusKm = 50, truckType, maxTonnage, userId } = params
     
-    const whereConditions = [
-      `ST_DWithin(loading_point::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)`,
-      `status = 'Open'`,
+    const radiusMeters = radiusKm * 1000
+
+    const whereConditions: Prisma.Sql[] = [
+      Prisma.sql`ST_DWithin(l.loading_point::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${radiusMeters})`,
+      Prisma.sql`l.status = 'Open'`
     ]
-    const queryParams: any[] = [lng, lat, radiusKm * 1000]
     
     if (truckType) {
-      whereConditions.push(`truck_type::text = $${queryParams.length + 1}`)
-      queryParams.push(truckType)
+      whereConditions.push(Prisma.sql`l.truck_type::text = ${truckType}`)
     }
     
     if (maxTonnage) {
-      whereConditions.push(`tonnage_required <= $${queryParams.length + 1}`)
-      queryParams.push(maxTonnage)
+      whereConditions.push(Prisma.sql`l.tonnage_required <= ${maxTonnage}`)
     }
     
-    const query = `
+    const whereClause = Prisma.join(whereConditions, ' AND ')
+
+    const query = Prisma.sql`
       SELECT 
         l.id,
         l.tonnage_required as "tonnageRequired",
@@ -104,12 +105,12 @@ export class SearchService {
         l.max_price as "maxPrice",
         l.expected_delivery_at as "expectedDeliveryAt",
         l.advance_payable as "advancePayable",
-        ST_Distance(l.loading_point::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 as "distanceKm",
+        ST_Distance(l.loading_point::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography) / 1000 as "distanceKm",
         -- MASKED: user_id hidden
         NULL as "ownerPhone",
         NULL as "ownerName"
       FROM loads l
-      WHERE ${whereConditions.join(' AND ')}
+      WHERE ${whereClause}
       ORDER BY 
         l.urgent DESC,
         "distanceKm" ASC,
@@ -117,7 +118,7 @@ export class SearchService {
       LIMIT 50
     `
     
-    const loads = await prisma.$queryRawUnsafe(query, ...queryParams)
+    const loads = await prisma.$queryRaw<any[]>(query)
     return loads
   }
 
