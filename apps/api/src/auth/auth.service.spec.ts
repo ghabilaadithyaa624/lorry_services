@@ -312,6 +312,21 @@ describe('AuthService', () => {
       expect(redisClient.del).toHaveBeenCalledWith('auth:family:fam-456')
       expect(redisClient.srem).toHaveBeenCalledWith('auth:user:families:usr-1', 'fam-456')
     })
+
+    it('should handle invalid JSON in family data when revoking family due to token reuse', async () => {
+      const mockPayload = { sub: 'usr-1', jti: 'revoked-token-123', fam: 'fam-456' }
+      jwtService.verify.mockReturnValueOnce(mockPayload)
+      redisClient.get.mockImplementation((key: string) => {
+        if (key === 'auth:rt:revoked:revoked-token-123') return Promise.resolve(JSON.stringify({ userId: 'usr-1' }))
+        if (key === 'auth:family:fam-456') return Promise.resolve('{invalid-json}')
+        return Promise.resolve(null)
+      })
+
+      await expect(service.refreshToken('revoked-refresh-token')).rejects.toThrow(UnauthorizedException)
+      expect(redisClient.del).not.toHaveBeenCalledWith(expect.stringContaining('auth:rt:active:'))
+      expect(redisClient.del).toHaveBeenCalledWith('auth:family:fam-456')
+      expect(redisClient.srem).toHaveBeenCalledWith('auth:user:families:usr-1', 'fam-456')
+    })
   })
 
   describe('Logout & Session Revocation', () => {
