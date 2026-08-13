@@ -68,6 +68,34 @@ describe('MapmyIndiaService', () => {
       expect(result).not.toBeNull()
       expect(result?.city).toBe('Bengaluru') // fallback mapping for 'bangalore'
     })
+
+    it('should return null on geocode failure in production even if dev fallback is enabled', async () => {
+      jest.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: any) => {
+        if (key === 'MAPMYINDIA_API_KEY') return 'test-api-key'
+        if (key === 'NODE_ENV') return 'production'
+        if (key === 'ENABLE_GEOCODE_DEV_FALLBACK') return 'true'
+        return defaultValue
+      })
+
+      mockedAxios.get.mockRejectedValue(new Error('Network error'))
+
+      const result = await service.geocodeAddress('Bangalore')
+      expect(result).toBeNull()
+    })
+
+    it('should return null on geocode failure if dev fallback is explicitly disabled', async () => {
+      jest.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: any) => {
+        if (key === 'MAPMYINDIA_API_KEY') return 'test-api-key'
+        if (key === 'NODE_ENV') return 'development'
+        if (key === 'ENABLE_GEOCODE_DEV_FALLBACK') return 'false'
+        return defaultValue
+      })
+
+      mockedAxios.get.mockRejectedValue(new Error('Network error'))
+
+      const result = await service.geocodeAddress('Bangalore')
+      expect(result).toBeNull()
+    })
   })
 
   describe('reverseGeocode', () => {
