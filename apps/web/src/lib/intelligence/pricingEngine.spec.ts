@@ -58,6 +58,27 @@ describe('Pricing Engine — estimateFreightRate', () => {
     expect(estimate.confidence).toBe('BENCHMARK')
   })
 
+  it('should use default fallback distance of 350 when distance is missing and some or all coordinates are missing', () => {
+    // 1. Completely missing coordinates and no distance
+    const estimateNoCoords = estimateFreightRate({
+      tonnage: 10,
+      truckType: 'Open',
+    })
+    expect(estimateNoCoords.distanceKm).toBe(350)
+    expect(estimateNoCoords.confidence).toBe('BENCHMARK')
+
+    // 2. Partial coordinates (cannot compute distance)
+    const estimatePartialCoords = estimateFreightRate({
+      tonnage: 10,
+      truckType: 'Open',
+      loadingLat: 12.9715987,
+      loadingLng: 77.5945627,
+      // unloading coordinates are missing
+    })
+    expect(estimatePartialCoords.distanceKm).toBe(350)
+    expect(estimatePartialCoords.confidence).toBe('MEDIUM') // confidence uses loadingLat check
+  })
+
   it('should use default fallback distance of 350 when distanceKm is explicitly < 10', () => {
     const estimate = estimateFreightRate({
       distanceKm: 5,
