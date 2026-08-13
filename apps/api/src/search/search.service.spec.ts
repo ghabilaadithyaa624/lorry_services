@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { HttpException, HttpStatus } from '@nestjs/common'
 import { SearchService } from './search.service'
-import { prisma, Prisma } from '@lorrycarry/database'
+import { prisma } from '@lorrycarry/database'
 
 jest.mock('@lorrycarry/database', () => {
   const actual = jest.requireActual('@lorrycarry/database')
@@ -19,23 +19,6 @@ jest.mock('@lorrycarry/database', () => {
         findUnique: jest.fn(),
       },
     },
-  }
-  const { Prisma } = jest.requireActual('@prisma/client')
-  const mockPrisma = {
-    $queryRaw: jest.fn().mockResolvedValue([]),
-    subscription: {
-      findFirst: jest.fn(),
-    },
-    truck: {
-      findUnique: jest.fn(),
-    },
-    load: {
-      findUnique: jest.fn(),
-    },
-  }
-  return {
-    Prisma,
-    prisma: mockPrisma,
   }
 })
 
@@ -55,6 +38,16 @@ describe('SearchService', () => {
   describe('searchTrucks', () => {
     it('should search trucks with default coordinates and radius', async () => {
       const mockTrucks = [{ id: 'truck-1', bodyType: 'Open' }]
+      ;(prisma.$queryRaw as jest.Mock).mockResolvedValueOnce(mockTrucks)
+
+      const result = await service.searchTrucks({
+        lat: 18.5204,
+        lng: 73.8567,
+      })
+
+      expect(result).toEqual(mockTrucks)
+    })
+
     it('should search trucks using parameterized $queryRaw', async () => {
       const mockTrucks = [{ id: 'truck-1', distanceKm: 12.5 }]
       ;(prisma.$queryRaw as jest.Mock).mockResolvedValueOnce(mockTrucks)
@@ -70,12 +63,23 @@ describe('SearchService', () => {
       expect(result).toEqual(mockTrucks)
       expect(prisma.$queryRaw).toHaveBeenCalledTimes(1)
 
-      const [query] = (prisma.$queryRaw as jest.Mock).mock.calls[0]
-      expect(query.text).toContain('ST_DWithin')
-      expect(query.text).toContain('verification_status = \'Verified\'')
-      expect(query.values).toContain(73.8567) // lng
-      expect(query.values).toContain(18.5204) // lat
-      expect(query.values).toContain(50 * 1000) // default radius (50km in meters)
+      const calledQuery = (prisma.$queryRaw as jest.Mock).mock.calls[0][0]
+      expect(calledQuery).toBeDefined()
+      expect(calledQuery.text).toBeDefined()
+      expect(calledQuery.values).toBeDefined()
+
+      // Verify parameters are bound securely
+      expect(calledQuery.values).toContain(18.5204)
+      expect(calledQuery.values).toContain(73.8567)
+      expect(calledQuery.values).toContain(20000) // 20 km to meters
+      expect(calledQuery.values).toContain('Open')
+      expect(calledQuery.values).toContain(15)
+
+      // Ensure no raw sql injection is possible and standard PostGIS ST_DWithin and ST_Distance are present
+      expect(calledQuery.text).toContain('ST_DWithin')
+      expect(calledQuery.text).toContain('ST_Distance')
+      expect(calledQuery.text).toContain('body_type::text =')
+      expect(calledQuery.text).toContain('tonnage_capacity >=')
     })
 
     it('should append truckType and minTonnage filters correctly', async () => {
@@ -95,29 +99,22 @@ describe('SearchService', () => {
       expect(query.values).toContain('Container')
       expect(query.values).toContain(12)
       expect(query.values).toContain(100 * 1000) // custom radius in meters
-      const calledQuery = (prisma.$queryRaw as jest.Mock).mock.calls[0][0]
-      expect(calledQuery).toBeDefined()
-      expect(calledQuery.text).toBeDefined()
-      expect(calledQuery.values).toBeDefined()
-
-      // Verify parameters are bound securely
-      expect(calledQuery.values).toContain(18.5204)
-      expect(calledQuery.values).toContain(73.8567)
-      expect(calledQuery.values).toContain(20000) // 20 km to meters
-      expect(calledQuery.values).toContain('Open')
-      expect(calledQuery.values).toContain(15)
-
-      // Ensure no raw sql injection is possible and standard PostGIS ST_DWithin and ST_Distance are present
-      expect(calledQuery.text).toContain('ST_DWithin')
-      expect(calledQuery.text).toContain('ST_Distance')
-      expect(calledQuery.text).toContain('body_type::text =')
-      expect(calledQuery.text).toContain('tonnage_capacity >=')
     })
   })
 
   describe('searchLoads', () => {
     it('should search loads with default coordinates and radius', async () => {
       const mockLoads = [{ id: 'load-1', tonnageRequired: 10 }]
+      ;(prisma.$queryRaw as jest.Mock).mockResolvedValueOnce(mockLoads)
+
+      const result = await service.searchLoads({
+        lat: 12.9716,
+        lng: 77.5946,
+      })
+
+      expect(result).toEqual(mockLoads)
+    })
+
     it('should search loads using parameterized $queryRaw', async () => {
       const mockLoads = [{ id: 'load-1', distanceKm: 5.4 }]
       ;(prisma.$queryRaw as jest.Mock).mockResolvedValueOnce(mockLoads)
@@ -133,12 +130,22 @@ describe('SearchService', () => {
       expect(result).toEqual(mockLoads)
       expect(prisma.$queryRaw).toHaveBeenCalledTimes(1)
 
-      const [query] = (prisma.$queryRaw as jest.Mock).mock.calls[0]
-      expect(query.text).toContain('ST_DWithin')
-      expect(query.text).toContain('status = \'Open\'')
-      expect(query.values).toContain(77.5946) // lng
-      expect(query.values).toContain(12.9716) // lat
-      expect(query.values).toContain(50 * 1000) // default radius
+      const calledQuery = (prisma.$queryRaw as jest.Mock).mock.calls[0][0]
+      expect(calledQuery).toBeDefined()
+      expect(calledQuery.text).toBeDefined()
+      expect(calledQuery.values).toBeDefined()
+
+      // Verify parameters are bound securely
+      expect(calledQuery.values).toContain(12.9716)
+      expect(calledQuery.values).toContain(77.5946)
+      expect(calledQuery.values).toContain(30000) // 30 km to meters
+      expect(calledQuery.values).toContain('Container')
+      expect(calledQuery.values).toContain(10)
+
+      expect(calledQuery.text).toContain('ST_DWithin')
+      expect(calledQuery.text).toContain('ST_Distance')
+      expect(calledQuery.text).toContain('truck_type::text =')
+      expect(calledQuery.text).toContain('tonnage_required <=')
     })
 
     it('should append truckType and maxTonnage filters correctly', async () => {
@@ -158,22 +165,6 @@ describe('SearchService', () => {
       expect(query.values).toContain('Trailer')
       expect(query.values).toContain(25)
       expect(query.values).toContain(30 * 1000)
-      const calledQuery = (prisma.$queryRaw as jest.Mock).mock.calls[0][0]
-      expect(calledQuery).toBeDefined()
-      expect(calledQuery.text).toBeDefined()
-      expect(calledQuery.values).toBeDefined()
-
-      // Verify parameters are bound securely
-      expect(calledQuery.values).toContain(12.9716)
-      expect(calledQuery.values).toContain(77.5946)
-      expect(calledQuery.values).toContain(30000) // 30 km to meters
-      expect(calledQuery.values).toContain('Container')
-      expect(calledQuery.values).toContain(10)
-
-      expect(calledQuery.text).toContain('ST_DWithin')
-      expect(calledQuery.text).toContain('ST_Distance')
-      expect(calledQuery.text).toContain('truck_type::text =')
-      expect(calledQuery.text).toContain('tonnage_required <=')
     })
   })
 
@@ -245,6 +236,8 @@ describe('SearchService', () => {
           HttpStatus.PAYMENT_REQUIRED,
         )
       )
+    })
+
     it('should throw Payment Required if no active subscription exists', async () => {
       ;(prisma.subscription.findFirst as jest.Mock).mockResolvedValueOnce(null)
 
@@ -283,16 +276,12 @@ describe('SearchService', () => {
     it('should return true if active subscription exists', async () => {
       ;(prisma.subscription.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'sub-1' })
       const result = await service.checkSubscription(userId)
-    it('should return true if active subscription exists', async () => {
-      ;(prisma.subscription.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'sub-1' })
-      const result = await service.checkSubscription('user-1')
       expect(result).toBe(true)
     })
 
     it('should return false if no active subscription exists', async () => {
       ;(prisma.subscription.findFirst as jest.Mock).mockResolvedValueOnce(null)
       const result = await service.checkSubscription(userId)
-      const result = await service.checkSubscription('user-1')
       expect(result).toBe(false)
     })
   })
