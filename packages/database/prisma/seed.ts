@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { PrismaClient, UserRole, SubscriptionStatus, TruckType, VerificationStatus, DocumentType, LoadStatus, BookingStatus, PaymentPurpose, PaymentStatus, NotificationChannel, NotificationStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -243,27 +244,35 @@ async function main() {
     { seq: 7, name: 'Destination - Peenya Bangalore', lat: 12.9716, lng: 77.5946, eta: 840, crossed: false },
   ];
 
-  for (const cp of checkpointsData) {
-    const checkpoint = await prisma.checkpoint.create({
-      data: {
-        bookingId: booking1.id,
-        seq: cp.seq,
-        name: cp.name,
-        lat: cp.lat,
-        lng: cp.lng,
-        radiusM: 500,
-        crossedAt: cp.crossed ? new Date(Date.now() - (7 - cp.seq) * 2 * 60 * 60 * 1000) : null,
-        etaMinutes: cp.eta,
-      },
-    });
+  const checkpoints = await prisma.checkpoint.createManyAndReturn({
+    data: checkpointsData.map((cp) => ({
+      id: randomUUID(),
+      bookingId: booking1.id,
+      seq: cp.seq,
+      name: cp.name,
+      lat: cp.lat,
+      lng: cp.lng,
+      radiusM: 500,
+      crossedAt: cp.crossed ? new Date(Date.now() - (7 - cp.seq) * 2 * 60 * 60 * 1000) : null,
+      etaMinutes: cp.eta,
+    })),
+  });
 
-    try {
-      await prisma.$executeRawUnsafe(
-        `UPDATE checkpoints SET location = ST_SetSRID(ST_MakePoint(${cp.lng}, ${cp.lat}), 4326)::geography WHERE id = '${checkpoint.id}'`
-      );
-    } catch (e) {
-      // Ignored if raw PostGIS unavailable during offline seed preview
+  try {
+    if (checkpoints.length > 0) {
+      const valuesClause = checkpoints
+        .map((cp) => `('${cp.id}'::uuid, ${cp.lng}::numeric, ${cp.lat}::numeric)`)
+        .join(', ');
+      const bulkUpdateQuery = `
+        UPDATE checkpoints AS c
+        SET location = ST_SetSRID(ST_MakePoint(v.lng, v.lat), 4326)::geography
+        FROM (VALUES ${valuesClause}) AS v(id, lng, lat)
+        WHERE c.id = v.id
+      `;
+      await prisma.$executeRawUnsafe(bulkUpdateQuery);
     }
+  } catch (e) {
+    // Ignored if raw PostGIS unavailable during offline seed preview
   }
 
   console.log('✅ Booking & NH48 Checkpoints seeded');
