@@ -281,6 +281,33 @@ describe('Shipment & Transit Intelligence Unit Tests', () => {
   })
 
   describe('summarizeActiveShipmentsControlTower', () => {
+    it('performance benchmark of summarizeActiveShipmentsControlTower', () => {
+      // Create many mock bookings to run repeatedly
+      const bookings: BookingData[] = []
+      for (let i = 0; i < 2000; i++) {
+        bookings.push({
+          ...baseBooking,
+          id: `bk-${i}`,
+          status: i % 4 === 0 ? 'Completed' : 'InTransit',
+          advanceConfirmed: i % 3 !== 0,
+          ewayBillNumber: i % 5 === 0 ? null : 'EWAY-12345',
+          checkpoints: [
+            { id: `cp-${i}-1`, seq: 1, name: 'CP 1', lat: 10, lng: 10, crossedAt: i % 2 === 0 ? 'crossed' : null },
+            { id: `cp-${i}-2`, seq: 2, name: 'CP 2', lat: 11, lng: 11, crossedAt: null },
+            { id: `cp-${i}-3`, seq: 3, name: 'CP 3', lat: 12, lng: 12, crossedAt: null },
+          ],
+        })
+      }
+
+      const start = performance.now()
+      // Call summarizeActiveShipmentsControlTower 20 times (or more)
+      for (let run = 0; run < 20; run++) {
+        summarizeActiveShipmentsControlTower(bookings)
+      }
+      const end = performance.now()
+      console.log(`[BENCHMARK] Elapsed time: ${(end - start).toFixed(2)} ms`)
+    })
+
     it('should correctly sum and classify bookings into status tier buckets', () => {
       const bookingCompleted: BookingData = {
         ...baseBooking,
