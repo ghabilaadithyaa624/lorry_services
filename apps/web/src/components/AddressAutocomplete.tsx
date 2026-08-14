@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useId } from 'react'
 import { api } from '@/lib/api'
 
 interface Suggestion {
@@ -14,6 +14,7 @@ interface AddressAutocompleteProps {
   onChange: (address: string, pincode?: string, lat?: number, lng?: number) => void
   placeholder?: string
   label?: string
+  id?: string
 }
 
 export function AddressAutocomplete({
@@ -21,12 +22,17 @@ export function AddressAutocomplete({
   onChange,
   placeholder = 'Enter address...',
   label,
+  id,
 }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [loading, setLoading] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
+
+  const generatedId = useId()
+  const inputId = id || `address-input-${generatedId}`
+  const listboxId = `address-listbox-${generatedId}`
 
   useEffect(() => {
     setQuery(value)
@@ -76,11 +82,12 @@ export function AddressAutocomplete({
   return (
     <div ref={wrapperRef} className="relative w-full">
       {label && (
-        <label className="block text-sm font-medium mb-1 dark:text-gray-200">
+        <label htmlFor={inputId} className="block text-sm font-medium mb-1 dark:text-gray-200">
           {label}
         </label>
       )}
       <input
+        id={inputId}
         type="text"
         value={query}
         onChange={(e) => {
@@ -90,20 +97,37 @@ export function AddressAutocomplete({
         placeholder={placeholder}
         className="input"
         autoComplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={showSuggestions && suggestions.length > 0}
+        aria-controls={listboxId}
+        aria-haspopup="listbox"
       />
       {loading && (
-        <div className="absolute right-3 top-9 text-xs text-gray-400">
+        <div role="status" aria-live="polite" className="absolute right-3 top-9 text-xs text-gray-400">
           Loading...
         </div>
       )}
       
       {showSuggestions && suggestions.length > 0 && (
-        <ul className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-button shadow-lg max-h-60 overflow-y-auto">
+        <ul
+          id={listboxId}
+          role="listbox"
+          className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-button shadow-lg max-h-60 overflow-y-auto"
+        >
           {suggestions.map((suggestion, idx) => (
             <li
               key={suggestion.placeId || idx}
+              role="option"
+              tabIndex={0}
               onClick={() => handleSelect(suggestion)}
-              className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-0"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleSelect(suggestion)
+                }
+              }}
+              className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-0 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-700"
             >
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {suggestion.address}
