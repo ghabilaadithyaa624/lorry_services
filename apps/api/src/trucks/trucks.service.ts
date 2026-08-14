@@ -45,12 +45,7 @@ export class TrucksService {
     })
 
     try {
-      await prisma.$executeRawUnsafe(
-        `UPDATE trucks SET current_location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography WHERE id = $3`,
-        location.lng,
-        location.lat,
-        truck.id
-      )
+      await prisma.$executeRaw`UPDATE trucks SET current_location = ST_SetSRID(ST_MakePoint(${location.lng}, ${location.lat}), 4326)::geography WHERE id = ${truck.id}`
     } catch (err) {
       // PostGIS point update fallback
     }
@@ -189,12 +184,7 @@ export class TrucksService {
     })
 
     try {
-      await prisma.$executeRawUnsafe(
-        `UPDATE trucks SET current_location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography WHERE id = $3`,
-        location.lng,
-        location.lat,
-        truckId
-      )
+      await prisma.$executeRaw`UPDATE trucks SET current_location = ST_SetSRID(ST_MakePoint(${location.lng}, ${location.lat}), 4326)::geography WHERE id = ${truckId}`
     } catch (err) {
       // PostGIS point update fallback
     }
