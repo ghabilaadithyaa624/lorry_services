@@ -34,39 +34,40 @@ export class BookingsService {
     dto: CreateBookingDto
   ) {
     const booking = await prisma.$transaction(async (tx) => {
-      // 1. Verify load exists, belongs to user, and is open
-      const load = await tx.load.findFirst({
-        where: { id: dto.loadId, userId: loadOwnerId, status: LoadStatus.Open },
-        include: { user: true },
-      })
+      // 1-3. Retrieve load, truck, and subscription concurrently to reduce database roundtrip latency inside transaction
+      const [load, truck, subscription] = await Promise.all([
+        tx.load.findFirst({
+          where: { id: dto.loadId, userId: loadOwnerId, status: LoadStatus.Open },
+          include: { user: true },
+        }),
+        tx.truck.findFirst({
+          where: {
+            id: dto.truckId,
+            verificationStatus: 'Verified',
+            bookings: { none: { status: { in: [BookingStatus.Confirmed, BookingStatus.InTransit] } } }
+          },
+          include: { user: true },
+        }),
+        tx.subscription.findFirst({
+          where: {
+            userId: loadOwnerId,
+            status: SubscriptionStatus.active,
+            expiresAt: { gt: new Date() },
+          },
+        })
+      ])
 
+      // Validate load existence and status
       if (!load) {
         throw new NotFoundException('Load not found or not available')
       }
 
-      // 2. Verify truck exists, is verified, and has no active bookings
-      const truck = await tx.truck.findFirst({
-        where: { 
-          id: dto.truckId, 
-          verificationStatus: 'Verified',
-          bookings: { none: { status: { in: [BookingStatus.Confirmed, BookingStatus.InTransit] } } }
-        },
-        include: { user: true },
-      })
-
+      // Validate truck eligibility
       if (!truck) {
         throw new NotFoundException('Truck not found, unverified, or currently assigned to another active trip')
       }
 
-      // 3. Check load owner has active subscription
-      const subscription = await tx.subscription.findFirst({
-        where: {
-          userId: loadOwnerId,
-          status: SubscriptionStatus.active,
-          expiresAt: { gt: new Date() },
-        },
-      })
-
+      // Validate load owner subscription
       if (!subscription) {
         throw new ForbiddenException({
           code: 'SUBSCRIPTION_REQUIRED',
@@ -141,25 +142,15 @@ export class BookingsService {
     endLat: number,
     endLng: number
   ) {
-    // Calculate waypoints
-    const checkpoints = [
-      { name: 'Loading Point', lat: startLat, lng: startLng, radiusM: 500 },
-      { name: 'Checkpoint 1', lat: startLat + (endLat - startLat) * 0.25, lng: startLng + (endLng - startLng) * 0.25, radiusM: 2000 },
-      { name: 'Checkpoint 2', lat: startLat + (endLat - startLat) * 0.5, lng: startLng + (endLng - startLng) * 0.5, radiusM: 2000 },
-      { name: 'Checkpoint 3', lat: startLat + (endLat - startLat) * 0.75, lng: startLng + (endLng - startLng) * 0.75, radiusM: 2000 },
-      { name: 'Unloading Point', lat: endLat, lng: endLng, radiusM: 500 },
-    ]
-
+    // Calculate and construct checkpoints directly to completely avoid extra array/mapping loop allocations
     await tx.checkpoint.createMany({
-      data: checkpoints.map((cp, i) => ({
-        id: randomUUID(),
-        bookingId,
-        seq: i + 1,
-        name: cp.name,
-        lat: cp.lat,
-        lng: cp.lng,
-        radiusM: cp.radiusM,
-      })),
+      data: [
+        { id: randomUUID(), bookingId, seq: 1, name: 'Loading Point', lat: startLat, lng: startLng, radiusM: 500 },
+        { id: randomUUID(), bookingId, seq: 2, name: 'Checkpoint 1', lat: startLat + (endLat - startLat) * 0.25, lng: startLng + (endLng - startLng) * 0.25, radiusM: 2000 },
+        { id: randomUUID(), bookingId, seq: 3, name: 'Checkpoint 2', lat: startLat + (endLat - startLat) * 0.5, lng: startLng + (endLng - startLng) * 0.5, radiusM: 2000 },
+        { id: randomUUID(), bookingId, seq: 4, name: 'Checkpoint 3', lat: startLat + (endLat - startLat) * 0.75, lng: startLng + (endLng - startLng) * 0.75, radiusM: 2000 },
+        { id: randomUUID(), bookingId, seq: 5, name: 'Unloading Point', lat: endLat, lng: endLng, radiusM: 500 },
+      ],
     })
   }
 
