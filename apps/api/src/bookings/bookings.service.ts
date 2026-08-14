@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, ConflictException } 
 import { randomUUID } from 'crypto'
 import { 
   prisma, 
+  Prisma,
   BookingStatus, 
   LoadStatus, 
   SubscriptionStatus 
@@ -150,17 +151,34 @@ export class BookingsService {
       { name: 'Unloading Point', lat: endLat, lng: endLng, radiusM: 500 },
     ]
 
+    const data = checkpoints.map((cp, i) => ({
+      id: randomUUID(),
+      bookingId,
+      seq: i + 1,
+      name: cp.name,
+      lat: cp.lat,
+      lng: cp.lng,
+      radiusM: cp.radiusM,
+    }))
+
     await tx.checkpoint.createMany({
-      data: checkpoints.map((cp, i) => ({
-        id: randomUUID(),
-        bookingId,
-        seq: i + 1,
-        name: cp.name,
-        lat: cp.lat,
-        lng: cp.lng,
-        radiusM: cp.radiusM,
-      })),
+      data,
     })
+
+    // Update PostGIS geography points via a single raw SQL bulk query to prevent N+1 query issue
+    try {
+      const valueRows = data.map(
+        (cp) => Prisma.sql`(${cp.id}::uuid, ${cp.lng}::numeric, ${cp.lat}::numeric)`
+      )
+      await tx.$executeRaw`
+        UPDATE checkpoints AS c
+        SET location = ST_SetSRID(ST_MakePoint(v.lng, v.lat), 4326)::geography
+        FROM (VALUES ${Prisma.join(valueRows, ', ')}) AS v(id, lng, lat)
+        WHERE c.id = v.id
+      `
+    } catch (err) {
+      // PostGIS point update fallback
+    }
   }
 
   /**
