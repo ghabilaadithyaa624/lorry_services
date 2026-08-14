@@ -353,4 +353,27 @@ describe('AuthService', () => {
       expect(redisClient.del).toHaveBeenCalledWith('auth:user:families:usr-1')
     })
   })
+
+  describe('JWT Security Fallback Restrictions', () => {
+    it('should throw an error in the constructor if JWT_REFRESH_SECRET is missing', () => {
+      const mockConfigService = {
+        get: jest.fn((key: string) => {
+          if (key === 'JWT_SECRET') return 'test-jwt-secret'
+          return undefined
+        }),
+      } as any
+
+      expect(() => {
+        new AuthService(
+          jwtService,
+          mockConfigService,
+          msg91Service,
+          gupshupService,
+          rateLimitService,
+          otpStorageService,
+          redisClient
+        )
+      }).toThrow('JWT_REFRESH_SECRET must be configured')
+    })
+  })
 })
