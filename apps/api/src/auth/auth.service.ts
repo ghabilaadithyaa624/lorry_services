@@ -29,7 +29,11 @@ export class AuthService {
     private rateLimit: RateLimitService,
     private otpStorage: OtpStorageService,
     @Inject(REDIS_CLIENT) private redis: Redis,
-  ) {}
+  ) {
+    if (!this.config.get<string>('JWT_REFRESH_SECRET')) {
+      throw new Error('JWT_REFRESH_SECRET must be configured')
+    }
+  }
 
   /**
    * Request OTP with smart fallback
@@ -188,7 +192,7 @@ export class AuthService {
     const accessToken = this.jwtService.sign(accessPayload)
     const refreshToken = this.jwtService.sign(refreshPayload, { 
       expiresIn: '30d',
-      secret: this.config.get('JWT_REFRESH_SECRET', this.config.get('JWT_SECRET'))
+      secret: this.config.get<string>('JWT_REFRESH_SECRET')
     })
 
     // Store active token in Redis
@@ -233,7 +237,7 @@ export class AuthService {
     let payload: any
     try {
       payload = this.jwtService.verify(refreshToken, {
-        secret: this.config.get('JWT_REFRESH_SECRET', this.config.get('JWT_SECRET'))
+        secret: this.config.get<string>('JWT_REFRESH_SECRET')
       })
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token')
@@ -308,7 +312,7 @@ export class AuthService {
       fam: familyId,
     }, {
       expiresIn: '30d',
-      secret: this.config.get('JWT_REFRESH_SECRET', this.config.get('JWT_SECRET'))
+      secret: this.config.get<string>('JWT_REFRESH_SECRET')
     })
 
     // Store new active token in Redis
