@@ -166,6 +166,28 @@ describe('LoadsService', () => {
       expect(result).toBeDefined()
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(1)
     })
+
+    it('should default urgent to false if not provided', async () => {
+      mockMapmyIndiaService.geocodeAddress
+        .mockResolvedValue({ lat: 18.5204, lng: 73.8567 })
+
+      const dtoWithoutUrgent = { ...dto }
+      delete dtoWithoutUrgent.urgent
+
+      const mockLoad = { id: 'load-new-uuid' }
+      ;(prisma.load.create as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.$executeRaw as jest.Mock).mockResolvedValueOnce(1)
+
+      await service.create(userId, dtoWithoutUrgent)
+
+      expect(prisma.load.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            urgent: false,
+          }),
+        })
+      )
+    })
   })
 
   describe('findByUser', () => {
@@ -179,6 +201,42 @@ describe('LoadsService', () => {
         where: { userId: 'user-123', status: LoadStatus.Open },
         skip: 10,
         take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: { bookings: true },
+          },
+        },
+      })
+    })
+
+    it('should use default page and limit and not filter by status if omitted', async () => {
+      const mockLoads = [{ id: 'load-1' }]
+      ;(prisma.load.findMany as jest.Mock).mockResolvedValueOnce(mockLoads)
+
+      await service.findByUser('user-123')
+      expect(prisma.load.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-123' },
+        skip: 0,
+        take: 50,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: { bookings: true },
+          },
+        },
+      })
+    })
+
+    it('should clamp safe limits when out of bound values are provided', async () => {
+      const mockLoads = [{ id: 'load-1' }]
+      ;(prisma.load.findMany as jest.Mock).mockResolvedValueOnce(mockLoads)
+
+      await service.findByUser('user-123', undefined, 0, 150)
+      expect(prisma.load.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-123' },
+        skip: 0, // Math.max(1, 0) -> 1, skip = (1-1)*limit = 0
+        take: 100, // Math.min(100, Math.max(1, 150)) -> 100
         orderBy: { createdAt: 'desc' },
         include: {
           _count: {
