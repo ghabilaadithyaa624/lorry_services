@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ToastProvider } from '@/components/ui'
 import { MobileBottomNav } from '@/components/layout'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 export const metadata: Metadata = {
   title: "LorryCarry.com - India's Freight Marketplace & Logistics Control Tower",
@@ -27,6 +28,7 @@ export default function RootLayout({
         {children}
         <MobileBottomNav />
         <ToastProvider />
+        <SpeedInsights />
       </body>
     </html>
   )
