@@ -19,6 +19,7 @@ export class S3Service {
   private readonly logger = new Logger(S3Service.name)
   private readonly s3Client: S3Client
   private readonly bucket: string
+  private readonly signedUrlCache = new Map<string, { url: string; expiresAt: number }>()
 
   constructor(private config: ConfigService) {
     this.bucket = config.get('AWS_S3_BUCKET', 'lorrycarry-kyc')
@@ -77,12 +78,41 @@ export class S3Service {
    * Generate signed URL for file access (valid for 1 hour)
    */
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+    const cacheKey = `${key}:${expiresIn}`
+    const cached = this.signedUrlCache.get(cacheKey)
+    const now = Date.now()
+    const buffer = 300 * 1000 // 5-minute safety buffer
+
+    if (cached && cached.expiresAt - buffer > now) {
+      return cached.url
+    }
+
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: key,
     })
 
-    return getSignedUrl(this.s3Client, command, { expiresIn })
+    const url = await getSignedUrl(this.s3Client, command, { expiresIn })
+
+    // Implement capacity limit & automatic eviction
+    if (this.signedUrlCache.size >= 1000) {
+      for (const [k, v] of this.signedUrlCache.entries()) {
+        if (v.expiresAt - buffer <= now) {
+          this.signedUrlCache.delete(k)
+        }
+      }
+      // If still exceeding or at capacity limit, clear to prevent memory leaks
+      if (this.signedUrlCache.size >= 1000) {
+        this.signedUrlCache.clear()
+      }
+    }
+
+    this.signedUrlCache.set(cacheKey, {
+      url,
+      expiresAt: now + expiresIn * 1000,
+    })
+
+    return url
   }
 
   /**

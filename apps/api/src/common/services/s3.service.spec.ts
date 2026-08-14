@@ -171,6 +171,75 @@ describe('S3Service', () => {
         { expiresIn }
       )
     })
+
+    it('should cache consecutive requests for the same key and expiration', async () => {
+      const mockSignedUrl = 'https://mocked-signed-url'
+      const key = 'test-folder/test-user/test-file.png'
+      const expiresIn = 3600
+
+      const mockGetSignedUrl = getSignedUrl as jest.Mock
+      mockGetSignedUrl.mockResolvedValueOnce(mockSignedUrl)
+
+      // First call (cache miss)
+      const result1 = await service.getSignedUrl(key, expiresIn)
+      // Second call (cache hit)
+      const result2 = await service.getSignedUrl(key, expiresIn)
+
+      expect(result1).toBe(mockSignedUrl)
+      expect(result2).toBe(mockSignedUrl)
+      // getSignedUrl should only be called once
+      expect(mockGetSignedUrl).toHaveBeenCalledTimes(1)
+    })
+
+    it('should bypass cache if cached URL is close to expiration (within buffer)', async () => {
+      const mockSignedUrl1 = 'https://mocked-signed-url-1'
+      const mockSignedUrl2 = 'https://mocked-signed-url-2'
+      const key = 'test-folder/test-user/test-file.png'
+      const expiresIn = 3600
+
+      const mockGetSignedUrl = getSignedUrl as jest.Mock
+      mockGetSignedUrl
+        .mockResolvedValueOnce(mockSignedUrl1)
+        .mockResolvedValueOnce(mockSignedUrl2)
+
+      // First call to generate and cache
+      await service.getSignedUrl(key, expiresIn)
+
+      // Manually manipulate the cache entry to simulate a nearly expired URL (expires within the 5 minute safety buffer)
+      const cacheKey = `${key}:${expiresIn}`
+      const cachedEntry = service['signedUrlCache'].get(cacheKey)
+      if (cachedEntry) {
+        cachedEntry.expiresAt = Date.now() + 120 * 1000 // 2 minutes remaining, which is less than 5 min buffer
+      }
+
+      // Second call (should bypass cache due to buffer)
+      const result2 = await service.getSignedUrl(key, expiresIn)
+
+      expect(result2).toBe(mockSignedUrl2)
+      expect(mockGetSignedUrl).toHaveBeenCalledTimes(2)
+    })
+
+    it('should handle capacity limit and evict expired/all entries when limit is reached', async () => {
+      const mockGetSignedUrl = getSignedUrl as jest.Mock
+      mockGetSignedUrl.mockResolvedValue('https://mocked-signed-url')
+
+      // Populate cache up to the 1000 limit
+      for (let i = 0; i < 1000; i++) {
+        service['signedUrlCache'].set(`key-${i}:3600`, {
+          url: `https://mocked-signed-url`,
+          expiresAt: Date.now() + 3600 * 1000,
+        })
+      }
+
+      expect(service['signedUrlCache'].size).toBe(1000)
+
+      // Next call should trigger eviction logic
+      await service.getSignedUrl('key-new', 3600)
+
+      // Since all 1000 entries were active (unexpired), the cache should have been cleared entirely before inserting the new entry
+      expect(service['signedUrlCache'].size).toBe(1)
+      expect(service['signedUrlCache'].has('key-new:3600')).toBe(true)
+    })
   })
 
   describe('uploadFile', () => {
