@@ -65,6 +65,8 @@ export function Navbar() {
   const isAuthPage = pathname === '/login' || pathname === '/role-select'
   if (isAuthPage) return null
 
+  const isPublicPage = pathname === '/'
+
   const getDashboardHref = () => {
     if (!user) return '/login'
     if (user.role === 'admin') return '/admin'
@@ -72,7 +74,19 @@ export function Navbar() {
     return '/dashboard/load-owner'
   }
 
-  const navLinks = [
+  // Public enterprise marketing navigation links
+  const publicNavLinks = [
+    { name: 'Platform', href: '/#live-network' },
+    { name: 'Solutions', href: '/#solutions' },
+    { name: 'For Shippers', href: '/search?type=truck' },
+    { name: 'For Fleet Owners', href: '/search?type=load' },
+    { name: 'Corridors', href: '/#active-corridors' },
+    { name: 'Pricing', href: '/subscribe' },
+    { name: 'Resources', href: '/#resources' },
+  ]
+
+  // Authenticated application navigation links
+  const appNavLinks = [
     {
       name: 'Control Tower',
       href: '/tracking',
@@ -103,63 +117,107 @@ export function Navbar() {
     <header
       className={cn(
         'sticky top-0 z-40 w-full transition-all duration-200 border-b border-white/10 font-sans',
-        scrolled
-          ? 'bg-[#070A11]/95  shadow-modal'
-          : 'bg-[#070A11]/80 '
+        scrolled ? 'bg-[#070A11]/95 backdrop-blur-xl shadow-modal' : 'bg-[#070A11]/80 backdrop-blur-md'
       )}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
+          
           {/* Brand Logo */}
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-10 h-10 rounded-lg bg-primary-500 flex items-center justify-center text-white shadow-glow-primary transition-transform duration-200">
+              <div className="w-10 h-10 rounded-xl bg-primary-500 flex items-center justify-center text-white shadow-glow-primary transition-transform duration-200 group-hover:scale-105">
                 <TruckIcon className="w-6 h-6 stroke-[2.2]" />
               </div>
               <div className="flex flex-col">
                 <span className="text-xl font-black tracking-tight text-white leading-none">
                   Lorry<span className="text-primary-500">Carry</span>
                 </span>
-                <span className="text-[10px] font-sans font-bold text-surface-400 uppercase tracking-wider mt-0.5">
+                <span className="text-[10px] font-mono font-bold text-surface-400 uppercase tracking-wider mt-0.5">
                   Direct Freight Network
                 </span>
               </div>
             </Link>
 
             {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1">
-              {navLinks.map((link) => {
-                const Icon = link.icon
-                const isActive = pathname === link.href || link.active
-                return (
+            {isPublicPage ? (
+              <nav className="hidden lg:flex items-center gap-1">
+                {publicNavLinks.map((link) => (
                   <Link
                     key={link.name}
                     href={link.href}
-                    className={cn(
-                      'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-150',
-                      isActive
-                        ? 'text-primary-400 bg-primary-500/10'
-                        : 'text-surface-300 hover:text-white hover:bg-white/5'
-                    )}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold text-surface-300 hover:text-white hover:bg-white/5 transition-colors"
                   >
-                    <Icon className="w-4 h-4" />
-                    <span>{link.name}</span>
+                    {link.name}
                   </Link>
-                )
-              })}
-            </nav>
+                ))}
+              </nav>
+            ) : (
+              <nav className="hidden md:flex items-center gap-1">
+                {appNavLinks.map((link) => {
+                  const Icon = link.icon
+                  const isActive = pathname === link.href || link.active
+                  return (
+                    <Link
+                      key={link.name}
+                      href={link.href}
+                      className={cn(
+                        'flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all duration-150',
+                        isActive
+                          ? 'text-primary-400 bg-primary-500/10'
+                          : 'text-surface-300 hover:text-white hover:bg-white/5'
+                      )}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{link.name}</span>
+                    </Link>
+                  )
+                })}
+              </nav>
+            )}
+
           </div>
 
           {/* Right Action / Auth Buttons */}
-          <div className="hidden sm:flex items-center gap-4">
-            {user ? (
-              <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-3">
+            {isPublicPage ? (
+              <>
+                {user ? (
+                  <Link
+                    href={getDashboardHref()}
+                    className="text-xs font-semibold text-white hover:text-primary-400 transition-colors px-3 py-2"
+                  >
+                    Dashboard
+                  </Link>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push('/login')}
+                    className="font-semibold text-xs text-surface-300 hover:text-white"
+                  >
+                    Sign In
+                  </Button>
+                )}
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => router.push('/post-load')}
+                  leftIcon={<PlusCircleIcon className="w-4 h-4 shrink-0" />}
+                  className="font-bold text-xs shadow-glow-primary px-4 py-2"
+                >
+                  Post Freight
+                </Button>
+              </>
+            ) : user ? (
+              <div className="flex items-center gap-3">
                 <Link
                   href={getDashboardHref()}
-                  className="flex items-center gap-2 text-sm font-semibold text-white hover:text-primary-400 transition-colors"
+                  className="flex items-center gap-2 text-xs font-semibold text-white hover:text-primary-400 transition-colors"
                 >
                   <span>Dashboard</span>
-                  <Badge variant={user.role === 'truck_owner' ? 'info' : 'primary'} size="sm" className="capitalize">
+                  <Badge variant={user.role === 'truck_owner' ? 'info' : 'primary'} size="sm" className="capitalize text-[10px]">
                     {user.role === 'truck_owner' ? 'Truck Owner' : user.role === 'admin' ? 'Admin' : 'Load Owner'}
                   </Badge>
                 </Link>
@@ -168,7 +226,8 @@ export function Navbar() {
                   variant="primary"
                   size="sm"
                   onClick={() => router.push(user.role === 'truck_owner' ? '/dashboard/truck-owner' : '/post-load')}
-                  leftIcon={<PlusCircleIcon className="w-4 h-4" />}
+                  leftIcon={<PlusCircleIcon className="w-4 h-4 shrink-0" />}
+                  className="font-bold text-xs"
                 >
                   {user.role === 'truck_owner' ? 'My Fleet' : 'Post Load'}
                 </Button>
@@ -180,25 +239,29 @@ export function Navbar() {
                   aria-label="Sign Out"
                 >
                   <ArrowRightOnRectangleIcon className="w-5 h-5" />
+                  className="text-surface-400 hover:text-danger-400 transition-colors p-2 rounded-lg hover:bg-white/5"
+                  title="Sign Out"
+                >
+                  <ArrowRightOnRectangleIcon className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={() => router.push('/login')}>
-                  Log in
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => router.push('/login')} className="text-xs font-semibold">
+                  Sign In
                 </Button>
-                <Button variant="primary" size="sm" onClick={() => router.push('/login')}>
-                  Sign up
+                <Button variant="primary" size="sm" onClick={() => router.push('/login')} className="text-xs font-bold shadow-glow-primary">
+                  Sign Up
                 </Button>
               </div>
             )}
           </div>
 
           {/* Mobile Menu Toggle */}
-          <div className="flex sm:hidden items-center">
+          <div className="flex lg:hidden items-center">
             <button
               type="button"
-              className="p-2 rounded-md text-surface-300 hover:bg-white/5 transition-colors"
+              className="p-2 rounded-lg text-surface-300 hover:bg-white/5 transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-expanded={mobileMenuOpen}
               aria-label={mobileMenuOpen ? 'Close main menu' : 'Open main menu'}
@@ -215,54 +278,64 @@ export function Navbar() {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="sm:hidden bg-[#070A11] border-t border-white/10 shadow-xl border-b px-4 py-4 space-y-4">
+        <div className="lg:hidden bg-[#070A11] border-t border-white/10 shadow-modal border-b px-4 py-4 space-y-4">
           <div className="space-y-1">
-            {navLinks.map((link) => {
-              const Icon = link.icon
-              const isActive = pathname === link.href || link.active
-              return (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-3 rounded-md text-base font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary-500/10 text-primary-400'
-                      : 'text-surface-300 hover:bg-white/5 hover:text-white'
-                  )}
-                >
-                  <Icon className="w-5 h-5" />
-                  {link.name}
-                </Link>
-              )
-            })}
+            {isPublicPage
+              ? publicNavLinks.map((link) => (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    className="block px-3 py-2.5 rounded-lg text-sm font-semibold text-surface-300 hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    {link.name}
+                  </Link>
+                ))
+              : appNavLinks.map((link) => {
+                  const Icon = link.icon
+                  const isActive = pathname === link.href || link.active
+                  return (
+                    <Link
+                      key={link.name}
+                      href={link.href}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors',
+                        isActive
+                          ? 'bg-primary-500/10 text-primary-400'
+                          : 'text-surface-300 hover:bg-white/5 hover:text-white'
+                      )}
+                    >
+                      <Icon className="w-5 h-5" />
+                      {link.name}
+                    </Link>
+                  )
+                })}
           </div>
 
-          <div className="pt-4 border-t border-white/10">
+          <div className="pt-4 border-t border-white/10 space-y-3">
             {user ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <Link
                   href={getDashboardHref()}
-                  className="flex items-center gap-3 px-3 py-3 text-base font-medium text-white hover:bg-white/5 rounded-md transition-colors"
+                  className="block px-3 py-2 text-sm font-semibold text-white hover:bg-white/5 rounded-lg transition-colors"
                 >
-                  Dashboard
+                  Go to Dashboard
                 </Link>
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-3 py-3 text-base font-medium text-danger-400 hover:bg-danger-900/20 rounded-md transition-colors"
+                  className="w-full text-left px-3 py-2 text-sm font-semibold text-danger-400 hover:bg-danger-950/20 rounded-lg transition-colors flex items-center gap-2"
                 >
-                  <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                  Sign out
+                  <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                  <span>Sign out</span>
                 </button>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                <Button variant="ghost" onClick={() => router.push('/login')} className="justify-center">
-                  Log in
+                <Button variant="ghost" onClick={() => router.push('/login')} className="justify-center text-xs font-semibold">
+                  Sign In
                 </Button>
-                <Button variant="primary" onClick={() => router.push('/login')} className="justify-center">
-                  Sign up
+                <Button variant="primary" onClick={() => router.push('/post-load')} className="justify-center text-xs font-bold">
+                  Post Freight
                 </Button>
               </div>
             )}
@@ -272,3 +345,5 @@ export function Navbar() {
     </header>
   )
 }
+
+export default Navbar

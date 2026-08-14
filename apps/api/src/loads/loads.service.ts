@@ -52,14 +52,7 @@ export class LoadsService {
 
     // Update PostGIS geography points via raw SQL
     try {
-      await prisma.$executeRawUnsafe(
-        `UPDATE loads SET loading_point = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, unloading_point = ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography WHERE id = $5`,
-        loadingGeo.lng,
-        loadingGeo.lat,
-        unloadingGeo.lng,
-        unloadingGeo.lat,
-        load.id
-      )
+      await prisma.$executeRaw`UPDATE loads SET loading_point = ST_SetSRID(ST_MakePoint(${loadingGeo.lng}, ${loadingGeo.lat}), 4326)::geography, unloading_point = ST_SetSRID(ST_MakePoint(${unloadingGeo.lng}, ${unloadingGeo.lat}), 4326)::geography WHERE id = ${load.id}`
     } catch (err) {
       // PostGIS point update fallback
     }

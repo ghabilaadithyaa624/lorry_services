@@ -9,8 +9,9 @@ import { AuthProvider, useAuth } from './src/contexts/AuthContext'
 import { LoginScreen } from './src/screens/LoginScreen'
 import { RoleSelectScreen } from './src/screens/RoleSelectScreen'
 import { MainTabNavigator } from './src/navigation/MainTabNavigator'
+import { AuthStackParamList } from './src/navigation/types'
 
-const Stack = createStackNavigator()
+const Stack = createStackNavigator<AuthStackParamList>()
 
 function AppNavigator() {
   const { user, isLoading } = useAuth()

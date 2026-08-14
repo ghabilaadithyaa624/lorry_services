@@ -70,7 +70,13 @@ export interface ShipmentRiskAssessment {
   riskSummary: string
 }
 
+const assessmentCache = new WeakMap<BookingData, ShipmentRiskAssessment>()
+
 export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAssessment {
+  if (assessmentCache.has(booking)) {
+    return assessmentCache.get(booking)!
+  }
+
   const checkpoints = booking.checkpoints || []
   const totalCheckpoints = Math.max(checkpoints.length, 5)
   const crossedCheckpoints = checkpoints.filter(cp => Boolean(cp.crossedAt))
@@ -158,7 +164,7 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
   const estimatedHours = Math.max(2, remainingCheckpoints * 6)
   const estimatedArrival = `~${estimatedHours} hours to ${nextMilestoneName}`
 
-  return {
+  const result: ShipmentRiskAssessment = {
     statusTier,
     badgeVariant,
     progressPercent,
@@ -179,6 +185,9 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
     },
     riskSummary,
   }
+
+  assessmentCache.set(booking, result)
+  return result;
 }
 
 export interface ControlTowerSummary {
