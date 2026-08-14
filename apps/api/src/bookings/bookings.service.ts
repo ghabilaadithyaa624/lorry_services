@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, ConflictException } 
 import { randomUUID } from 'crypto'
 import { 
   prisma, 
+  Prisma,
   BookingStatus, 
   LoadStatus, 
   SubscriptionStatus 
@@ -142,6 +143,27 @@ export class BookingsService {
     endLat: number,
     endLng: number
   ) {
+    // Calculate waypoints
+    const checkpoints = [
+      { name: 'Loading Point', lat: startLat, lng: startLng, radiusM: 500 },
+      { name: 'Checkpoint 1', lat: startLat + (endLat - startLat) * 0.25, lng: startLng + (endLng - startLng) * 0.25, radiusM: 2000 },
+      { name: 'Checkpoint 2', lat: startLat + (endLat - startLat) * 0.5, lng: startLng + (endLng - startLng) * 0.5, radiusM: 2000 },
+      { name: 'Checkpoint 3', lat: startLat + (endLat - startLat) * 0.75, lng: startLng + (endLng - startLng) * 0.75, radiusM: 2000 },
+      { name: 'Unloading Point', lat: endLat, lng: endLng, radiusM: 500 },
+    ]
+
+    const data = checkpoints.map((cp, i) => ({
+      id: randomUUID(),
+      bookingId,
+      seq: i + 1,
+      name: cp.name,
+      lat: cp.lat,
+      lng: cp.lng,
+      radiusM: cp.radiusM,
+    }))
+
+    await tx.checkpoint.createMany({
+      data,
     // Calculate and construct checkpoints directly to completely avoid extra array/mapping loop allocations
     await tx.checkpoint.createMany({
       data: [
@@ -152,6 +174,21 @@ export class BookingsService {
         { id: randomUUID(), bookingId, seq: 5, name: 'Unloading Point', lat: endLat, lng: endLng, radiusM: 500 },
       ],
     })
+
+    // Update PostGIS geography points via a single raw SQL bulk query to prevent N+1 query issue
+    try {
+      const valueRows = data.map(
+        (cp) => Prisma.sql`(${cp.id}::uuid, ${cp.lng}::numeric, ${cp.lat}::numeric)`
+      )
+      await tx.$executeRaw`
+        UPDATE checkpoints AS c
+        SET location = ST_SetSRID(ST_MakePoint(v.lng, v.lat), 4326)::geography
+        FROM (VALUES ${Prisma.join(valueRows, ', ')}) AS v(id, lng, lat)
+        WHERE c.id = v.id
+      `
+    } catch (err) {
+      // PostGIS point update fallback
+    }
   }
 
   /**

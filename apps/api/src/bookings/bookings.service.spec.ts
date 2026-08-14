@@ -6,6 +6,7 @@ import { prisma, BookingStatus, LoadStatus, SubscriptionStatus } from '@lorrycar
 import { performance } from 'perf_hooks'
 
 jest.mock('@lorrycarry/database', () => {
+  const actual = jest.requireActual('@lorrycarry/database')
   const mockPrisma = {
     load: {
       findFirst: jest.fn(),
@@ -28,9 +29,11 @@ jest.mock('@lorrycarry/database', () => {
       create: jest.fn(),
       createMany: jest.fn(),
     },
+    $executeRaw: jest.fn(),
     $transaction: jest.fn((cb) => cb(mockPrisma)),
   }
   return {
+    ...actual,
     prisma: mockPrisma,
     BookingStatus: {
       Pending: 'Pending',
@@ -142,6 +145,7 @@ describe('BookingsService', () => {
           expect.objectContaining({ name: 'Unloading Point', seq: 5 }),
         ]),
       })
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1)
       expect(gupshupService.sendNotification).toHaveBeenCalledTimes(2)
     })
 
