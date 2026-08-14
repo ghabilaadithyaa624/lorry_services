@@ -85,6 +85,32 @@ describe('TrucksService', () => {
       expect(mockMapmyIndiaService.geocodeAddress).toHaveBeenCalledWith('Pune, Maharashtra')
     })
 
+    it('should successfully create truck with default/missing optional fields', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      mockMapmyIndiaService.geocodeAddress.mockResolvedValueOnce({ lat: 18.5204, lng: 73.8567 })
+
+      const dtoWithoutOptionals = {
+        ...dto,
+      }
+      delete dtoWithoutOptionals.serviceableRadiusKm
+      delete dtoWithoutOptionals.preferredDestinations
+
+      const mockTruck = { id: 'truck-new-uuid' }
+      ;(prisma.truck.create as jest.Mock).mockResolvedValueOnce(mockTruck)
+      ;(prisma.$executeRaw as jest.Mock).mockResolvedValueOnce(1)
+
+      const result = await service.create(userId, dtoWithoutOptionals)
+      expect(result).toEqual(mockTruck)
+      expect(prisma.truck.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            serviceableRadiusKm: 50,
+            preferredDestinations: [],
+          })
+        })
+      )
+    })
+
     it('should successfully create truck and update PostGIS geography using safe $executeRaw', async () => {
       ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(null)
       mockMapmyIndiaService.geocodeAddress.mockResolvedValueOnce({ lat: 18.5204, lng: 73.8567 })
@@ -180,6 +206,32 @@ describe('TrucksService', () => {
       ).rejects.toThrow(ConflictException)
     })
 
+    it('should upload to S3 and save document record without docNumber', async () => {
+      ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce({ id: truckId })
+      mockS3Service.validateFile.mockReturnValueOnce({ valid: true })
+      mockS3Service.uploadFile.mockResolvedValueOnce({
+        url: 'https://s3/ins.pdf',
+        key: 'kyc/ins.pdf',
+        signedUrl: 'https://s3/ins.pdf?signed=true',
+      })
+
+      const mockDocument = { id: 'doc-123' }
+      ;(prisma.document.create as jest.Mock).mockResolvedValueOnce(mockDocument)
+
+      const result = await service.uploadDocument(truckId, userId, file, 'Insurance')
+      expect(result).toEqual({
+        document: mockDocument,
+        signedUrl: 'https://s3/ins.pdf?signed=true',
+      })
+      expect(prisma.document.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            docNumber: undefined,
+          })
+        })
+      )
+    })
+
     it('should upload to S3 and save RC document record', async () => {
       ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce({ id: truckId })
       mockS3Service.validateFile.mockReturnValueOnce({ valid: true })
@@ -256,6 +308,19 @@ describe('TrucksService', () => {
       await expect(service.findOne('truck-123')).rejects.toThrow(NotFoundException)
     })
 
+    it('should mask user details if no requestingUserId is provided', async () => {
+      const mockTruck = {
+        id: 'truck-123',
+        userId: 'owner-id',
+        user: { id: 'owner-id', name: 'John', phone: '123' },
+      }
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(mockTruck)
+
+      const result = await service.findOne('truck-123')
+      expect(result.user.name).toBeNull()
+      expect(result.user.phone).toBeNull()
+    })
+
     it('should return truck details with masked user details if requester is not owner', async () => {
       const mockTruck = {
         id: 'truck-123',
@@ -302,6 +367,19 @@ describe('TrucksService', () => {
       await expect(
         service.updateLocation(truckId, userId, 'Mumbai')
       ).rejects.toThrow(NotFoundException)
+    })
+
+    it('should handle $executeRaw errors gracefully in updateLocation', async () => {
+      ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce({ id: truckId })
+      mockMapmyIndiaService.geocodeAddress.mockResolvedValueOnce({ lat: 19.0760, lng: 72.8777 })
+
+      const mockUpdatedTruck = { id: truckId, currentLat: 19.0760, currentLng: 72.8777 }
+      ;(prisma.truck.update as jest.Mock).mockResolvedValueOnce(mockUpdatedTruck)
+      ;(prisma.$executeRaw as jest.Mock).mockRejectedValueOnce(new Error('PostGIS error'))
+
+      const result = await service.updateLocation(truckId, userId, 'Mumbai')
+      expect(result).toEqual(mockUpdatedTruck)
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1)
     })
 
     it('should update location and PostGIS coordinates using safe $executeRaw', async () => {
