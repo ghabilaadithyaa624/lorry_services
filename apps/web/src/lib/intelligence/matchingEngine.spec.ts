@@ -418,4 +418,44 @@ describe('Matching Engine — evaluateBackhaulOpportunities', () => {
     expect(opp2?.potentialEmptyRunReductionKm).toBe(350) // Falls back to 350
     expect(opp2?.estimatedFreight).toBeGreaterThan(0) // Default calculated estimation
   })
+
+  it('performance benchmark of evaluateBackhaulOpportunities', () => {
+    const manyLoads: LoadItem[] = []
+    for (let i = 0; i < 1000; i++) {
+      manyLoads.push({
+        id: `load-${i}`,
+        tonnageRequired: 10 + (i % 10),
+        truckType: i % 2 === 0 ? 'Open' : 'Container',
+        loadingLat: 12.9719 + (i % 100) * 0.001,
+        loadingLng: 77.6412 + (i % 100) * 0.001,
+        unloadingLat: 12.9756 + (i % 100) * 0.001,
+        unloadingLng: 77.5728 + (i % 100) * 0.001,
+        loadingAddress: `Load Address ${i}`,
+        unloadingAddress: `Unload Address ${i}`,
+        maxPrice: 3000 + (i % 5) * 1000,
+      })
+    }
+
+    const testTruck: TruckItem = {
+      id: 'truck-perf',
+      bodyType: 'Open',
+      tonnageCapacity: 15,
+      currentLat: 12.9716,
+      currentLng: 77.5946,
+      distanceKm: 20,
+    }
+
+    const destination = { lat: 12.9756, lng: 77.5728, label: 'Majestic' }
+
+    // Run a warm up
+    evaluateBackhaulOpportunities(testTruck, manyLoads.slice(0, 50), destination)
+
+    const start = performance.now()
+    // Call evaluateBackhaulOpportunities 20 times over 1000 loads
+    for (let run = 0; run < 20; run++) {
+      evaluateBackhaulOpportunities(testTruck, manyLoads, destination)
+    }
+    const end = performance.now()
+    console.log(`[MATCH_ENGINE_BENCHMARK] Elapsed time for 20k matches: ${(end - start).toFixed(2)} ms`)
+  })
 })
