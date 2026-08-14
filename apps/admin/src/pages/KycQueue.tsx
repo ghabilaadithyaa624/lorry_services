@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
-  ShieldCheck,
   CheckCircle2,
   XCircle,
   ExternalLink,
   RefreshCw,
   AlertCircle,
-  FileText,
   User,
   Truck,
   Calendar,

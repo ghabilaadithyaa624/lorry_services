@@ -8,7 +8,6 @@ import {
   MapPin,
   ArrowRight,
   Truck,
-  IndianRupee,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { formatINR, formatPhone, truncate, cn } from '../lib/utils'

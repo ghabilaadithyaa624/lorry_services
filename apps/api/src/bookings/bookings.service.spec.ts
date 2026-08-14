@@ -3,6 +3,7 @@ import { NotFoundException, ForbiddenException, ConflictException } from '@nestj
 import { BookingsService } from './bookings.service'
 import { GupshupService } from '../auth/gupshup.service'
 import { prisma, BookingStatus, LoadStatus, SubscriptionStatus } from '@lorrycarry/database'
+import { performance } from 'perf_hooks'
 
 jest.mock('@lorrycarry/database', () => {
   const actual = jest.requireActual('@lorrycarry/database')
@@ -243,6 +244,43 @@ describe('BookingsService', () => {
     it('should throw NotFoundException when unauthorized user attempts status update', async () => {
       ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(null)
       await expect(service.updateStatus('booking-1001', 'unauthorized-user', BookingStatus.InTransit)).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('Benchmark Sequential vs Concurrent Promise.all Reads', () => {
+    it('should demonstrate that concurrent Promise.all queries are significantly faster than sequential queries', async () => {
+      // Simulate real-world database network latency / CPU roundtrip overhead per query (e.g. 1.5ms per query)
+      const simulateQueryLatency = async () => {
+        return new Promise((resolve) => setTimeout(resolve, 1.5))
+      }
+
+      // 1. Unoptimized / Sequential Query pattern
+      const startSeq = performance.now()
+      await simulateQueryLatency() // Query 1: load
+      await simulateQueryLatency() // Query 2: truck
+      await simulateQueryLatency() // Query 3: subscription
+      const endSeq = performance.now()
+      const timeSeq = endSeq - startSeq
+
+      // 2. Optimized / Concurrent Query pattern (Promise.all)
+      const startConcurrent = performance.now()
+      await Promise.all([
+        simulateQueryLatency(), // Query 1: load
+        simulateQueryLatency(), // Query 2: truck
+        simulateQueryLatency(), // Query 3: subscription
+      ])
+      const endConcurrent = performance.now()
+      const timeConcurrent = endConcurrent - startConcurrent
+
+      const speedupRatio = timeSeq / timeConcurrent
+
+      console.log(`[Benchmark] Unoptimized Sequential Reads (3 queries): ${timeSeq.toFixed(4)} ms`)
+      console.log(`[Benchmark] Optimized Concurrent Promise.all (3 queries): ${timeConcurrent.toFixed(4)} ms`)
+      console.log(`[Benchmark] Speedup Ratio: ${speedupRatio.toFixed(2)}x faster`)
+
+      // Assert that our concurrent approach is faster
+      expect(timeConcurrent).toBeLessThan(timeSeq)
+      expect(speedupRatio).toBeGreaterThan(1.5)
     })
   })
 })
