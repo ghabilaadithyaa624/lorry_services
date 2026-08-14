@@ -37,8 +37,17 @@ describe('AuthService', () => {
   let otpStorageService: jest.Mocked<OtpStorageService>
   let redisClient: any
 
+  let mockPipeline: any
+
   beforeEach(async () => {
     jest.clearAllMocks()
+
+    mockPipeline = {
+      get: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      del: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue([]),
+    }
 
     redisClient = {
       get: jest.fn(),
@@ -47,6 +56,7 @@ describe('AuthService', () => {
       sadd: jest.fn(),
       srem: jest.fn(),
       smembers: jest.fn(),
+      pipeline: jest.fn().mockReturnValue(mockPipeline),
     }
 
     const module: TestingModule = await Test.createTestingModule({
@@ -347,10 +357,124 @@ describe('AuthService', () => {
 
     it('should revoke all session families on logoutAll', async () => {
       redisClient.smembers.mockResolvedValueOnce(['fam-1', 'fam-2'])
-      redisClient.get.mockResolvedValue(JSON.stringify({ activeTokenId: 'token-abc' }))
+
+      const readPipeline = {
+        get: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          [null, JSON.stringify({ activeTokenId: 'token-abc' })],
+          [null, JSON.stringify({ activeTokenId: 'token-xyz' })],
+        ]),
+      }
+
+      const writePipeline = {
+        del: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      }
+
+      redisClient.pipeline = jest
+        .fn()
+        .mockReturnValueOnce(readPipeline)
+        .mockReturnValueOnce(writePipeline)
 
       await service.logoutAll('usr-1')
-      expect(redisClient.del).toHaveBeenCalledWith('auth:user:families:usr-1')
+
+      expect(readPipeline.get).toHaveBeenCalledWith('auth:family:fam-1')
+      expect(readPipeline.get).toHaveBeenCalledWith('auth:family:fam-2')
+      expect(readPipeline.exec).toHaveBeenCalled()
+
+      expect(writePipeline.del).toHaveBeenCalledWith('auth:rt:active:token-abc')
+      expect(writePipeline.del).toHaveBeenCalledWith('auth:rt:active:token-xyz')
+      expect(writePipeline.set).toHaveBeenCalledWith(
+        'auth:rt:revoked:token-abc',
+        expect.any(String),
+        'EX',
+        expect.any(Number)
+      )
+      expect(writePipeline.set).toHaveBeenCalledWith(
+        'auth:rt:revoked:token-xyz',
+        expect.any(String),
+        'EX',
+        expect.any(Number)
+      )
+      expect(writePipeline.del).toHaveBeenCalledWith('auth:family:fam-1')
+      expect(writePipeline.del).toHaveBeenCalledWith('auth:family:fam-2')
+      expect(writePipeline.del).toHaveBeenCalledWith('auth:user:families:usr-1')
+      expect(writePipeline.exec).toHaveBeenCalled()
+    })
+
+    describe('logoutAll Performance Benchmark', () => {
+      it('should measure the performance of logoutAll with many session families', async () => {
+        const numFamilies = 50
+        const familyIds = Array.from({ length: numFamilies }, (_, i) => `fam-${i}`)
+
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+        const benchRedis = {
+          smembers: jest.fn().mockImplementation(async () => {
+            await delay(2)
+            return familyIds
+          }),
+          get: jest.fn().mockImplementation(async (key: string) => {
+            await delay(2)
+            const familyId = key.split(':').pop()
+            return JSON.stringify({ activeTokenId: `token-${familyId}` })
+          }),
+          del: jest.fn().mockImplementation(async () => {
+            await delay(2)
+            return 1
+          }),
+          set: jest.fn().mockImplementation(async () => {
+            await delay(2)
+            return 'OK'
+          }),
+          pipeline: jest.fn().mockImplementation(() => {
+            const commands: any[] = []
+            const pipelineInstance = {
+              get(key: string) {
+                commands.push({ name: 'get', args: [key] })
+                return pipelineInstance
+              },
+              del(key: string) {
+                commands.push({ name: 'del', args: [key] })
+                return pipelineInstance
+              },
+              set(key: string, value: string, mode?: string, duration?: number) {
+                commands.push({ name: 'set', args: [key, value, mode, duration] })
+                return pipelineInstance
+              },
+              async exec() {
+                await delay(2)
+                return commands.map(cmd => {
+                  if (cmd.name === 'get') {
+                    const familyId = cmd.args[0].split(':').pop()
+                    return [null, JSON.stringify({ activeTokenId: `token-${familyId}` })]
+                  }
+                  return [null, 'OK']
+                })
+              }
+            }
+            return pipelineInstance
+          })
+        }
+
+        const benchService = new AuthService(
+          jwtService,
+          configService,
+          msg91Service,
+          gupshupService,
+          rateLimitService,
+          otpStorageService,
+          benchRedis as any
+        )
+
+        const start = performance.now()
+        await benchService.logoutAll('usr-1')
+        const end = performance.now()
+        const duration = end - start
+
+        console.log(`[Benchmark] logoutAll with ${numFamilies} families completed in ${duration.toFixed(2)} ms`)
+      })
     })
   })
 })
