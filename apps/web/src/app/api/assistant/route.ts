@@ -23,9 +23,10 @@ export async function POST(req: Request) {
     const response = processAssistantQuery(intent, contextData)
 
     return NextResponse.json(response)
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Assistant failed to process query'
     return NextResponse.json(
-      { error: error.message || 'Assistant failed to process query' },
+      { error: message },
       { status: 500 }
     )
   }
