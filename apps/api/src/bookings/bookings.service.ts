@@ -152,27 +152,16 @@ export class BookingsService {
       { name: 'Unloading Point', lat: endLat, lng: endLng, radiusM: 500 },
     ]
 
-    const data = checkpoints.map((cp, i) => ({
-      id: randomUUID(),
-      bookingId,
-      seq: i + 1,
-      name: cp.name,
-      lat: cp.lat,
-      lng: cp.lng,
-      radiusM: cp.radiusM,
-    }))
-
+    // Calculate and construct checkpoints directly to completely avoid extra array/mapping loop allocations
+    const data = [
+      { id: randomUUID(), bookingId, seq: 1, name: 'Loading Point', lat: startLat, lng: startLng, radiusM: 500 },
+      { id: randomUUID(), bookingId, seq: 2, name: 'Checkpoint 1', lat: startLat + (endLat - startLat) * 0.25, lng: startLng + (endLng - startLng) * 0.25, radiusM: 2000 },
+      { id: randomUUID(), bookingId, seq: 3, name: 'Checkpoint 2', lat: startLat + (endLat - startLat) * 0.5, lng: startLng + (endLng - startLng) * 0.5, radiusM: 2000 },
+      { id: randomUUID(), bookingId, seq: 4, name: 'Checkpoint 3', lat: startLat + (endLat - startLat) * 0.75, lng: startLng + (endLng - startLng) * 0.75, radiusM: 2000 },
+      { id: randomUUID(), bookingId, seq: 5, name: 'Unloading Point', lat: endLat, lng: endLng, radiusM: 500 },
+    ]
     await tx.checkpoint.createMany({
       data,
-    // Calculate and construct checkpoints directly to completely avoid extra array/mapping loop allocations
-    await tx.checkpoint.createMany({
-      data: [
-        { id: randomUUID(), bookingId, seq: 1, name: 'Loading Point', lat: startLat, lng: startLng, radiusM: 500 },
-        { id: randomUUID(), bookingId, seq: 2, name: 'Checkpoint 1', lat: startLat + (endLat - startLat) * 0.25, lng: startLng + (endLng - startLng) * 0.25, radiusM: 2000 },
-        { id: randomUUID(), bookingId, seq: 3, name: 'Checkpoint 2', lat: startLat + (endLat - startLat) * 0.5, lng: startLng + (endLng - startLng) * 0.5, radiusM: 2000 },
-        { id: randomUUID(), bookingId, seq: 4, name: 'Checkpoint 3', lat: startLat + (endLat - startLat) * 0.75, lng: startLng + (endLng - startLng) * 0.75, radiusM: 2000 },
-        { id: randomUUID(), bookingId, seq: 5, name: 'Unloading Point', lat: endLat, lng: endLng, radiusM: 500 },
-      ],
     })
 
     // Update PostGIS geography points via a single raw SQL bulk query to prevent N+1 query issue
