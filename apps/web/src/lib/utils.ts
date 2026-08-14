@@ -24,6 +24,8 @@ export function formatINR(amount: number | string): string {
   return `₹${num.toLocaleString('en-IN')}`
 }
 
+export const PHONE_NUMBER_LENGTH_WITH_COUNTRY_CODE = 13
+
 /**
  * Format a phone number for display.
  * +918072025106 → "+91 80720 25106"
@@ -31,7 +33,7 @@ export function formatINR(amount: number | string): string {
 export function formatPhone(phone: string): string {
   if (!phone) return ''
   const cleaned = phone.replace(/\s/g, '')
-  if (cleaned.startsWith('+91') && cleaned.length === 13) {
+  if (cleaned.startsWith('+91') && cleaned.length === PHONE_NUMBER_LENGTH_WITH_COUNTRY_CODE) {
     return `+91 ${cleaned.slice(3, 8)} ${cleaned.slice(8)}`
   }
   return phone
