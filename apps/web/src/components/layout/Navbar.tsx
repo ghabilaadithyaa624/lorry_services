@@ -234,6 +234,11 @@ export function Navbar() {
 
                 <button
                   onClick={handleLogout}
+                  className="text-surface-400 hover:text-danger-400 transition-colors p-2 rounded-md hover:bg-white/5"
+                  title="Sign Out"
+                  aria-label="Sign Out"
+                >
+                  <ArrowRightOnRectangleIcon className="w-5 h-5" />
                   className="text-surface-400 hover:text-danger-400 transition-colors p-2 rounded-lg hover:bg-white/5"
                   title="Sign Out"
                 >
@@ -258,8 +263,9 @@ export function Navbar() {
               type="button"
               className="p-2 rounded-lg text-surface-300 hover:bg-white/5 transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-expanded={mobileMenuOpen}
+              aria-label={mobileMenuOpen ? 'Close main menu' : 'Open main menu'}
             >
-              <span className="sr-only">Open main menu</span>
               {mobileMenuOpen ? (
                 <XMarkIcon className="w-6 h-6" aria-hidden="true" />
               ) : (
