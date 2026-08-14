@@ -181,15 +181,30 @@ export function Navbar() {
           {/* Right Action / Auth Buttons */}
           <div className="hidden sm:flex items-center gap-3">
             {isPublicPage ? (
-              <>
-                {user ? (
+              user ? (
+                <div className="flex items-center gap-3">
                   <Link
                     href={getDashboardHref()}
-                    className="text-xs font-semibold text-white hover:text-primary-400 transition-colors px-3 py-2"
+                    className="flex items-center gap-2 text-xs font-semibold text-white hover:text-primary-400 transition-colors px-3 py-2"
                   >
-                    Dashboard
+                    <span>Dashboard</span>
+                    <Badge variant={user.role === 'truck_owner' ? 'info' : 'primary'} size="sm" className="capitalize text-[10px]">
+                      {user.role === 'truck_owner' ? 'Truck Owner' : user.role === 'admin' ? 'Admin' : 'Load Owner'}
+                    </Badge>
                   </Link>
-                ) : (
+
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => router.push('/post-load')}
+                    leftIcon={<PlusCircleIcon className="w-4 h-4 shrink-0" />}
+                    className="font-bold text-xs shadow-glow-primary px-4 py-2"
+                  >
+                    Post Freight
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -198,18 +213,18 @@ export function Navbar() {
                   >
                     Sign In
                   </Button>
-                )}
 
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => router.push('/post-load')}
-                  leftIcon={<PlusCircleIcon className="w-4 h-4 shrink-0" />}
-                  className="font-bold text-xs shadow-glow-primary px-4 py-2"
-                >
-                  Post Freight
-                </Button>
-              </>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => router.push('/post-load')}
+                    leftIcon={<PlusCircleIcon className="w-4 h-4 shrink-0" />}
+                    className="font-bold text-xs shadow-glow-primary px-4 py-2"
+                  >
+                    Post Freight
+                  </Button>
+                </div>
+              )
             ) : user ? (
               <div className="flex items-center gap-3">
                 <Link
