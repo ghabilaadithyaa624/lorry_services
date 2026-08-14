@@ -8,11 +8,22 @@ import {
   Alert,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { RouteProp } from '@react-navigation/native'
+import { StackNavigationProp } from '@react-navigation/stack'
+import { AuthStackParamList } from '../navigation/types'
 import { authApi, setTokens } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 
-export function RoleSelectScreen({ route, navigation }: any) {
-  const { phone, otp } = route.params || {}
+type RoleSelectScreenRouteProp = RouteProp<AuthStackParamList, 'RoleSelect'>
+type RoleSelectScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'RoleSelect'>
+
+interface RoleSelectProps {
+  route: RoleSelectScreenRouteProp
+  navigation: RoleSelectScreenNavigationProp
+}
+
+export function RoleSelectScreen({ route, navigation }: RoleSelectProps) {
+  const { phone, otp } = route.params
   const [selectedRole, setSelectedRole] = useState<'load_owner' | 'truck_owner' | null>(null)
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
