@@ -333,8 +333,8 @@ export class UsersService {
         take: 20,
       })
 
-      trucks.forEach((truck) => {
-        activities.push({
+      const truckActivities = trucks.flatMap((truck) => {
+        const truckActivity: ActivityItem = {
           id: `truck-${truck.id}`,
           category: 'TRUCK',
           title: `Vehicle Registered: ${truck.registrationNumber}`,
@@ -346,24 +346,26 @@ export class UsersService {
             registrationNumber: truck.registrationNumber,
             verificationStatus: truck.verificationStatus,
           },
-        })
+        }
 
-        truck.documents.forEach((doc) => {
-          activities.push({
-            id: `doc-${doc.id}`,
-            category: 'DOCUMENT',
-            title: `KYC Document Uploaded: ${doc.type}`,
-            description: `${doc.type} for ${truck.registrationNumber} (Status: ${doc.verificationStatus})`,
-            timestamp: doc.createdAt,
-            status: doc.verificationStatus,
-            actionUrl: `/documents`,
-            metadata: {
-              docNumber: doc.docNumber,
-              truckNumber: truck.registrationNumber,
-            },
-          })
-        })
+        const docActivities = truck.documents.map((doc) => ({
+          id: `doc-${doc.id}`,
+          category: 'DOCUMENT' as const,
+          title: `KYC Document Uploaded: ${doc.type}`,
+          description: `${doc.type} for ${truck.registrationNumber} (Status: ${doc.verificationStatus})`,
+          timestamp: doc.createdAt,
+          status: doc.verificationStatus,
+          actionUrl: `/documents`,
+          metadata: {
+            docNumber: doc.docNumber,
+            truckNumber: truck.registrationNumber,
+          },
+        }))
+
+        return [truckActivity, ...docActivities]
       })
+
+      activities.push(...truckActivities)
     }
 
     // 4. Bookings
