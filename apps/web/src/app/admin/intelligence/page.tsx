@@ -17,6 +17,16 @@ import {
 import { formatINR, cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 
+export interface APIBooking {
+  id: string
+  status: string
+  agreedPrice?: number | string
+  load?: {
+    loadingAddress?: string
+    unloadingAddress?: string
+  } | null
+}
+
 export default function AdminNationalIntelligencePage() {
   const [summary, setSummary] = useState<NationalLogisticsSummary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -34,11 +44,11 @@ export default function AdminNationalIntelligencePage() {
         adminApi.listSubscriptions(1, 100),
       ])
 
-      const bookings = bookingsRes.status === 'fulfilled' ? bookingsRes.value.data.bookings || [] : []
+      const bookings: APIBooking[] = bookingsRes.status === 'fulfilled' ? bookingsRes.value.data.bookings || [] : []
       const subscriptions = subscriptionsRes.status === 'fulfilled' ? subscriptionsRes.value.data.subscriptions || [] : []
 
       // Format real booking records for corridor intelligence calculation
-      const formattedBookings = bookings.map((b: any) => ({
+      const formattedBookings = bookings.map((b: APIBooking) => ({
         id: b.id,
         origin: b.load?.loadingAddress || '',
         destination: b.load?.unloadingAddress || '',

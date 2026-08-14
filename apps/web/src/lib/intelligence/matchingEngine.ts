@@ -7,6 +7,10 @@
 
 import { calculateGeoDistance } from './pricingEngine'
 
+const matchScoreCache = new WeakMap<LoadItem, WeakMap<TruckItem, MatchResult>>()
+const emptyRunCache = new WeakMap<LoadItem, number>()
+const pickupDistanceCache = new WeakMap<LoadItem, Map<string, number>>()
+
 export interface LoadItem {
   id: string
   tonnageRequired: number
@@ -93,6 +97,16 @@ export type MatchSortOption =
  * Total: 100 pts
  */
 export function calculateMatchScore(load: LoadItem, truck: TruckItem): MatchResult {
+  let loadCache = matchScoreCache.get(load)
+  if (!loadCache) {
+    loadCache = new WeakMap<TruckItem, MatchResult>()
+    matchScoreCache.set(load, loadCache)
+  }
+  const cached = loadCache.get(truck)
+  if (cached) {
+    return cached
+  }
+
   let score = 0
   const reasons: string[] = []
   const warnings: string[] = []
@@ -351,6 +365,9 @@ export function calculateMatchScore(load: LoadItem, truck: TruckItem): MatchResu
       },
     },
   }
+
+  loadCache.set(truck, result)
+  return result
 }
 
 /**
@@ -459,12 +476,23 @@ export function evaluateBackhaulOpportunities(
       load.loadingLat &&
       load.loadingLng
     ) {
-      pickupDistanceFromDestinationKm = calculateGeoDistance(
-        destinationLocation.lat,
-        destinationLocation.lng,
-        load.loadingLat,
-        load.loadingLng
-      )
+      const destKey = `${destinationLocation.lat}_${destinationLocation.lng}`
+      let loadPickupCache = pickupDistanceCache.get(load)
+      if (!loadPickupCache) {
+        loadPickupCache = new Map<string, number>()
+        pickupDistanceCache.set(load, loadPickupCache)
+      }
+      let cachedDistance = loadPickupCache.get(destKey)
+      if (cachedDistance === undefined) {
+        cachedDistance = calculateGeoDistance(
+          destinationLocation.lat,
+          destinationLocation.lng,
+          load.loadingLat,
+          load.loadingLng
+        )
+        loadPickupCache.set(destKey, cachedDistance)
+      }
+      pickupDistanceFromDestinationKm = cachedDistance
     } else if (typeof truck.distanceKm === 'number') {
       pickupDistanceFromDestinationKm = truck.distanceKm
     }
@@ -472,12 +500,17 @@ export function evaluateBackhaulOpportunities(
     // Potential empty-run reduction is the freight transit distance of the return load
     let potentialEmptyRunReductionKm = 300
     if (load.loadingLat && load.loadingLng && load.unloadingLat && load.unloadingLng) {
-      potentialEmptyRunReductionKm = calculateGeoDistance(
-        load.loadingLat,
-        load.loadingLng,
-        load.unloadingLat,
-        load.unloadingLng
-      )
+      let cachedEmptyRun = emptyRunCache.get(load)
+      if (cachedEmptyRun === undefined) {
+        cachedEmptyRun = calculateGeoDistance(
+          load.loadingLat,
+          load.loadingLng,
+          load.unloadingLat,
+          load.unloadingLng
+        )
+        emptyRunCache.set(load, cachedEmptyRun)
+      }
+      potentialEmptyRunReductionKm = cachedEmptyRun
     } else if (load.unloadingAddress && load.loadingAddress) {
       potentialEmptyRunReductionKm = 350
     }

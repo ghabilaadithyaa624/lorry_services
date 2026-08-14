@@ -24,6 +24,8 @@ export function formatINR(amount: number | string): string {
   return `₹${num.toLocaleString('en-IN')}`
 }
 
+export const PHONE_NUMBER_LENGTH_WITH_COUNTRY_CODE = 13
+
 /**
  * Format a phone number for display.
  * +918072025106 → "+91 80720 25106"
@@ -31,7 +33,7 @@ export function formatINR(amount: number | string): string {
 export function formatPhone(phone: string): string {
   if (!phone) return ''
   const cleaned = phone.replace(/\s/g, '')
-  if (cleaned.startsWith('+91') && cleaned.length === 13) {
+  if (cleaned.startsWith('+91') && cleaned.length === PHONE_NUMBER_LENGTH_WITH_COUNTRY_CODE) {
     return `+91 ${cleaned.slice(3, 8)} ${cleaned.slice(8)}`
   }
   return phone
@@ -50,6 +52,14 @@ export function getInitials(name: string | null | undefined): string {
   return name.slice(0, 2).toUpperCase()
 }
 
+// Constants for time conversion and validation
+const MILLISECONDS_IN_SECOND = 1000
+const SECONDS_IN_MINUTE = 60
+const MINUTES_IN_HOUR = 60
+const HOURS_IN_DAY = 24
+const DAYS_IN_WEEK = 7
+const DAYS_IN_MONTH = 30
+
 /**
  * Relative time string.
  * Returns "Just now", "2m ago", "3h ago", "5d ago", etc.
@@ -58,16 +68,16 @@ export function timeAgo(dateInput: string | Date): string {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
-  const diffSec = Math.floor(diffMs / 1000)
-  const diffMin = Math.floor(diffSec / 60)
-  const diffHr = Math.floor(diffMin / 60)
-  const diffDay = Math.floor(diffHr / 24)
+  const diffSec = Math.floor(diffMs / MILLISECONDS_IN_SECOND)
+  const diffMin = Math.floor(diffSec / SECONDS_IN_MINUTE)
+  const diffHr = Math.floor(diffMin / MINUTES_IN_HOUR)
+  const diffDay = Math.floor(diffHr / HOURS_IN_DAY)
 
-  if (diffSec < 60) return 'Just now'
-  if (diffMin < 60) return `${diffMin}m ago`
-  if (diffHr < 24) return `${diffHr}h ago`
-  if (diffDay < 7) return `${diffDay}d ago`
-  if (diffDay < 30) return `${Math.floor(diffDay / 7)}w ago`
+  if (diffSec < SECONDS_IN_MINUTE) return 'Just now'
+  if (diffMin < MINUTES_IN_HOUR) return `${diffMin}m ago`
+  if (diffHr < HOURS_IN_DAY) return `${diffHr}h ago`
+  if (diffDay < DAYS_IN_WEEK) return `${diffDay}d ago`
+  if (diffDay < DAYS_IN_MONTH) return `${Math.floor(diffDay / DAYS_IN_WEEK)}w ago`
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 

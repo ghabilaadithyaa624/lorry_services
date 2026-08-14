@@ -1,18 +1,18 @@
 'use client'
 
-import React from 'react'
+import { forwardRef, type HTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { StatusDot, type StatusDotVariant } from './StatusDot'
 
 export type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'primary'
 export type BadgeSize = 'sm' | 'md'
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant
   size?: BadgeSize
   dot?: boolean
   className?: string
-  children?: React.ReactNode
+  children?: ReactNode
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
@@ -41,7 +41,7 @@ const dotVariantMap: Record<BadgeVariant, StatusDotVariant> = {
 /**
  * Badge component for tags, status indicators, and operational telemetry labels.
  */
-export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
+export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
   ({ variant = 'default', size = 'md', dot = false, className, children, ...props }, ref) => {
     return (
       <span

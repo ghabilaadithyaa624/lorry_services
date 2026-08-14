@@ -29,7 +29,11 @@ export class AuthService {
     private rateLimit: RateLimitService,
     private otpStorage: OtpStorageService,
     @Inject(REDIS_CLIENT) private redis: Redis,
-  ) {}
+  ) {
+    if (!this.config.get<string>('JWT_REFRESH_SECRET')) {
+      throw new Error('JWT_REFRESH_SECRET must be configured')
+    }
+  }
 
   /**
    * Request OTP with smart fallback
@@ -188,7 +192,7 @@ export class AuthService {
     const accessToken = this.jwtService.sign(accessPayload)
     const refreshToken = this.jwtService.sign(refreshPayload, { 
       expiresIn: '30d',
-      secret: this.config.get('JWT_REFRESH_SECRET', this.config.get('JWT_SECRET'))
+      secret: this.config.get<string>('JWT_REFRESH_SECRET')
     })
 
     // Store active token in Redis
@@ -233,7 +237,7 @@ export class AuthService {
     let payload: any
     try {
       payload = this.jwtService.verify(refreshToken, {
-        secret: this.config.get('JWT_REFRESH_SECRET', this.config.get('JWT_SECRET'))
+        secret: this.config.get<string>('JWT_REFRESH_SECRET')
       })
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token')
@@ -308,7 +312,7 @@ export class AuthService {
       fam: familyId,
     }, {
       expiresIn: '30d',
-      secret: this.config.get('JWT_REFRESH_SECRET', this.config.get('JWT_SECRET'))
+      secret: this.config.get<string>('JWT_REFRESH_SECRET')
     })
 
     // Store new active token in Redis
@@ -382,25 +386,55 @@ export class AuthService {
 
     try {
       const familyIds = await this.redis.smembers(`auth:user:families:${userId}`)
+      if (!familyIds || familyIds.length === 0) {
+        await this.redis.del(`auth:user:families:${userId}`)
+        return
+      }
+
+      // Phase 1: Fetch all family data strings in parallel using a pipeline
+      const readPipeline = this.redis.pipeline()
       for (const familyId of familyIds) {
-        const familyDataStr = await this.redis.get(`auth:family:${familyId}`)
-        if (familyDataStr) {
-          try {
-            const familyData = JSON.parse(familyDataStr)
-            if (familyData.activeTokenId) {
-              await this.redis.del(`auth:rt:active:${familyData.activeTokenId}`)
-              await this.redis.set(
-                `auth:rt:revoked:${familyData.activeTokenId}`,
-                JSON.stringify({ userId, familyId, revokedAt: Date.now(), reason: 'logout_all' }),
-                'EX',
-                REFRESH_TOKEN_TTL
-              )
+        readPipeline.get(`auth:family:${familyId}`)
+      }
+      const familyDataResults = await readPipeline.exec()
+
+      // Phase 2: Parse results and build write pipeline
+      const writePipeline = this.redis.pipeline()
+      const now = Date.now()
+
+      if (familyDataResults) {
+        for (let i = 0; i < familyIds.length; i++) {
+          const familyId = familyIds[i]
+          const pair = familyDataResults[i] as [Error | null, string | null] | undefined
+
+          if (pair) {
+            const [err, familyDataStr] = pair
+            if (!err && familyDataStr) {
+              try {
+                const familyData = JSON.parse(familyDataStr)
+                if (familyData.activeTokenId) {
+                  writePipeline.del(`auth:rt:active:${familyData.activeTokenId}`)
+                  writePipeline.set(
+                    `auth:rt:revoked:${familyData.activeTokenId}`,
+                    JSON.stringify({ userId, familyId, revokedAt: now, reason: 'logout_all' }),
+                    'EX',
+                    REFRESH_TOKEN_TTL
+                  )
+                }
+              } catch (_) {}
             }
-          } catch (_) {}
-          await this.redis.del(`auth:family:${familyId}`)
+          }
+          // Delete the family key
+          writePipeline.del(`auth:family:${familyId}`)
         }
       }
-      await this.redis.del(`auth:user:families:${userId}`)
+
+      // Delete the families set for this user
+      writePipeline.del(`auth:user:families:${userId}`)
+
+      // Execute all write operations concurrently in a single pipeline
+      await writePipeline.exec()
+
       this.logger.log(`All sessions revoked for user ${userId}`)
     } catch (err: any) {
       this.logger.warn(`Logout all sessions error: ${err.message}`)
