@@ -97,9 +97,9 @@ export type MatchSortOption =
  * Total: 100 pts
  */
 export function calculateMatchScore(load: LoadItem, truck: TruckItem): MatchResult {
-  let loadCache = matchScoreCache.get(load)
-  if (!loadCache) {
-    loadCache = new WeakMap<TruckItem, MatchResult>()
+  const existingCache = matchScoreCache.get(load)
+  const loadCache = existingCache ?? new WeakMap<TruckItem, MatchResult>()
+  if (!existingCache) {
     matchScoreCache.set(load, loadCache)
   }
   const cached = loadCache.get(truck)
@@ -304,7 +304,7 @@ export function calculateMatchScore(load: LoadItem, truck: TruckItem): MatchResu
     color = 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'
   }
 
-  return {
+  const result: MatchResult = {
     score,
     rating,
     label: `${score}% Smart Match`,

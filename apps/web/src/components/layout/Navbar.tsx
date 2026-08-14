@@ -233,16 +233,13 @@ export function Navbar() {
                 </Button>
 
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="text-surface-400 hover:text-danger-400 transition-colors p-2 rounded-md hover:bg-white/5"
+                  className="text-surface-400 hover:text-danger-400 transition-colors p-2 rounded-lg hover:bg-white/5"
                   title="Sign Out"
                   aria-label="Sign Out"
                 >
                   <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                  className="text-surface-400 hover:text-danger-400 transition-colors p-2 rounded-lg hover:bg-white/5"
-                  title="Sign Out"
-                >
-                  <ArrowRightOnRectangleIcon className="w-4 h-4" />
                 </button>
               </div>
             ) : (
