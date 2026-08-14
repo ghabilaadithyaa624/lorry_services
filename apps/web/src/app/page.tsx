@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import {
   TruckIcon,
   MagnifyingGlassIcon,
@@ -19,25 +18,8 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import { Navbar, Footer } from '@/components/layout'
-import { Button, Badge } from '@/components/ui'
+import { Button, Badge, FreightNetworkDiagram } from '@/components/ui'
 import { cn, whatsappLink } from '@/lib/utils'
-
-// Lazy-loaded 3D Hero Truck Canvas with SSR disabled for optimal client-side performance
-const HeroTruckCanvas = dynamic(() => import('@/components/3d/HeroTruckCanvas'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-[360px] sm:h-[420px] lg:h-[480px] rounded-[20px] bg-[#070A11] border border-white/10 flex items-center justify-center animate-pulse">
-      <div className="text-center space-y-3">
-        <div className="w-12 h-12 rounded-2xl bg-primary-500/20 text-primary-400 flex items-center justify-center mx-auto">
-          <TruckIcon className="w-6 h-6 animate-bounce" />
-        </div>
-        <p className="text-[11px] font-mono font-semibold text-surface-400 uppercase tracking-[0.06em]">
-          Loading 3D Telemetry Engine...
-        </p>
-      </div>
-    </div>
-  ),
-})
 
 export default function HomePage() {
   const router = useRouter()
@@ -133,41 +115,41 @@ export default function HomePage() {
     router.push(`/search?${query.toString()}`)
   }
 
-  // 5-Stage Operational Spine Mechanism
-  const operationalMechanism = [
+  // 5-Stage Enterprise Workflow
+  const operationalWorkflow = [
     {
       step: '01',
       code: 'POST',
-      title: 'Post Cargo / Search Lorries',
-      desc: 'Publish freight specifications or trigger radial search within 50km loading radius.',
+      title: 'Post Freight Load',
+      desc: 'Publish cargo specifications or trigger radial search within 50km loading radius.',
       icon: DocumentTextIcon,
     },
     {
       step: '02',
       code: 'MATCH',
-      title: '50km Proximity Radial Match',
+      title: '50km Proximity Match',
       desc: 'Algorithmic matching engine locks nearest Vahan-verified trucks in real time.',
       icon: MapPinIcon,
     },
     {
       step: '03',
-      code: 'CONTACT',
-      title: 'Direct WhatsApp & Call',
-      desc: 'Instant access to driver phone & WhatsApp credentials with zero middleman hold-ups.',
+      code: 'CONNECT',
+      title: 'Direct Phone & WhatsApp',
+      desc: 'Instant access to driver phone & WhatsApp credentials with zero middleman call centers.',
       icon: ChatBubbleLeftRightIcon,
     },
     {
       step: '04',
       code: 'BOOK',
-      title: 'Zero Brokerage Deal',
+      title: 'Zero Brokerage Agreement',
       desc: '100% direct freight agreement with standard 50% advance / 50% POD balance protocol.',
       icon: CurrencyRupeeIcon,
     },
     {
       step: '05',
       code: 'TRACK',
-      title: 'Highway Corridor Telemetry',
-      desc: 'Monitor highway toll checkpoints and receive digital POD unloading confirmation.',
+      title: 'Corridor Telemetry',
+      desc: 'Monitor FASTag toll gate checkpoints and receive digital POD unloading confirmation.',
       icon: SignalIcon,
     },
   ]
@@ -177,7 +159,7 @@ export default function HomePage() {
     { label: 'PROXIMITY ENGINE', val: '50KM Loading Radius', color: 'text-primary-400' },
     { label: 'DIRECT CONNECT', val: 'Direct WhatsApp & Phone', color: 'text-sky-400' },
     { label: 'COMMERCIAL VALUE', val: '₹0 Broker Commission', color: 'text-amber-400' },
-    { label: 'TRANSIT CONTROL', val: 'Highway Checkpoints', color: 'text-indigo-400' },
+    { label: 'TRANSIT CONTROL', val: 'FASTag Checkpoints', color: 'text-indigo-400' },
     { label: 'PAYMENT TERMS', val: '50% Advance / 50% POD', color: 'text-purple-400' },
   ]
 
@@ -210,84 +192,52 @@ export default function HomePage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white pb-32 md:pb-0">
+    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
       <Navbar />
 
       <main className="flex-1 overflow-x-hidden">
         
-        {/* ── 1. OPERATIONAL FLOW SPINE BAR (Above The Fold) ── */}
-        <section className="bg-[#0B0E17] border-b border-white/10 py-2.5 px-4 sticky top-16 sm:top-20 z-30 shadow-md">
-          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-surface-300">
-                OPERATIONAL SPINE:
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 sm:gap-3 text-[11px] font-mono font-bold overflow-x-auto no-scrollbar py-1">
-              <span className="px-2.5 py-1 rounded bg-primary-500/10 border border-primary-500/30 text-primary-400 whitespace-nowrap">
-                01. POST FREIGHT
-              </span>
-              <span className="text-surface-600 font-sans">➔</span>
-              <span className="px-2.5 py-1 rounded bg-primary-500/10 border border-primary-500/30 text-primary-400 whitespace-nowrap">
-                02. 50KM RADIAL MATCH
-              </span>
-              <span className="text-surface-600 font-sans">➔</span>
-              <span className="px-2.5 py-1 rounded bg-primary-500/10 border border-primary-500/30 text-primary-400 whitespace-nowrap">
-                03. DIRECT CONTACT
-              </span>
-              <span className="text-surface-600 font-sans">➔</span>
-              <span className="px-2.5 py-1 rounded bg-primary-500/10 border border-primary-500/30 text-primary-400 whitespace-nowrap">
-                04. ZERO BROKERAGE BOOK
-              </span>
-              <span className="text-surface-600 font-sans">➔</span>
-              <span className="px-2.5 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 whitespace-nowrap">
-                05. TELEMETRY TRACK
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* ── 2. HERO SECTION WITH VISUALLY DOMINANT LIVE MATCHING ENGINE ── */}
-        <section className="relative pt-8 pb-16 sm:pt-12 sm:pb-20 border-b border-white/10 overflow-hidden">
-          {/* Restrained Ambient Lighting */}
+        {/* ── SECTION 1: ENTERPRISE HERO ── */}
+        <section className="relative pt-12 pb-20 sm:pt-16 sm:pb-24 border-b border-white/10 overflow-hidden">
+          {/* Subtle Ambient Lighting */}
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[850px] h-[450px] bg-gradient-to-tr from-primary-600/15 via-orange-500/10 to-transparent rounded-full blur-[140px] pointer-events-none" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,rgba(249,115,22,0.06),transparent)] pointer-events-none" />
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
               
-              {/* Left Column: Hero Value Proposition (Supporting OS Context) */}
-              <div className="lg:col-span-5 space-y-6 text-left pt-2">
+              {/* Left Column: Hero Value Proposition */}
+              <div className="lg:col-span-5 space-y-6 text-left">
                 
-                {/* Mechanism Badge */}
+                {/* Enterprise Badge */}
                 <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#0F131D] border border-white/10 text-xs font-mono font-bold text-primary-400 shadow-inner-light">
                   <span className="w-2 h-2 rounded-full bg-primary-500 animate-ping" />
-                  <span>DIRECT FREIGHT OPERATING SYSTEM</span>
+                  <span>DIRECT FREIGHT DISPATCH PLATFORM</span>
                 </div>
 
-                <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-[1.05]">
-                  India&apos;s Live <br />
+                {/* Requirement Headline */}
+                <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-[1.08] font-sans">
+                  INDIA&apos;S LIVE <br />
                   <span className="bg-gradient-to-r from-primary-400 via-primary-500 to-amber-400 bg-clip-text text-transparent">
-                    Freight Control Engine
+                    FREIGHT OPERATING NETWORK
                   </span>
                 </h1>
 
+                {/* Requirement Subheading */}
                 <p className="text-xs sm:text-sm text-surface-300 max-w-xl leading-relaxed font-sans">
-                  Direct freight dispatch connecting shippers with Vahan-verified lorry owners within 50km loading radius. Zero middleman fees, direct WhatsApp contact & transparent 50/50 terms.
+                  Direct freight dispatch connecting shippers with verified carriers across India&apos;s major freight corridors within a 50km loading radius.
                 </p>
 
-                {/* Hero Primary Actions */}
-                <div className="flex flex-wrap items-center gap-3 pt-1">
+                {/* Hero CTAs */}
+                <div className="flex flex-wrap items-center gap-3.5 pt-2">
                   <Button
                     variant="primary"
                     size="lg"
                     onClick={() => router.push('/post-load')}
                     leftIcon={<TruckIcon className="w-5 h-5 shrink-0" />}
-                    className="font-bold text-xs sm:text-sm px-6 py-3.5 shadow-glow-primary hover:scale-[1.02] transition-transform"
+                    className="font-bold text-xs sm:text-sm px-7 py-3.5 shadow-glow-primary hover:scale-[1.02] transition-transform uppercase tracking-wider"
                   >
-                    Post Freight Load
+                    POST FREIGHT LOAD
                   </Button>
 
                   <Button
@@ -295,14 +245,14 @@ export default function HomePage() {
                     size="lg"
                     onClick={() => router.push('/search?type=truck')}
                     leftIcon={<MagnifyingGlassIcon className="w-5 h-5 shrink-0" />}
-                    className="font-bold text-xs sm:text-sm px-6 py-3.5 border-white/10 hover:border-white/30"
+                    className="font-bold text-xs sm:text-sm px-6 py-3.5 border-white/10 hover:border-white/30 uppercase tracking-wider"
                   >
-                    Explore Verified Fleet
+                    EXPLORE VERIFIED FLEET
                   </Button>
                 </div>
 
-                {/* Live Platform Telemetry Bar */}
-                <div className="pt-4 grid grid-cols-3 gap-3 border-t border-white/10">
+                {/* Hero Proof Metrics */}
+                <div className="pt-6 grid grid-cols-3 gap-3 border-t border-white/10">
                   <div>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-surface-400 block">
                       VERIFIED FLEET
@@ -312,10 +262,10 @@ export default function HomePage() {
                   </div>
                   <div>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-surface-400 block">
-                      RADIAL MATCH
+                      PROXIMITY MATCH
                     </span>
                     <span className="text-base sm:text-lg font-mono font-black text-primary-400">50 KM</span>
-                    <span className="text-[10px] text-surface-400 block font-sans">Proximity Radius</span>
+                    <span className="text-[10px] text-surface-400 block font-sans">Loading Radius</span>
                   </div>
                   <div>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-surface-400 block">
@@ -328,164 +278,21 @@ export default function HomePage() {
 
               </div>
 
-              {/* Right Column: Visually Dominant Live Freight Matching Engine Panel (Selective Glass) */}
-              <div className="lg:col-span-7 space-y-4">
-                
-                {/* Live Marketplace Panel Container (Selective Glass #1) */}
-                <div className="bg-[#0F131D]/90 backdrop-blur-xl rounded-[22px] border border-white/15 p-5 sm:p-6 shadow-modal space-y-4">
-                  
-                  {/* Matching Engine Panel Header */}
-                  <div className="flex flex-wrap items-center justify-between border-b border-white/10 pb-3.5 gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-xs sm:text-sm font-mono font-black text-white uppercase tracking-wider">
-                        LIVE FREIGHT MATCHING ENGINE
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20 font-bold">
-                        LATENCY: 45ms
-                      </span>
-                      <span className="text-[10px] font-mono text-primary-400 bg-primary-500/10 px-2.5 py-1 rounded border border-primary-500/20 font-bold hidden sm:inline-block">
-                        RADIAL: 50KM
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Route Selector Command Tabs */}
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-mono font-bold text-surface-400 uppercase tracking-wider block">
-                      SELECT OPERATIONAL CORRIDOR:
-                    </span>
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                      {liveRoutes.map((r) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => setActiveRouteId(r.id)}
-                          className={cn(
-                            'px-3.5 py-2 rounded-xl text-xs font-mono font-bold whitespace-nowrap transition-all duration-150',
-                            activeRouteId === r.id
-                              ? 'bg-primary-500 text-white shadow-glow-primary border border-primary-400/40'
-                              : 'bg-surface-950/80 text-surface-300 hover:text-white hover:bg-white/10 border border-white/5'
-                          )}
-                        >
-                          {r.origin} ➔ {r.destination}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Active Route Operational Details Box (Prioritized Hierarchy) */}
-                  <div className="bg-[#070A11] rounded-xl p-4 sm:p-5 border border-white/10 space-y-4">
-                    
-                    {/* Priority 1: ROUTE & Priority 2: AVAILABLE LORRIES */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/10 pb-3">
-                      <div>
-                        <span className="text-[10px] font-mono font-bold uppercase text-surface-400 tracking-wider">
-                          ACTIVE FREIGHT ROUTE
-                        </span>
-                        <h3 className="text-base sm:text-lg font-extrabold text-white mt-0.5 font-sans">
-                          {currentRoute.route}
-                        </h3>
-                      </div>
-                      
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-black shrink-0 self-start sm:self-center">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                        <span>{currentRoute.trucksAvailable} LORRIES AVAILABLE (50KM)</span>
-                      </div>
-                    </div>
-
-                    {/* Operational Telemetry Grid (Priority 3: Distance, Priority 4: ETA, Priority 5: Rate Benchmark) */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0F131D] p-3.5 rounded-xl border border-white/5">
-                      <div>
-                        <span className="text-[10px] font-mono text-surface-400 block uppercase font-bold">DISTANCE</span>
-                        <span className="text-base font-mono font-black text-white">{currentRoute.distanceKm} KM</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-mono text-surface-400 block uppercase font-bold">ESTIMATED ETA</span>
-                        <span className="text-base font-mono font-black text-white">{currentRoute.etaHours} HRS</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-mono text-surface-400 block uppercase font-bold">PROXIMITY</span>
-                        <span className="text-base font-mono font-black text-primary-400">&lt; {currentRoute.proximityKm} KM</span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-mono text-surface-400 block uppercase font-bold">RATE BENCHMARK</span>
-                        <div className="flex flex-col">
-                          <span className="text-base font-mono font-black text-emerald-400">
-                            ₹{currentRoute.commercialRate.toLocaleString('en-IN')}
-                          </span>
-                          <span className="text-[10px] font-mono text-emerald-500/90 font-bold">
-                            ₹{currentRoute.ratePerKm}/KM
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Cargo & Body Specifications */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-surface-300 pt-1 border-t border-white/5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-surface-400 font-mono text-[11px] uppercase font-bold">Vehicle Body:</span>
-                        <span className="font-semibold text-white truncate">{currentRoute.truckBody}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-surface-400 font-mono text-[11px] uppercase font-bold">Cargo Profile:</span>
-                        <span className="font-semibold text-white truncate">{currentRoute.cargoType}</span>
-                      </div>
-                    </div>
-
-                    {/* Priority 6: PRIMARY CONTACT & MATCH ACTIONS */}
-                    <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
-                      <a
-                        href={whatsappLink(
-                          currentRoute.driverPhone,
-                          `Hi, I saw your lorry on LorryCarry for route: ${currentRoute.route}. Let's agree on freight rate.`
-                        )}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full sm:flex-1 text-center text-xs sm:text-sm font-bold text-white bg-[#25D366] hover:bg-[#20ba5a] py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <ChatBubbleLeftRightIcon className="w-4 h-4 stroke-[2.2]" />
-                        <span>Direct WhatsApp Contact</span>
-                      </a>
-
-                      <Link
-                        href={`/search?type=truck&location=${encodeURIComponent(currentRoute.origin)}`}
-                        className="w-full sm:w-auto px-5 py-3 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary flex items-center justify-center gap-1.5"
-                      >
-                        <span>Match Lorries</span>
-                        <ArrowRightIcon className="w-4 h-4" />
-                      </Link>
-                    </div>
-
-                  </div>
-
-                  {/* Telemetry Ticker Feed */}
-                  <div className="flex items-center gap-2 text-[10px] font-mono text-surface-400 bg-[#070A11] px-3.5 py-2 rounded-xl border border-white/5">
-                    <ArrowPathIcon className="w-3.5 h-3.5 text-primary-400 shrink-0 animate-spin" />
-                    <span className="truncate">
-                      Matched {currentRoute.lastMatched}: <strong className="text-white">{currentRoute.truckBody}</strong> on {currentRoute.origin} ➔ {currentRoute.destination} (<strong className="text-emerald-400">₹0 Brokerage</strong>)
-                    </span>
-                  </div>
-
-                </div>
-
-                {/* 3D Fleet Visualizer Component */}
-                <HeroTruckCanvas />
-
+              {/* Right Column: Static Enterprise Logistics Product Visual (NO 3D TRUCK) */}
+              <div className="lg:col-span-7">
+                <FreightNetworkDiagram />
               </div>
 
             </div>
           </div>
         </section>
 
-        {/* ── 3. CAPABILITY TELEMETRY RAIL (Solid background per Rule #7) ── */}
-        <section className="bg-[#0B0E17] border-b border-white/10 py-5">
+        {/* ── CAPABILITY TELEMETRY RAIL ── */}
+        <section className="bg-[#0B0E17] border-b border-white/10 py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
               {capabilityRail.map((item) => (
-                <div key={item.label} className="bg-[#070A11] p-3 rounded-xl border border-white/10 text-center space-y-1">
+                <div key={item.label} className="bg-[#0F131D] p-3 rounded-xl border border-white/10 text-center space-y-1">
                   <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-surface-400 block">
                     {item.label}
                   </span>
@@ -498,28 +305,233 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── 4. SEARCH COMMAND CONSOLE (Requirement 2 & Selective Glass #2) ── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-5 relative z-20">
-          {/* Glass Console Outer Container */}
-          <div className="bg-[#0F131D]/90 backdrop-blur-xl rounded-[24px] border border-white/15 shadow-modal p-5 sm:p-7 space-y-5">
+        {/* ── SECTION 2: LIVE FREIGHT NETWORK ── */}
+        <section id="live-network" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-[#0F131D]/90 backdrop-blur-xl rounded-[24px] border border-white/15 p-6 sm:p-8 shadow-2xl space-y-6">
             
-            {/* Command Console Top Header Bar */}
-            <div className="flex flex-wrap items-center justify-between border-b border-white/10 pb-4 gap-3">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-white/10 pb-5 gap-4">
+              <div>
+                <Badge variant="primary" size="sm" className="mb-2 font-mono text-[10px] uppercase">
+                  SECTION 02 — LIVE FREIGHT NETWORK
+                </Badge>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-sans">
+                  Live Freight Matching Engine
+                </h2>
+                <p className="text-xs sm:text-sm text-surface-400 font-sans mt-1">
+                  Real-time availability, distance, ETA, proximity, and rate benchmarks across primary Indian highways.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-mono text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+                  REAL-TIME DISPATCH ONLINE
+                </span>
+              </div>
+            </div>
+
+            {/* Route Selector Command Tabs */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-mono font-bold text-surface-400 uppercase tracking-wider block">
+                SELECT OPERATIONAL FREIGHT CORRIDOR:
+              </span>
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                {liveRoutes.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setActiveRouteId(r.id)}
+                    className={cn(
+                      'px-4 py-2.5 rounded-xl text-xs font-mono font-bold whitespace-nowrap transition-all duration-150',
+                      activeRouteId === r.id
+                        ? 'bg-primary-500 text-white shadow-glow-primary border border-primary-400/40'
+                        : 'bg-[#070A11] text-surface-300 hover:text-white hover:bg-white/10 border border-white/5'
+                    )}
+                  >
+                    {r.origin} ➔ {r.destination}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Active Route Enterprise Product Preview Box */}
+            <div className="bg-[#070A11] rounded-2xl p-5 border border-white/10 space-y-5">
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                <div>
+                  <span className="text-[10px] font-mono font-bold uppercase text-surface-400 tracking-wider">
+                    ACTIVE FREIGHT ROUTE
+                  </span>
+                  <h3 className="text-lg sm:text-xl font-extrabold text-white mt-0.5 font-sans">
+                    {currentRoute.route}
+                  </h3>
+                </div>
+                
+                <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-black shrink-0 self-start sm:self-center">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span>{currentRoute.trucksAvailable} LORRIES AVAILABLE (50KM)</span>
+                </div>
+              </div>
+
+              {/* Operational Telemetry Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-[#0F131D] p-4 rounded-xl border border-white/5">
+                <div>
+                  <span className="text-[10px] font-mono text-surface-400 block uppercase font-bold">DISTANCE</span>
+                  <span className="text-base sm:text-lg font-mono font-black text-white">{currentRoute.distanceKm} KM</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono text-surface-400 block uppercase font-bold">ESTIMATED ETA</span>
+                  <span className="text-base sm:text-lg font-mono font-black text-white">{currentRoute.etaHours} HRS</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono text-surface-400 block uppercase font-bold">PROXIMITY</span>
+                  <span className="text-base sm:text-lg font-mono font-black text-primary-400">&lt; {currentRoute.proximityKm} KM</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono text-surface-400 block uppercase font-bold">RATE BENCHMARK</span>
+                  <div className="flex flex-col">
+                    <span className="text-base sm:text-lg font-mono font-black text-emerald-400">
+                      ₹{currentRoute.commercialRate.toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-500/90 font-bold">
+                      ₹{currentRoute.ratePerKm}/KM
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cargo & Body Specs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-surface-300 pt-1 border-t border-white/5 font-sans">
+                <div className="flex items-center gap-2">
+                  <span className="text-surface-400 font-mono text-[11px] uppercase font-bold">Fleet Type:</span>
+                  <span className="font-semibold text-white truncate">{currentRoute.truckBody}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-surface-400 font-mono text-[11px] uppercase font-bold">Cargo Profile:</span>
+                  <span className="font-semibold text-white truncate">{currentRoute.cargoType}</span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+                <a
+                  href={whatsappLink(
+                    currentRoute.driverPhone,
+                    `Hi, I saw your lorry on LorryCarry for route: ${currentRoute.route}. Let's agree on freight rate.`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:flex-1 text-center text-xs sm:text-sm font-bold text-white bg-[#25D366] hover:bg-[#20ba5a] py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer font-sans"
+                >
+                  <ChatBubbleLeftRightIcon className="w-4.5 h-4.5 stroke-[2.2]" />
+                  <span>Direct WhatsApp Contact</span>
+                </a>
+
+                <Link
+                  href={`/search?type=truck&location=${encodeURIComponent(currentRoute.origin)}`}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-xs sm:text-sm font-mono font-bold transition-all shadow-glow-primary flex items-center justify-center gap-2 uppercase tracking-wider"
+                >
+                  <span>View Matches</span>
+                  <ArrowRightIcon className="w-4 h-4" />
+                </Link>
+              </div>
+
+            </div>
+
+            {/* Live Ticker Bar */}
+            <div className="flex items-center gap-2 text-[10px] font-mono text-surface-400 bg-[#070A11] px-4 py-2.5 rounded-xl border border-white/5">
+              <ArrowPathIcon className="w-3.5 h-3.5 text-primary-400 shrink-0 animate-spin" />
+              <span className="truncate">
+                Matched {currentRoute.lastMatched}: <strong className="text-white">{currentRoute.truckBody}</strong> on {currentRoute.origin} ➔ {currentRoute.destination} (<strong className="text-emerald-400">₹0 Brokerage</strong>)
+              </span>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ── SECTION 3: HOW LORRYCARRY WORKS ── */}
+        <section id="solutions" className="py-24 bg-[#0B0E17] border-y border-white/10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
+            
+            <div className="text-center max-w-2xl mx-auto space-y-3">
+              <Badge variant="primary" size="sm" className="font-mono uppercase text-[10px]">
+                SECTION 03 — HOW THE NETWORK WORKS
+              </Badge>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-sans">
+                5-Stage Enterprise Workflow
+              </h2>
+              <p className="text-xs sm:text-sm text-surface-400 font-sans">
+                Streamlined direct freight dispatch pipeline connecting shippers with Vahan-verified fleet owners.
+              </p>
+            </div>
+
+            {/* 5-Stage Clean Enterprise Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-5 relative">
+              {operationalWorkflow.map((m, idx) => {
+                const Icon = m.icon
+                return (
+                  <div
+                    key={m.step}
+                    className="bg-[#0F131D] rounded-2xl p-6 border border-white/10 flex flex-col justify-between space-y-5 hover:border-primary-500/50 transition-all relative group"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xl font-mono font-black text-primary-400">
+                          {m.step}
+                        </span>
+                        <span className="text-[10px] font-mono font-bold text-surface-400 bg-white/5 px-2.5 py-1 rounded border border-white/5">
+                          {m.code}
+                        </span>
+                      </div>
+
+                      <div className="w-11 h-11 rounded-xl bg-primary-500/10 border border-primary-500/20 text-primary-400 flex items-center justify-center">
+                        <Icon className="w-5 h-5 stroke-[2]" />
+                      </div>
+
+                      <h3 className="text-sm font-bold text-white group-hover:text-primary-400 transition-colors font-sans">
+                        {m.title}
+                      </h3>
+
+                      <p className="text-xs text-surface-400 leading-relaxed font-sans">
+                        {m.desc}
+                      </p>
+                    </div>
+
+                    {idx < 4 && (
+                      <div className="hidden md:block absolute -right-3 top-1/2 -translate-y-1/2 z-10 text-primary-500 text-xs font-mono font-bold">
+                        ➔
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+          </div>
+        </section>
+
+        {/* ── SECTION 4: FREIGHT SEARCH ── */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <div className="bg-[#0F131D]/90 backdrop-blur-xl rounded-[24px] border border-white/15 shadow-2xl p-6 sm:p-8 space-y-6">
+            
+            {/* Header Bar */}
+            <div className="flex flex-wrap items-center justify-between border-b border-white/10 pb-5 gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary-500/10 border border-primary-500/30 flex items-center justify-center text-primary-400 font-mono text-xs font-bold">
+                <div className="w-9 h-9 rounded-xl bg-primary-500/10 border border-primary-500/30 flex items-center justify-center text-primary-400 font-mono text-xs font-bold">
                   SYS
                 </div>
                 <div>
                   <span className="text-[10px] font-mono font-bold text-surface-400 uppercase tracking-widest block">
-                    OPERATIONAL COMMAND CONSOLE // v3.4
+                    SECTION 04 — SEARCH COMMAND PANEL
                   </span>
                   <h2 className="text-sm sm:text-base font-extrabold text-white font-mono tracking-tight">
-                    RADIAL FREIGHT DISCOVERY MATRIX
+                    SEARCH VERIFIED FLEET PREVIEW
                   </h2>
                 </div>
               </div>
 
-              {/* Mode Switcher Command Tabs */}
+              {/* Mode Switcher */}
               <div className="flex items-center bg-[#070A11] p-1 rounded-xl border border-white/10">
                 <button
                   type="button"
@@ -532,7 +544,7 @@ export default function HomePage() {
                   )}
                 >
                   <TruckIcon className="w-4 h-4 shrink-0" />
-                  <span>[MODE: FLEET DISCOVERY]</span>
+                  <span>FLEET DISCOVERY</span>
                 </button>
 
                 <button
@@ -546,18 +558,18 @@ export default function HomePage() {
                   )}
                 >
                   <MagnifyingGlassIcon className="w-4 h-4 shrink-0" />
-                  <span>[MODE: CARGO DISCOVERY]</span>
+                  <span>CARGO DISCOVERY</span>
                 </button>
               </div>
             </div>
 
-            {/* Form Fields Grid (Solid inputs for contrast & legibility per Rule #7) */}
+            {/* Form Fields Grid */}
             <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               
-              {/* Field 1: Origin */}
+              {/* Origin */}
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-bold uppercase tracking-[0.08em] text-surface-400 font-mono">
-                  01_ORIGIN_LOCATION
+                  ORIGIN LOCATION
                 </label>
                 <div className="relative">
                   <MapPinIcon className="w-4 h-4 text-primary-400 absolute left-3.5 top-1/2 -translate-y-1/2 shrink-0" />
@@ -571,10 +583,10 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Field 2: Destination */}
+              {/* Destination */}
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-bold uppercase tracking-[0.08em] text-surface-400 font-mono">
-                  02_DESTINATION_NODE
+                  DESTINATION NODE
                 </label>
                 <div className="relative">
                   <MapPinIcon className="w-4 h-4 text-surface-400 absolute left-3.5 top-1/2 -translate-y-1/2 shrink-0" />
@@ -588,10 +600,10 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Field 3: Truck Type */}
+              {/* Vehicle Type */}
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-bold uppercase tracking-[0.08em] text-surface-400 font-mono">
-                  03_FLEET_SPECIFICATION
+                  VEHICLE TYPE
                 </label>
                 <select
                   value={truckType}
@@ -604,10 +616,10 @@ export default function HomePage() {
                 </select>
               </div>
 
-              {/* Field 4: Radius */}
+              {/* Radius */}
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-bold uppercase tracking-[0.08em] text-surface-400 font-mono">
-                  04_PROXIMITY_RADIUS
+                  PROXIMITY RADIUS
                 </label>
                 <select
                   value={radius}
@@ -621,7 +633,7 @@ export default function HomePage() {
                 </select>
               </div>
 
-              {/* Field 5: Submit Button */}
+              {/* Submit CTA */}
               <div className="flex items-end">
                 <Button
                   type="submit"
@@ -631,13 +643,13 @@ export default function HomePage() {
                   leftIcon={<MagnifyingGlassIcon className="w-4 h-4 shrink-0" />}
                   className="font-mono font-bold py-3 text-xs sm:text-sm shadow-glow-primary uppercase tracking-wider"
                 >
-                  [ EXECUTE RADIAL MATCH ]
+                  SEARCH VERIFIED FLEET
                 </Button>
               </div>
             </form>
 
             {/* Quick Origin Presets Bar */}
-            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/5 text-[11px]">
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5 text-[11px]">
               <span className="font-mono font-bold text-surface-400 text-[10px] uppercase tracking-wider">
                 QUICK ORIGIN PRESETS:
               </span>
@@ -646,7 +658,7 @@ export default function HomePage() {
                   key={loc}
                   type="button"
                   onClick={() => setOrigin(loc)}
-                  className="px-2.5 py-1 rounded-lg bg-[#070A11] hover:bg-white/10 text-surface-300 hover:text-white border border-white/10 font-mono text-[11px] transition-colors"
+                  className="px-3 py-1 rounded-lg bg-[#070A11] hover:bg-white/10 text-surface-300 hover:text-white border border-white/10 font-mono text-[11px] transition-colors"
                 >
                   + {loc}
                 </button>
@@ -656,71 +668,16 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── 5. OPERATIONAL PROCESS TIMELINE (Requirement 3: POST ➔ MATCH ➔ CONTACT ➔ BOOK ➔ TRACK Spine) ── */}
-        <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14 space-y-2">
-            <Badge variant="primary" size="sm" className="font-mono uppercase text-[10px]">
-              OPERATIONAL SPINE WORKFLOW
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              5-Stage Direct Freight Pipeline
-            </h2>
-            <p className="text-xs sm:text-sm text-surface-400 font-sans">
-              End-to-end transparent freight execution model with zero broker intervention.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
-            {operationalMechanism.map((m, idx) => {
-              const Icon = m.icon
-              return (
-                <div
-                  key={m.step}
-                  className="bg-[#0F131D] rounded-2xl p-5 border border-white/10 flex flex-col justify-between space-y-4 hover:border-primary-500/50 transition-all relative group"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl font-mono font-black text-primary-400">
-                        {m.step}
-                      </span>
-                      <span className="text-[10px] font-mono font-bold text-surface-400 bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                        {m.code}
-                      </span>
-                    </div>
-
-                    <div className="w-10 h-10 rounded-xl bg-primary-500/10 border border-primary-500/20 text-primary-400 flex items-center justify-center">
-                      <Icon className="w-5 h-5 stroke-[2]" />
-                    </div>
-
-                    <h3 className="text-sm font-bold text-white group-hover:text-primary-400 transition-colors font-sans">
-                      {m.title}
-                    </h3>
-
-                    <p className="text-xs text-surface-400 leading-relaxed font-sans">
-                      {m.desc}
-                    </p>
-                  </div>
-
-                  {idx < 4 && (
-                    <div className="hidden md:block absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 text-primary-500 text-xs font-mono font-bold">
-                      ➔
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        {/* ── 6. OPERATIONAL FREIGHT CORRIDORS (Requirement 4 & Solid cards) ── */}
-        <section className="py-20 bg-[#0B0E17] border-y border-white/10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
+        {/* ── SECTION 5: ACTIVE FREIGHT CORRIDORS ── */}
+        <section id="active-corridors" className="py-24 bg-[#0B0E17] border-y border-white/10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+            
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
-                <Badge variant="primary" size="sm" className="mb-2 font-mono text-[10px]">
-                  ACTIVE FREIGHT CORRIDORS
+                <Badge variant="primary" size="sm" className="mb-2 font-mono text-[10px] uppercase">
+                  SECTION 05 — ACTIVE FREIGHT CORRIDORS
                 </Badge>
-                <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-sans">
                   High-Volume Operational Corridors
                 </h2>
               </div>
@@ -734,15 +691,15 @@ export default function HomePage() {
               </Link>
             </div>
 
+            {/* Corridor Grid (Solid cards) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {liveRoutes.map((c) => (
                 <div
                   key={c.id}
-                  className="bg-[#0F131D] rounded-2xl p-5 border border-white/10 flex flex-col justify-between space-y-5 hover:border-primary-500/40 transition-all group"
+                  className="bg-[#0F131D] rounded-2xl p-6 border border-white/10 flex flex-col justify-between space-y-6 hover:border-primary-500/40 transition-all group"
                 >
                   <div className="space-y-4">
                     
-                    {/* Emphasize Live Availability & Distance & ETA */}
                     <div className="flex items-center justify-between text-xs font-mono">
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
@@ -760,13 +717,13 @@ export default function HomePage() {
                         <span>HIGHWAY CORRIDOR</span>
                         <span className="font-bold text-primary-400">{c.distanceKm} KM</span>
                       </div>
-                      <h3 className="text-sm font-bold text-white mt-1 group-hover:text-primary-400 transition-colors font-sans">
+                      <h3 className="text-base font-bold text-white mt-1 group-hover:text-primary-400 transition-colors font-sans">
                         {c.origin} ➔ {c.destination}
                       </h3>
                     </div>
 
-                    {/* Commercial Rate Benchmark Telemetry Box */}
-                    <div className="bg-[#070A11] p-3 rounded-xl border border-white/5 space-y-1.5 text-xs font-mono">
+                    {/* Rate Telemetry Box */}
+                    <div className="bg-[#070A11] p-3.5 rounded-xl border border-white/5 space-y-1.5 text-xs font-mono">
                       <div className="flex justify-between items-center">
                         <span className="text-surface-400">Rate Benchmark:</span>
                         <span className="font-bold text-emerald-400 text-sm">
@@ -779,7 +736,7 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* Cargo Type & Truck Body */}
+                    {/* Specs */}
                     <div className="space-y-1 text-xs">
                       <div>
                         <span className="text-[10px] font-mono uppercase text-surface-400 block font-bold">CARGO TYPE</span>
@@ -792,68 +749,68 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Primary Action Button */}
                   <Link
                     href={`/search?type=truck&location=${encodeURIComponent(c.origin)}`}
-                    className="w-full text-center text-xs font-mono font-bold text-primary-400 bg-primary-500/10 hover:bg-primary-500/20 py-2.5 rounded-xl border border-primary-500/20 transition-colors block uppercase tracking-wider"
+                    className="w-full text-center text-xs font-mono font-bold text-primary-400 bg-primary-500/10 hover:bg-primary-500/20 py-3 rounded-xl border border-primary-500/20 transition-colors block uppercase tracking-wider"
                   >
                     Match Freight on Route ➔
                   </Link>
                 </div>
               ))}
             </div>
+
           </div>
         </section>
 
-        {/* ── 7. TRACKING CONTROL TOWER (Requirement 5 & Selective Glass #3) ── */}
-        <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* ── SECTION 6: TRANSIT INTELLIGENCE ── */}
+        <section id="transit-intelligence" className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             
-            {/* Left Column: Feature Context */}
-            <div className="lg:col-span-5 space-y-5">
+            {/* Context */}
+            <div className="lg:col-span-5 space-y-6">
               <Badge variant="info" size="sm" className="font-mono text-[10px] uppercase">
-                SIGNATURE PRODUCT FEATURE
+                SECTION 06 — SIGNATURE PRODUCT FEATURE
               </Badge>
 
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight font-sans">
                 Transit Intelligence & Checkpoint Telemetry
               </h2>
 
               <p className="text-xs sm:text-sm text-surface-300 leading-relaxed font-sans">
-                Monitor active freight along national highway toll gates in real time. Automated FASTag checkpoint logging, digital bill of lading, and instant POD balance alerts.
+                LorryCarry provides operational visibility after booking. Monitor active freight along national highway toll gates with FASTag checkpoint logs, digital bill of lading, and instant POD balance alerts.
               </p>
 
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center gap-3 text-xs text-surface-300">
+              <div className="space-y-3 pt-2 font-sans">
+                <div className="flex items-center gap-3 text-xs sm:text-sm text-surface-200">
                   <CheckBadgeIcon className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <span className="font-sans">Highway toll gate FASTag checkpoint tracking</span>
+                  <span>Highway toll gate FASTag checkpoint logging</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-surface-300">
+                <div className="flex items-center gap-3 text-xs sm:text-sm text-surface-200">
                   <CheckBadgeIcon className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <span className="font-sans">Automated 50/50 advance & digital POD payout alerts</span>
+                  <span>Automated 50% advance / 50% digital POD payout alerts</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-surface-300">
+                <div className="flex items-center gap-3 text-xs sm:text-sm text-surface-200">
                   <CheckBadgeIcon className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <span className="font-sans">Vahan & E-Way Bill verified transport compliance</span>
+                  <span>Vahan & E-Way Bill verified transport compliance</span>
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-3">
                 <Button
                   variant="secondary"
                   size="md"
                   onClick={() => router.push('/tracking')}
                   leftIcon={<SparklesIcon className="w-4 h-4 shrink-0 text-primary-400" />}
-                  className="font-mono font-bold text-xs sm:text-sm border-white/10"
+                  className="font-mono font-bold text-xs sm:text-sm border-white/10 uppercase tracking-wider"
                 >
-                  [ OPEN CONTROL TOWER DEMO ]
+                  OPEN CONTROL TOWER DEMO
                 </Button>
               </div>
             </div>
 
-            {/* Right Column: Interactive Command Control Tower Panel (Selective Glass #3) */}
+            {/* Static Telemetry UI Preview Panel */}
             <div className="lg:col-span-7">
-              <div className="bg-[#0F131D]/90 backdrop-blur-xl rounded-[24px] border border-white/15 p-6 shadow-modal space-y-5">
+              <div className="bg-[#0F131D]/90 backdrop-blur-xl rounded-[24px] border border-white/15 p-6 sm:p-8 shadow-2xl space-y-6">
                 
                 {/* Control Tower Header */}
                 <div className="flex items-center justify-between border-b border-white/10 pb-4">
@@ -870,43 +827,43 @@ export default function HomePage() {
                   </Badge>
                 </div>
 
-                {/* Live Progress Bar & Route Telemetry */}
+                {/* Progress Bar & Route */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-mono">
                     <span className="text-surface-300 font-bold">Kolkata Port ➔ Delhi NCR</span>
                     <span className="text-emerald-400 font-black">820 / 1,420 KM (57%)</span>
                   </div>
-                  <div className="w-full h-2.5 rounded-full bg-[#070A11] border border-white/10 overflow-hidden">
+                  <div className="w-full h-3 rounded-full bg-[#070A11] border border-white/10 overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-primary-500 to-emerald-400 w-[57%] rounded-full shadow-glow-primary" />
                   </div>
                 </div>
 
-                {/* Checkpoint Milestone Flow */}
-                <div className="space-y-2">
+                {/* Checkpoint Milestone Logs */}
+                <div className="space-y-2.5">
                   <span className="text-[10px] font-mono uppercase text-surface-400 tracking-wider font-bold block">
                     CHECKPOINT TIMELINE LOGS:
                   </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-mono">
                     
-                    <div className="bg-[#070A11] p-2.5 rounded-xl border border-emerald-500/30">
+                    <div className="bg-[#070A11] p-3 rounded-xl border border-emerald-500/30">
                       <span className="text-[9px] text-emerald-400 block font-bold">01. ORIGIN</span>
                       <span className="font-bold text-white truncate block">Kolkata Port</span>
                       <span className="text-[9px] text-surface-400 block mt-0.5">06:10 IST</span>
                     </div>
 
-                    <div className="bg-[#070A11] p-2.5 rounded-xl border border-primary-500/40">
+                    <div className="bg-[#070A11] p-3 rounded-xl border border-primary-500/40">
                       <span className="text-[9px] text-primary-400 block font-bold">02. CHECKPOINT</span>
                       <span className="font-bold text-white truncate block">Ambala Toll</span>
                       <span className="text-[9px] text-emerald-400 block mt-0.5">14:20 IST</span>
                     </div>
 
-                    <div className="bg-[#070A11] p-2.5 rounded-xl border border-white/5">
+                    <div className="bg-[#070A11] p-3 rounded-xl border border-white/5">
                       <span className="text-[9px] text-surface-400 block font-bold">03. NEXT GATE</span>
                       <span className="font-bold text-surface-300 truncate block">Ludhiana Bypass</span>
                       <span className="text-[9px] text-surface-400 block mt-0.5">ETA: 2.5 Hrs</span>
                     </div>
 
-                    <div className="bg-[#070A11] p-2.5 rounded-xl border border-white/5">
+                    <div className="bg-[#070A11] p-3 rounded-xl border border-white/5">
                       <span className="text-[9px] text-surface-400 block font-bold">04. DESTINATION</span>
                       <span className="font-bold text-surface-300 truncate block">Delhi NCR</span>
                       <span className="text-[9px] text-surface-400 block mt-0.5">ETA: 6.0 Hrs</span>
@@ -915,15 +872,19 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Telematics Readout Box */}
-                <div className="bg-[#070A11] p-3 rounded-xl border border-white/5 space-y-1.5 text-xs font-mono">
+                {/* Status Box */}
+                <div className="bg-[#070A11] p-4 rounded-xl border border-white/5 space-y-2 text-xs font-mono">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-surface-400">FASTag Toll Gate Scan:</span>
                     <span className="text-emerald-400 font-bold">CONFIRMED (VERIFIED)</span>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-surface-400">Commercial State:</span>
+                    <span className="text-surface-400">Commercial Payout State:</span>
                     <span className="text-primary-400 font-bold">50% Advance Paid (₹26,000)</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-surface-400">POD Payout Balance:</span>
+                    <span className="text-surface-300 font-bold">50% Due on Unloading Confirmation</span>
                   </div>
                 </div>
 
@@ -933,39 +894,43 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── 8. DIRECT MARKETPLACE VS TRADITIONAL BROKER COMPARISON TABLE (Solid Background) ── */}
-        <section className="py-20 bg-[#0B0E17] border-t border-white/10">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-xl mx-auto mb-12 space-y-2">
+        {/* ── SECTION 7: COMMERCIAL TRANSPARENCY (DIRECT VS BROKER) ── */}
+        <section id="comparison" className="py-24 bg-[#0B0E17] border-t border-white/10">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+            
+            <div className="text-center max-w-2xl mx-auto space-y-3">
               <Badge variant="warning" size="sm" className="font-mono text-[10px] uppercase">
-                COMMERCIAL COMPARISON
+                SECTION 07 — COMMERCIAL TRANSPARENCY
               </Badge>
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-                Direct Marketplace vs Broker Model
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-sans">
+                Direct Marketplace vs Traditional Broker
               </h2>
+              <p className="text-xs sm:text-sm text-surface-400 font-sans">
+                Executive operational comparison between LorryCarry direct network and legacy freight brokers.
+              </p>
             </div>
 
-            {/* Solid Table Container per Rule #7 */}
-            <div className="bg-[#0F131D] rounded-[20px] border border-white/15 overflow-hidden shadow-modal">
+            {/* Executive Comparison Table (Solid background) */}
+            <div className="bg-[#0F131D] rounded-[24px] border border-white/15 overflow-hidden shadow-2xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs sm:text-sm">
                   <thead className="bg-[#070A11] text-surface-400 uppercase tracking-[0.06em] font-semibold font-mono text-[11px] border-b border-white/10">
                     <tr>
-                      <th className="p-4 sm:p-5">Operational Parameter</th>
-                      <th className="p-4 sm:p-5 text-emerald-400">LorryCarry Direct</th>
-                      <th className="p-4 sm:p-5 text-surface-400">Traditional Broker</th>
+                      <th className="p-5">Operational Parameter</th>
+                      <th className="p-5 text-emerald-400">LorryCarry Direct</th>
+                      <th className="p-5 text-surface-400">Traditional Broker</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 font-sans">
                     {comparisons.map((row) => (
                       <tr key={row.parameter} className="hover:bg-white/5 transition-colors">
-                        <td className="p-4 sm:p-5 font-bold text-white">
+                        <td className="p-5 font-bold text-white">
                           {row.parameter}
                         </td>
-                        <td className="p-4 sm:p-5 font-bold text-emerald-400 font-mono">
+                        <td className="p-5 font-bold text-emerald-400 font-mono">
                           ✓ {row.lorryCarry}
                         </td>
-                        <td className="p-4 sm:p-5 text-surface-400">
+                        <td className="p-5 text-surface-400">
                           ✗ {row.traditional}
                         </td>
                       </tr>
@@ -974,48 +939,51 @@ export default function HomePage() {
                 </table>
               </div>
             </div>
+
           </div>
         </section>
 
-        {/* ── 9. RESTRAINED AMBIENT GLOW + GLASS CTA PANEL (Requirement 8 & Selective Glass #4) ── */}
-        <section className="relative py-20 bg-[#070A11] overflow-hidden">
-          {/* Restrained Orange Ambient Glow */}
+        {/* ── SECTION 8: FINAL CTA ── */}
+        <section className="relative py-24 bg-[#070A11] overflow-hidden">
+          {/* Subtle Orange Ambient Glow */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-gradient-to-r from-primary-500/15 via-orange-500/10 to-transparent rounded-full blur-[140px] pointer-events-none" />
 
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            {/* Glass CTA Panel */}
-            <div className="bg-[#0F131D]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 sm:p-14 shadow-modal text-center space-y-6">
+            {/* Dark Premium Surface Panel */}
+            <div className="bg-[#0F131D] border border-white/10 rounded-3xl p-8 sm:p-14 shadow-2xl text-center space-y-6">
               
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary-500/10 border border-primary-500/20 text-xs font-mono font-bold text-primary-400 uppercase tracking-wider">
                 <span>START DIRECT FREIGHT OPERATIONS TODAY</span>
               </div>
 
-              {/* Requirement 8 Exact Text */}
-              <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight font-sans">
-                Eliminate Middlemen. Connect Directly.
+              {/* Requirement Headline */}
+              <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight font-sans uppercase">
+                ELIMINATE MIDDLEMEN.<br />
+                CONNECT DIRECTLY.
               </h2>
 
               <p className="text-xs sm:text-sm text-surface-300 max-w-xl mx-auto leading-relaxed font-sans">
-                Join thousands of Vahan-verified lorry owners and industrial cargo shippers across India. Zero commission, 50km radial matching, and transparent terms.
+                Join thousands of Vahan-verified lorry owners and industrial cargo shippers moving freight across India. Zero commission, 50km radial matching, and transparent terms.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-3">
+              {/* Requirement Buttons */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                 <Button
                   variant="primary"
                   size="md"
                   onClick={() => router.push('/post-load')}
-                  className="font-bold px-8 py-3.5 text-xs sm:text-sm shadow-glow-primary hover:scale-[1.02] transition-transform"
+                  className="font-bold px-8 py-4 text-xs sm:text-sm shadow-glow-primary hover:scale-[1.02] transition-transform uppercase tracking-wider font-mono"
                 >
-                  Post a Freight Load
+                  POST FREIGHT LOAD
                 </Button>
 
                 <Button
                   variant="secondary"
                   size="md"
                   onClick={() => router.push('/login?redirect=/dashboard/truck-owner')}
-                  className="font-bold px-8 py-3.5 text-xs sm:text-sm border-white/10 hover:border-white/30"
+                  className="font-bold px-8 py-4 text-xs sm:text-sm border-white/10 hover:border-white/30 uppercase tracking-wider font-mono"
                 >
-                  Register Your Lorry
+                  REGISTER YOUR LORRY
                 </Button>
               </div>
 
@@ -1025,6 +993,7 @@ export default function HomePage() {
 
       </main>
 
+      {/* ── SECTION 9: ENTERPRISE FOOTER ── */}
       <Footer />
     </div>
   )

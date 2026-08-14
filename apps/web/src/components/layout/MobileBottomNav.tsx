@@ -35,7 +35,7 @@ export function MobileBottomNav() {
     }
   }, [pathname])
 
-  if (pathname === '/login' || pathname === '/role-select' || pathname.startsWith('/admin')) {
+  if (pathname === '/' || pathname === '/login' || pathname === '/role-select' || pathname.startsWith('/admin')) {
     return null
   }
 

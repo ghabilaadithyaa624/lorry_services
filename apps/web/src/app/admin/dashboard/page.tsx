@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
   BanknotesIcon,
   ArrowPathIcon,
@@ -13,8 +13,7 @@ import { Badge, Spinner } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { formatINR } from '@/lib/utils'
 
-// Asynchronously lazy-load 3D Fleet Hero Visualization
-const HeroTruckCanvas = lazy(() => import('@/components/3d/HeroTruckCanvas'))
+import { FreightNetworkDiagram } from '@/components/ui/FreightNetworkDiagram'
 
 interface Stats {
   totalUsers: number
@@ -130,17 +129,9 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Restrained 3D Telematics Canvas */}
-          <div className="lg:col-span-5 h-48 sm:h-52 rounded-2xl overflow-hidden border border-white/10 bg-surface-950 relative shadow-card">
-            <Suspense
-              fallback={
-                <div className="w-full h-full flex items-center justify-center text-xs font-mono text-surface-500">
-                  Loading Command Telematics...
-                </div>
-              }
-            >
-              <HeroTruckCanvas />
-            </Suspense>
+          {/* Freight Network Diagram */}
+          <div className="lg:col-span-5">
+            <FreightNetworkDiagram />
           </div>
         </div>
       </div>

@@ -25,3 +25,5 @@ export * from './DataTable'
 export * from './Modal'
 export * from './Toast'
 export * from './OperationalEmptyState'
+export * from './FreightNetworkDiagram'
+
