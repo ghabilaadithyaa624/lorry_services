@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 
 interface BookingTermsModalProps {
@@ -59,9 +59,20 @@ export function BookingTermsModal({
     }
   }
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60  animate-fadeIn">
       <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="booking-terms-title"
         className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transform transition-all"
         onClick={(e) => e.stopPropagation()}
       >
@@ -69,17 +80,19 @@ export function BookingTermsModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
           <div className="flex items-center space-x-2">
             <div className="p-2 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Confirm Booking</h3>
+            <h3 id="booking-terms-title" className="text-lg font-bold text-gray-900 dark:text-white">Confirm Booking</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg transition-colors"
+            aria-label="Close modal"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
