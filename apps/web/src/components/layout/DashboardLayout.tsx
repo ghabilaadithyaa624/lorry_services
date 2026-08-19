@@ -220,11 +220,22 @@ export function DashboardLayout({
             </div>
             
             <div className="flex items-center gap-3">
-              <button className="text-surface-400 hover:text-white transition-colors relative">
+              <button
+                type="button"
+                className="p-1.5 rounded-lg text-surface-400 hover:text-white hover:bg-white/5 transition-colors relative focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none"
+                aria-label="View notifications"
+                title="Notifications"
+              >
                 <BellAlertIcon className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
+                <span className="absolute top-1 right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
               </button>
-              <button onClick={handleLogout} className="text-surface-400 hover:text-danger-400 transition-colors" title="Sign Out">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-1.5 rounded-lg text-surface-400 hover:text-danger-400 hover:bg-white/5 transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none"
+                aria-label="Sign out"
+                title="Sign Out"
+              >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
               </button>
             </div>
@@ -249,7 +260,9 @@ export function DashboardLayout({
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg text-surface-300 hover:bg-white/5"
+              className="p-1.5 rounded-lg text-surface-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none"
+              aria-expanded={sidebarOpen}
+              aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
             >
               {sidebarOpen ? <XMarkIcon className="w-5 h-5" /> : <Bars3Icon className="w-5 h-5" />}
             </button>
@@ -266,7 +279,8 @@ export function DashboardLayout({
                   <button
                     type="button"
                     onClick={() => setSidebarOpen(false)}
-                    className="p-1 text-surface-400 hover:text-white"
+                    className="p-1 rounded-lg text-surface-400 hover:text-white hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none"
+                    aria-label="Close menu"
                   >
                     <XMarkIcon className="w-5 h-5" />
                   </button>
