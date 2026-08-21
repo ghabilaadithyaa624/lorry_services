@@ -246,8 +246,12 @@ export function PaymentScreen() {
         // Failed simulation
         Alert.alert('Payment Failed', 'The simulated payment was cancelled or declined.')
       }
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'An unexpected error occurred during simulation.')
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        Alert.alert('Error', err.message || 'An unexpected error occurred during simulation.')
+      } else {
+        Alert.alert('Error', 'An unexpected error occurred during simulation.')
+      }
     } finally {
       setProcessing(false)
     }
