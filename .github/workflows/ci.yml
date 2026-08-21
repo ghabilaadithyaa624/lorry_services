@@ -19,6 +19,7 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
     env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/db"
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/lorrycarry?schema=public"
       DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/lorrycarry?schema=public"
     steps:
