@@ -293,9 +293,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const verifiedTruckCount = trucks.filter((t) => t.verificationStatus === 'Verified').length
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
+    <div className="min-h-screen bg-canvas text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
       {/* ── 1. Sticky Top Navigation ── */}
-      <header className="sticky top-0 z-40 w-full bg-[#0B0F19]/85 backdrop-blur-xl border-b border-white/10 shadow-modal">
+      <header className="sticky top-0 z-40 w-full bg-canvas/85 backdrop-blur-xl border-b border-white/10 shadow-modal">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
             {/* Left: Brand Logo */}
@@ -346,7 +346,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 aria-label="Notifications"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500 shadow-glow-primary ring-2 ring-[#0B0F19]" />
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500 shadow-glow-primary ring-2 ring-canvas" />
               </Link>
 
               {/* User Account / Role Pill */}
@@ -391,7 +391,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-[#0F131D]/95 backdrop-blur-2xl border-t border-white/10 px-4 py-4 space-y-3 shadow-modal">
+          <div className="md:hidden bg-panel/95 backdrop-blur-2xl border-t border-white/10 px-4 py-4 space-y-3 shadow-modal">
             <nav className="space-y-1">
               {navLinks.map((link) => (
                 <Link
@@ -519,7 +519,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         </div>
 
         {/* ── 3. Subscription Status & Upsell Card ── */}
-        <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-5 sm:p-6 shadow-modal hover:border-primary-500/30 transition-all">
+        <div className="bg-panel rounded-2xl border border-white/10 p-5 sm:p-6 shadow-modal hover:border-primary-500/30 transition-all">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
               <div
@@ -583,7 +583,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
           {isTruckOwner ? (
             <>
-              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   FLEET CAPACITY
                 </div>
@@ -593,7 +593,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <div className="text-xs text-surface-400 mt-0.5">Registered lorries</div>
               </div>
 
-              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   VAHAN VERIFIED
                 </div>
@@ -603,7 +603,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <div className="text-xs text-surface-400 mt-0.5">RTO authenticated</div>
               </div>
 
-              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   LIVE CONSIGNMENTS
                 </div>
@@ -613,7 +613,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <div className="text-xs text-surface-400 mt-0.5">Active in transit</div>
               </div>
 
-              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   COMPLETED TRIPS
                 </div>
@@ -625,7 +625,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             </>
           ) : (
             <>
-              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   ACTIVE CARGO
                 </div>
@@ -635,7 +635,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <div className="text-xs text-surface-400 mt-0.5">Open & matched loads</div>
               </div>
 
-              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   IN TRANSIT
                 </div>
@@ -645,7 +645,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <div className="text-xs text-surface-400 mt-0.5">Live highway haulage</div>
               </div>
 
-              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   NEARBY LORRIES
                 </div>
@@ -655,7 +655,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <div className="text-xs text-surface-400 mt-0.5">Within 100 km radius</div>
               </div>
 
-              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   COMPLETED HAULS
                 </div>
@@ -669,7 +669,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         </div>
 
         {/* ── 5. My Trips Widget (Active & Completed Tabs) ── */}
-        <div className="bg-[#0F131D] rounded-2xl border border-white/10 shadow-modal p-5 sm:p-7 space-y-6">
+        <div className="bg-panel rounded-2xl border border-white/10 shadow-modal p-5 sm:p-7 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary-500/10 text-primary-400 flex items-center justify-center border border-primary-500/20 shrink-0">
@@ -787,7 +787,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                       </div>
 
                       {/* 4-Column Checkpoint Telemetry Readout Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0F131D]/90 rounded-xl p-3 border border-white/5">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-panel/90 rounded-xl p-3 border border-white/5">
                         <div>
                           <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             ORIGIN HUB
@@ -931,7 +931,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         {/* ── 6. Activity & Notifications Feed + Match Recommendations ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Recent Activity Feed (7 cols) */}
-          <div className="lg:col-span-7 bg-[#0F131D] rounded-2xl border border-white/10 shadow-modal p-5 sm:p-6 space-y-4">
+          <div className="lg:col-span-7 bg-panel rounded-2xl border border-white/10 shadow-modal p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">
                 <Clock className="w-5 h-5 text-primary-400" />
@@ -980,7 +980,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
           </div>
 
           {/* Quick Match Opportunities (5 cols) */}
-          <div className="lg:col-span-5 bg-[#0F131D] rounded-2xl border border-white/10 shadow-modal p-5 sm:p-6 space-y-4">
+          <div className="lg:col-span-5 bg-panel rounded-2xl border border-white/10 shadow-modal p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary-400" />

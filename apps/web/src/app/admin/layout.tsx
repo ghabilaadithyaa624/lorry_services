@@ -212,7 +212,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (verifying || !user) {
     return (
-      <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col items-center justify-center p-4 font-mono">
+      <div className="min-h-screen bg-canvas text-surface-100 flex flex-col items-center justify-center p-4 font-mono">
         <Spinner size="lg" />
         <p className="text-xs font-bold text-surface-400 uppercase tracking-widest mt-3">
           Verifying Admin Authorization...
@@ -304,9 +304,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   )
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-surface-100 flex font-sans selection:bg-primary-500 selection:text-white">
+    <div className="min-h-screen bg-canvas text-surface-100 flex font-sans selection:bg-primary-500 selection:text-white">
       {/* Desktop Command Sidebar */}
-      <aside className="hidden lg:flex lg:w-64 lg:flex-col shrink-0 bg-[#0F131D] border-r border-white/10 fixed inset-y-0 left-0 z-30 shadow-modal">
+      <aside className="hidden lg:flex lg:w-64 lg:flex-col shrink-0 bg-panel border-r border-white/10 fixed inset-y-0 left-0 z-30 shadow-modal">
         <div className="flex flex-col h-full">
           <SidebarContent />
         </div>
@@ -315,7 +315,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Mobile Command Sidebar Overlay */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-40 flex">
-          <div className="fixed inset-0 bg-[#0F131D]" onClick={() => setSidebarOpen(false)} />
+          <div className="fixed inset-0 bg-panel" onClick={() => setSidebarOpen(false)} />
           <div className="relative z-50 w-64 bg-surface-900 h-full flex flex-col shadow-modal animate-slide-in-left border-r border-white/10">
             <div className="absolute top-3 right-3 z-10">
               <button
@@ -334,7 +334,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main Command Workspace */}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         {/* Command Top Header Bar */}
-        <header className="sticky top-0 z-20 bg-[#0F131D] border-b border-white/10 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-card">
+        <header className="sticky top-0 z-20 bg-panel border-b border-white/10 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-card">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -376,7 +376,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* ── GLOBAL COMMAND PALETTE SEARCH MODAL (CTRL + K) ── */}
       {commandPaletteOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#0F131D] p-4 pt-16 sm:pt-24 animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-panel p-4 pt-16 sm:pt-24 animate-fade-in">
           <div className="bg-surface-900 rounded-[20px] border border-white/15 max-w-2xl w-full p-6 shadow-modal space-y-4 font-mono text-xs">
             <div className="flex items-center gap-3 pb-3 border-b border-white/10">
               <CommandLineIcon className="w-5 h-5 text-primary-400 shrink-0" />

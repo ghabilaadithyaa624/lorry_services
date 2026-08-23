@@ -154,7 +154,7 @@ export function AIFreightAssistantDrawer() {
           aria-label="LorryCarry AI Freight Assistant"
           className="fixed inset-0 z-50 flex justify-end bg-black/80 transition-opacity animate-fade-in font-sans"
         >
-          <div className="w-full max-w-lg bg-[#0F131D] text-white h-full shadow-modal flex flex-col justify-between border-l border-white/10">
+          <div className="w-full max-w-lg bg-panel text-white h-full shadow-modal flex flex-col justify-between border-l border-white/10">
             
             {/* Drawer Header */}
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-surface-950/80">

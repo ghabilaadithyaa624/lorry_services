@@ -62,7 +62,7 @@ export default function NationalCorridorsPage() {
       <div className="space-y-6 max-w-7xl mx-auto">
         
         {/* ── HEADER BANNER ── */}
-        <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 shadow-modal flex flex-col md:flex-row md:items-center justify-between gap-4 font-sans">
+        <div className="bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal flex flex-col md:flex-row md:items-center justify-between gap-4 font-sans">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <MapPinIcon className="w-6 h-6 text-primary-400" />
@@ -94,7 +94,7 @@ export default function NationalCorridorsPage() {
             <Skeleton.Card />
           </div>
         ) : filteredCorridors.length === 0 ? (
-          <div className="p-12 text-center bg-[#0F131D] rounded-[20px] border border-white/10 space-y-3 shadow-modal">
+          <div className="p-12 text-center bg-panel rounded-[20px] border border-white/10 space-y-3 shadow-modal">
             <h3 className="text-sm font-semibold text-white font-sans">
               No corridor metrics available
             </h3>
@@ -111,7 +111,7 @@ export default function NationalCorridorsPage() {
                 <div
                   key={c.corridorId}
                   className={cn(
-                    'bg-[#0F131D] rounded-[20px] border p-6 shadow-modal space-y-4 transition-all',
+                    'bg-panel rounded-[20px] border p-6 shadow-modal space-y-4 transition-all',
                     isInsufficient
                       ? 'border-white/5 opacity-80'
                       : 'border-white/10 hover:border-primary-500/40'

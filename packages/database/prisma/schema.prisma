@@ -23,10 +23,69 @@ model User {
   truckOwnerBookings Booking[] @relation("TruckOwnerBookings")
   payments           Payment[]
   notifications      Notification[]
+  notificationReceipts NotificationReceipt[]
+  preference         UserPreference?
   
   @@index([phone])
   @@index([role])
   @@map("users")
+}
+
+/// Per-user application preferences (theme, locale, units, notification opt-ins).
+/// Additive: absence of a row simply means "all defaults", so existing users are
+/// unaffected and no backfill is required.
+model UserPreference {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+
+  // Appearance
+  theme        String @default("system") // 'light' | 'dark' | 'system'
+  language     String @default("en")
+  currency     String @default("INR")
+  distanceUnit String @default("km") @map("distance_unit") // 'km' | 'mi'
+
+  // Notification channel opt-ins. Delivery still depends on provider config.
+  notifyWhatsapp    Boolean @default(true) @map("notify_whatsapp")
+  notifySms         Boolean @default(true) @map("notify_sms")
+  notifyPush        Boolean @default(true) @map("notify_push")
+  notifyCheckpoints Boolean @default(true) @map("notify_checkpoints")
+
+  // Search defaults
+  defaultRadiusKm   Int     @default(50) @map("default_radius_km")
+  preferredBodyType String? @map("preferred_body_type")
+  autoDetectLocation Boolean @default(true) @map("auto_detect_location")
+
+  // Privacy
+  profileVisible Boolean @default(true) @map("profile_visible")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+/// Read receipts for notifications.
+///
+/// The notification feed mixes persisted `Notification` rows with alerts derived
+/// at request time from domain state (pending KYC, unconfirmed advances,
+/// checkpoint crossings). A receipt keyed by an opaque string therefore covers
+/// BOTH kinds uniformly, instead of only working for stored rows.
+model NotificationReceipt {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+
+  /// Stable identifier of the notification (DB id, or derived key such as
+  /// `notif-kyc-pending-<truckId>`).
+  notificationKey String   @map("notification_key")
+  readAt          DateTime @default(now()) @map("read_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, notificationKey])
+  @@index([userId])
+  @@map("notification_receipts")
 }
 
 enum UserRole {

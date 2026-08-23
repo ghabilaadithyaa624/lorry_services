@@ -78,7 +78,7 @@ export default function PostLoadPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <form onSubmit={handleSubmit(onSubmit)} className="lg:col-span-7 space-y-6">
             {/* Section 1: Route & Locations */}
-            <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-7 space-y-5 shadow-modal">
+            <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 space-y-5 shadow-modal">
               <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <div className="flex items-center gap-2.5">
                   <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-400 font-sans font-bold text-xs flex items-center justify-center border border-primary-500/30">
@@ -149,7 +149,7 @@ export default function PostLoadPage() {
             </div>
 
             {/* Section 2: Cargo & Vehicle Specifications */}
-            <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-7 space-y-5 shadow-modal">
+            <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 space-y-5 shadow-modal">
               <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <div className="flex items-center gap-2.5">
                   <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-400 font-sans font-bold text-xs flex items-center justify-center border border-primary-500/30">
@@ -221,7 +221,7 @@ export default function PostLoadPage() {
             </div>
 
             {/* Section 3: Commercial Terms & Pricing */}
-            <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-7 space-y-5 shadow-modal">
+            <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 space-y-5 shadow-modal">
               <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <div className="flex items-center gap-2.5">
                   <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-400 font-sans font-bold text-xs flex items-center justify-center border border-primary-500/30">

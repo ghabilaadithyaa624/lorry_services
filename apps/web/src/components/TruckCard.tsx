@@ -115,7 +115,7 @@ export function TruckCard({
 
   return (
     <>
-      <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-5 sm:p-6 shadow-modal hover:border-primary-500/30 transition-all duration-200 space-y-5 text-white">
+      <div className="bg-panel rounded-2xl border border-white/10 p-5 sm:p-6 shadow-modal hover:border-primary-500/30 transition-all duration-200 space-y-5 text-white">
         {/* Header: Title, Verification Badge, Match Score */}
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div className="flex items-start gap-3.5">

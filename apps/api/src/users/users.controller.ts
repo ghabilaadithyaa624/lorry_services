@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Body,
   UseGuards,
@@ -8,6 +9,10 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { UpdateUserDto } from './dto/update-user.dto'
+import {
+  UpdatePreferencesDto,
+  MarkNotificationReadDto,
+} from './dto/update-preferences.dto'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
 
@@ -54,5 +59,39 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Notifications list retrieved' })
   async getNotifications(@CurrentUser('id') userId: string) {
     return this.usersService.getNotifications(userId)
+  }
+
+  @Post('notifications/read')
+  @ApiOperation({ summary: 'Mark a single notification as read' })
+  @ApiResponse({ status: 201, description: 'Notification marked as read' })
+  async markNotificationRead(
+    @CurrentUser('id') userId: string,
+    @Body() dto: MarkNotificationReadDto
+  ) {
+    return this.usersService.markNotificationRead(userId, dto.notificationKey)
+  }
+
+  @Post('notifications/read-all')
+  @ApiOperation({ summary: 'Mark all notifications in the feed as read' })
+  @ApiResponse({ status: 201, description: 'All notifications marked as read' })
+  async markAllNotificationsRead(@CurrentUser('id') userId: string) {
+    return this.usersService.markAllNotificationsRead(userId)
+  }
+
+  @Get('preferences')
+  @ApiOperation({ summary: 'Get application preferences for the current user' })
+  @ApiResponse({ status: 200, description: 'Preferences retrieved' })
+  async getPreferences(@CurrentUser('id') userId: string) {
+    return this.usersService.getPreferences(userId)
+  }
+
+  @Patch('preferences')
+  @ApiOperation({ summary: 'Update application preferences for the current user' })
+  @ApiResponse({ status: 200, description: 'Preferences updated' })
+  async updatePreferences(
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdatePreferencesDto
+  ) {
+    return this.usersService.updatePreferences(userId, dto)
   }
 }

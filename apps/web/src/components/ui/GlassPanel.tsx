@@ -5,59 +5,62 @@ import { cn } from '@/lib/utils'
 
 export interface GlassPanelProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
-   * Glassmorphism elevation level.
-   * level 1: rgba(15,23,42,0.72), blur 12px
-   * level 2: rgba(15,23,42,0.52), blur 18px (modals, hero overlays, command palette)
+   * Surface elevation.
+   * - `0`: opaque panel (no blur) — safest for dense, text-heavy content.
+   * - `1`: standard frosted glass — summary cards, filters, floating controls.
+   * - `2`: stronger frosting — modal/drawer surfaces and overlays.
+   *
+   * Blur is deliberately capped: heavier values hurt legibility and cost
+   * compositing performance on mid-range mobile hardware.
    */
   level?: 0 | 1 | 2
   /**
-   * Enables subtle border glow and pointer cursor when hovered.
+   * Adds hover affordance and pointer cursor.
    * @default false
    */
   interactive?: boolean
   /**
-   * Inner padding size scale.
+   * Inner padding scale.
    * @default 'md'
    */
   padding?: 'none' | 'sm' | 'md' | 'lg'
-  /**
-   * Additional CSS class names.
-   */
   className?: string
-  /**
-   * Panel content.
-   */
   children?: React.ReactNode
 }
 
 const paddingClasses = {
   none: 'p-0',
   sm: 'p-4',
-  md: 'p-6 sm:p-7',
-  lg: 'p-8 sm:p-10',
+  md: 'p-5 sm:p-6',
+  lg: 'p-6 sm:p-8',
 }
 
 const levelClasses = {
-  0: 'bg-[#0F131D] border border-white/10',
-  1: 'bg-[#0F172A]/72 backdrop-blur-[12px] border border-white/[0.08]',
-  2: 'bg-[#0F172A]/52 backdrop-blur-[18px] border border-white/[0.12]',
+  0: 'bg-panel border border-hairline',
+  1: 'glass',
+  2: 'glass-strong',
 }
 
 /**
- * GlassPanel Component
+ * GlassPanel — frosted surface primitive.
  *
- * Dark glassmorphic container primitive with level 1 and level 2 options.
+ * Used selectively for navigation, floating controls, summary cards, filters,
+ * and modal/drawer surfaces. Falls back to an opaque panel where
+ * `backdrop-filter` is unsupported (see `globals.css`) so text never loses
+ * contrast against the page behind it.
  */
 export const GlassPanel = forwardRef<HTMLDivElement, GlassPanelProps>(
-  ({ level = 0, interactive = false, padding = 'md', className, children, ...props }, ref) => {
+  ({ level = 1, interactive = false, padding = 'md', className, children, ...props }, ref) => {
     return (
       <div
         ref={ref}
         className={cn(
-          'rounded-[20px] text-white shadow-modal transition-all duration-200 relative overflow-hidden',
+          'rounded-panel text-body shadow-card relative overflow-hidden',
+          'transition-[box-shadow,border-color,transform] duration-200 ease-out',
           levelClasses[level],
           paddingClasses[padding],
-          interactive && 'hover:border-primary-500/40 hover:-translate-y-0.5 cursor-pointer',
+          interactive &&
+            'hover:border-primary-500/40 hover:shadow-card-hover hover:-translate-y-0.5 cursor-pointer motion-reduce:hover:translate-y-0',
           className
         )}
         {...props}
