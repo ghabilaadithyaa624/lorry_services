@@ -9,7 +9,11 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
+import { StackNavigationProp } from '@react-navigation/stack'
+import { RootStackParamList } from '../navigation/types'
 import { api } from '../services/api'
+
+type SearchTrucksScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SearchTrucks'>
 
 interface Truck {
   id: string
@@ -21,7 +25,7 @@ interface Truck {
   verificationStatus: string
 }
 
-export function SearchTrucksScreen({ navigation }: any) {
+export function SearchTrucksScreen({ navigation }: { navigation: SearchTrucksScreenNavigationProp }) {
   const [trucks, setTrucks] = useState<Truck[]>([])
   const [loading, setLoading] = useState(true)
   const [radius, setRadius] = useState(50)

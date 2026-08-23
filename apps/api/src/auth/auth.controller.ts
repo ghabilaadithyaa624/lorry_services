@@ -7,10 +7,16 @@ import {
   Ip,
   Headers,
   UnauthorizedException,
-  UseGuards 
+  UseGuards,
+  Get,
+  Req,
+  Res
 } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger'
+import { Request, Response } from 'express'
 import { AuthService, OtpChannel } from './auth.service'
+import { generateCsrfTokenForRequest } from '../common/utils/csrf.util'
+import { ConfigService } from '@nestjs/config'
 import { RequestOtpDto, VerifyOtpDto, RefreshTokenDto } from './dto'
 import { Public } from '../common/decorators/public.decorator'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
@@ -19,7 +25,24 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  @Public()
+  @Get('csrf-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get a new CSRF token' })
+  @ApiResponse({ status: 200, description: 'CSRF token retrieved successfully' })
+  getCsrfToken(
+    @Req() req: Request,
+    @Res() res: Response
+  ) {
+    const secret = this.configService.get<string>('CSRF_SECRET') || 'default-csrf-secret-key-change-in-production'
+    const token = generateCsrfTokenForRequest(req, res, secret)
+    return res.json({ csrfToken: token })
+  }
 
   @Public()
   @Post('otp/request')
