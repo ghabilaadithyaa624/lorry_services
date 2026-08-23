@@ -5,19 +5,54 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1
 // Create axios instance
 export const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
-// Request interceptor - add auth token
+let csrfToken: string | null = null
+let fetchingCsrfPromise: Promise<string> | null = null
+
+async function getCsrfToken(): Promise<string> {
+  if (csrfToken) return csrfToken
+  if (fetchingCsrfPromise) return fetchingCsrfPromise
+
+  fetchingCsrfPromise = (async () => {
+    try {
+      const response = await axios.get(`${API_URL}/auth/csrf-token`, {
+        withCredentials: true,
+      })
+      csrfToken = response.data.csrfToken
+      return csrfToken || ''
+    } catch (err) {
+      console.error('Failed to fetch CSRF token:', err)
+      return ''
+    } finally {
+      fetchingCsrfPromise = null
+    }
+  })()
+
+  return fetchingCsrfPromise
+}
+
+// Request interceptor - add auth token and CSRF token
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  async (config: InternalAxiosRequestConfig) => {
     // Only access localStorage on client side
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('accessToken')
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`
+      }
+
+      // Automatically fetch and attach CSRF token for mutating requests
+      const isMutating = ['post', 'put', 'delete', 'patch'].includes(config.method?.toLowerCase() || '')
+      if (isMutating) {
+        const token = await getCsrfToken()
+        if (token && config.headers) {
+          config.headers['x-csrf-token'] = token
+        }
       }
     }
     return config
@@ -246,9 +281,12 @@ export const setAuthCookies = (accessToken: string, role: string) => {
   // Set cookies for middleware
   document.cookie = `accessToken=${accessToken}; path=/; max-age=${7 * 24 * 60 * 60}`
   document.cookie = `userRole=${role}; path=/; max-age=${7 * 24 * 60 * 60}`
+  csrfToken = null
+  fetchingCsrfPromise = null
 }
 
 export const clearAuthCookies = () => {
   document.cookie = 'accessToken=; path=/; max-age=0'
   document.cookie = 'userRole=; path=/; max-age=0'
+  csrfToken = null
 }

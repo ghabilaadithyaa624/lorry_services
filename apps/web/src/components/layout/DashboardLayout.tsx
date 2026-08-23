@@ -214,17 +214,24 @@ export function DashboardLayout({
               <MagnifyingGlassIcon className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
+                aria-label="Global search"
                 placeholder="Global Search (Ctrl+K)"
                 className="pl-9 pr-4 py-1.5 bg-surface-900 border border-white/10 rounded-md text-xs text-white focus:outline-none focus:border-primary-500 transition-colors w-64"
               />
             </div>
             
             <div className="flex items-center gap-3">
-              <button className="text-surface-400 hover:text-white transition-colors relative">
+              <button
+                type="button"
+                aria-label="Notifications"
+                className="text-surface-400 hover:text-white p-1 rounded-lg transition-colors relative focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
+              >
+              <button type="button" aria-label="Notifications" className="text-surface-400 hover:text-white transition-colors relative">
                 <BellAlertIcon className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
+                <span className="absolute top-1 right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
+                <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-primary-500 rounded-full"></span>
               </button>
-              <button onClick={handleLogout} className="text-surface-400 hover:text-danger-400 transition-colors" title="Sign Out">
+              <button type="button" onClick={handleLogout} aria-label="Sign out" className="text-surface-400 hover:text-danger-400 transition-colors" title="Sign Out">
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
               </button>
             </div>
@@ -249,7 +256,9 @@ export function DashboardLayout({
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg text-surface-300 hover:bg-white/5"
+              aria-expanded={sidebarOpen}
+              aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              className="p-1.5 rounded-lg text-surface-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
             >
               {sidebarOpen ? <XMarkIcon className="w-5 h-5" /> : <Bars3Icon className="w-5 h-5" />}
             </button>
@@ -266,6 +275,9 @@ export function DashboardLayout({
                   <button
                     type="button"
                     onClick={() => setSidebarOpen(false)}
+                    className="p-1 rounded-lg text-surface-400 hover:text-white hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none"
+                    aria-label="Close menu"
+                    aria-label="Close navigation menu"
                     className="p-1 text-surface-400 hover:text-white"
                   >
                     <XMarkIcon className="w-5 h-5" />
