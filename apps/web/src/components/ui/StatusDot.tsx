@@ -8,7 +8,7 @@ export type StatusDotSize = 'sm' | 'md' | 'lg'
 
 export interface StatusDotProps extends React.HTMLAttributes<HTMLSpanElement> {
   /**
-   * Color and glow variant of the status dot.
+   * Colour variant of the status dot.
    * @default 'active'
    */
   variant?: StatusDotVariant
@@ -18,23 +18,27 @@ export interface StatusDotProps extends React.HTMLAttributes<HTMLSpanElement> {
    */
   size?: StatusDotSize
   /**
-   * If true, adds an animated CSS pulse glow ring.
+   * Animated ping ring for live/real-time indicators.
+   * Automatically suppressed under `prefers-reduced-motion`.
    * @default false
    */
   pulse?: boolean
   /**
-   * Additional CSS class names.
+   * Text alternative. When provided the dot is exposed to assistive tech
+   * instead of being decorative — important because colour alone must never
+   * be the only carrier of meaning.
    */
+  label?: string
   className?: string
 }
 
 const variantClasses: Record<StatusDotVariant, string> = {
-  active: 'bg-emerald-400 shadow-[0_0_8px_rgba(34,197,94,0.7)]',
-  success: 'bg-emerald-400 shadow-[0_0_8px_rgba(34,197,94,0.7)]',
-  warning: 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.7)]',
-  danger: 'bg-danger-400 shadow-[0_0_8px_rgba(239,68,68,0.7)]',
-  info: 'bg-sky-400 shadow-[0_0_8px_rgba(59,130,246,0.7)]',
-  default: 'bg-surface-400',
+  active: 'bg-emerald-500',
+  success: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+  danger: 'bg-danger-500',
+  info: 'bg-sky-500',
+  default: 'bg-subtle',
 }
 
 const sizeClasses: Record<StatusDotSize, string> = {
@@ -44,25 +48,30 @@ const sizeClasses: Record<StatusDotSize, string> = {
 }
 
 /**
- * StatusDot Component
+ * StatusDot — compact state indicator.
  *
- * Operational telemetry dot indicator with real-time glow and pulse support.
+ * Pair with a text label wherever the state carries meaning; the dot alone is
+ * decorative unless `label` is supplied.
  */
 export const StatusDot = React.forwardRef<HTMLSpanElement, StatusDotProps>(
-  ({ variant = 'active', size = 'md', pulse = false, className, ...props }, ref) => {
+  ({ variant = 'active', size = 'md', pulse = false, label, className, ...props }, ref) => {
     return (
       <span className="relative inline-flex items-center justify-center shrink-0">
         {pulse && (
           <span
             className={cn(
-              'absolute inline-flex rounded-full opacity-75 animate-ping',
+              'absolute inline-flex rounded-full opacity-75 animate-ping motion-reduce:hidden',
               sizeClasses[size],
               variantClasses[variant]
             )}
+            aria-hidden="true"
           />
         )}
         <span
           ref={ref}
+          role={label ? 'img' : undefined}
+          aria-label={label}
+          aria-hidden={label ? undefined : true}
           className={cn(
             'inline-block rounded-full shrink-0 transition-colors',
             sizeClasses[size],

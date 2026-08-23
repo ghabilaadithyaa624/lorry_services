@@ -110,9 +110,9 @@ export function Footer() {
   ]
 
   return (
-    <footer className="bg-[#070A11] text-surface-400 border-t border-white/10 font-sans">
+    <footer className="bg-canvas text-surface-400 border-t border-white/10 font-sans">
       {/* Executive Value Highlights */}
-      <div className="border-b border-white/10 bg-[#0B0F19]/60 backdrop-blur-md py-8">
+      <div className="border-b border-white/10 bg-canvas/60 backdrop-blur-md py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {trustBadges.map((b) => {

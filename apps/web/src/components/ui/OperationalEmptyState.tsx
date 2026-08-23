@@ -37,7 +37,7 @@ export function OperationalEmptyState({
   return (
     <div
       className={cn(
-        'p-8 sm:p-12 text-center bg-[#0F131D] rounded-[20px] border border-white/10 shadow-modal space-y-6 max-w-2xl mx-auto',
+        'p-8 sm:p-12 text-center bg-panel rounded-[20px] border border-white/10 shadow-modal space-y-6 max-w-2xl mx-auto',
         className
       )}
     >

@@ -176,7 +176,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070A11] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative font-sans">
+    <div className="min-h-screen bg-canvas flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative font-sans">
       {/* Background ambient lighting */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -220,16 +220,16 @@ function LoginForm() {
 
         {/* Auth Form Card */}
         <div className="mt-6">
-          <Card padding="lg" className="shadow-elevated border-surface-200/80 dark:border-surface-700/80">
+          <Card padding="lg" className="shadow-elevated border-hairline/80">
             {step === 'phone' ? (
               <div className="space-y-5">
                 {/* Mobile Phone Input */}
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-700 dark:text-surface-400 mb-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-muted mb-2">
                     Mobile Number
                   </label>
-                  <div className="flex rounded-input border border-surface-300 dark:border-surface-700 overflow-hidden focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:border-primary-500 bg-white dark:bg-surface-800 transition-all">
-                    <span className="inline-flex items-center px-4 bg-surface-100 dark:bg-surface-700 text-surface-600 dark:text-surface-300 font-bold text-sm border-r border-surface-300 dark:border-surface-700">
+                  <div className="flex rounded-input border border-hairline overflow-hidden focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:border-primary-500 bg-sunken transition-all">
+                    <span className="inline-flex items-center px-4 bg-sunken text-muted font-bold text-sm border-r border-hairline">
                       🇮🇳 +91
                     </span>
                     <input
@@ -241,7 +241,7 @@ function LoginForm() {
                       }}
                       onKeyDown={(e) => e.key === 'Enter' && phone.length === 10 && handleRequestOtp()}
                       placeholder="98765 43210"
-                      className="flex-1 min-w-0 px-4 py-3 bg-transparent text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none text-base font-medium"
+                      className="flex-1 min-w-0 px-4 py-3 bg-transparent text-ink placeholder-surface-400 focus:outline-none text-base font-medium"
                       maxLength={10}
                       autoFocus
                     />
@@ -254,7 +254,7 @@ function LoginForm() {
                 {/* Role Selection (I AM REGISTERING AS) */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-700 dark:text-surface-400">
+                    <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
                       I AM REGISTERING AS
                     </label>
                     <span className="text-[11px] text-surface-400">For new users</span>
@@ -271,7 +271,7 @@ function LoginForm() {
                         'p-3.5 rounded-xl border-2 text-left transition-all relative flex flex-col justify-between cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary-500/40',
                         selectedRole === 'load_owner'
                           ? 'border-primary-500 bg-primary-50/80 dark:bg-primary-950/40 shadow-xs ring-1 ring-primary-500/30'
-                          : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 hover:border-surface-300 dark:hover:border-surface-600'
+                          : 'border-hairline bg-sunken hover:border-hairline-strong'
                       )}
                     >
                       <div className="flex items-start gap-3">
@@ -280,21 +280,21 @@ function LoginForm() {
                             'w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors',
                             selectedRole === 'load_owner'
                               ? 'bg-primary-500 text-white shadow-xs'
-                              : 'bg-surface-100 dark:bg-surface-700 text-surface-600 dark:text-surface-300 group-hover:text-primary-500'
+                              : 'bg-sunken text-muted group-hover:text-primary-500'
                           )}
                         >
                           <ArchiveBoxIcon className="w-5 h-5 stroke-[2]" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-sm text-surface-900 dark:text-white">
+                            <span className="font-bold text-sm text-ink">
                               Load Owner
                             </span>
                             {selectedRole === 'load_owner' && (
                               <CheckCircleIcon className="w-4 h-4 text-primary-500 shrink-0" />
                             )}
                           </div>
-                          <p className="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5 leading-snug">
+                          <p className="text-[11px] text-subtle mt-0.5 leading-snug">
                             Post loads and find suitable trucks
                           </p>
                         </div>
@@ -311,7 +311,7 @@ function LoginForm() {
                         'p-3.5 rounded-xl border-2 text-left transition-all relative flex flex-col justify-between cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary-500/40',
                         selectedRole === 'truck_owner'
                           ? 'border-primary-500 bg-primary-50/80 dark:bg-primary-950/40 shadow-xs ring-1 ring-primary-500/30'
-                          : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 hover:border-surface-300 dark:hover:border-surface-600'
+                          : 'border-hairline bg-sunken hover:border-hairline-strong'
                       )}
                     >
                       <div className="flex items-start gap-3">
@@ -320,21 +320,21 @@ function LoginForm() {
                             'w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors',
                             selectedRole === 'truck_owner'
                               ? 'bg-primary-500 text-white shadow-xs'
-                              : 'bg-surface-100 dark:bg-surface-700 text-surface-600 dark:text-surface-300 group-hover:text-primary-500'
+                              : 'bg-sunken text-muted group-hover:text-primary-500'
                           )}
                         >
                           <TruckIcon className="w-5 h-5 stroke-[2]" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-sm text-surface-900 dark:text-white">
+                            <span className="font-bold text-sm text-ink">
                               Truck Owner
                             </span>
                             {selectedRole === 'truck_owner' && (
                               <CheckCircleIcon className="w-4 h-4 text-primary-500 shrink-0" />
                             )}
                           </div>
-                          <p className="text-[11px] text-surface-500 dark:text-surface-400 mt-0.5 leading-snug">
+                          <p className="text-[11px] text-subtle mt-0.5 leading-snug">
                             Register trucks and find available loads
                           </p>
                         </div>
@@ -348,7 +348,7 @@ function LoginForm() {
 
                 {/* Channel Selection */}
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-700 dark:text-surface-400 mb-2">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-muted mb-2">
                     Deliver Code Via
                   </label>
                   <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Deliver verification code via">
@@ -361,7 +361,7 @@ function LoginForm() {
                         'flex items-center justify-center gap-2 py-3 px-3 rounded-xl border text-xs font-bold transition-all',
                         channel === 'whatsapp'
                           ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 shadow-xs'
-                          : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'
+                          : 'border-hairline text-muted hover:bg-wash'
                       )}
                     >
                       <ChatBubbleLeftRightIcon className="w-4 h-4 text-emerald-600" />
@@ -377,7 +377,7 @@ function LoginForm() {
                         'flex items-center justify-center gap-2 py-3 px-3 rounded-xl border text-xs font-bold transition-all',
                         channel === 'sms'
                           ? 'border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 shadow-xs'
-                          : 'border-surface-200 dark:border-surface-700 text-surface-600 dark:text-surface-400 hover:bg-surface-50 dark:hover:bg-surface-800'
+                          : 'border-hairline text-muted hover:bg-wash'
                       )}
                     >
                       <DevicePhoneMobileIcon className="w-4 h-4 text-blue-600" />
@@ -401,11 +401,11 @@ function LoginForm() {
             ) : (
               <div className="space-y-5">
                 {/* Active Role Indicator on OTP Screen */}
-                <div className="p-3 rounded-xl bg-surface-100/80 dark:bg-surface-800/80 border border-surface-200 dark:border-surface-700 space-y-2">
+                <div className="p-3 rounded-xl bg-sunken/80 border border-hairline space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="text-surface-500 dark:text-surface-400">Account Type:</span>
-                      <span className="font-bold text-surface-900 dark:text-white flex items-center gap-1.5">
+                      <span className="text-subtle">Account Type:</span>
+                      <span className="font-bold text-ink flex items-center gap-1.5">
                         {selectedRole === 'truck_owner' ? (
                           <>
                             <TruckIcon className="w-3.5 h-3.5 text-primary-500 shrink-0 inline" />
@@ -433,7 +433,7 @@ function LoginForm() {
 
                   {/* Inline Role Selector if toggled or if no role selected */}
                   {(showRolePickerInOtp || !selectedRole) && (
-                    <div className="pt-2 border-t border-surface-200/80 dark:border-surface-700/80 grid grid-cols-2 gap-2 animate-fade-in" role="radiogroup" aria-label="Change account type to">
+                    <div className="pt-2 border-t border-hairline/80 grid grid-cols-2 gap-2 animate-fade-in" role="radiogroup" aria-label="Change account type to">
                       <button
                         type="button"
                         role="radio"
@@ -446,14 +446,14 @@ function LoginForm() {
                           'p-2.5 rounded-lg border text-left transition-all',
                           selectedRole === 'load_owner'
                             ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/40 font-bold text-primary-700 dark:text-primary-300 shadow-2xs'
-                            : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-300'
+                            : 'border-hairline bg-sunken text-body'
                         )}
                       >
                         <div className="flex items-center gap-1.5 font-bold text-xs">
                           <ArchiveBoxIcon className="w-3.5 h-3.5" />
                           <span>Load Owner</span>
                         </div>
-                        <div className="text-[10px] text-surface-500 dark:text-surface-400 mt-0.5">
+                        <div className="text-[10px] text-subtle mt-0.5">
                           Post freight loads
                         </div>
                       </button>
@@ -470,14 +470,14 @@ function LoginForm() {
                           'p-2.5 rounded-lg border text-left transition-all',
                           selectedRole === 'truck_owner'
                             ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/40 font-bold text-primary-700 dark:text-primary-300 shadow-2xs'
-                            : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-300'
+                            : 'border-hairline bg-sunken text-body'
                         )}
                       >
                         <div className="flex items-center gap-1.5 font-bold text-xs">
                           <TruckIcon className="w-3.5 h-3.5" />
                           <span>Truck Owner</span>
                         </div>
-                        <div className="text-[10px] text-surface-500 dark:text-surface-400 mt-0.5">
+                        <div className="text-[10px] text-subtle mt-0.5">
                           Register trucks
                         </div>
                       </button>
@@ -487,7 +487,7 @@ function LoginForm() {
 
                 {/* OTP Input */}
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-700 dark:text-surface-400 mb-2 text-center">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-muted mb-2 text-center">
                     Enter 6-Digit Code
                   </label>
                   <input
@@ -499,7 +499,7 @@ function LoginForm() {
                     }}
                     onKeyDown={(e) => e.key === 'Enter' && otp.length === 6 && handleVerifyOtp()}
                     placeholder="• • • • • •"
-                    className="w-full px-4 py-3.5 border border-surface-300 dark:border-surface-700 rounded-xl bg-surface-50 dark:bg-surface-800 text-surface-900 dark:text-white placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-center text-2xl tracking-[0.4em] font-mono font-bold"
+                    className="w-full px-4 py-3.5 border border-hairline rounded-xl bg-sunken text-ink placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-center text-2xl tracking-[0.4em] font-mono font-bold"
                     maxLength={6}
                     autoFocus
                   />
@@ -518,7 +518,7 @@ function LoginForm() {
                 </Button>
 
                 {/* Auxiliary Navigation */}
-                <div className="flex items-center justify-between text-xs pt-2 border-t border-surface-100 dark:border-surface-800">
+                <div className="flex items-center justify-between text-xs pt-2 border-t border-hairline">
                   <button
                     type="button"
                     onClick={() => {

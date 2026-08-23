@@ -23,16 +23,16 @@ export default function GlobalError({
           <div className="w-12 h-12 rounded-2xl bg-primary-500 flex items-center justify-center text-white shadow-sm">
             <TruckIcon className="w-7 h-7 stroke-[2.2]" />
           </div>
-          <span className="text-2xl font-black tracking-tight text-surface-900 dark:text-white leading-none">
+          <span className="text-2xl font-black tracking-tight text-ink leading-none">
             Lorry<span className="text-primary-500">Carry</span>
           </span>
         </div>
 
         <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-surface-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-ink tracking-tight">
             Something went wrong
           </h1>
-          <p className="text-sm text-surface-500 dark:text-surface-400 max-w-sm mx-auto">
+          <p className="text-sm text-subtle max-w-sm mx-auto">
             {error.message || 'An unexpected error occurred. Please try again.'}
           </p>
         </div>

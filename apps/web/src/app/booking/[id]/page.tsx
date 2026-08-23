@@ -104,7 +104,7 @@ export default function BookingDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col justify-between font-sans">
+      <div className="min-h-screen bg-canvas text-surface-100 flex flex-col justify-between font-sans">
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="flex flex-col items-center gap-3">
@@ -119,10 +119,10 @@ export default function BookingDetailPage() {
 
   if (error || !booking) {
     return (
-      <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col justify-between font-sans">
+      <div className="min-h-screen bg-canvas text-surface-100 flex flex-col justify-between font-sans">
         <Navbar />
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-8 max-w-md w-full text-center space-y-4 shadow-modal">
+          <div className="bg-panel rounded-[20px] border border-white/10 p-8 max-w-md w-full text-center space-y-4 shadow-modal">
             <div className="w-14 h-14 rounded-2xl bg-danger-950/50 text-danger-400 flex items-center justify-center mx-auto text-2xl border border-danger-900/60">
               ⚠️
             </div>
@@ -143,7 +143,7 @@ export default function BookingDetailPage() {
   const intelligence = assessShipmentIntelligence(booking)
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col justify-between font-sans selection:bg-primary-500 selection:text-white">
+    <div className="min-h-screen bg-canvas text-surface-100 flex flex-col justify-between font-sans selection:bg-primary-500 selection:text-white">
       <Navbar />
 
       <main className="flex-1 py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full space-y-8">
@@ -190,7 +190,7 @@ export default function BookingDetailPage() {
         </div>
 
         {/* ── Shipment Risk & Operational Intelligence Card ── */}
-        <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-5">
+        <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -291,7 +291,7 @@ export default function BookingDetailPage() {
         </div>
 
         {/* ── Commercial Terms Overview ── */}
-        <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-4">
+        <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-white/10">
             <CurrencyRupeeIcon className="w-5 h-5 text-emerald-400" />
             <h2 className="text-base font-bold text-white">
@@ -334,7 +334,7 @@ export default function BookingDetailPage() {
         </div>
 
         {/* ── 5-Stage Checkpoint Timeline ── */}
-        <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-5">
+        <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-5">
           <div className="flex items-center justify-between pb-4 border-b border-white/10">
             <div className="flex items-center gap-2">
               <MapPinIcon className="w-5 h-5 text-primary-400" />
@@ -405,7 +405,7 @@ export default function BookingDetailPage() {
         />
 
         {/* Potential Return Load Opportunities */}
-        <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-5">
+        <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
             <div>
               <div className="flex items-center gap-2">

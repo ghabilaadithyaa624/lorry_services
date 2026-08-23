@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import {
   BellAlertIcon,
@@ -11,227 +11,322 @@ import {
   MapPinIcon,
   CheckCircleIcon,
   ArrowRightIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline'
 import { DashboardLayout } from '@/components/layout'
 import { usersApi } from '@/lib/api'
-import { Badge, GlassPanel, StatusDot, Skeleton } from '@/components/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  PageHeader,
+  Skeleton,
+  Tabs,
+  EmptyState,
+  ErrorState,
+} from '@/components/ui'
 import { toast } from '@/lib/toast'
-import { cn } from '@/lib/utils'
+import { cn, timeAgo } from '@/lib/utils'
 
-type PriorityTier = 'ACTION_REQUIRED' | 'ATTENTION' | 'INFORMATION' | 'COMPLETED'
+type Category = 'BOOKING' | 'LOAD' | 'TRUCK' | 'PAYMENT' | 'KYC' | 'TRACKING' | 'SYSTEM'
 
+interface NotificationItem {
+  id: string
+  category: Category
+  title: string
+  message: string
+  timestamp: string
+  read: boolean
+  actionUrl?: string
+}
+
+const CATEGORY_META: Record<
+  Category,
+  { label: string; icon: React.ComponentType<{ className?: string }>; tone: string }
+> = {
+  BOOKING: { label: 'Bookings', icon: ArchiveBoxIcon, tone: 'text-primary-500 bg-primary-500/10' },
+  LOAD: { label: 'Loads', icon: ArchiveBoxIcon, tone: 'text-info-500 bg-info-500/10' },
+  TRUCK: { label: 'Fleet', icon: TruckIcon, tone: 'text-info-500 bg-info-500/10' },
+  PAYMENT: { label: 'Payments', icon: CreditCardIcon, tone: 'text-success-500 bg-success-500/10' },
+  KYC: { label: 'Verification', icon: ShieldCheckIcon, tone: 'text-warning-500 bg-warning-500/10' },
+  TRACKING: { label: 'Tracking', icon: MapPinIcon, tone: 'text-primary-500 bg-primary-500/10' },
+  SYSTEM: { label: 'System', icon: BellAlertIcon, tone: 'text-subtle bg-wash-strong' },
+}
+
+/**
+ * Notification centre.
+ *
+ * Read state is persisted server-side via NotificationReceipt records keyed by
+ * the notification's opaque id, which lets derived alerts (KYC reminders,
+ * advisories) be dismissed just like stored notification rows.
+ */
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<any[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activePriority, setActivePriority] = useState<string>('ALL')
+  const [filter, setFilter] = useState<string>('ALL')
+  const [pending, setPending] = useState<Record<string, boolean>>({})
+  const [markingAll, setMarkingAll] = useState(false)
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
       const res = await usersApi.getNotifications()
-      const rawList = res.data.notifications || []
-
-      // Map raw notifications into priority tiers
-      const mapped = rawList.map((item: any) => {
-        let priority: PriorityTier = 'INFORMATION'
-        if (item.category === 'KYC' && item.title?.includes('Action')) {
-          priority = 'ACTION_REQUIRED'
-        } else if (item.category === 'PAYMENT' || item.category === 'BOOKING') {
-          if (item.message?.includes('pending') || item.message?.includes('required')) {
-            priority = 'ACTION_REQUIRED'
-          } else if (item.message?.includes('confirmed') || item.message?.includes('settled')) {
-            priority = 'COMPLETED'
-          } else {
-            priority = 'ATTENTION'
-          }
-        } else if (item.category === 'TRACKING') {
-          priority = 'INFORMATION'
-        }
-        return { ...item, priority }
-      })
-
-      setNotifications(mapped)
-      setUnreadCount(res.data.unreadCount || 0)
+      setNotifications(res.data.notifications || [])
     } catch {
-      setError('Failed to load notifications')
-      toast.error('Failed to load notifications')
+      setError('We could not load your notifications. Please try again.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchNotifications()
-  }, [])
+  }, [fetchNotifications])
 
-  const getPriorityBadge = (priority: PriorityTier) => {
-    switch (priority) {
-      case 'ACTION_REQUIRED':
-        return <Badge variant="danger" size="sm" className="font-mono text-[10px]">🚨 ACTION REQUIRED</Badge>
-      case 'ATTENTION':
-        return <Badge variant="warning" size="sm" className="font-mono text-[10px]">🟡 ATTENTION</Badge>
-      case 'COMPLETED':
-        return <Badge variant="success" size="sm" className="font-mono text-[10px]">✓ COMPLETED</Badge>
-      default:
-        return <Badge variant="info" size="sm" className="font-mono text-[10px]">ℹ INFORMATION</Badge>
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications]
+  )
+
+  /** Optimistic single mark-as-read, rolled back if the request fails. */
+  const markRead = async (item: NotificationItem) => {
+    if (item.read || pending[item.id]) return
+    setPending((prev) => ({ ...prev, [item.id]: true }))
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
+    )
+    try {
+      await usersApi.markNotificationRead(item.id)
+    } catch {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === item.id ? { ...n, read: false } : n))
+      )
+      toast.error('Could not mark that notification as read')
+    } finally {
+      setPending((prev) => {
+        const next = { ...prev }
+        delete next[item.id]
+        return next
+      })
     }
   }
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'BOOKING':
-        return CheckCircleIcon
-      case 'TRACKING':
-        return MapPinIcon
-      case 'PAYMENT':
-        return CreditCardIcon
-      case 'KYC':
-        return ShieldCheckIcon
-      case 'TRUCK':
-        return TruckIcon
-      case 'LOAD':
-        return ArchiveBoxIcon
-      default:
-        return BellAlertIcon
+  const markAllRead = async () => {
+    if (unreadCount === 0 || markingAll) return
+    const snapshot = notifications
+    setMarkingAll(true)
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    try {
+      const res = await usersApi.markAllNotificationsRead()
+      toast.success(`${res.data.markedCount} notification${res.data.markedCount === 1 ? '' : 's'} marked as read`)
+    } catch {
+      setNotifications(snapshot)
+      toast.error('Could not mark all as read')
+    } finally {
+      setMarkingAll(false)
     }
   }
 
-  const filteredNotifications = notifications.filter((n) => {
-    if (activePriority === 'ALL') return true
-    if (activePriority === 'UNREAD') return !n.read
-    return n.priority === activePriority || n.category === activePriority
-  })
+  const categoriesPresent = useMemo(() => {
+    const set = new Set(notifications.map((n) => n.category))
+    return (Object.keys(CATEGORY_META) as Category[]).filter((c) => set.has(c))
+  }, [notifications])
 
-  const priorityTabs = [
-    { id: 'ALL', label: `All Alerts (${notifications.length})` },
-    { id: 'UNREAD', label: `Unread (${unreadCount})` },
-    { id: 'ACTION_REQUIRED', label: 'Action required' },
-    { id: 'ATTENTION', label: 'Attention' },
-    { id: 'INFORMATION', label: 'Information' },
-    { id: 'COMPLETED', label: 'Completed' },
-  ]
+  const tabItems = useMemo(
+    () => [
+      { id: 'ALL', label: 'All', count: notifications.length },
+      { id: 'UNREAD', label: 'Unread', count: unreadCount },
+      ...categoriesPresent.map((c) => ({
+        id: c,
+        label: CATEGORY_META[c].label,
+        count: notifications.filter((n) => n.category === c).length,
+      })),
+    ],
+    [notifications, unreadCount, categoriesPresent]
+  )
+
+  const visible = useMemo(() => {
+    if (filter === 'ALL') return notifications
+    if (filter === 'UNREAD') return notifications.filter((n) => !n.read)
+    return notifications.filter((n) => n.category === filter)
+  }, [notifications, filter])
 
   return (
-    <DashboardLayout
-      title="Notifications"
-      subtitle="Operational alerts and account activity"
-      action={
-        unreadCount > 0 ? (
-          <Badge variant="danger" size="md" className="text-xs">
-            {unreadCount} unread
-          </Badge>
-        ) : undefined
-      }
-    >
-      <div className="space-y-6 max-w-4xl mx-auto font-sans">
-        
-        {/* Priority Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none border-b border-white/10 pb-3">
-          {priorityTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActivePriority(tab.id)}
-              className={cn(
-                'px-3.5 py-1.5 rounded-xl text-xs font-sans font-semibold transition-all whitespace-nowrap cursor-pointer',
-                activePriority === tab.id
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-surface-900/80 text-surface-400 hover:text-white hover:bg-white/5 border border-white/10'
-              )}
-            >
-              {tab.label}
-            </button>
+    <DashboardLayout title="Notifications">
+      <PageHeader
+        title="Notification centre"
+        description="Verification, booking, payment and tracking alerts across your account."
+        breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Notifications' }]}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={markAllRead}
+            disabled={unreadCount === 0}
+            loading={markingAll}
+            leftIcon={<CheckIcon className="w-4 h-4" />}
+          >
+            Mark all read
+          </Button>
+        }
+      />
+
+      {loading ? (
+        <div className="space-y-3" aria-busy="true" aria-live="polite">
+          <Skeleton className="h-11 w-full max-w-lg rounded-xl" />
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-2xl" />
           ))}
         </div>
+      ) : error ? (
+        <ErrorState
+          title="Notifications unavailable"
+          message={error}
+          onRetry={fetchNotifications}
+        />
+      ) : notifications.length === 0 ? (
+        <EmptyState
+          icon={BellAlertIcon}
+          title="You're all caught up"
+          description="Alerts about verification, bookings, payments and shipment checkpoints will appear here."
+          primaryAction={{ label: 'Go to dashboard', href: '/dashboard' }}
+        />
+      ) : (
+        <div className="space-y-5">
+          <Tabs
+            items={tabItems}
+            value={filter}
+            onChange={setFilter}
+            variant="pill"
+            ariaLabel="Filter notifications"
+          />
 
-        {/* Notifications List Panel */}
-        <GlassPanel padding="none" className="overflow-hidden">
-          {loading ? (
-            <div className="p-6 space-y-4">
-              <Skeleton.Card />
-              <Skeleton.Card />
-            </div>
-          ) : error ? (
-            <div className="p-8 text-center text-sm font-sans text-danger-300">
-              {error}
-            </div>
-          ) : filteredNotifications.length === 0 ? (
-            <div className="p-12 text-center space-y-3">
-              <div className="flex items-center justify-center gap-2 text-emerald-400">
-                <StatusDot variant="active" pulse />
-                <span className="text-sm font-semibold text-emerald-400">Network clear</span>
-              </div>
-              <p className="text-xs text-surface-400 max-w-sm mx-auto font-sans">
-                No new operational notifications requiring your attention.
-              </p>
-            </div>
+          {visible.length === 0 ? (
+            <EmptyState
+              icon={CheckCircleIcon}
+              title="Nothing here"
+              description={
+                filter === 'UNREAD'
+                  ? 'Every notification has been read.'
+                  : 'No notifications in this category yet.'
+              }
+              primaryAction={{ label: 'Show all', onClick: () => setFilter('ALL') }}
+            />
           ) : (
-            <div className="divide-y divide-white/5">
-              {filteredNotifications.map((item) => {
-                const Icon = getCategoryIcon(item.category)
-
-                return (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      'p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors',
-                      item.read
-                        ? 'hover:bg-white/5'
-                        : 'bg-primary-950/20 hover:bg-primary-950/40 border-l-4 border-l-primary-500'
-                    )}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-surface-950 text-primary-400 border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <Icon className="w-5 h-5" />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-sm text-white">
-                            {item.title}
-                          </span>
-                          {getPriorityBadge(item.priority || 'INFORMATION')}
-                          {!item.read && (
-                            <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0 shadow-glow-primary" />
-                          )}
-                        </div>
-
-                        <p className="text-xs text-surface-300 leading-relaxed font-sans">
-                          {item.message}
-                        </p>
-
-                        <p className="text-[11px] text-surface-500 font-mono">
-                          {new Date(item.timestamp).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
-                      </div>
-                    </div>
-
-                    {item.actionUrl && (
-                      <Link
-                        href={item.actionUrl}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-500 text-white hover:from-primary-600 hover:to-primary-700 text-xs font-mono font-bold shrink-0 transition-all shadow-glow-primary self-end sm:self-center"
-                      >
-                        <span>Open Action</span>
-                        <ArrowRightIcon className="w-3.5 h-3.5" />
-                      </Link>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+            <ul className="space-y-2.5" aria-live="polite">
+              {visible.map((item) => (
+                <NotificationRow
+                  key={item.id}
+                  item={item}
+                  busy={Boolean(pending[item.id])}
+                  onMarkRead={() => markRead(item)}
+                />
+              ))}
+            </ul>
           )}
-        </GlassPanel>
-
-      </div>
+        </div>
+      )}
     </DashboardLayout>
+  )
+}
+
+function NotificationRow({
+  item,
+  busy,
+  onMarkRead,
+}: {
+  item: NotificationItem
+  busy: boolean
+  onMarkRead: () => void
+}) {
+  const meta = CATEGORY_META[item.category] ?? CATEGORY_META.SYSTEM
+  const Icon = meta.icon
+
+  return (
+    <li>
+      <Card
+        padding="md"
+        className={cn(
+          'transition-colors',
+          !item.read && 'border-primary-500/30 bg-primary-500/[0.03]'
+        )}
+      >
+        <div className="flex items-start gap-3.5">
+          <span
+            className={cn(
+              'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+              meta.tone
+            )}
+            aria-hidden="true"
+          >
+            <Icon className="w-5 h-5" />
+          </span>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3
+                  className={cn(
+                    'text-sm leading-snug',
+                    item.read ? 'font-medium text-body' : 'font-semibold text-ink'
+                  )}
+                >
+                  {item.title}
+                  {!item.read && (
+                    <span className="sr-only"> (unread)</span>
+                  )}
+                </h3>
+                <p className="text-sm text-muted mt-1 leading-relaxed">{item.message}</p>
+              </div>
+              {!item.read && (
+                <span
+                  className="mt-1.5 w-2 h-2 rounded-full bg-primary-500 shrink-0"
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-3">
+              <Badge variant="neutral" size="sm">
+                {meta.label}
+              </Badge>
+              <time
+                className="text-xs text-subtle"
+                dateTime={new Date(item.timestamp).toISOString()}
+              >
+                {timeAgo(item.timestamp)}
+              </time>
+
+              <span className="flex-1" />
+
+              {item.actionUrl && (
+                <Link
+                  href={item.actionUrl}
+                  onClick={onMarkRead}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+                >
+                  View
+                  <ArrowRightIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                </Link>
+              )}
+
+              {!item.read && (
+                <button
+                  type="button"
+                  onClick={onMarkRead}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-muted hover:text-ink transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded px-1 py-0.5"
+                >
+                  <CheckIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                  Mark read
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+    </li>
   )
 }

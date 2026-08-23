@@ -21,7 +21,7 @@ export function ReturnLoadOpportunityCard({
   return (
     <div
       className={cn(
-        'bg-[#0F131D] rounded-[20px] border border-white/10 p-5 shadow-card hover:border-purple-500/40 transition-all flex flex-col justify-between space-y-4 font-sans',
+        'bg-panel rounded-[20px] border border-white/10 p-5 shadow-card hover:border-purple-500/40 transition-all flex flex-col justify-between space-y-4 font-sans',
         className
       )}
     >

@@ -236,7 +236,7 @@ function MyLoadsContent() {
         </div>
 
         {/* ── SEARCH & FILTER TOOLBAR ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F131D] p-4 rounded-2xl border border-white/10 shadow-card">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-panel p-4 rounded-2xl border border-white/10 shadow-card">
           <div className="relative flex-1 max-w-md">
             <MagnifyingGlassIcon className="w-4 h-4 text-surface-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -390,7 +390,7 @@ export default function MyLoadsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#070A11] flex items-center justify-center">
+        <div className="min-h-screen bg-canvas flex items-center justify-center">
           <Skeleton.Card />
         </div>
       }

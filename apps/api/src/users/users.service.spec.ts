@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { NotFoundException } from '@nestjs/common'
+import { NotFoundException, BadRequestException } from '@nestjs/common'
 import { UsersService } from './users.service'
 import { S3Service } from '../common/services/s3.service'
 import { prisma, UserRole, SubscriptionStatus } from '@lorrycarry/database'
@@ -28,6 +28,15 @@ jest.mock('@lorrycarry/database', () => {
     },
     notification: {
       findMany: jest.fn(),
+    },
+    notificationReceipt: {
+      findMany: jest.fn(),
+      upsert: jest.fn(),
+      createMany: jest.fn(),
+    },
+    userPreference: {
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
     },
   }
   return {
@@ -375,6 +384,11 @@ describe('UsersService', () => {
   })
 
   describe('getNotifications', () => {
+    beforeEach(() => {
+      // Default: no read receipts stored.
+      ;(prisma.notificationReceipt.findMany as jest.Mock).mockResolvedValue([])
+    })
+
     it('should derive operations notifications and sort correctly', async () => {
       const mockUser = {
         id: 'u-1',
@@ -425,6 +439,141 @@ describe('UsersService', () => {
       // Check payment alert is present
       const advAlert = result.notifications.find((n) => n.id === 'notif-adv-b-1')
       expect(advAlert).toBeDefined()
+    })
+  })
+
+  describe('notification read receipts', () => {
+    it('marks a single notification as read idempotently', async () => {
+      ;(prisma.notificationReceipt.upsert as jest.Mock).mockResolvedValueOnce({})
+
+      const result = await service.markNotificationRead('u-1', 'notif-kyc-pending-t-1')
+
+      expect(result.success).toBe(true)
+      expect(prisma.notificationReceipt.upsert).toHaveBeenCalledWith({
+        where: {
+          userId_notificationKey: {
+            userId: 'u-1',
+            notificationKey: 'notif-kyc-pending-t-1',
+          },
+        },
+        create: { userId: 'u-1', notificationKey: 'notif-kyc-pending-t-1' },
+        update: {},
+      })
+    })
+
+    it('rejects an empty notification key', async () => {
+      await expect(service.markNotificationRead('u-1', '   ')).rejects.toThrow(
+        BadRequestException
+      )
+    })
+
+    it('reflects stored receipts as read and lowers the unread count', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'u-1',
+        role: UserRole.truck_owner,
+        trucks: [
+          {
+            id: 't-1',
+            registrationNumber: 'MH12AB1234',
+            verificationStatus: 'Pending',
+            createdAt: new Date('2025-01-02T00:00:00Z'),
+            documents: [],
+          },
+        ],
+        subscriptions: [],
+      })
+      ;(prisma.notification.findMany as jest.Mock).mockResolvedValueOnce([])
+      ;(prisma.booking.findMany as jest.Mock).mockResolvedValueOnce([])
+      // The derived KYC alert has already been read.
+      ;(prisma.notificationReceipt.findMany as jest.Mock).mockResolvedValueOnce([
+        { notificationKey: 'notif-kyc-pending-t-1' },
+      ])
+
+      const result = await service.getNotifications('u-1')
+
+      const kyc = result.notifications.find((n) => n.id === 'notif-kyc-pending-t-1')
+      expect(kyc?.read).toBe(true)
+      expect(result.unreadCount).toBe(0)
+    })
+
+    it('marks every unread notification in the feed as read', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'u-1',
+        role: UserRole.truck_owner,
+        trucks: [
+          {
+            id: 't-1',
+            registrationNumber: 'MH12AB1234',
+            verificationStatus: 'Pending',
+            createdAt: new Date('2025-01-02T00:00:00Z'),
+            documents: [],
+          },
+        ],
+        subscriptions: [],
+      })
+      ;(prisma.notification.findMany as jest.Mock).mockResolvedValueOnce([])
+      ;(prisma.booking.findMany as jest.Mock).mockResolvedValueOnce([])
+      ;(prisma.notificationReceipt.findMany as jest.Mock).mockResolvedValueOnce([])
+      ;(prisma.notificationReceipt.createMany as jest.Mock).mockResolvedValueOnce({ count: 1 })
+
+      const result = await service.markAllNotificationsRead('u-1')
+
+      expect(result.markedCount).toBe(1)
+      expect(prisma.notificationReceipt.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skipDuplicates: true })
+      )
+    })
+  })
+
+  describe('preferences', () => {
+    it('returns defaults when the user has no stored preferences', async () => {
+      ;(prisma.userPreference.findUnique as jest.Mock).mockResolvedValueOnce(null)
+
+      const prefs = await service.getPreferences('u-1')
+
+      expect(prefs.theme).toBe('system')
+      expect(prefs.language).toBe('en')
+      expect(prefs.distanceUnit).toBe('km')
+      expect(prefs.defaultRadiusKm).toBe(50)
+      expect(prefs.notifyWhatsapp).toBe(true)
+    })
+
+    it('returns stored preferences when present', async () => {
+      ;(prisma.userPreference.findUnique as jest.Mock).mockResolvedValueOnce({
+        theme: 'dark',
+        language: 'hi',
+        currency: 'INR',
+        distanceUnit: 'km',
+        notifyWhatsapp: false,
+        notifySms: true,
+        notifyPush: true,
+        notifyCheckpoints: false,
+        defaultRadiusKm: 120,
+        preferredBodyType: 'Container',
+        autoDetectLocation: false,
+        profileVisible: true,
+      })
+
+      const prefs = await service.getPreferences('u-1')
+
+      expect(prefs.theme).toBe('dark')
+      expect(prefs.language).toBe('hi')
+      expect(prefs.defaultRadiusKm).toBe(120)
+      expect(prefs.notifyWhatsapp).toBe(false)
+    })
+
+    it('only persists the supplied fields on update', async () => {
+      ;(prisma.userPreference.upsert as jest.Mock).mockResolvedValueOnce({})
+      ;(prisma.userPreference.findUnique as jest.Mock).mockResolvedValueOnce(null)
+
+      await service.updatePreferences('u-1', { theme: 'light' })
+
+      const call = (prisma.userPreference.upsert as jest.Mock).mock.calls[0][0]
+      expect(call.where).toEqual({ userId: 'u-1' })
+      expect(call.update).toEqual({ theme: 'light' })
+      // Untouched keys must not be written.
+      expect(call.update.language).toBeUndefined()
+      expect(call.update.defaultRadiusKm).toBeUndefined()
     })
   })
 })

@@ -71,7 +71,7 @@ export default function AdminDashboardPage() {
 
   if (error) {
     return (
-      <div className="p-12 bg-[#0F131D] rounded-[20px] border border-white/10 text-center space-y-4 max-w-md mx-auto font-sans">
+      <div className="p-12 bg-panel rounded-[20px] border border-white/10 text-center space-y-4 max-w-md mx-auto font-sans">
         <ExclamationTriangleIcon className="w-12 h-12 text-danger-400 mx-auto" />
         <h3 className="text-base font-bold text-white">Unable to Load Operational Data</h3>
         <p className="text-xs font-mono text-surface-400">{error}</p>
@@ -98,7 +98,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-6 max-w-7xl mx-auto font-sans">
       
       {/* ── HERO COMMAND HEADER WITH RESTRAINED 3D ── */}
-      <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-8 shadow-modal relative overflow-hidden">
+      <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-8 shadow-modal relative overflow-hidden">
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
           <div className="lg:col-span-7 space-y-4">
@@ -138,31 +138,31 @@ export default function AdminDashboardPage() {
 
       {/* ── 7 PRIMARY REQUIRED KPI CARDS ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 font-mono">
-        <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+        <div className="p-4 rounded-2xl bg-panel border border-white/10 shadow-card space-y-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-surface-400 block">Total Users</span>
           <span className="text-2xl font-black text-white block">{stats.totalUsers}</span>
           <span className="text-[10px] text-surface-400 block">Registered</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+        <div className="p-4 rounded-2xl bg-panel border border-white/10 shadow-card space-y-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">Total Trucks</span>
           <span className="text-2xl font-black text-emerald-300 block">{stats.totalTrucks}</span>
           <span className="text-[10px] text-emerald-400/80 block">Fleet Capacity</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+        <div className="p-4 rounded-2xl bg-panel border border-white/10 shadow-card space-y-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">Active Loads</span>
           <span className="text-2xl font-black text-amber-300 block">{stats.totalLoads}</span>
           <span className="text-[10px] text-amber-400/80 block">Open Freight</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+        <div className="p-4 rounded-2xl bg-panel border border-white/10 shadow-card space-y-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-primary-400 block">Active Bookings</span>
           <span className="text-2xl font-black text-primary-300 block">{stats.totalBookings}</span>
           <span className="text-[10px] text-primary-400/80 block">Booked Trips</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+        <div className="p-4 rounded-2xl bg-panel border border-white/10 shadow-card space-y-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 block">Active Passes</span>
           <span className="text-2xl font-black text-purple-300 block">{stats.activeSubscriptions}</span>
           <span className="text-[10px] text-purple-400/80 block">Subscriptions</span>
@@ -185,7 +185,7 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono">
         
         {/* PANEL 1: BOOKING CONVERSION */}
-        <div className="p-6 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-modal space-y-4">
+        <div className="p-6 rounded-[20px] bg-panel border border-white/10 shadow-modal space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-white/10">
             <div className="flex items-center gap-2">
               <ChartBarIcon className="w-5 h-5 text-primary-400" />
@@ -211,7 +211,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* PANEL 2: FLEET COMPLIANCE */}
-        <div className="p-6 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-modal space-y-4">
+        <div className="p-6 rounded-[20px] bg-panel border border-white/10 shadow-modal space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-white/10">
             <div className="flex items-center gap-2">
               <ShieldCheckIcon className="w-5 h-5 text-emerald-400" />
@@ -237,7 +237,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* PANEL 3: MONETIZATION */}
-        <div className="p-6 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-modal space-y-4">
+        <div className="p-6 rounded-[20px] bg-panel border border-white/10 shadow-modal space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-white/10">
             <div className="flex items-center gap-2">
               <BanknotesIcon className="w-5 h-5 text-purple-400" />
@@ -265,7 +265,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ── OPERATIONAL HEALTH CLASSIFICATION BANNER ── */}
-      <div className="p-6 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-modal space-y-4 font-mono">
+      <div className="p-6 rounded-[20px] bg-panel border border-white/10 shadow-modal space-y-4 font-mono">
         <span className="text-xs font-bold uppercase tracking-wider text-surface-400 block">
           Operational Health & System Exception Feeds
         </span>
@@ -301,7 +301,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ── RECENT SETTLED PAYMENTS TABLE ── */}
-      <div className="p-6 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-modal space-y-4 font-mono">
+      <div className="p-6 rounded-[20px] bg-panel border border-white/10 shadow-modal space-y-4 font-mono">
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2">
             <BanknotesIcon className="w-5 h-5 text-emerald-400" />
