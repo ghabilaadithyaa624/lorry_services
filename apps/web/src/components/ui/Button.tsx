@@ -7,12 +7,12 @@ import { Spinner, type SpinnerSize } from './Spinner'
 /**
  * Visual variants for the Button component.
  */
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success'
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline'
 
 /**
  * Size options for the Button component.
  */
-export type ButtonSize = 'sm' | 'md' | 'lg'
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon'
 
 /**
  * Props for the Button component.
@@ -21,6 +21,8 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: ButtonVariant
   size?: ButtonSize
   loading?: boolean
+  /** Accessible text announced while `loading` is true. */
+  loadingText?: string
   disabled?: boolean
   leftIcon?: React.ReactNode
   rightIcon?: React.ReactNode
@@ -33,31 +35,41 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white shadow-glow-primary border border-primary-400/30 focus-visible:ring-primary-500/50',
+    'bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white border border-primary-600/20 shadow-sm hover:shadow-card-hover focus-visible:ring-primary-500',
   secondary:
-    'bg-surface-900/80 hover:bg-surface-800 active:bg-surface-950 text-white border border-white/10 hover:border-white/20  focus-visible:ring-surface-400/50',
+    'bg-panel hover:bg-sunken active:bg-sunken text-ink border border-hairline hover:border-hairline-strong shadow-xs focus-visible:ring-primary-500',
+  outline:
+    'bg-transparent hover:bg-wash-soft active:bg-wash text-ink border border-hairline-strong focus-visible:ring-primary-500',
   ghost:
-    'bg-transparent hover:bg-white/5 active:bg-white/10 text-surface-300 hover:text-white border border-transparent focus-visible:ring-surface-400/50',
+    'bg-transparent hover:bg-wash-soft active:bg-wash text-muted hover:text-ink border border-transparent focus-visible:ring-primary-500',
   danger:
-    'bg-danger-600 hover:bg-danger-700 active:bg-danger-800 text-white border border-danger-500/30 shadow-sm focus-visible:ring-danger-500/50',
+    'bg-danger-600 hover:bg-danger-700 active:bg-danger-800 text-white border border-danger-700/20 shadow-sm focus-visible:ring-danger-500',
   success:
-    'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border border-emerald-500/30 shadow-sm focus-visible:ring-emerald-500/50',
+    'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border border-emerald-700/20 shadow-sm focus-visible:ring-emerald-500',
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'text-xs py-2 px-3.5 gap-1.5 font-sans font-semibold',
-  md: 'text-sm py-2.5 px-5 gap-2 font-sans font-semibold',
-  lg: 'text-base py-3 px-6 gap-2.5 font-sans font-semibold',
+  sm: 'text-xs py-2 px-3.5 gap-1.5 min-h-[36px] font-semibold',
+  md: 'text-sm py-2.5 px-5 gap-2 min-h-[44px] font-semibold',
+  lg: 'text-base py-3 px-6 gap-2.5 min-h-[48px] font-semibold',
+  // Square target for icon-only buttons; meets the 44px touch minimum.
+  icon: 'p-2.5 min-h-[44px] min-w-[44px] justify-center',
 }
 
 const spinnerSizeMap: Record<ButtonSize, SpinnerSize> = {
   sm: 'xs',
   md: 'sm',
   lg: 'md',
+  icon: 'sm',
 }
 
 /**
- * Button component for actions and navigation in LorryCarry Kinetic Command design system.
+ * Primary action component for the LorryCarry design system.
+ *
+ * Accessibility:
+ * - Keeps a visible focus ring in both themes.
+ * - While `loading`, sets `aria-busy` and exposes status text to screen readers.
+ * - Icon-only usage requires an `aria-label` from the caller.
  */
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
@@ -65,6 +77,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       variant = 'primary',
       size = 'md',
       loading = false,
+      loadingText,
       disabled = false,
       leftIcon,
       rightIcon,
@@ -86,14 +99,22 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         return <Spinner size={spinnerSizeMap[size]} className="shrink-0" aria-hidden="true" />
       }
       if (leftIcon) {
-        return <span className="inline-flex shrink-0">{leftIcon}</span>
+        return (
+          <span className="inline-flex shrink-0" aria-hidden="true">
+            {leftIcon}
+          </span>
+        )
       }
       return null
     }
 
     const renderRightIcon = () => {
       if (rightIcon && !loading) {
-        return <span className="inline-flex shrink-0">{rightIcon}</span>
+        return (
+          <span className="inline-flex shrink-0" aria-hidden="true">
+            {rightIcon}
+          </span>
+        )
       }
       return null
     }
@@ -105,12 +126,16 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <Tag
         ref={ref}
+        aria-busy={loading || undefined}
         className={cn(
-          'inline-flex items-center justify-center rounded-button transition-transform duration-200 ease-out outline-none select-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070A11] cursor-pointer active:scale-[0.98]',
+          'inline-flex items-center justify-center rounded-button outline-none select-none',
+          'transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out',
+          'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
+          'cursor-pointer active:scale-[0.98] motion-reduce:active:scale-100',
           variantClasses[variant],
           sizeClasses[size],
           fullWidth ? 'w-full' : 'w-auto',
-          isDisabled && 'opacity-50 cursor-not-allowed pointer-events-none shadow-none transform-none',
+          isDisabled && 'opacity-50 cursor-not-allowed pointer-events-none shadow-none',
           className
         )}
         {...elementProps}
@@ -119,6 +144,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {renderLeftIcon()}
         {children && <span>{children}</span>}
         {renderRightIcon()}
+        {loading && <span className="sr-only">{loadingText || 'Loading, please wait'}</span>}
       </Tag>
     )
   }

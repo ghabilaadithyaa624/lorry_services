@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   TruckIcon,
   HomeIcon,
@@ -10,7 +10,6 @@ import {
   PlusCircleIcon,
   ClipboardDocumentListIcon,
   CreditCardIcon,
-  ArrowRightOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
   ShieldCheckIcon,
@@ -19,17 +18,16 @@ import {
   BellAlertIcon,
   ClockIcon,
   Cog6ToothIcon,
-  LockClosedIcon,
   MapIcon,
   BriefcaseIcon,
   ChartBarIcon,
   ShieldExclamationIcon,
-  BanknotesIcon,
   UsersIcon,
-  CommandLineIcon
+  GlobeAsiaAustraliaIcon,
 } from '@heroicons/react/24/outline'
-import { authApi } from '@/lib/api'
-import { Badge } from '@/components/ui'
+import { usersApi } from '@/lib/api'
+import { Badge, Avatar } from '@/components/ui'
+import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { AIFreightAssistantDrawer } from '@/components/intelligence'
 import { cn, formatPhone } from '@/lib/utils'
 
@@ -40,345 +38,354 @@ interface DashboardLayoutProps {
   action?: React.ReactNode
 }
 
-interface UserState {
-  id?: string
-  phone?: string
-  name?: string
-  role?: 'load_owner' | 'truck_owner' | 'admin'
+interface NavItem {
+  name: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  /** Rendered as a count pill (e.g. unread notifications). */
+  badgeKey?: 'notifications'
 }
 
-export function DashboardLayout({
-  children,
-  title,
-  subtitle,
-  action,
-}: DashboardLayoutProps) {
+/**
+ * Authenticated application shell.
+ *
+ * Provides the persistent sidebar, top bar, and mobile navigation. Every route
+ * referenced below exists under `src/app` — the navigation deliberately avoids
+ * advertising screens that would 404.
+ */
+export function DashboardLayout({ children, title, subtitle, action }: DashboardLayoutProps) {
   const pathname = usePathname()
-  const router = useRouter()
-  const [user, setUser] = useState<UserState | null>(null)
+  const [user, setUser] = useState<ProfileMenuUser | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [verified, setVerified] = useState(false)
+  const [subscriptionActive, setSubscriptionActive] = useState(false)
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem('user')
-      if (stored) {
-        setUser(JSON.parse(stored))
-      }
+      if (stored) setUser(JSON.parse(stored))
     } catch {
-      // Ignore JSON error
+      // Ignore malformed local state; the API remains the source of truth.
     }
   }, [])
 
-  const handleLogout = async () => {
+  const loadSignals = useCallback(async () => {
     try {
-      await authApi.logout()
+      const [notifications, profile] = await Promise.allSettled([
+        usersApi.getNotifications(),
+        usersApi.getProfile(),
+      ])
+      if (notifications.status === 'fulfilled') {
+        setUnreadCount(notifications.value.data?.unreadCount || 0)
+      }
+      if (profile.status === 'fulfilled') {
+        setVerified(Boolean(profile.value.data?.verification?.isVerifiedTransporter))
+        setSubscriptionActive(Boolean(profile.value.data?.subscription?.isActive))
+      }
     } catch {
-      // Ignore
+      // Supplementary data only.
     }
-    router.push('/login')
-  }
+  }, [])
+
+  useEffect(() => {
+    loadSignals()
+  }, [loadSignals])
+
+  // Close the mobile drawer on navigation.
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [pathname])
 
   const isTruckOwner = user?.role === 'truck_owner'
   const isAdmin = user?.role === 'admin'
 
-  const loadOwnerNav = [
+  const loadOwnerNav: NavItem[] = [
     { name: 'Overview', href: '/dashboard/load-owner', icon: HomeIcon },
-    { name: 'Find Trucks', href: '/search?type=truck', icon: MagnifyingGlassIcon },
-    { name: 'Post Freight', href: '/post-load', icon: PlusCircleIcon },
-    { name: 'My Loads', href: '/my-loads', icon: ClipboardDocumentListIcon },
+    { name: 'Find trucks', href: '/search?type=truck', icon: MagnifyingGlassIcon },
+    { name: 'Post freight', href: '/post-load', icon: PlusCircleIcon },
+    { name: 'My loads', href: '/my-loads', icon: ClipboardDocumentListIcon },
     { name: 'Bookings', href: '/bookings', icon: BriefcaseIcon },
     { name: 'Tracking', href: '/tracking', icon: MapIcon },
-    { name: 'Documents', href: '/documents', icon: DocumentCheckIcon },
-    { name: 'Activity', href: '/activity', icon: ClockIcon },
-    { name: 'Notifications', href: '/notifications', icon: BellAlertIcon },
-    { name: 'Subscription', href: '/subscribe', icon: CreditCardIcon },
-    { name: 'Profile', href: '/profile', icon: UserCircleIcon },
-    { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
-    { name: 'Security', href: '/security', icon: LockClosedIcon },
-  ]
-
-  const truckOwnerNav = [
-    { name: 'Overview', href: '/dashboard/truck-owner', icon: HomeIcon },
-    { name: 'Find Loads', href: '/search?type=load', icon: MagnifyingGlassIcon },
-    { name: 'My Fleet', href: '/my-trucks', icon: TruckIcon },
-    { name: 'Trips', href: '/trips', icon: MapIcon },
-    { name: 'Tracking', href: '/tracking', icon: MapIcon },
-    { name: 'Documents', href: '/documents', icon: DocumentCheckIcon },
-    { name: 'Activity', href: '/activity', icon: ClockIcon },
-    { name: 'Notifications', href: '/notifications', icon: BellAlertIcon },
-    { name: 'Subscription', href: '/subscribe', icon: CreditCardIcon },
-    { name: 'Profile', href: '/profile', icon: UserCircleIcon },
-    { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
-    { name: 'Security', href: '/security', icon: LockClosedIcon },
-  ]
-
-  const adminNav = [
-    { name: 'Control Tower', href: '/admin', icon: ShieldCheckIcon },
-    { name: 'Users', href: '/admin/users', icon: UsersIcon },
-    { name: 'Freight', href: '/admin/listings', icon: ClipboardDocumentListIcon },
-    { name: 'Fleet', href: '/admin/fleet', icon: TruckIcon },
-    { name: 'Bookings', href: '/admin/bookings', icon: BriefcaseIcon },
-    { name: 'Payments', href: '/admin/payments', icon: BanknotesIcon },
-    { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCardIcon },
-    { name: 'Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
-    { name: 'Audit', href: '/admin/audit', icon: ClockIcon },
     { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
-    { name: 'System', href: '/admin/system', icon: CommandLineIcon },
+    { name: 'Documents', href: '/documents', icon: DocumentCheckIcon },
+    { name: 'Activity', href: '/activity', icon: ClockIcon },
+    { name: 'Notifications', href: '/notifications', icon: BellAlertIcon, badgeKey: 'notifications' },
+    { name: 'Subscription', href: '/subscribe', icon: CreditCardIcon },
+    { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
   ]
 
-  const navItems = isTruckOwner ? truckOwnerNav : isAdmin ? adminNav : loadOwnerNav
+  const truckOwnerNav: NavItem[] = [
+    { name: 'Overview', href: '/dashboard/truck-owner', icon: HomeIcon },
+    { name: 'Find loads', href: '/search?type=load', icon: MagnifyingGlassIcon },
+    { name: 'My fleet', href: '/my-trucks', icon: TruckIcon },
+    { name: 'Bookings', href: '/bookings', icon: BriefcaseIcon },
+    { name: 'Tracking', href: '/tracking', icon: MapIcon },
+    { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
+    { name: 'Documents', href: '/documents', icon: DocumentCheckIcon },
+    { name: 'Activity', href: '/activity', icon: ClockIcon },
+    { name: 'Notifications', href: '/notifications', icon: BellAlertIcon, badgeKey: 'notifications' },
+    { name: 'Subscription', href: '/subscribe', icon: CreditCardIcon },
+    { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+  ]
 
-  const roleLabel = isTruckOwner
-    ? 'Truck Owner'
-    : isAdmin
-    ? 'Admin'
-    : 'Load Owner'
+  const adminNav: NavItem[] = [
+    { name: 'Control tower', href: '/admin/dashboard', icon: ShieldCheckIcon },
+    { name: 'KYC queue', href: '/admin/kyc', icon: DocumentCheckIcon },
+    { name: 'Listings', href: '/admin/listings', icon: ClipboardDocumentListIcon },
+    { name: 'Bookings', href: '/admin/bookings', icon: BriefcaseIcon },
+    { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCardIcon },
+    { name: 'Users', href: '/admin/users', icon: UsersIcon },
+    { name: 'Intelligence', href: '/admin/intelligence', icon: GlobeAsiaAustraliaIcon },
+    { name: 'Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
+  ]
+
+  const navItems = isAdmin ? adminNav : isTruckOwner ? truckOwnerNav : loadOwnerNav
+
+  const roleLabel = isTruckOwner ? 'Truck owner' : isAdmin ? 'Administrator' : 'Load owner'
+
+  /** Exact match for section roots, prefix match for nested routes. */
+  const isActiveRoute = (href: string) => {
+    const path = href.split('?')[0]
+    const roots = ['/admin/dashboard', '/dashboard/load-owner', '/dashboard/truck-owner']
+    if (roots.includes(path)) return pathname === path
+    return pathname === path || pathname.startsWith(`${path}/`)
+  }
+
+  const renderNavLink = (item: NavItem, onNavigate?: () => void) => {
+    const Icon = item.icon
+    const active = isActiveRoute(item.href)
+    const badge = item.badgeKey === 'notifications' ? unreadCount : 0
+
+    return (
+      <Link
+        key={item.name}
+        href={item.href}
+        onClick={onNavigate}
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors min-h-[44px]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset',
+          active
+            ? 'bg-primary-500/10 text-primary-700 dark:text-primary-300'
+            : 'text-body hover:bg-wash hover:text-ink'
+        )}
+      >
+        <Icon
+          className={cn('w-[18px] h-[18px] shrink-0', active ? 'text-primary-500' : 'text-subtle')}
+          aria-hidden="true"
+        />
+        <span className="flex-1 min-w-0 truncate">{item.name}</span>
+        {badge > 0 && (
+          <span
+            className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center"
+            aria-label={`${badge} unread`}
+          >
+            {badge > 9 ? '9+' : badge}
+          </span>
+        )}
+      </Link>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-surface-100 flex font-sans selection:bg-primary-500 selection:text-white relative overflow-hidden">
-      {/* ── Level 1 Sidebar Navigation ── */}
-      <aside className="hidden md:flex md:w-[280px] md:flex-col shrink-0 bg-[#0F131D] border-r border-white/10 relative z-20">
-        <div className="flex flex-col h-full min-h-screen">
-          {/* Brand Header */}
-          <div className="h-16 flex items-center px-6 border-b border-white/10 shrink-0">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white font-black text-xs">
-                <TruckIcon className="w-5 h-5 stroke-[2.2]" />
-              </div>
-              <span className="font-bold text-lg tracking-tight text-white">
+    <div className="min-h-screen bg-canvas text-body flex">
+      {/* ── Desktop sidebar ── */}
+      <aside className="hidden md:flex md:w-[264px] md:flex-col shrink-0 bg-panel border-r border-hairline">
+        <div className="flex flex-col h-screen sticky top-0">
+          <div className="h-16 flex items-center px-5 border-b border-hairline shrink-0">
+            <Link
+              href="/"
+              className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            >
+              <span
+                className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white"
+                aria-hidden="true"
+              >
+                <TruckIcon className="w-[18px] h-[18px] stroke-[2.2]" />
+              </span>
+              <span className="font-bold text-base tracking-tight text-ink">
                 Lorry<span className="text-primary-500">Carry</span>
               </span>
             </Link>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              // Make active states strict for homepage vs deep links
-              const isActive = item.href === '/admin' || item.href === '/dashboard/load-owner' || item.href === '/dashboard/truck-owner'
-                ? pathname === item.href
-                : pathname.startsWith(item.href)
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary-500/10 text-primary-400 border-l-2 border-primary-500'
-                      : 'text-surface-400 hover:bg-white/5 hover:text-white border-l-2 border-transparent'
-                  )}
-                >
-                  <Icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-primary-400' : 'text-surface-500')} />
-                  <span>{item.name}</span>
-                </Link>
-              )
-            })}
+          <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Sidebar">
+            {navItems.map((item) => renderNavLink(item))}
           </nav>
 
-          {/* User Profile / Status */}
-          <div className="p-4 border-t border-white/10 shrink-0 space-y-3">
-            <div className="flex items-center justify-between">
-              <Badge variant="success" size="sm" className="font-sans">
-                Network Online
-              </Badge>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-surface-800 text-surface-300 font-bold text-xs flex items-center justify-center shrink-0 border border-white/10">
-                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'LC'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-white truncate">
-                  {user?.name || (user?.phone ? formatPhone(user.phone) : 'My Account')}
-                </p>
-                <p className="text-[10px] text-surface-400">{roleLabel}</p>
-              </div>
-            </div>
+          <div className="p-3 border-t border-hairline shrink-0">
+            <Link
+              href="/profile"
+              className="flex items-center gap-3 p-2 rounded-lg hover:bg-wash transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            >
+              <Avatar name={user?.name} fallback={user?.phone} size="sm" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-xs font-semibold text-ink truncate">
+                  {user?.name || (user?.phone ? formatPhone(user.phone) : 'My account')}
+                </span>
+                <span className="block text-[11px] text-subtle">{roleLabel}</span>
+              </span>
+            </Link>
           </div>
         </div>
       </aside>
 
-      {/* ── Main Content Area (Level 0) ── */}
-      <div className="flex-1 flex flex-col min-w-0 relative z-10 h-screen overflow-hidden">
-        {/* Top Command Bar (Level 1) */}
-        <header className="hidden md:flex h-16 bg-[#0F131D] border-b border-white/10 px-8 items-center justify-between shrink-0">
-          <div className="flex items-center gap-4 text-sm font-medium text-surface-400">
-            <span>{roleLabel} Console</span>
-            <span className="text-surface-600">/</span>
-            <span className="text-white">{title || 'Dashboard'}</span>
-          </div>
+      {/* ── Main column ── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Desktop top bar */}
+        <header className="hidden md:flex h-16 glass border-b border-hairline px-6 lg:px-8 items-center justify-between shrink-0 sticky top-0 z-30">
+          <p className="text-sm text-muted truncate">
+            <span>{roleLabel}</span>
+            <span className="mx-2 text-subtle" aria-hidden="true">
+              /
+            </span>
+            <span className="text-ink font-medium">{title || 'Dashboard'}</span>
+          </p>
 
-          <div className="flex items-center gap-6">
-            <div className="relative group">
-              <MagnifyingGlassIcon className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                aria-label="Global search"
-                placeholder="Global Search (Ctrl+K)"
-                className="pl-9 pr-4 py-1.5 bg-surface-900 border border-white/10 rounded-md text-xs text-white focus:outline-none focus:border-primary-500 transition-colors w-64"
+          <div className="flex items-center gap-3">
+            <Link
+              href="/notifications"
+              className="relative p-2.5 rounded-xl text-muted hover:text-ink hover:bg-wash transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+            >
+              <BellAlertIcon className="w-5 h-5" aria-hidden="true" />
+              {unreadCount > 0 && (
+                <span
+                  className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-panel"
+                  aria-hidden="true"
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Link>
+
+            {user && (
+              <ProfileMenu
+                user={user}
+                verified={verified}
+                subscriptionActive={subscriptionActive}
               />
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                aria-label="Notifications"
-                className="text-surface-400 hover:text-white p-1 rounded-lg transition-colors relative focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
-              >
-                <BellAlertIcon className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-primary-500 rounded-full" />
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                aria-label="Sign out"
-                className="text-surface-400 hover:text-danger-400 p-1 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-danger-500 focus:outline-none cursor-pointer"
-                title="Sign Out"
-              >
-                <ArrowRightOnRectangleIcon className="w-5 h-5" />
-              </button>
-            </div>
+            )}
           </div>
         </header>
 
-        {/* Mobile Header Bar */}
-        <header className="md:hidden sticky top-0 z-30 bg-[#0F131D] border-b border-white/10 px-4 h-14 flex items-center justify-between shrink-0">
+        {/* Mobile top bar */}
+        <header className="md:hidden sticky top-0 z-30 glass border-b border-hairline px-4 h-14 flex items-center justify-between shrink-0">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white font-black text-xs">
-              LC
-            </div>
-            <span className="font-bold text-base text-white">
+            <span
+              className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center text-white"
+              aria-hidden="true"
+            >
+              <TruckIcon className="w-[18px] h-[18px] stroke-[2.2]" />
+            </span>
+            <span className="font-bold text-base text-ink">
               Lorry<span className="text-primary-500">Carry</span>
             </span>
           </Link>
 
-          <div className="flex items-center gap-2">
-            <Badge variant={isTruckOwner ? 'info' : 'primary'} size="sm" className="font-sans">
-              {roleLabel}
-            </Badge>
+          <div className="flex items-center gap-1.5">
+            <Link
+              href="/notifications"
+              className="relative p-2 rounded-lg text-muted hover:text-ink hover:bg-wash min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+            >
+              <BellAlertIcon className="w-5 h-5" aria-hidden="true" />
+              {unreadCount > 0 && (
+                <span
+                  className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary-500 ring-2 ring-panel"
+                  aria-hidden="true"
+                />
+              )}
+            </Link>
             <button
               type="button"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => setSidebarOpen((open) => !open)}
               aria-expanded={sidebarOpen}
+              aria-controls="dashboard-mobile-nav"
               aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
-              className="p-1.5 rounded-lg text-surface-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
+              className="p-2 rounded-lg text-muted hover:text-ink hover:bg-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
-              {sidebarOpen ? <XMarkIcon className="w-5 h-5" /> : <Bars3Icon className="w-5 h-5" />}
+              {sidebarOpen ? (
+                <XMarkIcon className="w-5 h-5" aria-hidden="true" />
+              ) : (
+                <Bars3Icon className="w-5 h-5" aria-hidden="true" />
+              )}
             </button>
           </div>
         </header>
 
-        {/* Mobile Drawer Overlay */}
+        {/* Mobile drawer */}
         {sidebarOpen && (
-          <div className="md:hidden fixed inset-0 z-40 bg-black/80  flex">
-            <div className="w-64 bg-[#0F131D] border-r border-white/10 h-full flex flex-col justify-between shadow-2xl">
-              <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0">
-                  <span className="font-bold text-sm text-white">Menu</span>
-                  <button
-                    type="button"
-                    onClick={() => setSidebarOpen(false)}
-                    aria-label="Close navigation menu"
-                    className="p-1 rounded-lg text-surface-400 hover:text-white hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
-                  >
-                    <XMarkIcon className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
-                  {navItems.map((item) => {
-                    const Icon = item.icon
-                    const isActive = item.href === '/admin' || item.href === '/dashboard/load-owner' || item.href === '/dashboard/truck-owner'
-                      ? pathname === item.href
-                      : pathname.startsWith(item.href)
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        onClick={() => setSidebarOpen(false)}
-                        className={cn(
-                          'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors font-sans',
-                          isActive
-                            ? 'bg-primary-500/10 text-primary-400 border-l-2 border-primary-500'
-                            : 'text-surface-400 hover:bg-white/5 hover:text-white border-l-2 border-transparent'
-                        )}
-                      >
-                        <Icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-primary-400' : 'text-surface-500')} />
-                        <span>{item.name}</span>
-                      </Link>
-                    )
-                  })}
-                </nav>
-              </div>
-
-              <div className="p-4 border-t border-white/10 shrink-0">
+          <div className="md:hidden fixed inset-0 z-40 flex">
+            <div
+              className="absolute inset-0 bg-slate-900/50 dark:bg-black/70 backdrop-blur-sm"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              id="dashboard-mobile-nav"
+              className="relative w-[280px] max-w-[85vw] bg-panel border-r border-hairline h-full flex flex-col shadow-modal"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-hairline shrink-0">
+                <span className="font-semibold text-sm text-ink">Menu</span>
                 <button
                   type="button"
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-danger-400 rounded-md hover:bg-danger-950/30"
+                  onClick={() => setSidebarOpen(false)}
+                  aria-label="Close navigation menu"
+                  className="p-2 rounded-lg text-muted hover:text-ink hover:bg-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 >
-                  <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                  <span>Logout</span>
+                  <XMarkIcon className="w-5 h-5" aria-hidden="true" />
                 </button>
               </div>
+
+              <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5" aria-label="Mobile sidebar">
+                {navItems.map((item) => renderNavLink(item, () => setSidebarOpen(false)))}
+              </nav>
+
+              <div className="p-3 border-t border-hairline shrink-0 space-y-0.5">
+                <Link
+                  href="/profile"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-body hover:bg-wash min-h-[44px]"
+                >
+                  <UserCircleIcon className="w-[18px] h-[18px] text-subtle" aria-hidden="true" />
+                  <span>Profile</span>
+                </Link>
+                <Link
+                  href="/help"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-body hover:bg-wash min-h-[44px]"
+                >
+                  <ShieldCheckIcon className="w-[18px] h-[18px] text-subtle" aria-hidden="true" />
+                  <span>Help & support</span>
+                </Link>
+              </div>
             </div>
-            <div className="flex-1" onClick={() => setSidebarOpen(false)} />
           </div>
         )}
 
-        {/* Optional Page Subheader */}
+        {/* Optional page subheader (legacy title/action API) */}
         {(title || action) && (
-          <div className="bg-[#0F131D]/80  border-b border-white/10 py-5 px-4 sm:px-6 lg:px-8 shrink-0">
+          <div className="border-b border-hairline bg-panel py-5 px-4 sm:px-6 lg:px-8 shrink-0">
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 {title && (
-                  <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-sans">
-                    {title}
-                  </h1>
+                  <h1 className="text-xl sm:text-2xl font-bold text-ink tracking-tight">{title}</h1>
                 )}
                 {subtitle && (
-                  <p className="text-sm text-surface-300 mt-1 max-w-3xl leading-relaxed font-sans">
-                    {subtitle}
-                  </p>
+                  <p className="text-sm text-muted mt-1 max-w-3xl leading-relaxed">{subtitle}</p>
                 )}
               </div>
-              {action && <div className="flex items-center gap-3">{action}</div>}
+              {action && <div className="flex flex-wrap items-center gap-3">{action}</div>}
             </div>
           </div>
         )}
 
-        {/* Main Body Content Scrollable Area */}
-        <main className="flex-1 overflow-y-auto bg-[#070A11] p-4 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto pb-20 md:pb-8">
-            {children}
-          </div>
+        {/* Page content */}
+        <main id="main-content" className="flex-1 bg-canvas p-4 sm:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto pb-24 md:pb-8">{children}</div>
         </main>
-
-        {/* ── Mobile Bottom Navigation Bar ── */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#0F131D] border-t border-white/10 px-1 py-1 flex items-center justify-around shrink-0 pb-safe">
-          {navItems.slice(0, 5).map((item) => {
-            const Icon = item.icon
-            const isActive = item.href === '/admin' || item.href === '/dashboard/load-owner' || item.href === '/dashboard/truck-owner'
-              ? pathname === item.href
-              : pathname.startsWith(item.href)
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  'flex flex-col items-center justify-center py-1.5 px-2 rounded-lg gap-1 min-w-0 flex-1 transition-colors font-sans',
-                  isActive
-                    ? 'text-primary-400'
-                    : 'text-surface-500 hover:text-white'
-                )}
-              >
-                <Icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-primary-400' : '')} />
-                <span className="text-[10px] font-medium truncate w-full text-center leading-none">{item.name}</span>
-              </Link>
-            )
-          })}
-        </nav>
       </div>
 
       <AIFreightAssistantDrawer />

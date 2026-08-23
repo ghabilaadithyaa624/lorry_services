@@ -21,25 +21,25 @@ const toastTypeConfig: Record<
   }
 > = {
   success: {
-    containerClass: 'bg-[#0F131D] border border-emerald-500/30 shadow-modal',
+    containerClass: 'bg-panel border border-emerald-500/30 shadow-modal',
     textClass: 'text-emerald-200',
     iconClass: 'text-emerald-400',
     Icon: CheckCircleIcon,
   },
   error: {
-    containerClass: 'bg-[#0F131D] border border-danger-500/30 shadow-modal',
+    containerClass: 'bg-panel border border-danger-500/30 shadow-modal',
     textClass: 'text-danger-200',
     iconClass: 'text-danger-400',
     Icon: XCircleIcon,
   },
   warning: {
-    containerClass: 'bg-[#0F131D] border border-amber-500/30 shadow-modal',
+    containerClass: 'bg-panel border border-amber-500/30 shadow-modal',
     textClass: 'text-amber-200',
     iconClass: 'text-amber-400',
     Icon: ExclamationTriangleIcon,
   },
   info: {
-    containerClass: 'bg-[#0F131D] border border-sky-500/30 shadow-modal',
+    containerClass: 'bg-panel border border-sky-500/30 shadow-modal',
     textClass: 'text-sky-200',
     iconClass: 'text-sky-400',
     Icon: InformationCircleIcon,

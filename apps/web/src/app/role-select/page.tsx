@@ -76,7 +76,7 @@ function RoleSelectForm() {
   if (!phone || !otp) return null
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
+    <div className="min-h-screen bg-canvas text-surface-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
       <div className="sm:mx-auto sm:w-full sm:max-w-xl relative z-10 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
@@ -84,15 +84,15 @@ function RoleSelectForm() {
             <div className="w-10 h-10 rounded-2xl bg-primary-500 flex items-center justify-center text-white shadow-sm">
               <TruckIcon className="w-6 h-6 stroke-[2.2]" />
             </div>
-            <span className="text-2xl font-black tracking-tight text-surface-900 dark:text-white leading-none">
+            <span className="text-2xl font-black tracking-tight text-ink leading-none">
               Lorry<span className="text-primary-500">Carry</span>
             </span>
           </Link>
 
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-surface-900 dark:text-white tracking-tight pt-2">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-ink tracking-tight pt-2">
             Choose Your Account Type
           </h1>
-          <p className="text-xs sm:text-sm text-surface-500 dark:text-surface-400">
+          <p className="text-xs sm:text-sm text-subtle">
             Tell us how you intend to use LorryCarry to customize your marketplace experience.
           </p>
         </div>
@@ -115,7 +115,7 @@ function RoleSelectForm() {
               'p-6 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between space-y-4 cursor-pointer',
               selectedRole === 'load_owner'
                 ? 'border-primary-500 bg-primary-50/70 dark:bg-primary-950/30 shadow-card'
-                : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 hover:border-primary-300 dark:hover:border-primary-800'
+                : 'border-hairline bg-sunken hover:border-primary-300 dark:hover:border-primary-800'
             )}
           >
             <div className="space-y-3">
@@ -131,15 +131,15 @@ function RoleSelectForm() {
               </div>
 
               <div>
-                <h3 className="font-bold text-base text-surface-900 dark:text-white">
+                <h3 className="font-bold text-base text-ink">
                   I Need Trucks (Load Owner)
                 </h3>
-                <p className="text-xs text-surface-500 dark:text-surface-400 mt-1 leading-relaxed">
+                <p className="text-xs text-subtle mt-1 leading-relaxed">
                   For manufacturers, traders, and logistics companies who have goods to transport.
                 </p>
               </div>
 
-              <ul className="text-xs text-surface-600 dark:text-surface-300 space-y-1.5 pt-2 border-t border-surface-100 dark:border-surface-800">
+              <ul className="text-xs text-muted space-y-1.5 pt-2 border-t border-hairline">
                 <li className="flex items-center gap-1.5">
                   <CheckCircleIcon className="w-4 h-4 text-success-500 shrink-0" />
                   <span>Post freight loads in minutes</span>
@@ -164,7 +164,7 @@ function RoleSelectForm() {
               'p-6 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between space-y-4 cursor-pointer',
               selectedRole === 'truck_owner'
                 ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/30 shadow-card'
-                : 'border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 hover:border-blue-300 dark:hover:border-blue-800'
+                : 'border-hairline bg-sunken hover:border-blue-300 dark:hover:border-blue-800'
             )}
           >
             <div className="space-y-3">
@@ -180,15 +180,15 @@ function RoleSelectForm() {
               </div>
 
               <div>
-                <h3 className="font-bold text-base text-surface-900 dark:text-white">
+                <h3 className="font-bold text-base text-ink">
                   I Have Trucks (Truck Owner)
                 </h3>
-                <p className="text-xs text-surface-500 dark:text-surface-400 mt-1 leading-relaxed">
+                <p className="text-xs text-subtle mt-1 leading-relaxed">
                   For individual truck drivers, fleet owners, and transport contractors.
                 </p>
               </div>
 
-              <ul className="text-xs text-surface-600 dark:text-surface-300 space-y-1.5 pt-2 border-t border-surface-100 dark:border-surface-800">
+              <ul className="text-xs text-muted space-y-1.5 pt-2 border-t border-hairline">
                 <li className="flex items-center gap-1.5">
                   <CheckCircleIcon className="w-4 h-4 text-success-500 shrink-0" />
                   <span>Avoid empty return trips</span>

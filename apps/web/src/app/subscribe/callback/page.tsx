@@ -91,7 +91,7 @@ function CallbackContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070A11] flex items-center justify-center p-4 font-sans text-surface-100 selection:bg-primary-500 selection:text-white">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4 font-sans text-surface-100 selection:bg-primary-500 selection:text-white">
       <GlassPanel padding="lg" className="max-w-md w-full text-center space-y-6">
 
         {/* Checking State */}
@@ -241,7 +241,7 @@ export default function SubscribeCallbackPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#070A11] flex items-center justify-center p-4">
+        <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
           <Spinner size="lg" />
         </div>
       }

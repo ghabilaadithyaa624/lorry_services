@@ -73,7 +73,7 @@ export default function SubscriptionPage() {
   const isSubscribed = subStatus?.hasSubscription === true || subStatus?.profileSub?.isActive === true
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col justify-between font-sans selection:bg-primary-500 selection:text-white">
+    <div className="min-h-screen bg-canvas text-surface-100 flex flex-col justify-between font-sans selection:bg-primary-500 selection:text-white">
       <Navbar />
 
       <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto w-full space-y-8">

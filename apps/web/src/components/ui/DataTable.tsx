@@ -40,12 +40,12 @@ const DataTableRoot = forwardRef<HTMLTableElement, DataTableProps>(
     return (
       <div
         className={cn(
-          'bg-[#0F131D] rounded-[20px] border border-white/10 shadow-modal overflow-hidden font-mono text-xs',
+          'bg-panel rounded-[20px] border border-white/10 shadow-modal overflow-hidden font-mono text-xs',
           containerClassName
         )}
       >
         {(title || action) && (
-          <div className="p-5 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F131D]">
+          <div className="p-5 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-panel">
             <div>
               {title && <h3 className="text-xs font-bold uppercase tracking-wider text-white">{title}</h3>}
               {subtitle && <p className="text-[11px] text-surface-400 mt-0.5">{subtitle}</p>}

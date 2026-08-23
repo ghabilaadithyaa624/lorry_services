@@ -223,7 +223,7 @@ function ProceduralTruck() {
 
 export default function HeroTruckCanvas() {
   return (
-    <div className="w-full h-[380px] sm:h-[460px] lg:h-[520px] relative rounded-[20px] overflow-hidden cursor-grab active:cursor-grabbing group bg-[#070A11]">
+    <div className="w-full h-[380px] sm:h-[460px] lg:h-[520px] relative rounded-[20px] overflow-hidden cursor-grab active:cursor-grabbing group bg-canvas">
       {/* Background Radial Glow */}
       <div className="absolute inset-0 pointer-events-none" />
 
@@ -279,7 +279,7 @@ export default function HeroTruckCanvas() {
       </Canvas>
 
       {/* Overlay Telemetry Badge */}
-      <div className="absolute bottom-4 left-4 z-20 pointer-events-none flex items-center gap-2.5 px-3.5 py-2 rounded-button bg-[#0F131D] border border-white/10 text-xs text-surface-200 font-sans">
+      <div className="absolute bottom-4 left-4 z-20 pointer-events-none flex items-center gap-2.5 px-3.5 py-2 rounded-button bg-panel border border-white/10 text-xs text-surface-200 font-sans">
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
         <span className="text-[11px] uppercase tracking-wider font-bold text-surface-300">
           Interactive 3D Fleet Visualizer • Drag to Rotate

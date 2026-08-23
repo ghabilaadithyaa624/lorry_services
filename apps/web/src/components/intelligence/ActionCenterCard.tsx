@@ -35,7 +35,7 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
   }
 
   return (
-    <div className={cn('bg-[#0F131D] rounded-[20px] border border-white/10 p-6 shadow-modal space-y-4 font-sans', className)}>
+    <div className={cn('bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal space-y-4 font-sans', className)}>
       <div className="flex items-center justify-between pb-3 border-b border-white/10">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">

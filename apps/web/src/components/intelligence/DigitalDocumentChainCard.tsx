@@ -153,7 +153,7 @@ export function DigitalDocumentChainCard({
   const completedStagesCount = documentChain.filter((d) => d.status === 'COMPLETED' || d.status === 'VERIFIED').length
 
   return (
-    <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 shadow-modal space-y-6 font-sans">
+    <div className="bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal space-y-6 font-sans">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
@@ -253,7 +253,7 @@ export function DigitalDocumentChainCard({
                     {doc.stageId === 'POD' && podPhotoUrl && (
                       <button
                         onClick={() => setPreviewPhotoModal(podPhotoUrl)}
-                        className="px-3 py-1.5 rounded-lg bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 text-surface-800 dark:text-surface-200 font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-sunken hover:bg-wash text-muted font-bold text-[11px] flex items-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <PhotoIcon className="w-3.5 h-3.5 text-primary-500" />
                         Preview POD
@@ -301,7 +301,7 @@ export function DigitalDocumentChainCard({
       {/* ── UPLOAD MODAL ── */}
       {uploadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-[#0F131D] rounded-2xl border border-white/15 max-w-md w-full p-6 shadow-modal space-y-4 text-white">
+          <div className="bg-panel rounded-2xl border border-white/15 max-w-md w-full p-6 shadow-modal space-y-4 text-white">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <h3 className="text-base font-bold text-white">
                 Upload to Digital Freight Chain
@@ -390,7 +390,7 @@ export function DigitalDocumentChainCard({
       {/* ── PHOTO PREVIEW MODAL ── */}
       {previewPhotoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-[#0F131D] rounded-2xl border border-white/15 max-w-lg w-full p-5 shadow-modal space-y-4 text-white">
+          <div className="bg-panel rounded-2xl border border-white/15 max-w-lg w-full p-5 shadow-modal space-y-4 text-white">
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <h3 className="text-sm font-bold text-white">
                 Proof of Delivery (POD) Attachment Preview
@@ -401,7 +401,7 @@ export function DigitalDocumentChainCard({
             </div>
 
             <div className="rounded-xl overflow-hidden bg-surface-950 border border-white/5 p-2 text-center">
-              <div className="w-full h-64 bg-[#0F131D]/90 rounded-lg flex flex-col items-center justify-center text-white space-y-2 p-6">
+              <div className="w-full h-64 bg-panel/90 rounded-lg flex flex-col items-center justify-center text-white space-y-2 p-6">
                 <PhotoIcon className="w-12 h-12 text-primary-400" />
                 <span className="font-bold text-sm">Consignee Verified POD Slip</span>
                 <span className="text-xs text-surface-400 font-mono">

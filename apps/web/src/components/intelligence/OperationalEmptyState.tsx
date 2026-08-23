@@ -53,7 +53,7 @@ export function OperationalEmptyState({
   const steps = role === 'load_owner' ? loadOwnerWorkflow : truckOwnerWorkflow
 
   return (
-    <div className={cn('bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-8 shadow-modal text-center space-y-6 font-sans', className)}>
+    <div className={cn('bg-panel rounded-[20px] border border-white/10 p-6 sm:p-8 shadow-modal text-center space-y-6 font-sans', className)}>
       <div className="max-w-md mx-auto space-y-2">
         <h3 className="text-lg sm:text-xl font-bold text-white">
           {title}

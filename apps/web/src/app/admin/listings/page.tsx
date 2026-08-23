@@ -156,7 +156,7 @@ export default function MarketplaceListingsPage() {
 
   if (error) {
     return (
-      <div className="p-12 bg-[#0F131D] rounded-[20px] border border-white/10 text-center space-y-4 max-w-md mx-auto font-sans">
+      <div className="p-12 bg-panel rounded-[20px] border border-white/10 text-center space-y-4 max-w-md mx-auto font-sans">
         <ExclamationTriangleIcon className="w-12 h-12 text-danger-400 mx-auto" />
         <h3 className="text-base font-bold text-white">Failed to Load Marketplace Operations</h3>
         <p className="text-xs font-mono text-surface-400">{error}</p>
@@ -176,7 +176,7 @@ export default function MarketplaceListingsPage() {
     <div className="space-y-6 max-w-7xl mx-auto font-sans">
       
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0F131D] p-6 rounded-[20px] border border-white/10 shadow-modal relative overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-panel p-6 rounded-[20px] border border-white/10 shadow-modal relative overflow-hidden">
         {/* Ambient Background Glow & Grid */}
 
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
@@ -202,25 +202,25 @@ export default function MarketplaceListingsPage() {
       {/* Primary Summary KPIs */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 font-mono">
-          <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+          <div className="p-4 rounded-2xl bg-panel border border-white/10 shadow-card space-y-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">Total Loads</span>
             <span className="text-2xl font-black text-amber-300 block">{stats.totalLoads}</span>
             <span className="text-[10px] text-surface-400 block">Posted Requirements</span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+          <div className="p-4 rounded-2xl bg-panel border border-white/10 shadow-card space-y-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-primary-400 block">Active Loads</span>
             <span className="text-2xl font-black text-primary-300 block">{stats.totalLoads}</span>
             <span className="text-[10px] text-primary-400/80 block">Open Corridors</span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+          <div className="p-4 rounded-2xl bg-panel border border-white/10 shadow-card space-y-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">Completed Bookings</span>
             <span className="text-2xl font-black text-emerald-300 block">{stats.totalBookings}</span>
             <span className="text-[10px] text-emerald-400/80 block">Delivered Freight</span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+          <div className="p-4 rounded-2xl bg-panel border border-white/10 shadow-card space-y-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-surface-400 block">Registered Trucks</span>
             <span className="text-2xl font-black text-white block">{stats.totalTrucks}</span>
             <span className="text-[10px] text-surface-400 block">Fleet Vehicles</span>
@@ -266,7 +266,7 @@ export default function MarketplaceListingsPage() {
 
       {/* ── SECTION: PENDING VERIFICATION TRUCKS ── */}
       {(activeSection === 'ALL' || activeSection === 'PENDING_VERIFICATION') && (
-        <div className="p-6 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-modal space-y-4 font-mono">
+        <div className="p-6 rounded-[20px] bg-panel border border-white/10 shadow-modal space-y-4 font-mono">
           <div className="flex items-center justify-between pb-3 border-b border-white/10">
             <div className="flex items-center gap-2">
               <ShieldCheckIcon className="w-5 h-5 text-warning-400" />
@@ -355,7 +355,7 @@ export default function MarketplaceListingsPage() {
 
       {/* ── SECTION: TOP MARKETPLACE CONTRIBUTORS ── */}
       {(activeSection === 'ALL' || activeSection === 'CONTRIBUTORS') && topUsers.length > 0 && (
-        <div className="p-6 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-modal space-y-4 font-mono">
+        <div className="p-6 rounded-[20px] bg-panel border border-white/10 shadow-modal space-y-4 font-mono">
           <div className="flex items-center justify-between pb-3 border-b border-white/10">
             <div className="flex items-center gap-2">
               <UsersIcon className="w-5 h-5 text-primary-400" />

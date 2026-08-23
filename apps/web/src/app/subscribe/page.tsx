@@ -121,7 +121,7 @@ function SubscribeContent() {
   const activePlan = PLANS.find((p) => p.id === selectedPlan)!
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
+    <div className="min-h-screen bg-canvas text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
       <Navbar />
 
       <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full space-y-8">
@@ -318,7 +318,7 @@ export default function SubscribePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#070A11] flex items-center justify-center">
+        <div className="min-h-screen bg-canvas flex items-center justify-center">
           <Spinner size="lg" />
         </div>
       }

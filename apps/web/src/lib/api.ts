@@ -179,6 +179,25 @@ export const authApi = {
   },
 }
 
+/**
+ * Application preferences persisted per user.
+ * Mirrors the UserPreference model exposed by GET/PATCH /users/preferences.
+ */
+export interface UserPreferences {
+  theme: 'light' | 'dark' | 'system'
+  language: string
+  currency: string
+  distanceUnit: 'km' | 'mi'
+  notifyWhatsapp: boolean
+  notifySms: boolean
+  notifyPush: boolean
+  notifyCheckpoints: boolean
+  defaultRadiusKm: number
+  preferredBodyType: string | null
+  autoDetectLocation: boolean
+  profileVisible: boolean
+}
+
 // User Operations Center API
 export const usersApi = {
   getProfile: () => api.get('/users/me'),
@@ -186,6 +205,21 @@ export const usersApi = {
   getDocuments: () => api.get('/users/documents'),
   getActivity: () => api.get('/users/activity'),
   getNotifications: () => api.get('/users/notifications'),
+
+  /** Mark one notification (stored or derived) as read. */
+  markNotificationRead: (notificationKey: string) =>
+    api.post('/users/notifications/read', { notificationKey }),
+
+  /** Mark every notification currently in the feed as read. */
+  markAllNotificationsRead: () => api.post('/users/notifications/read-all'),
+
+  getPreferences: () => api.get<UserPreferences>('/users/preferences'),
+
+  updatePreferences: (data: Partial<UserPreferences>) =>
+    api.patch<{ success: boolean; message: string; preferences: UserPreferences }>(
+      '/users/preferences',
+      data
+    ),
 }
 
 // Admin Operations Command Center API

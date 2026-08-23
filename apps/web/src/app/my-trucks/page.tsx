@@ -314,9 +314,9 @@ export default function MyFleetPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
+    <div className="min-h-screen bg-canvas text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
       {/* ── 1. Sticky Top Navigation ── */}
-      <header className="sticky top-0 z-40 w-full bg-[#0B0F19]/85 backdrop-blur-xl border-b border-white/10 shadow-modal">
+      <header className="sticky top-0 z-40 w-full bg-canvas/85 backdrop-blur-xl border-b border-white/10 shadow-modal">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
             {/* Brand Logo */}
@@ -366,7 +366,7 @@ export default function MyFleetPage() {
                 aria-label="Notifications"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500 shadow-glow-primary ring-2 ring-[#0B0F19]" />
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500 shadow-glow-primary ring-2 ring-canvas" />
               </Link>
 
               <div className="flex items-center gap-3">
@@ -410,7 +410,7 @@ export default function MyFleetPage() {
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-[#0F131D]/95 backdrop-blur-2xl border-t border-white/10 px-4 py-4 space-y-3 shadow-modal">
+          <div className="md:hidden bg-panel/95 backdrop-blur-2xl border-t border-white/10 px-4 py-4 space-y-3 shadow-modal">
             <nav className="space-y-1">
               {navLinks.map((link) => (
                 <Link
@@ -483,7 +483,7 @@ export default function MyFleetPage() {
 
         {/* ── Telemetry Stats Overview Row ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
-          <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+          <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
             <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
               TOTAL FLEET
             </div>
@@ -493,7 +493,7 @@ export default function MyFleetPage() {
             <div className="text-xs text-surface-400 mt-0.5">Registered lorries</div>
           </div>
 
-          <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+          <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
             <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
               AVAILABLE NOW
             </div>
@@ -503,7 +503,7 @@ export default function MyFleetPage() {
             <div className="text-xs text-surface-400 mt-0.5">Ready for dispatch</div>
           </div>
 
-          <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+          <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
             <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
               ON ACTIVE TRIP
             </div>
@@ -513,7 +513,7 @@ export default function MyFleetPage() {
             <div className="text-xs text-surface-400 mt-0.5">In highway transit</div>
           </div>
 
-          <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+          <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
             <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
               VAHAN VERIFIED
             </div>
@@ -527,7 +527,7 @@ export default function MyFleetPage() {
         </div>
 
         {/* ── Search & Filter Controls Toolbar ── */}
-        <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-surface-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -571,7 +571,7 @@ export default function MyFleetPage() {
             {[1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="bg-[#0F131D] rounded-2xl border border-white/10 p-6 space-y-4 shadow-modal animate-pulse"
+                className="bg-panel rounded-2xl border border-white/10 p-6 space-y-4 shadow-modal animate-pulse"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -592,7 +592,7 @@ export default function MyFleetPage() {
             ))}
           </div>
         ) : error ? (
-          <div className="bg-[#0F131D] rounded-2xl border border-danger-500/30 p-8 text-center space-y-3">
+          <div className="bg-panel rounded-2xl border border-danger-500/30 p-8 text-center space-y-3">
             <div className="text-danger-400 font-bold text-sm">{error}</div>
             <button
               type="button"
@@ -604,7 +604,7 @@ export default function MyFleetPage() {
           </div>
         ) : filteredTrucks.length === 0 ? (
           /* ── 4. Empty State (Zero Trucks Registered) ── */
-          <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-10 sm:p-14 text-center space-y-4 shadow-modal">
+          <div className="bg-panel rounded-2xl border border-white/10 p-10 sm:p-14 text-center space-y-4 shadow-modal">
             <div className="w-16 h-16 rounded-2xl bg-primary-500/10 text-primary-400 flex items-center justify-center mx-auto border border-primary-500/20">
               <Truck className="w-8 h-8 stroke-[1.8]" />
             </div>
@@ -636,7 +636,7 @@ export default function MyFleetPage() {
               return (
                 <div
                   key={truck.id}
-                  className="bg-[#0F131D] rounded-2xl border border-white/10 p-5 sm:p-6 shadow-modal hover:border-primary-500/30 transition-all duration-200 space-y-5"
+                  className="bg-panel rounded-2xl border border-white/10 p-5 sm:p-6 shadow-modal hover:border-primary-500/30 transition-all duration-200 space-y-5"
                 >
                   {/* Card Header: Identity, Verification Badge, Status Badge, Icon Actions */}
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -780,7 +780,7 @@ export default function MyFleetPage() {
                       </div>
 
                       {/* Telemetry Stat Row for Trip */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0F131D]/90 rounded-xl p-3 border border-white/5">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-panel/90 rounded-xl p-3 border border-white/5">
                         <div>
                           <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             ORIGIN
@@ -943,7 +943,7 @@ export default function MyFleetPage() {
       {/* ── REGISTER NEW TRUCK MODAL ── */}
       {registerModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-[#0F131D] rounded-2xl border border-white/15 max-w-lg w-full p-6 shadow-modal space-y-5 text-white">
+          <div className="bg-panel rounded-2xl border border-white/15 max-w-lg w-full p-6 shadow-modal space-y-5 text-white">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-primary-500/10 text-primary-400 border border-primary-500/20 flex items-center justify-center">
@@ -1082,7 +1082,7 @@ export default function MyFleetPage() {
       {/* ── UPLOAD KYC / RC DOCUMENT MODAL ── */}
       {uploadDocModalTruck && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-[#0F131D] rounded-2xl border border-white/15 max-w-md w-full p-6 shadow-modal space-y-5 text-white">
+          <div className="bg-panel rounded-2xl border border-white/15 max-w-md w-full p-6 shadow-modal space-y-5 text-white">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div>
                 <h3 className="text-base font-bold text-white">Upload Vehicle KYC Document</h3>
@@ -1165,7 +1165,7 @@ export default function MyFleetPage() {
       {/* ── EDIT TRUCK MODAL ── */}
       {editTruck && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-[#0F131D] rounded-2xl border border-white/15 max-w-md w-full p-6 shadow-modal space-y-5 text-white">
+          <div className="bg-panel rounded-2xl border border-white/15 max-w-md w-full p-6 shadow-modal space-y-5 text-white">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div>
                 <h3 className="text-base font-bold text-white">Edit Vehicle Specifications</h3>

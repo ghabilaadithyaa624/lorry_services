@@ -1,7 +1,13 @@
-import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from "@nestjs/common";
 import { prisma, UserRole, SubscriptionStatus } from "@lorrycarry/database";
 import { S3Service } from "../common/services/s3.service";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { UpdatePreferencesDto } from "./dto/update-preferences.dto";
 
 export interface ActivityItem {
   id: string;
@@ -607,11 +613,165 @@ export class UsersService {
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
 
-    const unreadCount = items.filter((i) => !i.read).length;
+    // 3. Overlay explicit read receipts.
+    // The feed mixes persisted rows with alerts derived from live domain state,
+    // so read state is tracked by an opaque key that covers both kinds.
+    const receipts = await prisma.notificationReceipt.findMany({
+      where: { userId },
+      select: { notificationKey: true },
+    });
+    const readKeys = new Set(receipts.map((r) => r.notificationKey));
+
+    const withReadState = items.map((item) => ({
+      ...item,
+      read: item.read || readKeys.has(item.id),
+    }));
+
+    const unreadCount = withReadState.filter((i) => !i.read).length;
 
     return {
-      notifications: items,
+      notifications: withReadState,
       unreadCount,
+    };
+  }
+
+  /**
+   * Mark a single notification as read for this user.
+   *
+   * Idempotent: re-marking an already-read notification is a no-op. Accepts any
+   * notification key from the feed, including derived (non-persisted) alerts.
+   */
+  async markNotificationRead(userId: string, notificationKey: string) {
+    if (!notificationKey || notificationKey.trim().length === 0) {
+      throw new BadRequestException("A notification identifier is required");
+    }
+
+    const key = notificationKey.trim().slice(0, 200);
+
+    await prisma.notificationReceipt.upsert({
+      where: {
+        userId_notificationKey: { userId, notificationKey: key },
+      },
+      create: { userId, notificationKey: key },
+      update: {},
+    });
+
+    return { success: true, notificationKey: key };
+  }
+
+  /**
+   * Mark every notification currently in the user's feed as read.
+   *
+   * Recomputes the feed so derived alerts are covered too, then writes receipts
+   * for anything still unread.
+   */
+  async markAllNotificationsRead(userId: string) {
+    const { notifications } = await this.getNotifications(userId);
+    const unread = notifications.filter((n) => !n.read);
+
+    if (unread.length === 0) {
+      return { success: true, markedCount: 0 };
+    }
+
+    await prisma.notificationReceipt.createMany({
+      data: unread.map((n) => ({
+        userId,
+        notificationKey: n.id.slice(0, 200),
+      })),
+      skipDuplicates: true,
+    });
+
+    return { success: true, markedCount: unread.length };
+  }
+
+  /**
+   * Default preference set, used when a user has no stored row yet.
+   */
+  private readonly defaultPreferences = {
+    theme: "system",
+    language: "en",
+    currency: "INR",
+    distanceUnit: "km",
+    notifyWhatsapp: true,
+    notifySms: true,
+    notifyPush: true,
+    notifyCheckpoints: true,
+    defaultRadiusKm: 50,
+    preferredBodyType: null as string | null,
+    autoDetectLocation: true,
+    profileVisible: true,
+  };
+
+  /**
+   * Read the user's stored preferences, falling back to defaults.
+   */
+  async getPreferences(userId: string) {
+    const stored = await prisma.userPreference.findUnique({
+      where: { userId },
+    });
+
+    if (!stored) {
+      return { ...this.defaultPreferences };
+    }
+
+    return {
+      theme: stored.theme,
+      language: stored.language,
+      currency: stored.currency,
+      distanceUnit: stored.distanceUnit,
+      notifyWhatsapp: stored.notifyWhatsapp,
+      notifySms: stored.notifySms,
+      notifyPush: stored.notifyPush,
+      notifyCheckpoints: stored.notifyCheckpoints,
+      defaultRadiusKm: stored.defaultRadiusKm,
+      preferredBodyType: stored.preferredBodyType,
+      autoDetectLocation: stored.autoDetectLocation,
+      profileVisible: stored.profileVisible,
+    };
+  }
+
+  /**
+   * Create or update the user's preferences.
+   * Only the supplied fields are changed; everything else keeps its value.
+   */
+  async updatePreferences(userId: string, dto: UpdatePreferencesDto) {
+    const data = {
+      ...(dto.theme !== undefined && { theme: dto.theme }),
+      ...(dto.language !== undefined && { language: dto.language }),
+      ...(dto.currency !== undefined && { currency: dto.currency }),
+      ...(dto.distanceUnit !== undefined && { distanceUnit: dto.distanceUnit }),
+      ...(dto.notifyWhatsapp !== undefined && {
+        notifyWhatsapp: dto.notifyWhatsapp,
+      }),
+      ...(dto.notifySms !== undefined && { notifySms: dto.notifySms }),
+      ...(dto.notifyPush !== undefined && { notifyPush: dto.notifyPush }),
+      ...(dto.notifyCheckpoints !== undefined && {
+        notifyCheckpoints: dto.notifyCheckpoints,
+      }),
+      ...(dto.defaultRadiusKm !== undefined && {
+        defaultRadiusKm: dto.defaultRadiusKm,
+      }),
+      ...(dto.preferredBodyType !== undefined && {
+        preferredBodyType: dto.preferredBodyType,
+      }),
+      ...(dto.autoDetectLocation !== undefined && {
+        autoDetectLocation: dto.autoDetectLocation,
+      }),
+      ...(dto.profileVisible !== undefined && {
+        profileVisible: dto.profileVisible,
+      }),
+    };
+
+    await prisma.userPreference.upsert({
+      where: { userId },
+      create: { userId, ...data },
+      update: data,
+    });
+
+    return {
+      success: true,
+      message: "Preferences updated",
+      preferences: await this.getPreferences(userId),
     };
   }
 }

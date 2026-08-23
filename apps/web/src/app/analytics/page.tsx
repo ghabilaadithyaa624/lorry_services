@@ -63,7 +63,7 @@ export default function UserAnalyticsPage() {
           <>
             {/* ── KPI HEADER ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-sans">
-              <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+              <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">
                   Completed trips
                 </span>
@@ -73,7 +73,7 @@ export default function UserAnalyticsPage() {
                 <span className="text-[11px] text-emerald-400 font-semibold font-sans">Real metric</span>
               </div>
 
-              <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+              <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">
                   Financial volume
                 </span>
@@ -83,7 +83,7 @@ export default function UserAnalyticsPage() {
                 <span className="text-[11px] text-primary-400 font-semibold font-sans">Real metric</span>
               </div>
 
-              <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+              <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">
                   Active bookings
                 </span>
@@ -93,7 +93,7 @@ export default function UserAnalyticsPage() {
                 <span className="text-[11px] text-emerald-400 font-semibold font-sans">Real metric</span>
               </div>
 
-              <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+              <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">
                   Empty-KM reduced
                 </span>
@@ -105,7 +105,7 @@ export default function UserAnalyticsPage() {
             </div>
 
             {/* Performance Overview Banner */}
-            <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 sm:p-8 shadow-modal space-y-4">
+            <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-8 shadow-modal space-y-4">
               <div className="flex items-center gap-3 border-b border-white/10 pb-4">
                 <ArrowTrendingUpIcon className="w-6 h-6 text-primary-400" />
                 <div>

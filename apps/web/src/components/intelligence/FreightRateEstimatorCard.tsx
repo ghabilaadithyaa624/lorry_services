@@ -33,7 +33,7 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
   return (
     <div
       className={cn(
-        'bg-[#0F131D] rounded-[20px] border border-white/10 p-6 shadow-modal space-y-4 font-sans',
+        'bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal space-y-4 font-sans',
         className
       )}
     >
@@ -108,49 +108,49 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
 
       {/* 4 Core Parameter Badges Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-        <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60">
+        <div className="p-2.5 rounded-xl bg-sunken/40 border border-hairline/60">
           <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider flex items-center gap-1">
             <MapPinIcon className="w-3 h-3 text-blue-500 shrink-0" />
             Distance
           </span>
-          <span className="font-mono font-bold text-surface-900 dark:text-white mt-0.5 block">
+          <span className="font-mono font-bold text-ink mt-0.5 block">
             {estimate.distanceKm} km
           </span>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60">
+        <div className="p-2.5 rounded-xl bg-sunken/40 border border-hairline/60">
           <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider flex items-center gap-1">
             <ScaleIcon className="w-3 h-3 text-emerald-500 shrink-0" />
             Tonnage
           </span>
-          <span className="font-mono font-bold text-surface-900 dark:text-white mt-0.5 block">
+          <span className="font-mono font-bold text-ink mt-0.5 block">
             {estimate.tonnage} Tons
           </span>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60">
+        <div className="p-2.5 rounded-xl bg-sunken/40 border border-hairline/60">
           <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider flex items-center gap-1">
             <TruckIcon className="w-3 h-3 text-primary-500 shrink-0" />
             Vehicle Type
           </span>
-          <span className="font-bold text-surface-900 dark:text-white mt-0.5 block truncate">
+          <span className="font-bold text-ink mt-0.5 block truncate">
             {estimate.truckType} Body
           </span>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60">
+        <div className="p-2.5 rounded-xl bg-sunken/40 border border-hairline/60">
           <span className="text-[10px] text-surface-400 font-bold uppercase tracking-wider flex items-center gap-1">
             <CurrencyRupeeIcon className="w-3 h-3 text-amber-500 shrink-0" />
             Handling
           </span>
-          <span className="font-mono font-bold text-surface-900 dark:text-white mt-0.5 block">
+          <span className="font-mono font-bold text-ink mt-0.5 block">
             {formatINR(estimate.baseHandlingCharge)}
           </span>
         </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex border-b border-surface-200 dark:border-surface-700 text-xs font-bold gap-4">
+      <div className="flex border-b border-hairline text-xs font-bold gap-4">
         <button
           type="button"
           onClick={() => setActiveTab('overview')}
@@ -198,12 +198,12 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
         <div className="space-y-3 pt-1">
           {/* Adjustments Pills */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60 space-y-1">
+            <div className="p-2.5 rounded-xl bg-sunken/40 border border-hairline/60 space-y-1">
               <span className="text-[10px] text-surface-400 uppercase font-bold flex items-center gap-1">
                 <ArrowTrendingUpIcon className="w-3 h-3 text-purple-500" />
                 Long-Haul Adjustment
               </span>
-              <p className="font-bold text-surface-900 dark:text-white text-[11px]">
+              <p className="font-bold text-ink text-[11px]">
                 {estimate.longHaulAdjustment.label}
               </p>
               <p className="text-[10px] text-surface-500 leading-tight">
@@ -211,12 +211,12 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
               </p>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60 space-y-1">
+            <div className="p-2.5 rounded-xl bg-sunken/40 border border-hairline/60 space-y-1">
               <span className="text-[10px] text-surface-400 uppercase font-bold flex items-center gap-1">
                 <TruckIcon className="w-3 h-3 text-indigo-500" />
                 Truck-Type Adjustment
               </span>
-              <p className="font-bold text-surface-900 dark:text-white text-[11px]">
+              <p className="font-bold text-ink text-[11px]">
                 ₹{estimate.truckTypeAdjustment.baseRatePerTonKm.toFixed(2)}/T-km + ₹{estimate.truckTypeAdjustment.handlingFee.toLocaleString('en-IN')} Handling
               </p>
               <p className="text-[10px] text-surface-500 leading-tight">
@@ -244,9 +244,9 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
             </button>
 
             {showExplanation && (
-              <div className="pt-2 text-[11px] text-surface-600 dark:text-surface-300 space-y-1.5 leading-relaxed border-t border-primary-100 dark:border-primary-900/40">
+              <div className="pt-2 text-[11px] text-muted space-y-1.5 leading-relaxed border-t border-primary-100 dark:border-primary-900/40">
                 <p>{estimate.explanation}</p>
-                <div className="p-2 rounded-lg bg-white/70 dark:bg-surface-900/70 font-mono text-[10px] space-y-0.5 text-surface-800 dark:text-surface-200">
+                <div className="p-2 rounded-lg bg-sunken/70 font-mono text-[10px] space-y-0.5 text-muted">
                   <div>Base Freight = {estimate.distanceKm} km × {estimate.tonnage} T × ₹{estimate.ratePerTonKm.toFixed(2)} = ₹{Math.round(estimate.distanceKm * estimate.tonnage * estimate.ratePerTonKm).toLocaleString('en-IN')}</div>
                   <div>Handling Buffer = ₹{estimate.baseHandlingCharge.toLocaleString('en-IN')}</div>
                   <div>Recommended Target = ₹{estimate.recommendedTarget.toLocaleString('en-IN')}</div>
@@ -260,16 +260,16 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
       {/* TAB CONTENT 2: PRICE SENSITIVITY */}
       {activeTab === 'sensitivity' && (
         <div className="space-y-3 pt-1 text-xs">
-          <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60 space-y-2">
+          <div className="p-3 rounded-xl bg-sunken/40 border border-hairline/60 space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">
               Tonnage Volume Sensitivity Analysis (±10% Payload)
             </span>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700">
+              <div className="p-2 rounded-lg bg-sunken border border-hairline">
                 <span className="text-[10px] text-surface-400 font-bold block">
                   {estimate.priceSensitivity.minus10Percent.label}
                 </span>
-                <span className="font-mono font-bold text-surface-900 dark:text-white block mt-0.5">
+                <span className="font-mono font-bold text-ink block mt-0.5">
                   {formatINR(estimate.priceSensitivity.minus10Percent.cost)}
                 </span>
               </div>
@@ -283,11 +283,11 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
                 </span>
               </div>
 
-              <div className="p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700">
+              <div className="p-2 rounded-lg bg-sunken border border-hairline">
                 <span className="text-[10px] text-surface-400 font-bold block">
                   {estimate.priceSensitivity.plus10Percent.label}
                 </span>
-                <span className="font-mono font-bold text-surface-900 dark:text-white block mt-0.5">
+                <span className="font-mono font-bold text-ink block mt-0.5">
                   {formatINR(estimate.priceSensitivity.plus10Percent.cost)}
                 </span>
               </div>
@@ -295,7 +295,7 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
 
             <p className="text-[11px] text-surface-500 pt-1">
               Marginal cost per additional ton on this route is approximately{' '}
-              <strong className="text-surface-800 dark:text-surface-200">
+              <strong className="text-muted">
                 {formatINR(estimate.priceSensitivity.costPerAdditionalTon)}/ton
               </strong>.
             </p>
@@ -306,10 +306,10 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
       {/* TAB CONTENT 3: ROUTE & VEHICLE COMPARISON */}
       {activeTab === 'comparison' && (
         <div className="space-y-3 pt-1 text-xs">
-          <div className="overflow-x-auto rounded-xl border border-surface-200 dark:border-surface-700">
+          <div className="overflow-x-auto rounded-xl border border-hairline">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-surface-100 dark:bg-surface-800 text-[10px] uppercase font-bold text-surface-500">
+                <tr className="bg-sunken text-[10px] uppercase font-bold text-surface-500">
                   <th className="p-2.5">Configuration / Route</th>
                   <th className="p-2.5">Distance</th>
                   <th className="p-2.5">Rate / T-km</th>
@@ -322,8 +322,8 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
                     key={idx}
                     className={cn(
                       opt.isCurrent
-                        ? 'bg-primary-50/50 dark:bg-primary-950/30 font-bold text-surface-900 dark:text-white'
-                        : 'text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800/40'
+                        ? 'bg-primary-50/50 dark:bg-primary-950/30 font-bold text-ink'
+                        : 'text-body hover:bg-wash'
                     )}
                   >
                     <td className="p-2.5 flex items-center gap-1.5">
@@ -336,7 +336,7 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
                     </td>
                     <td className="p-2.5 font-mono">{opt.distanceKm} km</td>
                     <td className="p-2.5 font-mono">₹{opt.ratePerTonKm.toFixed(2)}</td>
-                    <td className="p-2.5 font-mono font-bold text-right text-surface-900 dark:text-white">
+                    <td className="p-2.5 font-mono font-bold text-right text-ink">
                       {formatINR(opt.recommendedTarget)}
                     </td>
                   </tr>
@@ -348,7 +348,7 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
       )}
 
       {/* Explicit Disclaimer Footer */}
-      <div className="pt-2 border-t border-surface-100 dark:border-surface-800 text-[10px] text-surface-400 flex items-start gap-1.5 leading-tight">
+      <div className="pt-2 border-t border-hairline text-[10px] text-surface-400 flex items-start gap-1.5 leading-tight">
         <InformationCircleIcon className="w-3.5 h-3.5 text-surface-400 shrink-0 mt-0.5" />
         <span>{estimate.disclaimer}</span>
       </div>

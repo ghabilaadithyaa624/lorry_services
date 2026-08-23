@@ -108,7 +108,7 @@ export default function ActivityPage() {
                 'px-3.5 py-1.5 rounded-xl text-xs font-sans font-semibold transition-all cursor-pointer select-none',
                 activeCategory === c.id
                   ? 'bg-primary-500 text-white'
-                  : 'bg-[#0F131D] border border-white/10 text-surface-300 hover:bg-white/5 hover:text-white'
+                  : 'bg-panel border border-white/10 text-surface-300 hover:bg-white/5 hover:text-white'
               )}
             >
               {c.label}
@@ -149,7 +149,7 @@ export default function ActivityPage() {
                   <div key={act.id} className="relative group">
                     <div
                       className={cn(
-                        'absolute -left-6 sm:-left-8 top-0.5 w-6 h-6 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center border-2 border-[#070A11] shadow-card',
+                        'absolute -left-6 sm:-left-8 top-0.5 w-6 h-6 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center border-2 border-canvas shadow-card',
                         colorClass
                       )}
                     >
