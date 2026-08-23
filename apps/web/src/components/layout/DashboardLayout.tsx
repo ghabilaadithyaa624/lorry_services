@@ -228,6 +228,7 @@ export function DashboardLayout({
               >
               <button type="button" aria-label="Notifications" className="text-surface-400 hover:text-white transition-colors relative">
                 <BellAlertIcon className="w-5 h-5" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
                 <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-primary-500 rounded-full"></span>
               </button>
               <button type="button" onClick={handleLogout} aria-label="Sign out" className="text-surface-400 hover:text-danger-400 transition-colors" title="Sign Out">
@@ -274,6 +275,8 @@ export function DashboardLayout({
                   <button
                     type="button"
                     onClick={() => setSidebarOpen(false)}
+                    className="p-1 rounded-lg text-surface-400 hover:text-white hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none"
+                    aria-label="Close menu"
                     aria-label="Close navigation menu"
                     className="p-1 text-surface-400 hover:text-white"
                   >
