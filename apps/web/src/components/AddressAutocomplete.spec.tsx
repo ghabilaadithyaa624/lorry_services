@@ -49,7 +49,7 @@ describe('AddressAutocomplete component', () => {
       expect(inputChild?.props.id).toBe('pickup-address-input')
       expect(inputChild?.props.role).toBe('combobox')
       expect(inputChild?.props['aria-autocomplete']).toBe('list')
-      expect(inputChild?.props['aria-controls']).toBe('pickup-address-input-listbox')
+      expect(inputChild?.props['aria-controls']).toBe('address-listbox-test-id-1')
       expect(typeof inputChild?.props.onKeyDown).toBe('function')
     } finally {
       ReactInternals.ReactCurrentDispatcher.current = prevDispatcher
