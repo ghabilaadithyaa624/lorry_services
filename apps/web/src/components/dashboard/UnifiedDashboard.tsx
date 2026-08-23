@@ -5,8 +5,6 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   Truck,
-  Package,
-  MapPin,
   Search,
   ArrowRight,
   ShieldCheck,
@@ -14,27 +12,15 @@ import {
   Bell,
   Sparkles,
   AlertTriangle,
-  CreditCard,
   PlusCircle,
   CheckCircle2,
   Check,
-  RefreshCw,
-  FileText,
-  Lock,
-  Calendar,
   X,
   Menu,
-  Phone,
 } from 'lucide-react'
 import { api, usersApi, authApi } from '@/lib/api'
 import { Footer } from '@/components/layout'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
-import {
-  calculateMatchScore,
-  estimateFreightRate,
-  sortMarketplaceItems,
-  MatchResult,
-} from '@/lib/intelligence'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo } from '@/lib/utils'
 
@@ -307,25 +293,25 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const verifiedTruckCount = trucks.filter((t) => t.verificationStatus === 'Verified').length
 
   return (
-    <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
-      {/* ── 1. Sticky Top Navigation (Reused from Search Page) ── */}
-      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-xs">
+    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
+      {/* ── 1. Sticky Top Navigation ── */}
+      <header className="sticky top-0 z-40 w-full bg-[#0B0F19]/85 backdrop-blur-xl border-b border-white/10 shadow-modal">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
             {/* Left: Brand Logo */}
             <div className="flex items-center gap-8">
               <Link
                 href="/"
-                className="flex items-center gap-2.5 group focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 rounded-xl focus:outline-none"
+                className="flex items-center gap-2.5 group focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-xl focus:outline-none"
               >
-                <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white shadow-glow-primary transition-transform duration-200 group-hover:scale-105 border border-primary-400/30">
                   <Truck className="w-5 h-5 stroke-[2.4]" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xl font-black tracking-tight text-gray-900 leading-none">
-                    Lorry<span className="text-orange-500">Carry</span>
+                  <span className="text-xl font-black tracking-tight text-white leading-none">
+                    Lorry<span className="text-primary-500">Carry</span>
                   </span>
-                  <span className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-wider mt-0.5">
+                  <span className="text-[10px] font-mono font-bold text-surface-400 uppercase tracking-wider mt-0.5">
                     Direct Freight Network
                   </span>
                 </div>
@@ -338,10 +324,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                     key={link.name}
                     href={link.href}
                     className={cn(
-                      'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none',
+                      'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none',
                       link.active
-                        ? 'text-orange-600 bg-orange-50'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        ? 'text-primary-400 bg-primary-500/10 border border-primary-500/20'
+                        : 'text-surface-300 hover:text-white hover:bg-white/5'
                     )}
                   >
                     {link.name}
@@ -353,27 +339,27 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             {/* Right Actions & User Profile */}
             <div className="hidden sm:flex items-center gap-3">
               {/* Notification Bell */}
-              <button
-                type="button"
-                className="relative p-2.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+              <Link
+                href="/notifications"
+                className="relative p-2.5 text-surface-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer border border-transparent hover:border-white/10"
                 title="Notifications"
                 aria-label="Notifications"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white" />
-              </button>
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500 shadow-glow-primary ring-2 ring-[#0B0F19]" />
+              </Link>
 
               {/* User Account / Role Pill */}
               <div className="flex items-center gap-3">
                 <Link
                   href="/profile"
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 hover:border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:text-gray-900 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none shadow-2xs"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 bg-surface-900/80 backdrop-blur-md text-xs font-semibold text-surface-200 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none shadow-card"
                 >
-                  <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-xs">
+                  <div className="w-7 h-7 rounded-full bg-primary-500/20 text-primary-300 font-bold flex items-center justify-center text-xs border border-primary-500/30">
                     {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                   </div>
                   <span className="max-w-[120px] truncate">{user?.name || user?.phone || 'My Account'}</span>
-                  <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px] font-mono">
+                  <span className="px-2 py-0.5 rounded-md bg-surface-950 text-surface-400 text-[10px] font-mono border border-white/5">
                     {isTruckOwner ? 'Fleet Owner' : 'Shipper'}
                   </span>
                 </Link>
@@ -381,7 +367,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus:outline-none cursor-pointer"
+                  className="text-xs font-medium text-surface-400 hover:text-danger-400 px-2 py-1.5 rounded-lg hover:bg-danger-950/30 transition-colors focus-visible:ring-2 focus-visible:ring-danger-500 focus:outline-none cursor-pointer"
                 >
                   Sign out
                 </button>
@@ -392,7 +378,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             <div className="flex md:hidden items-center gap-2">
               <button
                 type="button"
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
+                className="p-2 text-surface-400 hover:text-white hover:bg-white/5 rounded-xl focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none border border-white/5"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-expanded={mobileMenuOpen}
                 aria-label={mobileMenuOpen ? 'Close main menu' : 'Open main menu'}
@@ -405,7 +391,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-200 px-4 py-4 space-y-3 shadow-lg">
+          <div className="md:hidden bg-[#0F131D]/95 backdrop-blur-2xl border-t border-white/10 px-4 py-4 space-y-3 shadow-modal">
             <nav className="space-y-1">
               {navLinks.map((link) => (
                 <Link
@@ -414,7 +400,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
                     'block px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors',
-                    link.active ? 'bg-orange-50 text-orange-600' : 'text-gray-700 hover:bg-gray-50'
+                    link.active ? 'bg-primary-500/10 text-primary-400' : 'text-surface-300 hover:bg-white/5 hover:text-white'
                   )}
                 >
                   {link.name}
@@ -422,18 +408,18 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
               ))}
             </nav>
 
-            <div className="pt-3 border-t border-gray-100 space-y-2">
+            <div className="pt-3 border-t border-white/10 space-y-2">
               <Link
                 href="/profile"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3.5 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 rounded-xl"
+                className="block px-3.5 py-2 text-sm font-semibold text-surface-200 hover:bg-white/5 rounded-xl"
               >
                 Account Settings & KYC
               </Link>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full text-left px-3.5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl"
+                className="w-full text-left px-3.5 py-2 text-sm font-semibold text-danger-400 hover:bg-danger-950/30 rounded-xl"
               >
                 Sign out
               </button>
@@ -446,16 +432,16 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
       <main className="flex-1 py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
         {/* ── 2. KYC Verification Status Banner (Only when incomplete) ── */}
         {!kycComplete && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-modal">
             <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
                 <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
               </div>
               <div className="space-y-0.5">
-                <h2 className="text-sm sm:text-base font-bold text-amber-900">
+                <h2 className="text-sm sm:text-base font-bold text-amber-200">
                   KYC & Vehicle Verification Incomplete
                 </h2>
-                <p className="text-xs sm:text-sm text-amber-700 leading-relaxed">
+                <p className="text-xs sm:text-sm text-amber-300/80 leading-relaxed">
                   Upload your RC book and Commercial Insurance documents to enable direct carrier matching, instant booking confirmation, and compliance clearance.
                 </p>
               </div>
@@ -463,7 +449,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
             <Link
               href="/profile"
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs sm:text-sm font-semibold transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus:outline-none shrink-0 shadow-xs cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-amber-950 text-xs sm:text-sm font-bold transition-all shrink-0 shadow-glow-sm cursor-pointer"
             >
               <span>Complete Verification</span>
               <ArrowRight className="w-4 h-4" />
@@ -472,22 +458,22 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         )}
 
         {/* ── 4. Quick Actions Header & Role Greeting ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-glow-sm" />
                 <span>Live Freight Network Online</span>
               </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 text-xs font-semibold font-mono">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary-500/10 text-primary-400 border border-primary-500/20 text-xs font-semibold font-mono">
                 {isTruckOwner ? 'Fleet Owner' : 'Manufacturer / Trader'}
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Good morning, {user?.name || (isTruckOwner ? 'Fleet Transporter' : 'Cargo Shipper')}
             </h1>
-            <p className="text-xs sm:text-sm text-gray-500">
+            <p className="text-xs sm:text-sm text-surface-400">
               Direct marketplace operating command • Zero middleman brokerage
             </p>
           </div>
@@ -498,16 +484,16 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
               <>
                 <Link
                   href="/my-trucks"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs sm:text-sm font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
                 >
                   <PlusCircle className="w-4 h-4" />
                   <span>Register Truck</span>
                 </Link>
                 <Link
                   href="/search?type=load"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none shadow-2xs"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-900/80 hover:bg-surface-800 border border-white/10 text-surface-200 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none shadow-card"
                 >
-                  <Search className="w-4 h-4 text-orange-500" />
+                  <Search className="w-4 h-4 text-primary-400" />
                   <span>Find Freight Loads</span>
                 </Link>
               </>
@@ -515,16 +501,16 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
               <>
                 <Link
                   href="/post-load"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs sm:text-sm font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
                 >
                   <PlusCircle className="w-4 h-4" />
                   <span>Post Freight Load</span>
                 </Link>
                 <Link
                   href="/search?type=truck"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none shadow-2xs"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-900/80 hover:bg-surface-800 border border-white/10 text-surface-200 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none shadow-card"
                 >
-                  <Search className="w-4 h-4 text-orange-500" />
+                  <Search className="w-4 h-4 text-primary-400" />
                   <span>Find Available Lorries</span>
                 </Link>
               </>
@@ -533,15 +519,15 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         </div>
 
         {/* ── 3. Subscription Status & Upsell Card ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-5 sm:p-6 shadow-modal hover:border-primary-500/30 transition-all">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
               <div
                 className={cn(
                   'w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border',
                   hasSubscription
-                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                    : 'bg-orange-50 text-orange-600 border-orange-200'
+                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30'
+                    : 'bg-primary-500/10 text-primary-400 border-primary-500/20'
                 )}
               >
                 {hasSubscription ? (
@@ -553,7 +539,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base sm:text-lg font-bold text-gray-900">
+                  <h2 className="text-base sm:text-lg font-bold text-white">
                     {hasSubscription
                       ? 'National Enterprise Subscription Active'
                       : 'Unlock Direct Contact Access on Matched Trucks & Loads'}
@@ -562,15 +548,15 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                     className={cn(
                       'px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono border',
                       hasSubscription
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-orange-50 text-orange-700 border-orange-200'
+                        ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30'
+                        : 'bg-primary-500/10 text-primary-400 border-primary-500/20'
                     )}
                   >
                     {hasSubscription ? 'Pass Active' : 'Upgrade Available'}
                   </span>
                 </div>
 
-                <p className="text-xs sm:text-sm text-gray-600 leading-relaxed max-w-3xl">
+                <p className="text-xs sm:text-sm text-surface-300 leading-relaxed max-w-3xl">
                   {hasSubscription
                     ? 'Unlimited direct telephone contact and direct WhatsApp dispatch unlocked across all highway freight corridors with zero brokerage fees.'
                     : 'Unlock verified contact numbers and direct WhatsApp dispatch for all matched vehicles and consignments across Indian freight corridors.'}
@@ -581,10 +567,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             <Link
               href="/subscribe"
               className={cn(
-                'inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-colors shrink-0 shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none cursor-pointer',
+                'inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 shadow-card focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer',
                 hasSubscription
-                  ? 'bg-gray-100 hover:bg-gray-200 text-gray-800'
-                  : 'bg-orange-500 hover:bg-orange-600 text-white'
+                  ? 'bg-surface-900 hover:bg-surface-800 border border-white/10 text-white'
+                  : 'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-glow-primary border border-primary-400/30'
               )}
             >
               <span>{hasSubscription ? 'Manage Pass' : 'View Subscription Plans'}</span>
@@ -597,118 +583,118 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
           {isTruckOwner ? (
             <>
-              <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   FLEET CAPACITY
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold font-mono text-gray-900 mt-1">
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
                   {loading ? '...' : `${fleetSize} Vehicles`}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">Registered lorries</div>
+                <div className="text-xs text-surface-400 mt-0.5">Registered lorries</div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   VAHAN VERIFIED
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-700 mt-1">
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400 mt-1">
                   {loading ? '...' : `${verifiedTruckCount} Compliant`}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">RTO authenticated</div>
+                <div className="text-xs text-surface-400 mt-0.5">RTO authenticated</div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   LIVE CONSIGNMENTS
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold font-mono text-orange-600 mt-1">
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-primary-400 mt-1">
                   {loading ? '...' : inTransitCount}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">Active in transit</div>
+                <div className="text-xs text-surface-400 mt-0.5">Active in transit</div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   COMPLETED TRIPS
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold font-mono text-gray-900 mt-1">
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
                   {loading ? '...' : completedCount}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">POD verified delivery</div>
+                <div className="text-xs text-surface-400 mt-0.5">POD verified delivery</div>
               </div>
             </>
           ) : (
             <>
-              <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   ACTIVE CARGO
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold font-mono text-gray-900 mt-1">
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
                   {loading ? '...' : activeLoadCount}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">Open & matched loads</div>
+                <div className="text-xs text-surface-400 mt-0.5">Open & matched loads</div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   IN TRANSIT
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold font-mono text-orange-600 mt-1">
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-primary-400 mt-1">
                   {loading ? '...' : inTransitCount}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">Live highway haulage</div>
+                <div className="text-xs text-surface-400 mt-0.5">Live highway haulage</div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   NEARBY LORRIES
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-700 mt-1">
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400 mt-1">
                   {loading ? '...' : `${trucks.length} Matches`}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">Within 100 km radius</div>
+                <div className="text-xs text-surface-400 mt-0.5">Within 100 km radius</div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                   COMPLETED HAULS
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold font-mono text-gray-900 mt-1">
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
                   {loading ? '...' : completedCount}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">Zero broker fee payout</div>
+                <div className="text-xs text-surface-400 mt-0.5">Zero broker fee payout</div>
               </div>
             </>
           )}
         </div>
 
         {/* ── 5. My Trips Widget (Active & Completed Tabs) ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-7 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-200">
+        <div className="bg-[#0F131D] rounded-2xl border border-white/10 shadow-modal p-5 sm:p-7 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-primary-500/10 text-primary-400 flex items-center justify-center border border-primary-500/20 shrink-0">
                 <Truck className="w-5 h-5 stroke-[2.2]" />
               </div>
               <div>
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+                <h2 className="text-lg sm:text-xl font-bold text-white">
                   Consignment Trips & Milestone Telemetry
                 </h2>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-surface-400">
                   Record-only checkpoint tracking and payment settlement milestones
                 </p>
               </div>
             </div>
 
             {/* Tabs: Active / Completed */}
-            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
+            <div className="flex items-center gap-2 bg-surface-950 p-1 rounded-xl border border-white/10">
               <button
                 type="button"
                 onClick={() => setTripTab('active')}
                 className={cn(
-                  'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none',
+                  'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none',
                   tripTab === 'active'
-                    ? 'bg-white text-gray-900 shadow-xs'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-primary-500 text-white shadow-glow-primary'
+                    : 'text-surface-400 hover:text-white'
                 )}
               >
                 Active Trips ({activeTrips.length})
@@ -717,10 +703,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 type="button"
                 onClick={() => setTripTab('completed')}
                 className={cn(
-                  'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none',
+                  'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none',
                   tripTab === 'completed'
-                    ? 'bg-white text-gray-900 shadow-xs'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-primary-500 text-white shadow-glow-primary'
+                    : 'text-surface-400 hover:text-white'
                 )}
               >
                 Completed ({completedTrips.length})
@@ -732,20 +718,20 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
           {tripTab === 'active' ? (
             activeTrips.length === 0 ? (
               /* Empty State for Active Trips */
-              <div className="p-8 sm:p-12 text-center space-y-3 bg-gray-50/60 rounded-2xl border border-gray-100">
-                <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto border border-orange-100">
+              <div className="p-8 sm:p-12 text-center space-y-3 bg-surface-950/60 rounded-2xl border border-white/5">
+                <div className="w-14 h-14 rounded-2xl bg-primary-500/10 text-primary-400 flex items-center justify-center mx-auto border border-primary-500/20">
                   <Truck className="w-7 h-7 stroke-[1.8]" />
                 </div>
-                <h3 className="text-base sm:text-lg font-bold text-gray-900">
+                <h3 className="text-base sm:text-lg font-bold text-white">
                   No active trips in transit
                 </h3>
-                <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+                <p className="text-xs sm:text-sm text-surface-400 max-w-md mx-auto leading-relaxed">
                   Your scheduled and en-route freight consignments will appear here with checkpoint-level milestone telemetry and payment stages.
                 </p>
                 <div className="pt-2">
                   <Link
                     href={isTruckOwner ? '/search?type=load' : '/post-load'}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 border border-primary-500/30 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none"
                   >
                     <span>{isTruckOwner ? 'Find Freight Loads' : 'Post a Freight Load'}</span>
                     <ArrowRight className="w-4 h-4" />
@@ -766,74 +752,74 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                   return (
                     <div
                       key={trip.id}
-                      className="p-5 rounded-2xl bg-white border border-gray-200 shadow-xs hover:border-gray-300 transition-all space-y-4"
+                      className="p-5 rounded-2xl bg-surface-950/80 border border-white/5 shadow-card hover:border-white/15 transition-all space-y-4"
                     >
                       {/* Trip Header */}
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono font-bold text-gray-900 text-sm sm:text-base">
+                            <span className="font-mono font-bold text-white text-sm sm:text-base">
                               TRIP-{trip.id.slice(0, 8).toUpperCase()}
                             </span>
-                            <span className="px-2.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 text-xs font-semibold">
+                            <span className="px-2.5 py-0.5 rounded-full bg-primary-500/20 text-primary-300 border border-primary-500/30 text-xs font-semibold">
                               In Transit • Checkpoint 2/5
                             </span>
-                            <span className="px-2.5 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-200 text-xs font-mono font-medium">
+                            <span className="px-2.5 py-0.5 rounded-full bg-surface-900 text-surface-300 border border-white/10 text-xs font-mono font-medium">
                               {trip.truck?.registrationNumber || 'MH-12-TRUCK'}
                             </span>
                           </div>
 
-                          <div className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2">
+                          <div className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
                             <span>{trip.load?.loadingAddress || 'Origin Centerpoint'}</span>
-                            <ArrowRight className="w-4 h-4 text-orange-500 shrink-0" />
+                            <ArrowRight className="w-4 h-4 text-primary-400 shrink-0" />
                             <span>{trip.load?.unloadingAddress || 'Destination Hub'}</span>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0">
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             AGREED FREIGHT
                           </div>
-                          <div className="text-base sm:text-lg font-bold font-mono text-gray-900">
+                          <div className="text-base sm:text-lg font-bold font-mono text-emerald-400">
                             {formatINR(trip.agreedPrice || 48000)}
                           </div>
                         </div>
                       </div>
 
                       {/* 4-Column Checkpoint Telemetry Readout Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 rounded-xl p-3 border border-gray-100">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0F131D]/90 rounded-xl p-3 border border-white/5">
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             ORIGIN HUB
                           </div>
-                          <div className="text-xs sm:text-sm font-bold text-gray-900 font-mono mt-0.5 truncate">
+                          <div className="text-xs sm:text-sm font-bold text-white font-mono mt-0.5 truncate">
                             {trip.load?.loadingAddress?.split(',')[0] || 'Origin'}
                           </div>
                         </div>
 
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             CURRENT CHECKPOINT
                           </div>
-                          <div className="text-xs sm:text-sm font-bold text-orange-600 font-mono mt-0.5 truncate">
+                          <div className="text-xs sm:text-sm font-bold text-primary-400 font-mono mt-0.5 truncate">
                             Checkpoint 2 (Passed)
                           </div>
                         </div>
 
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             DESTINATION
                           </div>
-                          <div className="text-xs sm:text-sm font-bold text-gray-900 font-mono mt-0.5 truncate">
+                          <div className="text-xs sm:text-sm font-bold text-white font-mono mt-0.5 truncate">
                             {trip.load?.unloadingAddress?.split(',')[0] || 'Destination'}
                           </div>
                         </div>
 
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             MILESTONE ETA
                           </div>
-                          <div className="text-xs sm:text-sm font-bold text-gray-900 font-mono mt-0.5">
+                          <div className="text-xs sm:text-sm font-bold text-white font-mono mt-0.5">
                             Est. 4h 30m
                           </div>
                         </div>
@@ -841,9 +827,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
                       {/* Compact Checkpoint Milestone Progress Bar */}
                       <div className="space-y-1.5 pt-1">
-                        <div className="flex items-center justify-between text-[11px] font-medium text-gray-500">
+                        <div className="flex items-center justify-between text-[11px] font-medium text-surface-400">
                           <span>Corridor Checkpoints (Record-only verification)</span>
-                          <span className="font-mono text-gray-700 font-semibold">2 of 5 recorded</span>
+                          <span className="font-mono text-surface-300 font-semibold">2 of 5 recorded</span>
                         </div>
                         <div className="grid grid-cols-5 gap-1.5">
                           {checkpoints.map((cp, idx) => {
@@ -855,13 +841,13 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                                   className={cn(
                                     'h-2 rounded-full transition-colors',
                                     isDone
-                                      ? 'bg-emerald-500'
+                                      ? 'bg-emerald-500 shadow-glow-sm'
                                       : isCurrent
-                                      ? 'bg-orange-500'
-                                      : 'bg-gray-200'
+                                      ? 'bg-primary-500 shadow-glow-primary'
+                                      : 'bg-surface-900 border border-white/5'
                                   )}
                                 />
-                                <span className="block text-[10px] font-mono text-gray-500 truncate">
+                                <span className="block text-[10px] font-mono text-surface-400 truncate">
                                   {cp.name}
                                 </span>
                               </div>
@@ -871,9 +857,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                       </div>
 
                       {/* Payment State Row */}
-                      <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-emerald-50/40 p-3 rounded-xl border border-emerald-100">
-                        <div className="flex items-center gap-2 text-emerald-900 font-medium">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div className="pt-3 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-emerald-950/30 p-3 rounded-xl border border-emerald-500/20">
+                        <div className="flex items-center gap-2 text-emerald-300 font-medium">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                           <span>
                             <strong>Payment Status:</strong> 50% advance paid, balance due on unloading confirmation
                           </span>
@@ -881,7 +867,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
                         <Link
                           href={`/tracking?bookingId=${trip.id}`}
-                          className="inline-flex items-center gap-1 font-bold text-orange-600 hover:text-orange-700 transition-colors shrink-0"
+                          className="inline-flex items-center gap-1 font-bold text-primary-400 hover:text-primary-300 transition-colors shrink-0"
                         >
                           <span>Track Milestone Checkpoints</span>
                           <ArrowRight className="w-3.5 h-3.5" />
@@ -895,14 +881,14 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
           ) : (
             /* Completed Trips Content */
             completedTrips.length === 0 ? (
-              <div className="p-8 sm:p-12 text-center space-y-3 bg-gray-50/60 rounded-2xl border border-gray-100">
-                <div className="w-14 h-14 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center mx-auto">
+              <div className="p-8 sm:p-12 text-center space-y-3 bg-surface-950/60 rounded-2xl border border-white/5">
+                <div className="w-14 h-14 rounded-2xl bg-surface-900 text-surface-400 flex items-center justify-center mx-auto border border-white/5">
                   <Check className="w-7 h-7 stroke-[2]" />
                 </div>
-                <h3 className="text-base sm:text-lg font-bold text-gray-900">
+                <h3 className="text-base sm:text-lg font-bold text-white">
                   No completed trips yet
                 </h3>
-                <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+                <p className="text-xs sm:text-sm text-surface-400 max-w-md mx-auto leading-relaxed">
                   Finished freight journeys with verified proof of delivery (POD) and settled balances will be archived here.
                 </p>
               </div>
@@ -911,27 +897,27 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 {completedTrips.map((trip) => (
                   <div
                     key={trip.id}
-                    className="p-4 rounded-xl bg-gray-50 border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    className="p-4 rounded-xl bg-surface-950/80 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-card"
                   >
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-gray-800 text-xs">
+                        <span className="font-mono font-bold text-white text-xs">
                           TRIP-{trip.id.slice(0, 8).toUpperCase()}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold">
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold">
                           Delivered & POD Verified
                         </span>
                       </div>
-                      <p className="text-xs font-semibold text-gray-700">
+                      <p className="text-xs font-semibold text-surface-300">
                         {trip.load?.loadingAddress} ➔ {trip.load?.unloadingAddress}
                       </p>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <span className="font-mono font-bold text-xs text-gray-900 block">
+                      <span className="font-mono font-bold text-xs text-emerald-400 block">
                         {formatINR(trip.agreedPrice || 35000)}
                       </span>
-                      <span className="text-[10px] text-emerald-600 font-semibold">
+                      <span className="text-[10px] text-emerald-400/80 font-semibold">
                         100% Payout Settled
                       </span>
                     </div>
@@ -945,32 +931,32 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         {/* ── 6. Activity & Notifications Feed + Match Recommendations ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Recent Activity Feed (7 cols) */}
-          <div className="lg:col-span-7 bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+          <div className="lg:col-span-7 bg-[#0F131D] rounded-2xl border border-white/10 shadow-modal p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">
-                <Clock className="w-5 h-5 text-orange-500" />
-                <h3 className="text-base font-bold text-gray-900">Recent Operational Activity</h3>
+                <Clock className="w-5 h-5 text-primary-400" />
+                <h3 className="text-base font-bold text-white">Recent Operational Activity</h3>
               </div>
-              <span className="text-xs text-gray-400 font-mono">Live log</span>
+              <span className="text-xs text-surface-400 font-mono">Live log</span>
             </div>
 
             {activities.length === 0 ? (
-              <div className="p-8 text-center space-y-2 bg-gray-50/60 rounded-xl border border-gray-100">
-                <Bell className="w-8 h-8 text-gray-400 mx-auto" />
-                <p className="text-sm font-bold text-gray-800">All caught up</p>
-                <p className="text-xs text-gray-500">
+              <div className="p-8 text-center space-y-2 bg-surface-950/60 rounded-xl border border-white/5">
+                <Bell className="w-8 h-8 text-surface-400 mx-auto" />
+                <p className="text-sm font-bold text-white">All caught up</p>
+                <p className="text-xs text-surface-400">
                   Operational alerts and milestone updates will appear here in real time as consignments progress.
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100 space-y-0">
+              <div className="divide-y divide-white/5 space-y-0">
                 {activities.slice(0, 5).map((act) => (
                   <div key={act.id} className="py-3 flex items-start gap-3 first:pt-0 last:pb-0">
-                    <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100 shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-xl bg-surface-950 text-primary-400 border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
                       {act.type === 'kyc' ? (
                         <ShieldCheck className="w-4 h-4" />
                       ) : act.type === 'booking' ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                       ) : (
                         <Sparkles className="w-4 h-4" />
                       )}
@@ -978,14 +964,14 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
                     <div className="flex-1 min-w-0 space-y-0.5">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+                        <p className="text-xs sm:text-sm font-bold text-white truncate">
                           {act.title}
                         </p>
-                        <span className="text-[10px] font-mono text-gray-400 shrink-0">
+                        <span className="text-[10px] font-mono text-surface-400 shrink-0">
                           {timeAgo(act.timestamp)}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-600 leading-relaxed">{act.description}</p>
+                      <p className="text-xs text-surface-300 leading-relaxed">{act.description}</p>
                     </div>
                   </div>
                 ))}
@@ -994,17 +980,17 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
           </div>
 
           {/* Quick Match Opportunities (5 cols) */}
-          <div className="lg:col-span-5 bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+          <div className="lg:col-span-5 bg-[#0F131D] rounded-2xl border border-white/10 shadow-modal p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-orange-500" />
-                <h3 className="text-base font-bold text-gray-900">
+                <Sparkles className="w-5 h-5 text-primary-400" />
+                <h3 className="text-base font-bold text-white">
                   {isTruckOwner ? 'High-Yield Backhauls' : 'Nearby Matched Lorries'}
                 </h3>
               </div>
               <Link
                 href={isTruckOwner ? '/search?type=load' : '/search?type=truck'}
-                className="text-xs font-semibold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1"
+                className="text-xs font-semibold text-primary-400 hover:text-primary-300 inline-flex items-center gap-1"
               >
                 <span>View all</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -1015,25 +1001,25 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
               {trucks.slice(0, 3).map((item, idx) => (
                 <div
                   key={item.id || idx}
-                  className="p-3.5 rounded-xl bg-gray-50/80 border border-gray-100 hover:border-gray-200 transition-colors flex items-center justify-between gap-3"
+                  className="p-3.5 rounded-xl bg-surface-950/80 border border-white/5 hover:border-white/15 transition-all flex items-center justify-between gap-3 shadow-card"
                 >
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono font-bold text-xs text-gray-900">
+                      <span className="font-mono font-bold text-xs text-white">
                         {item.registrationNumber || 'MH-12-TRUCK'}
                       </span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold">
                         Vahan Verified
                       </span>
                     </div>
-                    <div className="text-xs text-gray-500 font-medium">
+                    <div className="text-xs text-surface-400 font-medium">
                       {item.bodyType || 'Open'} Body • {item.tonnageCapacity || 16}T Capacity
                     </div>
                   </div>
 
                   <Link
                     href={`/search?type=truck`}
-                    className="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors shadow-2xs shrink-0"
+                    className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs font-bold transition-all shadow-glow-primary shrink-0 border border-primary-400/30"
                   >
                     Match Lorry
                   </Link>

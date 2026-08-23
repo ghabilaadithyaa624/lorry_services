@@ -289,37 +289,37 @@ export function DigitalDocumentChainCard({
       </div>
 
       {/* PDF Generation Backend Capability Callout */}
-      <div className="p-4 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-200/60 dark:border-surface-700 text-xs space-y-1">
-        <span className="font-bold text-surface-900 dark:text-white block">
+      <div className="p-4 rounded-xl bg-surface-950/80 border border-white/5 text-xs space-y-1">
+        <span className="font-bold text-white block">
           ℹ Server-Side PDF Document Generation Architecture
         </span>
-        <p className="text-[11px] text-surface-500 dark:text-surface-400">
+        <p className="text-[11px] text-surface-400">
           Digital document metadata and pre-signed S3 links are fully operational. For automated server-side PDF rendering (Lorry Receipt Form 23 & Tax Invoices), integrate NestJS PDFKit / Puppeteer templates into `@lorrycarry/api`.
         </p>
       </div>
 
       {/* ── UPLOAD MODAL ── */}
       {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
-          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
-              <h3 className="text-base font-bold text-surface-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-[#0F131D] rounded-2xl border border-white/15 max-w-md w-full p-6 shadow-modal space-y-4 text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <h3 className="text-base font-bold text-white">
                 Upload to Digital Freight Chain
               </h3>
-              <button onClick={() => setUploadModalOpen(false)} className="text-surface-400 hover:text-surface-600">
+              <button onClick={() => setUploadModalOpen(false)} className="text-surface-400 hover:text-white cursor-pointer">
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSimulateUpload} className="space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                <label className="block font-bold text-surface-300 mb-1">
                   Document Stage
                 </label>
                 <select
                   value={uploadStage}
                   onChange={(e) => setUploadStage(e.target.value)}
-                  className="input font-bold"
+                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white text-xs font-bold focus:outline-none focus:border-primary-500"
                 >
                   <option value="BOOKING">Booking Advice / LR</option>
                   <option value="EWAY_BILL">E-Way Bill (EWB-01)</option>
@@ -332,7 +332,7 @@ export function DigitalDocumentChainCard({
               </div>
 
               <div>
-                <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                <label className="block font-bold text-surface-300 mb-1">
                   Document Number / Reference
                 </label>
                 <input
@@ -340,13 +340,13 @@ export function DigitalDocumentChainCard({
                   value={docNumberInput}
                   onChange={(e) => setDocNumberInput(e.target.value)}
                   placeholder="e.g. EWB-2940-1928 or POD-8492"
-                  className="input font-mono"
+                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-primary-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                <label className="block font-bold text-surface-300 mb-1">
                   Sign-off Authority / Consignee Name
                 </label>
                 <input
@@ -354,19 +354,19 @@ export function DigitalDocumentChainCard({
                   value={consigneeInput}
                   onChange={(e) => setConsigneeInput(e.target.value)}
                   placeholder="e.g. Ramesh Kumar (Warehouse Depot Manager)"
-                  className="input"
+                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-primary-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                <label className="block font-bold text-surface-300 mb-1">
                   Attachment File (PDF, JPG, PNG — Encrypted S3 Upload)
                 </label>
                 <input
                   type="file"
                   accept="application/pdf,image/jpeg,image/png"
-                  className="w-full text-xs text-surface-600 dark:text-surface-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary-50 file:text-primary-700 cursor-pointer"
+                  className="w-full text-xs text-surface-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary-500/10 file:text-primary-400 cursor-pointer"
                   required
                 />
               </div>
@@ -377,7 +377,7 @@ export function DigitalDocumentChainCard({
                   variant="primary"
                   size="lg"
                   fullWidth
-                  className="font-bold py-3 text-xs"
+                  className="font-bold py-3 text-xs shadow-glow-primary"
                 >
                   Upload & Sign S3 Document
                 </Button>
@@ -389,32 +389,32 @@ export function DigitalDocumentChainCard({
 
       {/* ── PHOTO PREVIEW MODAL ── */}
       {previewPhotoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
-          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-lg w-full p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-surface-100 dark:border-surface-800">
-              <h3 className="text-sm font-bold text-surface-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-[#0F131D] rounded-2xl border border-white/15 max-w-lg w-full p-5 shadow-modal space-y-4 text-white">
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <h3 className="text-sm font-bold text-white">
                 Proof of Delivery (POD) Attachment Preview
               </h3>
-              <button onClick={() => setPreviewPhotoModal(null)} className="text-surface-400 hover:text-surface-600">
+              <button onClick={() => setPreviewPhotoModal(null)} className="text-surface-400 hover:text-white cursor-pointer">
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="rounded-xl overflow-hidden bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 p-2 text-center">
-              <div className="w-full h-64 bg-surface-900/90 rounded-lg flex flex-col items-center justify-center text-white space-y-2 p-6">
+            <div className="rounded-xl overflow-hidden bg-surface-950 border border-white/5 p-2 text-center">
+              <div className="w-full h-64 bg-[#0F131D]/90 rounded-lg flex flex-col items-center justify-center text-white space-y-2 p-6">
                 <PhotoIcon className="w-12 h-12 text-primary-400" />
                 <span className="font-bold text-sm">Consignee Verified POD Slip</span>
                 <span className="text-xs text-surface-400 font-mono">
                   Sign-off: {consigneeName} • Booking #{bookingNumber}
                 </span>
-                <span className="text-[10px] text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-800">
+                <span className="text-[10px] text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-500/30">
                   ✓ AWS S3 Private Encrypted Object • HMAC Signed URL
                 </span>
               </div>
             </div>
 
             <div className="flex justify-end">
-              <Button variant="secondary" size="sm" onClick={() => setPreviewPhotoModal(null)}>
+              <Button variant="secondary" size="sm" onClick={() => setPreviewPhotoModal(null)} className="border-white/10">
                 Close Preview
               </Button>
             </div>

@@ -12,18 +12,12 @@ import {
   Clock,
   AlertCircle,
   Sparkles,
-  CheckCircle2,
   Pencil,
   Power,
-  FileText,
   Upload,
-  RefreshCw,
   X,
   Menu,
   Bell,
-  MapPin,
-  ChevronDown,
-  Navigation,
 } from 'lucide-react'
 import { api, trucksApi, authApi } from '@/lib/api'
 import { Footer } from '@/components/layout'
@@ -320,25 +314,25 @@ export default function MyFleetPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+    <div className="min-h-screen bg-[#070A11] text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
       {/* ── 1. Sticky Top Navigation ── */}
-      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-xs">
+      <header className="sticky top-0 z-40 w-full bg-[#0B0F19]/85 backdrop-blur-xl border-b border-white/10 shadow-modal">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
             {/* Brand Logo */}
             <div className="flex items-center gap-8">
               <Link
                 href="/"
-                className="flex items-center gap-2.5 group focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 rounded-xl focus:outline-none"
+                className="flex items-center gap-2.5 group focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-xl focus:outline-none"
               >
-                <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white shadow-glow-primary transition-transform duration-200 group-hover:scale-105 border border-primary-400/30">
                   <Truck className="w-5 h-5 stroke-[2.4]" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xl font-black tracking-tight text-gray-900 leading-none">
-                    Lorry<span className="text-orange-500">Carry</span>
+                  <span className="text-xl font-black tracking-tight text-white leading-none">
+                    Lorry<span className="text-primary-500">Carry</span>
                   </span>
-                  <span className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-wider mt-0.5">
+                  <span className="text-[10px] font-mono font-bold text-surface-400 uppercase tracking-wider mt-0.5">
                     Direct Freight Network
                   </span>
                 </div>
@@ -351,10 +345,10 @@ export default function MyFleetPage() {
                     key={link.name}
                     href={link.href}
                     className={cn(
-                      'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none',
+                      'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none',
                       link.active
-                        ? 'text-orange-600 bg-orange-50'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        ? 'text-primary-400 bg-primary-500/10 border border-primary-500/20'
+                        : 'text-surface-300 hover:text-white hover:bg-white/5'
                     )}
                   >
                     {link.name}
@@ -365,26 +359,26 @@ export default function MyFleetPage() {
 
             {/* Right Actions & User Profile */}
             <div className="hidden sm:flex items-center gap-3">
-              <button
-                type="button"
-                className="relative p-2.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+              <Link
+                href="/notifications"
+                className="relative p-2.5 text-surface-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer border border-transparent hover:border-white/10"
                 title="Notifications"
                 aria-label="Notifications"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white" />
-              </button>
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500 shadow-glow-primary ring-2 ring-[#0B0F19]" />
+              </Link>
 
               <div className="flex items-center gap-3">
                 <Link
                   href="/dashboard/truck-owner"
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 hover:border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:text-gray-900 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none shadow-2xs"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 bg-surface-900/80 backdrop-blur-md text-xs font-semibold text-surface-200 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none shadow-card"
                 >
-                  <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-xs">
+                  <div className="w-7 h-7 rounded-full bg-primary-500/20 text-primary-300 font-bold flex items-center justify-center text-xs border border-primary-500/30">
                     {user?.name ? user.name.charAt(0).toUpperCase() : 'F'}
                   </div>
                   <span>Dashboard</span>
-                  <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px] font-mono">
+                  <span className="px-2 py-0.5 rounded-md bg-surface-950 text-surface-400 text-[10px] font-mono border border-white/5">
                     Fleet Owner
                   </span>
                 </Link>
@@ -392,7 +386,7 @@ export default function MyFleetPage() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus:outline-none cursor-pointer"
+                  className="text-xs font-medium text-surface-400 hover:text-danger-400 px-2 py-1.5 rounded-lg hover:bg-danger-950/30 transition-colors focus-visible:ring-2 focus-visible:ring-danger-500 focus:outline-none cursor-pointer"
                 >
                   Sign out
                 </button>
@@ -403,7 +397,7 @@ export default function MyFleetPage() {
             <div className="flex md:hidden items-center gap-2">
               <button
                 type="button"
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
+                className="p-2 text-surface-400 hover:text-white hover:bg-white/5 rounded-xl focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none border border-white/5"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-expanded={mobileMenuOpen}
                 aria-label={mobileMenuOpen ? 'Close main menu' : 'Open main menu'}
@@ -416,7 +410,7 @@ export default function MyFleetPage() {
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-200 px-4 py-4 space-y-3 shadow-lg">
+          <div className="md:hidden bg-[#0F131D]/95 backdrop-blur-2xl border-t border-white/10 px-4 py-4 space-y-3 shadow-modal">
             <nav className="space-y-1">
               {navLinks.map((link) => (
                 <Link
@@ -425,7 +419,7 @@ export default function MyFleetPage() {
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
                     'block px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors',
-                    link.active ? 'bg-orange-50 text-orange-600' : 'text-gray-700 hover:bg-gray-50'
+                    link.active ? 'bg-primary-500/10 text-primary-400' : 'text-surface-300 hover:bg-white/5 hover:text-white'
                   )}
                 >
                   {link.name}
@@ -433,18 +427,18 @@ export default function MyFleetPage() {
               ))}
             </nav>
 
-            <div className="pt-3 border-t border-gray-100 space-y-2">
+            <div className="pt-3 border-t border-white/10 space-y-2">
               <Link
                 href="/dashboard/truck-owner"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3.5 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 rounded-xl"
+                className="block px-3.5 py-2 text-sm font-semibold text-surface-200 hover:bg-white/5 rounded-xl"
               >
                 Fleet Dashboard
               </Link>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full text-left px-3.5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl"
+                className="w-full text-left px-3.5 py-2 text-sm font-semibold text-danger-400 hover:bg-danger-950/30 rounded-xl"
               >
                 Sign out
               </button>
@@ -456,22 +450,22 @@ export default function MyFleetPage() {
       {/* ── Main Workspace ── */}
       <main className="flex-1 py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
         {/* ── 2. Page Header & Add Truck CTA ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
-                <ShieldCheck className="w-3.5 h-3.5" />
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>RTO / Vahan Certified Fleet</span>
               </span>
-              <span className="text-xs font-mono font-bold text-gray-400">
+              <span className="text-xs font-mono font-bold text-surface-400">
                 • {totalTrucks} Vehicles Registered
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
               My Fleet
             </h1>
-            <p className="text-xs sm:text-sm text-gray-500">
+            <p className="text-xs sm:text-sm text-surface-400">
               Manage commercial vehicles, compliance verification status, and active trip assignments.
             </p>
           </div>
@@ -480,7 +474,7 @@ export default function MyFleetPage() {
           <button
             type="button"
             onClick={() => setRegisterModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs sm:text-sm font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none cursor-pointer self-start sm:self-auto shrink-0"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none cursor-pointer self-start sm:self-auto shrink-0 border border-primary-400/30"
           >
             <PlusCircle className="w-4 h-4" />
             <span>Add Truck</span>
@@ -489,57 +483,59 @@ export default function MyFleetPage() {
 
         {/* ── Telemetry Stats Overview Row ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
-          <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
               TOTAL FLEET
             </div>
-            <div className="text-2xl sm:text-3xl font-bold font-mono text-gray-900 mt-1">
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
               {loading ? '...' : totalTrucks}
             </div>
-            <div className="text-xs text-gray-500 mt-0.5">Registered lorries</div>
+            <div className="text-xs text-surface-400 mt-0.5">Registered lorries</div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
               AVAILABLE NOW
             </div>
-            <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-700 mt-1">
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400 mt-1">
               {loading ? '...' : availableCount}
             </div>
-            <div className="text-xs text-gray-500 mt-0.5">Ready for dispatch</div>
+            <div className="text-xs text-surface-400 mt-0.5">Ready for dispatch</div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
               ON ACTIVE TRIP
             </div>
-            <div className="text-2xl sm:text-3xl font-bold font-mono text-orange-600 mt-1">
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-primary-400 mt-1">
               {loading ? '...' : onTripCount}
             </div>
-            <div className="text-xs text-gray-500 mt-0.5">In highway transit</div>
+            <div className="text-xs text-surface-400 mt-0.5">In highway transit</div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
               VAHAN VERIFIED
             </div>
-            <div className="text-2xl sm:text-3xl font-bold font-mono text-gray-900 mt-1">
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
               {loading ? '...' : `${verifiedCount}/${totalTrucks}`}
             </div>
-            <div className="text-xs text-gray-500 mt-0.5">RC & insurance clear</div>
+            <div className="text-xs text-surface-400 mt-0.5">
+              {pendingCount > 0 ? `${pendingCount} verification pending` : 'RC & insurance clear'}
+            </div>
           </div>
         </div>
 
         {/* ── Search & Filter Controls Toolbar ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-surface-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by registration number or body type…"
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50/80 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm font-medium focus:outline-none focus:border-orange-500 focus-visible:ring-2 focus-visible:ring-orange-500/20 transition-colors"
+              className="w-full pl-10 pr-4 py-2.5 bg-surface-950/90 border border-white/10 rounded-xl text-white placeholder-surface-500 text-xs sm:text-sm font-medium focus:outline-none focus:border-primary-500 transition-colors"
             />
           </div>
 
@@ -557,10 +553,10 @@ export default function MyFleetPage() {
                 type="button"
                 onClick={() => setStatusFilter(tab.id)}
                 className={cn(
-                  'px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none',
+                  'px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none',
                   statusFilter === tab.id
-                    ? 'bg-orange-500 text-white shadow-2xs'
-                    : 'bg-slate-100 text-gray-600 hover:text-gray-900 hover:bg-slate-200'
+                    ? 'bg-primary-500 text-white shadow-glow-primary'
+                    : 'bg-surface-950 border border-white/10 text-surface-400 hover:text-white hover:bg-white/5'
                 )}
               >
                 {tab.label}
@@ -575,47 +571,47 @@ export default function MyFleetPage() {
             {[1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm animate-pulse"
+                className="bg-[#0F131D] rounded-2xl border border-white/10 p-6 space-y-4 shadow-modal animate-pulse"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gray-100" />
+                    <div className="w-12 h-12 rounded-xl bg-surface-950" />
                     <div className="space-y-2">
-                      <div className="w-36 h-4 bg-gray-200 rounded" />
-                      <div className="w-24 h-3 bg-gray-100 rounded" />
+                      <div className="w-36 h-4 bg-surface-900 rounded" />
+                      <div className="w-24 h-3 bg-surface-950 rounded" />
                     </div>
                   </div>
-                  <div className="w-24 h-6 bg-gray-200 rounded-full" />
+                  <div className="w-24 h-6 bg-surface-900 rounded-full" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[1, 2, 3, 4].map((s) => (
-                    <div key={s} className="h-16 bg-gray-50 rounded-xl" />
+                    <div key={s} className="h-16 bg-surface-950 rounded-xl" />
                   ))}
                 </div>
               </div>
             ))}
           </div>
         ) : error ? (
-          <div className="bg-white rounded-2xl border border-red-200 p-8 text-center space-y-3">
-            <div className="text-red-700 font-bold text-sm">{error}</div>
+          <div className="bg-[#0F131D] rounded-2xl border border-danger-500/30 p-8 text-center space-y-3">
+            <div className="text-danger-400 font-bold text-sm">{error}</div>
             <button
               type="button"
               onClick={loadFleetData}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-gray-700 text-xs font-bold rounded-xl"
+              className="px-4 py-2 bg-surface-900 hover:bg-surface-800 text-white text-xs font-bold rounded-xl border border-white/10"
             >
               Retry Loading Fleet
             </button>
           </div>
         ) : filteredTrucks.length === 0 ? (
           /* ── 4. Empty State (Zero Trucks Registered) ── */
-          <div className="bg-white rounded-2xl border border-gray-200 p-10 sm:p-14 text-center space-y-4 shadow-sm">
-            <div className="w-16 h-16 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto border border-orange-100">
+          <div className="bg-[#0F131D] rounded-2xl border border-white/10 p-10 sm:p-14 text-center space-y-4 shadow-modal">
+            <div className="w-16 h-16 rounded-2xl bg-primary-500/10 text-primary-400 flex items-center justify-center mx-auto border border-primary-500/20">
               <Truck className="w-8 h-8 stroke-[1.8]" />
             </div>
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+            <h3 className="text-lg sm:text-xl font-bold text-white">
               {searchQuery ? 'No trucks match your search query' : 'No trucks registered yet'}
             </h3>
-            <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+            <p className="text-xs sm:text-sm text-surface-400 max-w-md mx-auto leading-relaxed">
               Register your commercial lorry with vehicle registration, body type, and tonnage capacity
               to receive direct verified freight loads with zero broker cuts.
             </p>
@@ -623,7 +619,7 @@ export default function MyFleetPage() {
               <button
                 type="button"
                 onClick={() => setRegisterModalOpen(true)}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer border border-primary-400/30"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Add Your First Truck</span>
@@ -640,36 +636,36 @@ export default function MyFleetPage() {
               return (
                 <div
                   key={truck.id}
-                  className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow duration-200 space-y-5"
+                  className="bg-[#0F131D] rounded-2xl border border-white/10 p-5 sm:p-6 shadow-modal hover:border-primary-500/30 transition-all duration-200 space-y-5"
                 >
                   {/* Card Header: Identity, Verification Badge, Status Badge, Icon Actions */}
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="flex items-start gap-3.5">
                       {/* Truck Icon Badge */}
-                      <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100 shrink-0">
+                      <div className="w-12 h-12 rounded-2xl bg-surface-950 text-primary-400 flex items-center justify-center border border-white/10 shrink-0">
                         <Truck className="w-6 h-6 stroke-[2.2]" />
                       </div>
 
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono font-bold text-gray-900 text-base sm:text-lg tracking-wide">
+                          <span className="font-mono font-bold text-white text-base sm:text-lg tracking-wide">
                             {truck.registrationNumber || 'MH-XX-TRUCK'}
                           </span>
 
                           {/* Verification Badge */}
                           {isVerified ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-xs font-semibold">
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                               <span>Vahan Verified</span>
                             </span>
                           ) : isRejected ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-medium">
-                              <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-950/60 text-rose-300 border border-rose-500/30 text-xs font-medium">
+                              <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
                               <span>Verification Rejected</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-200 text-xs font-medium">
-                              <Clock className="w-3.5 h-3.5 text-gray-400" />
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-900 text-surface-400 border border-white/10 text-xs font-medium">
+                              <Clock className="w-3.5 h-3.5 text-surface-400" />
                               <span>Verification Pending</span>
                             </span>
                           )}
@@ -677,20 +673,20 @@ export default function MyFleetPage() {
                           {/* Operational Status Badge */}
                           <span
                             className={cn(
-                              'px-2.5 py-0.5 rounded-full text-xs font-semibold border',
+                              'px-2.5 py-0.5 rounded-full text-xs font-semibold border font-mono',
                               truck.status === 'Available'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30'
                                 : truck.status === 'On Trip'
-                                ? 'bg-orange-50 text-orange-700 border-orange-200'
-                                : 'bg-gray-50 text-gray-600 border-gray-200'
+                                ? 'bg-primary-500/20 text-primary-300 border-primary-500/30'
+                                : 'bg-surface-900 text-surface-400 border-white/10'
                             )}
                           >
                             {truck.status}
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 font-medium">
-                          <span className="font-semibold text-gray-700">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-surface-400 font-medium">
+                          <span className="font-semibold text-surface-200">
                             {truck.bodyType === 'Open'
                               ? 'Open Body'
                               : truck.bodyType === 'Container'
@@ -711,7 +707,7 @@ export default function MyFleetPage() {
                         <button
                           type="button"
                           onClick={() => setUploadDocModalTruck(truck)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 border border-primary-500/30 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
                           title="Upload RC & Insurance Document"
                         >
                           <Upload className="w-3.5 h-3.5" />
@@ -728,7 +724,7 @@ export default function MyFleetPage() {
                           setEditCapacity(truck.tonnageCapacity.toString())
                           setEditRadius((truck.serviceableRadiusKm || 50).toString())
                         }}
-                        className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+                        className="p-2 text-surface-400 hover:text-white hover:bg-white/5 rounded-xl border border-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
                         title="Edit Vehicle Details"
                         aria-label="Edit Vehicle Details"
                       >
@@ -739,7 +735,7 @@ export default function MyFleetPage() {
                       <button
                         type="button"
                         onClick={() => handleToggleDeactivate(truck)}
-                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl border border-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus:outline-none cursor-pointer"
+                        className="p-2 text-surface-400 hover:text-danger-400 hover:bg-danger-950/30 rounded-xl border border-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-danger-500 focus:outline-none cursor-pointer"
                         title="Toggle Active State"
                         aria-label="Toggle Active State"
                       >
@@ -749,7 +745,7 @@ export default function MyFleetPage() {
                       {/* Direct Match Loads Action */}
                       <Link
                         href="/search?type=load"
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors shadow-2xs focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer border border-primary-400/30"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>Match Loads</span>
@@ -760,63 +756,63 @@ export default function MyFleetPage() {
                   {/* ── Card Body: If On Trip vs If Available ── */}
                   {isOnTrip ? (
                     /* Mini Checkpoint Progress Bar for Trucks On Trip */
-                    <div className="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-gray-200/80 space-y-4">
+                    <div className="bg-surface-950/80 rounded-2xl p-4 sm:p-5 border border-white/5 space-y-4">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                         <div>
-                          <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                             ACTIVE CONSIGNMENT TRIP
                           </div>
-                          <div className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2 mt-0.5">
+                          <div className="text-sm sm:text-base font-bold text-white flex items-center gap-2 mt-0.5">
                             <span>{truck.activeBooking?.loadingAddress}</span>
-                            <ArrowRight className="w-4 h-4 text-orange-500 shrink-0" />
+                            <ArrowRight className="w-4 h-4 text-primary-400 shrink-0" />
                             <span>{truck.activeBooking?.unloadingAddress}</span>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0">
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             AGREED FREIGHT
                           </div>
-                          <div className="text-sm sm:text-base font-bold font-mono text-gray-900">
+                          <div className="text-sm sm:text-base font-bold font-mono text-emerald-400">
                             {formatINR(truck.activeBooking?.agreedPrice || 48000)}
                           </div>
                         </div>
                       </div>
 
                       {/* Telemetry Stat Row for Trip */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white rounded-xl p-3 border border-gray-200">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0F131D]/90 rounded-xl p-3 border border-white/5">
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             ORIGIN
                           </div>
-                          <div className="text-xs sm:text-sm font-bold text-gray-900 font-mono mt-0.5 truncate">
+                          <div className="text-xs sm:text-sm font-bold text-white font-mono mt-0.5 truncate">
                             {truck.activeBooking?.loadingAddress.split(',')[0]}
                           </div>
                         </div>
 
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             CHECKPOINT STATUS
                           </div>
-                          <div className="text-xs sm:text-sm font-bold text-orange-600 font-mono mt-0.5">
+                          <div className="text-xs sm:text-sm font-bold text-primary-400 font-mono mt-0.5">
                             Milestone 2/5 Passed
                           </div>
                         </div>
 
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             DESTINATION
                           </div>
-                          <div className="text-xs sm:text-sm font-bold text-gray-900 font-mono mt-0.5 truncate">
+                          <div className="text-xs sm:text-sm font-bold text-white font-mono mt-0.5 truncate">
                             {truck.activeBooking?.unloadingAddress.split(',')[0]}
                           </div>
                         </div>
 
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                             MILESTONE ETA
                           </div>
-                          <div className="text-xs sm:text-sm font-bold text-gray-900 font-mono mt-0.5">
+                          <div className="text-xs sm:text-sm font-bold text-white font-mono mt-0.5">
                             Est. 4h 15m
                           </div>
                         </div>
@@ -824,9 +820,9 @@ export default function MyFleetPage() {
 
                       {/* 5-Step Checkpoint Bar */}
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] font-medium text-gray-500">
+                        <div className="flex items-center justify-between text-[11px] font-medium text-surface-400">
                           <span>Highway Checkpoint Progression</span>
-                          <span className="font-mono text-gray-700 font-semibold">2 of 5 recorded</span>
+                          <span className="font-mono text-surface-300 font-semibold">2 of 5 recorded</span>
                         </div>
                         <div className="grid grid-cols-5 gap-1.5">
                           {['Loading Hub', 'Corridor Toll', 'Transit Hub', 'State Border', 'Unloading Point'].map(
@@ -839,13 +835,13 @@ export default function MyFleetPage() {
                                     className={cn(
                                       'h-2 rounded-full transition-colors',
                                       isDone
-                                        ? 'bg-emerald-500'
+                                        ? 'bg-emerald-500 shadow-glow-sm'
                                         : isCurrent
-                                        ? 'bg-orange-500'
-                                        : 'bg-gray-200'
+                                        ? 'bg-primary-500 shadow-glow-primary'
+                                        : 'bg-surface-900 border border-white/5'
                                     )}
                                   />
-                                  <span className="block text-[10px] font-mono text-gray-500 truncate">
+                                  <span className="block text-[10px] font-mono text-surface-400 truncate">
                                     {cpName}
                                   </span>
                                 </div>
@@ -858,38 +854,38 @@ export default function MyFleetPage() {
                   ) : (
                     /* 4-Stat Telemetry Row for Available Truck */
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                      <div className="bg-surface-950/80 rounded-xl p-3 border border-white/5">
+                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                           TONNAGE CAPACITY
                         </div>
-                        <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5">
+                        <div className="text-sm sm:text-base font-bold text-white font-mono mt-0.5">
                           {truck.tonnageCapacity} Tons
                         </div>
                       </div>
 
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                      <div className="bg-surface-950/80 rounded-xl p-3 border border-white/5">
+                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                           VEHICLE BODY
                         </div>
-                        <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5 truncate">
+                        <div className="text-sm sm:text-base font-bold text-white font-mono mt-0.5 truncate">
                           {truck.bodyType}
                         </div>
                       </div>
 
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                      <div className="bg-surface-950/80 rounded-xl p-3 border border-white/5">
+                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                           DECK DIMENSIONS
                         </div>
-                        <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5">
+                        <div className="text-sm sm:text-base font-bold text-white font-mono mt-0.5">
                           {truck.lengthFt || 24}ft × {truck.heightFt || 8}ft
                         </div>
                       </div>
 
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                      <div className="bg-surface-950/80 rounded-xl p-3 border border-white/5">
+                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
                           SERVICE RADIUS
                         </div>
-                        <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5">
+                        <div className="text-sm sm:text-base font-bold text-primary-400 font-mono mt-0.5">
                           {truck.serviceableRadiusKm || 50} km
                         </div>
                       </div>
@@ -899,13 +895,13 @@ export default function MyFleetPage() {
                   {/* Preferred Corridors (if present) */}
                   {truck.preferredDestinations && truck.preferredDestinations.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                         Active Corridors:
                       </span>
                       {truck.preferredDestinations.map((dest, idx) => (
                         <span
                           key={idx}
-                          className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-[11px] font-medium"
+                          className="px-2 py-0.5 rounded-md bg-surface-950 text-surface-300 text-[11px] font-medium border border-white/5"
                         >
                           {dest}
                         </span>
@@ -914,13 +910,13 @@ export default function MyFleetPage() {
                   )}
 
                   {/* Compliance Summary Footer */}
-                  <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-3 text-gray-600">
-                      <span className="flex items-center gap-1">
+                  <div className="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3 text-surface-400">
+                      <span className="flex items-center gap-1.5">
                         <span
                           className={cn(
                             'w-2 h-2 rounded-full',
-                            isVerified ? 'bg-emerald-500' : 'bg-amber-500'
+                            isVerified ? 'bg-emerald-400 shadow-glow-sm' : 'bg-amber-400'
                           )}
                         />
                         <span>RC Book: {isVerified ? 'Vahan Verified' : 'Pending Upload/Review'}</span>
@@ -931,7 +927,7 @@ export default function MyFleetPage() {
 
                     <Link
                       href="/search?type=load"
-                      className="text-xs font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1"
+                      className="text-xs font-bold text-primary-400 hover:text-primary-300 inline-flex items-center gap-1"
                     >
                       <span>Find Freight for this Lorry</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -946,19 +942,19 @@ export default function MyFleetPage() {
 
       {/* ── REGISTER NEW TRUCK MODAL ── */}
       {registerModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl border border-gray-200 max-w-lg w-full p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-[#0F131D] rounded-2xl border border-white/15 max-w-lg w-full p-6 shadow-modal space-y-5 text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-primary-500/10 text-primary-400 border border-primary-500/20 flex items-center justify-center">
                   <Truck className="w-4 h-4" />
                 </div>
-                <h3 className="text-base font-bold text-gray-900">Register Commercial Lorry</h3>
+                <h3 className="text-base font-bold text-white">Register Commercial Lorry</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setRegisterModalOpen(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 cursor-pointer"
+                className="p-1.5 text-surface-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -966,7 +962,7 @@ export default function MyFleetPage() {
 
             <form onSubmit={handleRegisterTruck} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                   Registration Number (e.g. MH 12 QT 8492) *
                 </label>
                 <input
@@ -974,20 +970,20 @@ export default function MyFleetPage() {
                   value={regNumber}
                   onChange={(e) => setRegNumber(e.target.value)}
                   placeholder="MH 12 QT 8492"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono font-bold text-sm focus:outline-none focus:border-orange-500 focus-visible:ring-2 focus-visible:ring-orange-500/20"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono font-bold text-sm focus:outline-none focus:border-primary-500"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                     Body Type *
                   </label>
                   <select
                     value={bodyType}
                     onChange={(e) => setBodyType(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm font-medium focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white text-xs sm:text-sm font-medium focus:outline-none focus:border-primary-500"
                   >
                     <option value="Open">Open Body</option>
                     <option value="Container">Closed Container</option>
@@ -996,14 +992,14 @@ export default function MyFleetPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                     Capacity (Tons) *
                   </label>
                   <input
                     type="number"
                     value={capacity}
                     onChange={(e) => setCapacity(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono font-bold text-xs sm:text-sm focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono font-bold text-xs sm:text-sm focus:outline-none focus:border-primary-500"
                     required
                   />
                 </div>
@@ -1011,55 +1007,69 @@ export default function MyFleetPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                     Deck Length (ft)
                   </label>
                   <input
                     type="number"
                     value={lengthFt}
                     onChange={(e) => setLengthFt(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono text-xs sm:text-sm focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                     Deck Height (ft)
                   </label>
                   <input
                     type="number"
                     value={heightFt}
                     onChange={(e) => setHeightFt(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono text-xs sm:text-sm focus:outline-none focus:border-orange-500"
+                    className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary-500"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                  Base Location / Operating Hub
-                </label>
-                <input
-                  type="text"
-                  value={locationAddress}
-                  onChange={(e) => setLocationAddress(e.target.value)}
-                  placeholder="e.g. Bhiwandi, Maharashtra"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm focus:outline-none focus:border-orange-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-surface-300 mb-1.5">
+                    Base Location / Operating Hub
+                  </label>
+                  <input
+                    type="text"
+                    value={locationAddress}
+                    onChange={(e) => setLocationAddress(e.target.value)}
+                    placeholder="e.g. Bhiwandi, MH"
+                    className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white text-xs sm:text-sm focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-surface-300 mb-1.5">
+                    Service Radius (km)
+                  </label>
+                  <input
+                    type="number"
+                    value={radiusKm}
+                    onChange={(e) => setRadiusKm(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary-500"
+                  />
+                </div>
               </div>
 
-              <div className="pt-3 border-t border-gray-200 flex items-center justify-end gap-2.5">
+              <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setRegisterModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-semibold text-surface-300 hover:text-white hover:bg-white/5"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={registering}
-                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 cursor-pointer disabled:opacity-60"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer disabled:opacity-60 border border-primary-400/30"
                 >
                   {registering ? 'Registering...' : 'Register Lorry'}
                 </button>
@@ -1071,19 +1081,19 @@ export default function MyFleetPage() {
 
       {/* ── UPLOAD KYC / RC DOCUMENT MODAL ── */}
       {uploadDocModalTruck && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl border border-gray-200 max-w-md w-full p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-[#0F131D] rounded-2xl border border-white/15 max-w-md w-full p-6 shadow-modal space-y-5 text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div>
-                <h3 className="text-base font-bold text-gray-900">Upload Vehicle KYC Document</h3>
-                <p className="text-xs text-gray-500">
-                  Vehicle: <span className="font-mono font-bold text-gray-800">{uploadDocModalTruck.registrationNumber}</span>
+                <h3 className="text-base font-bold text-white">Upload Vehicle KYC Document</h3>
+                <p className="text-xs text-surface-400">
+                  Vehicle: <span className="font-mono font-bold text-primary-400">{uploadDocModalTruck.registrationNumber}</span>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setUploadDocModalTruck(null)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 cursor-pointer"
+                className="p-1.5 text-surface-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1091,13 +1101,13 @@ export default function MyFleetPage() {
 
             <form onSubmit={handleUploadDocument} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                   Document Type *
                 </label>
                 <select
                   value={docType}
                   onChange={(e) => setDocType(e.target.value as any)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm font-medium focus:outline-none focus:border-orange-500"
+                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white text-xs sm:text-sm font-medium focus:outline-none focus:border-primary-500"
                 >
                   <option value="RC">RC Book (Registration Certificate)</option>
                   <option value="Insurance">Commercial Vehicle Insurance</option>
@@ -1105,7 +1115,7 @@ export default function MyFleetPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                   Document Number (Optional)
                 </label>
                 <input
@@ -1113,12 +1123,12 @@ export default function MyFleetPage() {
                   value={docNumber}
                   onChange={(e) => setDocNumber(e.target.value)}
                   placeholder="e.g. RC-MH12-9842"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm focus:outline-none focus:border-orange-500"
+                  className="w-full px-4 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white text-xs sm:text-sm focus:outline-none focus:border-primary-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                   Upload File (PDF, JPEG, PNG, max 5MB) *
                 </label>
                 <input
@@ -1126,23 +1136,23 @@ export default function MyFleetPage() {
                   type="file"
                   accept="application/pdf,image/jpeg,image/png"
                   onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer"
+                  className="w-full text-xs text-surface-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary-500/10 file:text-primary-400 hover:file:bg-primary-500/20 cursor-pointer"
                   required
                 />
               </div>
 
-              <div className="pt-3 border-t border-gray-200 flex items-center justify-end gap-2.5">
+              <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setUploadDocModalTruck(null)}
-                  className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-semibold text-surface-300 hover:text-white hover:bg-white/5"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploadingDoc}
-                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 cursor-pointer disabled:opacity-60"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer disabled:opacity-60 border border-primary-400/30"
                 >
                   {uploadingDoc ? 'Uploading...' : 'Submit Document'}
                 </button>
@@ -1154,17 +1164,17 @@ export default function MyFleetPage() {
 
       {/* ── EDIT TRUCK MODAL ── */}
       {editTruck && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl border border-gray-200 max-w-md w-full p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-[#0F131D] rounded-2xl border border-white/15 max-w-md w-full p-6 shadow-modal space-y-5 text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div>
-                <h3 className="text-base font-bold text-gray-900">Edit Vehicle Specifications</h3>
-                <p className="text-xs font-mono font-bold text-gray-600">{editTruck.registrationNumber}</p>
+                <h3 className="text-base font-bold text-white">Edit Vehicle Specifications</h3>
+                <p className="text-xs font-mono font-bold text-primary-400">{editTruck.registrationNumber}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setEditTruck(null)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 cursor-pointer"
+                className="p-1.5 text-surface-400 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1172,13 +1182,13 @@ export default function MyFleetPage() {
 
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                   Body Type
                 </label>
                 <select
                   value={editBodyType}
                   onChange={(e) => setEditBodyType(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm font-medium focus:outline-none focus:border-orange-500"
+                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white text-xs sm:text-sm font-medium focus:outline-none focus:border-primary-500"
                 >
                   <option value="Open">Open Body</option>
                   <option value="Container">Closed Container</option>
@@ -1187,41 +1197,41 @@ export default function MyFleetPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                   Payload Capacity (Tons)
                 </label>
                 <input
                   type="number"
                   value={editCapacity}
                   onChange={(e) => setEditCapacity(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono font-bold text-xs sm:text-sm focus:outline-none focus:border-orange-500"
+                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono font-bold text-xs sm:text-sm focus:outline-none focus:border-primary-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                   Serviceable Radius (km)
                 </label>
                 <input
                   type="number"
                   value={editRadius}
                   onChange={(e) => setEditRadius(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono text-xs sm:text-sm focus:outline-none focus:border-orange-500"
+                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary-500"
                 />
               </div>
 
-              <div className="pt-3 border-t border-gray-200 flex items-center justify-end gap-2.5">
+              <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setEditTruck(null)}
-                  className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-semibold text-surface-300 hover:text-white hover:bg-white/5"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 cursor-pointer disabled:opacity-60"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer disabled:opacity-60 border border-primary-400/30"
                 >
                   {savingEdit ? 'Saving...' : 'Save Changes'}
                 </button>
