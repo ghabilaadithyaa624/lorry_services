@@ -214,6 +214,7 @@ export function DashboardLayout({
               <MagnifyingGlassIcon className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
+                aria-label="Global search"
                 placeholder="Global Search (Ctrl+K)"
                 className="pl-9 pr-4 py-1.5 bg-surface-900 border border-white/10 rounded-md text-xs text-white focus:outline-none focus:border-primary-500 transition-colors w-64"
               />
@@ -225,16 +226,11 @@ export function DashboardLayout({
                 aria-label="Notifications"
                 className="text-surface-400 hover:text-white p-1 rounded-lg transition-colors relative focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
               >
+              <button type="button" aria-label="Notifications" className="text-surface-400 hover:text-white transition-colors relative">
                 <BellAlertIcon className="w-5 h-5" />
                 <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-primary-500 rounded-full"></span>
               </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                aria-label="Sign out"
-                title="Sign Out"
-                className="text-surface-400 hover:text-danger-400 p-1 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
-              >
+              <button type="button" onClick={handleLogout} aria-label="Sign out" className="text-surface-400 hover:text-danger-400 transition-colors" title="Sign Out">
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
               </button>
             </div>
@@ -279,7 +275,7 @@ export function DashboardLayout({
                     type="button"
                     onClick={() => setSidebarOpen(false)}
                     aria-label="Close navigation menu"
-                    className="p-1 text-surface-400 hover:text-white rounded-lg focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
+                    className="p-1 text-surface-400 hover:text-white"
                   >
                     <XMarkIcon className="w-5 h-5" />
                   </button>
