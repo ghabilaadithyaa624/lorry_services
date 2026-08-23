@@ -135,23 +135,35 @@ export function AIFreightAssistantDrawer() {
       {/* Floating Assistant Trigger Pill */}
       <button
         type="button"
+        aria-expanded={isOpen}
+        aria-label="Open AI Freight Assistant"
         onClick={() => setIsOpen(true)}
         aria-label="Open AI Freight Assistant"
         aria-expanded={isOpen}
+        aria-controls="ai-freight-assistant-drawer"
+        className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-button bg-surface-900/90 text-white font-semibold text-xs shadow-elevated hover:shadow-card-hover border border-white/10 font-sans focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-button bg-surface-900/90 text-white font-semibold text-xs shadow-elevated hover:shadow-card-hover border border-white/10 font-sans focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
       >
         <SparklesIcon className="w-4 h-4 animate-pulse" aria-hidden="true" />
         <span>AI Freight Assistant</span>
-      </button>      {/* Drawer Overlay */}
+      </button>
+
+      {/* Drawer Overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/80  transition-opacity animate-fade-in font-sans">
+        <div
+          id="ai-freight-assistant-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="LorryCarry AI Freight Assistant"
+          className="fixed inset-0 z-50 flex justify-end bg-black/80 transition-opacity animate-fade-in font-sans"
+        >
           <div className="w-full max-w-lg bg-[#0F131D] text-white h-full shadow-modal flex flex-col justify-between border-l border-white/10">
             
             {/* Drawer Header */}
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-surface-950/80">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-surface-800 flex items-center justify-center text-primary-400 border border-white/10">
-                  <SparklesIcon className="w-4 h-4" />
+                  <SparklesIcon className="w-4 h-4" aria-hidden="true" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -165,6 +177,7 @@ export function AIFreightAssistantDrawer() {
 
               <button
                 type="button"
+                aria-label="Close AI Freight Assistant"
                 onClick={() => setIsOpen(false)}
                 aria-label="Close AI Freight Assistant drawer"
                 className="p-1.5 rounded-xl text-surface-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
@@ -181,8 +194,10 @@ export function AIFreightAssistantDrawer() {
               {SAMPLE_PROMPTS.map((prompt, idx) => (
                 <button
                   key={idx}
+                  type="button"
                   onClick={() => handleSendQuery(prompt)}
-                  className="px-3 py-1 rounded-full bg-surface-900/80 border border-white/10 text-[11px] font-mono text-surface-300 hover:border-primary-400 hover:text-white transition-colors shrink-0 cursor-pointer"
+                  aria-label={`Ask sample prompt: ${prompt}`}
+                  className="px-3 py-1 rounded-full bg-surface-900/80 border border-white/10 text-[11px] font-mono text-surface-300 hover:border-primary-400 hover:text-white transition-colors shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 >
                   {prompt}
                 </button>
@@ -284,7 +299,8 @@ export function AIFreightAssistantDrawer() {
                   value={inputQuery}
                   onChange={(e) => setInputQuery(e.target.value)}
                   placeholder="Ask LorryCarry AI (e.g. Find 20T Container Chennai to Bengaluru)..."
-                  className="input flex-1 text-xs py-2.5 bg-surface-900 border-white/10 text-white placeholder:text-surface-400"
+                  aria-label="Ask AI Assistant a question"
+                  className="input flex-1 text-xs py-2.5 bg-surface-900 border-white/10 text-white placeholder:text-surface-400 focus-visible:ring-2 focus-visible:ring-primary-500"
                 />
                 <Button
                   type="submit"

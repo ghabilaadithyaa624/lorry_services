@@ -221,9 +221,15 @@ export function DashboardLayout({
             </div>
             
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                aria-label="Notifications"
+                className="text-surface-400 hover:text-white p-1 rounded-lg transition-colors relative focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
+              >
               <button type="button" aria-label="Notifications" className="text-surface-400 hover:text-white transition-colors relative">
                 <BellAlertIcon className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
+                <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-primary-500 rounded-full"></span>
               </button>
               <button type="button" onClick={handleLogout} aria-label="Sign out" className="text-surface-400 hover:text-danger-400 transition-colors" title="Sign Out">
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
@@ -250,9 +256,9 @@ export function DashboardLayout({
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
               aria-expanded={sidebarOpen}
-              className="p-1.5 rounded-lg text-surface-300 hover:bg-white/5"
+              aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              className="p-1.5 rounded-lg text-surface-300 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
             >
               {sidebarOpen ? <XMarkIcon className="w-5 h-5" /> : <Bars3Icon className="w-5 h-5" />}
             </button>
