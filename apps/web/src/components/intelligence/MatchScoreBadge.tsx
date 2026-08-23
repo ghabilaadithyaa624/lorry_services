@@ -41,6 +41,8 @@ export function MatchScoreBadge({
     <div className={cn('relative inline-block', className)}>
       <button
         type="button"
+        aria-expanded={expanded}
+        aria-label="Toggle match score breakdown"
         onClick={(e) => {
           e.stopPropagation()
           setExpanded(!expanded)
@@ -80,6 +82,7 @@ export function MatchScoreBadge({
               </span>
               <button
                 type="button"
+                aria-label="Close match breakdown"
                 onClick={() => setExpanded(false)}
                 className="p-1 text-surface-400 hover:text-white rounded-md"
               >

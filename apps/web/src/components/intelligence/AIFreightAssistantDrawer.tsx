@@ -135,6 +135,8 @@ export function AIFreightAssistantDrawer() {
       {/* Floating Assistant Trigger Pill */}
       <button
         type="button"
+        aria-expanded={isOpen}
+        aria-label="Open AI Freight Assistant"
         onClick={() => setIsOpen(true)}
         aria-label="Open AI Freight Assistant"
         aria-expanded={isOpen}
@@ -165,6 +167,7 @@ export function AIFreightAssistantDrawer() {
 
               <button
                 type="button"
+                aria-label="Close AI Freight Assistant"
                 onClick={() => setIsOpen(false)}
                 aria-label="Close AI Freight Assistant drawer"
                 className="p-1.5 rounded-xl text-surface-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
