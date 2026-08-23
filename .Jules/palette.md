@@ -11,3 +11,7 @@
 ## 2025-02-20 - Screen Reader Accessibility for Dynamic Mobile Toggle Controls and Icon-Only Actions
 **Learning:** Icon-only actions (like logout/signout) and dynamic toggle controls (like mobile menu buttons) must have descriptive `aria-label` and `aria-expanded` attributes to ensure screen reader users can understand both the purpose of the control and its current active state.
 **Action:** Always ensure icon-only buttons have explicit accessible labels and toggle controls have accurate state attributes like `aria-expanded`.
+
+## 2025-02-22 - Accessible WAI-ARIA Combobox and Keyboard Navigation for Autocomplete Inputs
+**Learning:** Custom address autocomplete inputs built with standard HTML `<input>` and floating `<ul>` dropdowns are invisible or difficult to navigate for keyboard and screen reader users unless configured as WAI-ARIA comboboxes with explicit `role="combobox"`, `role="listbox"`, `role="option"`, `aria-activedescendant`, and Arrow/Enter/Escape keyboard handlers.
+**Action:** Always bind input labels using `htmlFor` with `useId()` and provide full keyboard interaction (ArrowDown, ArrowUp, Enter, Escape) on custom autocomplete dropdown controls.
