@@ -135,14 +135,11 @@ export function AIFreightAssistantDrawer() {
       {/* Floating Assistant Trigger Pill */}
       <button
         type="button"
-        aria-expanded={isOpen}
-        aria-label="Open AI Freight Assistant"
         onClick={() => setIsOpen(true)}
         aria-label="Open AI Freight Assistant"
         aria-expanded={isOpen}
         aria-controls="ai-freight-assistant-drawer"
         className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-button bg-surface-900/90 text-white font-semibold text-xs shadow-elevated hover:shadow-card-hover border border-white/10 font-sans focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-        className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-button bg-surface-900/90 text-white font-semibold text-xs shadow-elevated hover:shadow-card-hover border border-white/10 font-sans focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
       >
         <SparklesIcon className="w-4 h-4 animate-pulse" aria-hidden="true" />
         <span>AI Freight Assistant</span>
@@ -177,9 +174,8 @@ export function AIFreightAssistantDrawer() {
 
               <button
                 type="button"
-                aria-label="Close AI Freight Assistant"
                 onClick={() => setIsOpen(false)}
-                aria-label="Close AI Freight Assistant drawer"
+                aria-label="Close AI Freight Assistant"
                 className="p-1.5 rounded-xl text-surface-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
               >
                 <XMarkIcon className="w-5 h-5" aria-hidden="true" />

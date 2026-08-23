@@ -9,7 +9,6 @@ import {
   Clock,
   ArrowRight,
   Signal,
-  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -301,22 +300,14 @@ export function FreightNetworkDiagram() {
             ))}
           </div>
 
-          {/* Direct Actions without promising unsealed direct contact before subscription */}
-          <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+          {/* Standardized View Matches CTA */}
+          <div className="pt-2">
             <Link
               href={`/search?type=truck&location=${encodeURIComponent(current.origin)}`}
-              className="w-full sm:flex-1 text-center text-xs font-bold text-gray-800 bg-slate-100 hover:bg-slate-200 py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
+              className="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs sm:text-sm font-mono font-bold transition-colors shadow-sm flex items-center justify-center gap-2 uppercase tracking-wider focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
             >
-              <Sparkles className="w-4 h-4 text-orange-500" />
-              <span>See Live Corridors</span>
-            </Link>
-
-            <Link
-              href={`/search?type=truck&location=${encodeURIComponent(current.origin)}`}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-mono font-bold transition-colors shadow-2xs flex items-center justify-center gap-1.5 uppercase tracking-wider focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
-            >
-              <span>Explore {current.trucksAvailable} Lorries</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span>View Matches</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>

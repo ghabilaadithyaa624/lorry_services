@@ -26,8 +26,8 @@ export function AddressAutocomplete({
   id,
 }: AddressAutocompleteProps) {
   const generatedId = useId()
-  const inputId = id || generatedId
-  const listboxId = `${inputId}-listbox`
+  const inputId = id || `address-input-${generatedId}`
+  const listboxId = `address-listbox-${generatedId}`
 
   const [query, setQuery] = useState(value)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -35,10 +35,6 @@ export function AddressAutocomplete({
   const [activeIndex, setActiveIndex] = useState<number>(-1)
   const [loading, setLoading] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
-
-  const generatedId = useId()
-  const inputId = id || `address-input-${generatedId}`
-  const listboxId = `address-listbox-${generatedId}`
 
   useEffect(() => {
     setQuery(value)
@@ -141,17 +137,13 @@ export function AddressAutocomplete({
         aria-autocomplete="list"
         aria-expanded={showSuggestions && suggestions.length > 0}
         aria-controls={listboxId}
+        aria-haspopup="listbox"
         aria-activedescendant={
           showSuggestions && activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
         }
         placeholder={placeholder}
         className="input"
         autoComplete="off"
-        role="combobox"
-        aria-autocomplete="list"
-        aria-expanded={showSuggestions && suggestions.length > 0}
-        aria-controls={listboxId}
-        aria-haspopup="listbox"
       />
       {loading && (
         <div role="status" aria-live="polite" className="absolute right-3 top-9 text-xs text-gray-400">
