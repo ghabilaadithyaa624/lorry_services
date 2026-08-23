@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useId } from 'react'
 import { api } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 interface Suggestion {
   placeId: string
@@ -24,9 +25,14 @@ export function AddressAutocomplete({
   label,
   id,
 }: AddressAutocompleteProps) {
+  const generatedId = useId()
+  const inputId = id || generatedId
+  const listboxId = `${inputId}-listbox`
+
   const [query, setQuery] = useState(value)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [activeIndex, setActiveIndex] = useState<number>(-1)
   const [loading, setLoading] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
@@ -43,6 +49,7 @@ export function AddressAutocomplete({
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setShowSuggestions(false)
+        setActiveIndex(-1)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -53,6 +60,7 @@ export function AddressAutocomplete({
   useEffect(() => {
     if (query.length < 3) {
       setSuggestions([])
+      setActiveIndex(-1)
       return
     }
 
@@ -63,6 +71,7 @@ export function AddressAutocomplete({
         const res = await api.get(`/search/suggestions?query=${encodeURIComponent(query)}`)
         setSuggestions(res.data)
         setShowSuggestions(true)
+        setActiveIndex(-1)
       } catch {
         // Fallback: just show as typed
       } finally {
@@ -77,6 +86,39 @@ export function AddressAutocomplete({
     setQuery(suggestion.address)
     onChange(suggestion.address, suggestion.pincode)
     setShowSuggestions(false)
+    setActiveIndex(-1)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === 'ArrowDown' && suggestions.length > 0) {
+        setShowSuggestions(true)
+        setActiveIndex(0)
+        e.preventDefault()
+      }
+      return
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setActiveIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0))
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setActiveIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1))
+        break
+      case 'Enter':
+        if (activeIndex >= 0 && suggestions[activeIndex]) {
+          e.preventDefault()
+          handleSelect(suggestions[activeIndex])
+        }
+        break
+      case 'Escape':
+        setShowSuggestions(false)
+        setActiveIndex(-1)
+        break
+    }
   }
 
   return (
@@ -94,6 +136,14 @@ export function AddressAutocomplete({
           setQuery(e.target.value)
           onChange(e.target.value)
         }}
+        onKeyDown={handleKeyDown}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={showSuggestions && suggestions.length > 0}
+        aria-controls={listboxId}
+        aria-activedescendant={
+          showSuggestions && activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
+        }
         placeholder={placeholder}
         className="input"
         autoComplete="off"
@@ -113,21 +163,21 @@ export function AddressAutocomplete({
         <ul
           id={listboxId}
           role="listbox"
+          aria-label="Address suggestions"
           className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-button shadow-lg max-h-60 overflow-y-auto"
         >
           {suggestions.map((suggestion, idx) => (
             <li
               key={suggestion.placeId || idx}
+              id={`${listboxId}-option-${idx}`}
               role="option"
-              tabIndex={0}
+              aria-selected={activeIndex === idx}
               onClick={() => handleSelect(suggestion)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  handleSelect(suggestion)
-                }
-              }}
-              className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-0 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-700"
+              onMouseEnter={() => setActiveIndex(idx)}
+              className={cn(
+                'px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors',
+                activeIndex === idx && 'bg-gray-100 dark:bg-gray-700'
+              )}
             >
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {suggestion.address}

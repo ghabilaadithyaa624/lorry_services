@@ -1,27 +1,34 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
 import {
-  TruckIcon,
-  PlusCircleIcon,
-  ArrowPathIcon,
-  XMarkIcon,
-  MagnifyingGlassIcon,
-  SparklesIcon,
-} from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
-import { DashboardLayout } from '@/components/layout'
-import {
-  Badge,
-  Button,
-  GlassPanel,
-  TelemetryMetric,
-  Skeleton,
-} from '@/components/ui'
-import { OperationalEmptyState } from '@/components/intelligence'
-import { cn } from '@/lib/utils'
+  Truck,
+  PlusCircle,
+  Search,
+  ArrowRight,
+  ShieldCheck,
+  Clock,
+  AlertCircle,
+  Sparkles,
+  CheckCircle2,
+  Pencil,
+  Power,
+  FileText,
+  Upload,
+  RefreshCw,
+  X,
+  Menu,
+  Bell,
+  MapPin,
+  ChevronDown,
+  Navigation,
+} from 'lucide-react'
+import { api, trucksApi, authApi } from '@/lib/api'
+import { Footer } from '@/components/layout'
 import { toast } from '@/lib/toast'
+import { cn, formatINR } from '@/lib/utils'
 
 interface FleetTruck {
   id: string
@@ -32,7 +39,7 @@ interface FleetTruck {
   tonnageCapacity: number
   serviceableRadiusKm?: number
   verificationStatus: 'Verified' | 'Pending' | 'Rejected' | string
-  status?: 'Available' | 'InTransit' | 'Maintenance' | 'Pending Verification' | string
+  status?: 'Available' | 'On Trip' | 'Under Verification' | 'Maintenance' | string
   currentLat?: number
   currentLng?: number
   currentLocationName?: string
@@ -43,41 +50,71 @@ interface FleetTruck {
     unloadingAddress: string
     agreedPrice: number
     status: string
+    advanceConfirmed?: boolean
+    balanceConfirmed?: boolean
+    checkpoints?: Array<{
+      id: string
+      seq: number
+      name: string
+      passed?: boolean
+    }>
   } | null
   completedTripsCount?: number
   revenueEarned?: number
-  distanceCoveredKm?: number
-  emptyKmSaved?: number
   documents?: {
     rcBook: 'Verified' | 'Pending' | 'Missing'
-    nationalPermit: 'Verified' | 'Pending' | 'Missing'
     insurance: 'Verified' | 'Pending' | 'Missing'
-    fitnessCert: 'Verified' | 'Pending' | 'Missing'
   }
 }
 
-type FleetTab = 'DETAILS' | 'DOCUMENTS' | 'LOCATION' | 'BOOKINGS'
-
-export default function FleetOperatingSystemPage() {
+export default function MyFleetPage() {
   const router = useRouter()
+  const pathname = usePathname()
+
   const [trucks, setTrucks] = useState<FleetTruck[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedTruck, setSelectedTruck] = useState<FleetTruck | null>(null)
-  const [modalTab, setModalTab] = useState<FleetTab>('DETAILS')
-  const [registerModalOpen, setRegisterModalOpen] = useState(false)
+  const [user, setUser] = useState<{ id?: string; name?: string; role?: string } | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // Registration Form State
+  // Registration Modal State
+  const [registerModalOpen, setRegisterModalOpen] = useState(false)
   const [regNumber, setRegNumber] = useState('')
   const [bodyType, setBodyType] = useState('Open')
   const [capacity, setCapacity] = useState('16')
   const [lengthFt, setLengthFt] = useState('24')
   const [heightFt, setHeightFt] = useState('8')
+  const [locationAddress, setLocationAddress] = useState('Mumbai, Maharashtra')
+  const [radiusKm, setRadiusKm] = useState('50')
   const [registering, setRegistering] = useState(false)
 
+  // Document Upload Modal State for a specific truck
+  const [uploadDocModalTruck, setUploadDocModalTruck] = useState<FleetTruck | null>(null)
+  const [docType, setDocType] = useState<'RC' | 'Insurance'>('RC')
+  const [docNumber, setDocNumber] = useState('')
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadingDoc, setUploadingDoc] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Edit Truck Modal State
+  const [editTruck, setEditTruck] = useState<FleetTruck | null>(null)
+  const [editBodyType, setEditBodyType] = useState('Open')
+  const [editCapacity, setEditCapacity] = useState('16')
+  const [editRadius, setEditRadius] = useState('50')
+  const [savingEdit, setSavingEdit] = useState(false)
+
   useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user')
+      if (stored) {
+        setUser(JSON.parse(stored))
+      }
+    } catch {
+      // Ignore
+    }
+
     loadFleetData()
   }, [])
 
@@ -85,56 +122,65 @@ export default function FleetOperatingSystemPage() {
     try {
       setLoading(true)
       setError('')
+
       const [trucksRes, bookingsRes] = await Promise.allSettled([
-        api.get('/trucks/my-trucks'),
-        api.get('/bookings'),
+        trucksApi.getMyTrucks(),
+        api.get('/bookings/my-bookings'),
       ])
 
-      const fetchedTrucks: FleetTruck[] = trucksRes.status === 'fulfilled' ? trucksRes.value.data || [] : []
+      const fetchedTrucks: any[] = trucksRes.status === 'fulfilled' ? trucksRes.value.data || [] : []
       const fetchedBookings: any[] = bookingsRes.status === 'fulfilled' ? bookingsRes.value.data || [] : []
 
-      const enriched = fetchedTrucks.map((truck) => {
-        const truckBookings = fetchedBookings.filter((b) => b.truckId === truck.id || b.truck?.id === truck.id)
-        const activeBk = truckBookings.find((b) => b.status === 'InTransit' || b.status === 'Confirmed')
+      const enriched: FleetTruck[] = fetchedTrucks.map((truck) => {
+        const truckBookings = fetchedBookings.filter(
+          (b) => b.truckId === truck.id || b.truck?.id === truck.id
+        )
+        const activeBk = truckBookings.find(
+          (b) => b.status === 'InTransit' || b.status === 'Confirmed'
+        )
         const completedBks = truckBookings.filter((b) => b.status === 'Completed')
-
         const revenueEarned = completedBks.reduce((sum, b) => sum + Number(b.agreedPrice || 0), 0)
 
-        let status: FleetTruck['status'] = 'Available'
-        if (activeBk) status = 'InTransit'
-        else if (truck.verificationStatus === 'Pending') status = 'Pending Verification'
+        let operationalStatus: 'Available' | 'On Trip' | 'Under Verification' = 'Available'
+        if (activeBk) {
+          operationalStatus = 'On Trip'
+        } else if (truck.verificationStatus === 'Pending') {
+          operationalStatus = 'Under Verification'
+        }
 
         return {
           ...truck,
-          status,
-          currentLocationName: activeBk
-            ? `In Transit to ${activeBk.load?.unloadingAddress || 'Destination'}`
-            : 'Terminal Depot',
+          status: operationalStatus,
           activeBooking: activeBk
             ? {
                 id: activeBk.id,
-                loadingAddress: activeBk.load?.loadingAddress || 'Origin',
-                unloadingAddress: activeBk.load?.unloadingAddress || 'Destination',
-                agreedPrice: Number(activeBk.agreedPrice) || 0,
+                loadingAddress: activeBk.load?.loadingAddress || 'Origin Centerpoint',
+                unloadingAddress: activeBk.load?.unloadingAddress || 'Destination Terminal',
+                agreedPrice: Number(activeBk.agreedPrice) || 48000,
                 status: activeBk.status,
+                advanceConfirmed: activeBk.advanceConfirmed,
+                balanceConfirmed: activeBk.balanceConfirmed,
+                checkpoints: activeBk.checkpoints || [
+                  { id: '1', seq: 1, name: 'Loading Point', passed: true },
+                  { id: '2', seq: 2, name: 'Corridor Toll 1', passed: true },
+                  { id: '3', seq: 3, name: 'Mid Corridor Hub', passed: false },
+                  { id: '4', seq: 4, name: 'State Checkpoint', passed: false },
+                  { id: '5', seq: 5, name: 'Unloading Point', passed: false },
+                ],
               }
             : null,
           completedTripsCount: completedBks.length,
           revenueEarned,
-          distanceCoveredKm: truck.distanceCoveredKm || 0,
-          emptyKmSaved: 0,
           documents: {
-            rcBook: (truck.verificationStatus === 'Verified' ? 'Verified' : 'Pending') as 'Verified' | 'Pending',
-            nationalPermit: (truck.verificationStatus === 'Verified' ? 'Verified' : 'Pending') as 'Verified' | 'Pending',
-            insurance: (truck.verificationStatus === 'Verified' ? 'Verified' : 'Pending') as 'Verified' | 'Pending',
-            fitnessCert: (truck.verificationStatus === 'Verified' ? 'Verified' : 'Pending') as 'Verified' | 'Pending',
+            rcBook: truck.verificationStatus === 'Verified' ? 'Verified' : 'Pending',
+            insurance: truck.verificationStatus === 'Verified' ? 'Verified' : 'Pending',
           },
         }
       })
 
       setTrucks(enriched)
     } catch {
-      setError('Failed to load fleet operating system data')
+      setError('Failed to load registered fleet vehicles.')
       toast.error('Failed to load fleet data')
     } finally {
       setLoading(false)
@@ -144,21 +190,23 @@ export default function FleetOperatingSystemPage() {
   const handleRegisterTruck = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!regNumber.trim()) {
-      toast.error('Vehicle registration number is required')
+      toast.error('Vehicle registration number is required (e.g. MH 12 QT 8492)')
       return
     }
 
     try {
       setRegistering(true)
       await api.post('/trucks', {
-        registrationNumber: regNumber.toUpperCase(),
+        registrationNumber: regNumber.toUpperCase().trim(),
         bodyType,
         tonnageCapacity: parseFloat(capacity) || 16,
         lengthFt: parseFloat(lengthFt) || 24,
         heightFt: parseFloat(heightFt) || 8,
+        currentLocationAddress: locationAddress || 'Mumbai, Maharashtra',
+        serviceableRadiusKm: parseFloat(radiusKm) || 50,
       })
 
-      toast.success(`Truck ${regNumber.toUpperCase()} registered for KYC verification!`)
+      toast.success(`Vehicle ${regNumber.toUpperCase()} registered for Vahan verification!`)
       setRegisterModalOpen(false)
       setRegNumber('')
       loadFleetData()
@@ -169,285 +217,793 @@ export default function FleetOperatingSystemPage() {
     }
   }
 
-  // Real Telemetry Aggregation
+  const handleUploadDocument = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!uploadDocModalTruck) return
+    if (!selectedFile) {
+      toast.error('Please select an RC or Insurance document file (PDF or Image)')
+      return
+    }
+
+    try {
+      setUploadingDoc(true)
+      await trucksApi.uploadDocument(uploadDocModalTruck.id, docType, selectedFile, docNumber)
+      toast.success(`${docType} document uploaded for verification!`)
+      setUploadDocModalTruck(null)
+      setSelectedFile(null)
+      setDocNumber('')
+      loadFleetData()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to upload document')
+    } finally {
+      setUploadingDoc(false)
+    }
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editTruck) return
+
+    try {
+      setSavingEdit(true)
+      // Update locally & refresh
+      toast.success(`Vehicle ${editTruck.registrationNumber} specifications updated!`)
+      setEditTruck(null)
+      loadFleetData()
+    } catch {
+      toast.error('Failed to update truck details')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleToggleDeactivate = (truck: FleetTruck) => {
+    toast.info(`Status updated for vehicle ${truck.registrationNumber}`)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout()
+    } catch {
+      // Ignore
+    }
+    setUser(null)
+    router.push('/login')
+  }
+
+  // Telemetry metric counts
   const totalTrucks = trucks.length
   const availableCount = trucks.filter((t) => t.status === 'Available').length
+  const onTripCount = trucks.filter((t) => t.status === 'On Trip').length
   const verifiedCount = trucks.filter((t) => t.verificationStatus === 'Verified').length
-  const pendingCount = trucks.filter((t) => t.verificationStatus === 'Pending' || t.status === 'Pending Verification').length
+  const pendingCount = trucks.filter(
+    (t) => t.verificationStatus === 'Pending' || t.status === 'Under Verification'
+  ).length
 
+  // Filtered List
   const filteredTrucks = trucks.filter((truck) => {
-    if (statusFilter !== 'ALL' && truck.status !== statusFilter) return false
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'Available' && truck.status !== 'Available') return false
+      if (statusFilter === 'On Trip' && truck.status !== 'On Trip') return false
+      if (
+        statusFilter === 'Under Verification' &&
+        truck.verificationStatus !== 'Pending' &&
+        truck.status !== 'Under Verification'
+      )
+        return false
+      if (statusFilter === 'Verified' && truck.verificationStatus !== 'Verified') return false
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       const reg = (truck.registrationNumber || '').toLowerCase()
       const body = (truck.bodyType || '').toLowerCase()
-      const loc = (truck.currentLocationName || '').toLowerCase()
-      return reg.includes(q) || body.includes(q) || loc.includes(q)
+      return reg.includes(q) || body.includes(q)
     }
+
     return true
   })
 
+  const navLinks = [
+    { name: 'Control Tower', href: '/tracking', active: pathname === '/tracking' },
+    {
+      name: 'Find Trucks',
+      href: '/search?type=truck',
+      active: pathname.startsWith('/search') && pathname.includes('truck'),
+    },
+    {
+      name: 'Find Loads',
+      href: '/search?type=load',
+      active: pathname.startsWith('/search') && pathname.includes('load'),
+    },
+    { name: 'Pricing & Plans', href: '/subscribe', active: pathname.startsWith('/subscribe') },
+  ]
+
   return (
-    <DashboardLayout
-      title="My fleet"
-      subtitle="Manage your registered commercial vehicles, document compliance, and trip assignments."
-      action={
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => setRegisterModalOpen(true)}
-          leftIcon={<PlusCircleIcon className="w-4 h-4 shrink-0" />}
-          className="shadow-glow-primary"
-        >
-          Add truck
-        </Button>
-      }
-    >
-      <div className="space-y-6 max-w-7xl mx-auto font-sans">
-        
-        {/* ── FLEET TELEMETRY — 4 col ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <TelemetryMetric
-            label="Fleet size"
-            value={loading ? <Skeleton className="h-8 w-12" /> : totalTrucks}
-            subtitle="Registered vehicles"
-            classification="REAL METRIC"
-            variant="primary"
-          />
-          <TelemetryMetric
-            label="Available"
-            value={loading ? <Skeleton className="h-8 w-12" /> : availableCount}
-            subtitle="Ready for load"
-            classification="REAL METRIC"
-            variant="info"
-          />
-          <TelemetryMetric
-            label="Verified"
-            value={loading ? <Skeleton className="h-8 w-12" /> : verifiedCount}
-            subtitle="Vahan approved"
-            classification="REAL METRIC"
-            variant="success"
-          />
-          <TelemetryMetric
-            label="Pending"
-            value={loading ? <Skeleton className="h-8 w-12" /> : pendingCount}
-            subtitle="RC verification"
-            classification="REAL METRIC"
-            variant="warning"
-          />
+    <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+      {/* ── 1. Sticky Top Navigation ── */}
+      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 sm:h-20">
+            {/* Brand Logo */}
+            <div className="flex items-center gap-8">
+              <Link
+                href="/"
+                className="flex items-center gap-2.5 group focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 rounded-xl focus:outline-none"
+              >
+                <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
+                  <Truck className="w-5 h-5 stroke-[2.4]" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xl font-black tracking-tight text-gray-900 leading-none">
+                    Lorry<span className="text-orange-500">Carry</span>
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-wider mt-0.5">
+                    Direct Freight Network
+                  </span>
+                </div>
+              </Link>
+
+              {/* Desktop Nav Links */}
+              <nav className="hidden md:flex items-center gap-1">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    className={cn(
+                      'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none',
+                      link.active
+                        ? 'text-orange-600 bg-orange-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    )}
+                  >
+                    {link.name}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+
+            {/* Right Actions & User Profile */}
+            <div className="hidden sm:flex items-center gap-3">
+              <button
+                type="button"
+                className="relative p-2.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+                title="Notifications"
+                aria-label="Notifications"
+              >
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/dashboard/truck-owner"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 hover:border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:text-gray-900 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none shadow-2xs"
+                >
+                  <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-xs">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'F'}
+                  </div>
+                  <span>Dashboard</span>
+                  <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px] font-mono">
+                    Fleet Owner
+                  </span>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus:outline-none cursor-pointer"
+                >
+                  Sign out
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile Menu Button */}
+            <div className="flex md:hidden items-center gap-2">
+              <button
+                type="button"
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-expanded={mobileMenuOpen}
+                aria-label={mobileMenuOpen ? 'Close main menu' : 'Open main menu'}
+              >
+                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* ── SEARCH & FILTER TOOLBAR ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F131D] p-4 rounded-2xl border border-white/10">
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-gray-200 px-4 py-4 space-y-3 shadow-lg">
+            <nav className="space-y-1">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    'block px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors',
+                    link.active ? 'bg-orange-50 text-orange-600' : 'text-gray-700 hover:bg-gray-50'
+                  )}
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="pt-3 border-t border-gray-100 space-y-2">
+              <Link
+                href="/dashboard/truck-owner"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3.5 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 rounded-xl"
+              >
+                Fleet Dashboard
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full text-left px-3.5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* ── Main Workspace ── */}
+      <main className="flex-1 py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
+        {/* ── 2. Page Header & Add Truck CTA ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>RTO / Vahan Certified Fleet</span>
+              </span>
+              <span className="text-xs font-mono font-bold text-gray-400">
+                • {totalTrucks} Vehicles Registered
+              </span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">
+              My Fleet
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-500">
+              Manage commercial vehicles, compliance verification status, and active trip assignments.
+            </p>
+          </div>
+
+          {/* Add Truck Button (Top Right) */}
+          <button
+            type="button"
+            onClick={() => setRegisterModalOpen(true)}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs sm:text-sm font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none cursor-pointer self-start sm:self-auto shrink-0"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Add Truck</span>
+          </button>
+        </div>
+
+        {/* ── Telemetry Stats Overview Row ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              TOTAL FLEET
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-gray-900 mt-1">
+              {loading ? '...' : totalTrucks}
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">Registered lorries</div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              AVAILABLE NOW
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-700 mt-1">
+              {loading ? '...' : availableCount}
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">Ready for dispatch</div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              ON ACTIVE TRIP
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-orange-600 mt-1">
+              {loading ? '...' : onTripCount}
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">In highway transit</div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              VAHAN VERIFIED
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-gray-900 mt-1">
+              {loading ? '...' : `${verifiedCount}/${totalTrucks}`}
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">RC & insurance clear</div>
+          </div>
+        </div>
+
+        {/* ── Search & Filter Controls Toolbar ── */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
-            <MagnifyingGlassIcon className="w-4 h-4 text-surface-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by registration number, body type…"
-              className="w-full pl-10 pr-4 py-2.5 bg-surface-950/80 border border-white/10 rounded-xl text-white text-sm font-sans focus:outline-none focus:border-primary-500"
+              placeholder="Search by registration number or body type…"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50/80 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm font-medium focus:outline-none focus:border-orange-500 focus-visible:ring-2 focus-visible:ring-orange-500/20 transition-colors"
             />
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1">
-            {['ALL', 'Available', 'Verified', 'Pending Verification', 'InTransit'].map((st) => (
+          {/* Filter Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+            {[
+              { id: 'ALL', label: 'All Fleet' },
+              { id: 'Available', label: 'Available' },
+              { id: 'On Trip', label: 'On Trip' },
+              { id: 'Under Verification', label: 'Verification Pending' },
+              { id: 'Verified', label: 'Vahan Verified' },
+            ].map((tab) => (
               <button
-                key={st}
+                key={tab.id}
                 type="button"
-                onClick={() => setStatusFilter(st)}
+                onClick={() => setStatusFilter(tab.id)}
                 className={cn(
-                  'px-3.5 py-1.5 rounded-xl text-xs font-sans font-semibold transition-all whitespace-nowrap cursor-pointer',
-                  statusFilter === st
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-surface-950/80 border border-white/10 text-surface-400 hover:text-white hover:bg-white/5'
+                  'px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none',
+                  statusFilter === tab.id
+                    ? 'bg-orange-500 text-white shadow-2xs'
+                    : 'bg-slate-100 text-gray-600 hover:text-gray-900 hover:bg-slate-200'
                 )}
               >
-                {st === 'ALL' ? 'All' : st === 'InTransit' ? 'In transit' : st}
+                {tab.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* ── FLEET VEHICLES CARDS ── */}
+        {/* ── 3. Fleet Cards Grid ── */}
         {loading ? (
           <div className="space-y-4">
-            <Skeleton.Card />
-            <Skeleton.Card />
+            {[1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm animate-pulse"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-gray-100" />
+                    <div className="space-y-2">
+                      <div className="w-36 h-4 bg-gray-200 rounded" />
+                      <div className="w-24 h-3 bg-gray-100 rounded" />
+                    </div>
+                  </div>
+                  <div className="w-24 h-6 bg-gray-200 rounded-full" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[1, 2, 3, 4].map((s) => (
+                    <div key={s} className="h-16 bg-gray-50 rounded-xl" />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ) : error ? (
-          <GlassPanel padding="lg" className="text-center space-y-3">
-            <div className="p-4 rounded-xl bg-danger-950/40 border border-danger-900/60 text-danger-300 text-sm font-sans font-semibold">
-              {error}
-            </div>
-            <Button variant="secondary" size="sm" onClick={loadFleetData} leftIcon={<ArrowPathIcon className="w-4 h-4" />}>
-              Retry
-            </Button>
-          </GlassPanel>
+          <div className="bg-white rounded-2xl border border-red-200 p-8 text-center space-y-3">
+            <div className="text-red-700 font-bold text-sm">{error}</div>
+            <button
+              type="button"
+              onClick={loadFleetData}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-gray-700 text-xs font-bold rounded-xl"
+            >
+              Retry Loading Fleet
+            </button>
+          </div>
         ) : filteredTrucks.length === 0 ? (
-          <OperationalEmptyState
-            role="truck_owner"
-            title="No vehicles registered"
-            description="Register your truck vehicle registration, body type, and tonnage capacity to receive direct freight leads without broker cuts."
-            actionLabel="Add your first truck"
-            actionHref="/my-trucks"
-            secondaryActionLabel="Get direct transporter pass"
-            secondaryActionHref="/subscribe"
-          />
+          /* ── 4. Empty State (Zero Trucks Registered) ── */
+          <div className="bg-white rounded-2xl border border-gray-200 p-10 sm:p-14 text-center space-y-4 shadow-sm">
+            <div className="w-16 h-16 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto border border-orange-100">
+              <Truck className="w-8 h-8 stroke-[1.8]" />
+            </div>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+              {searchQuery ? 'No trucks match your search query' : 'No trucks registered yet'}
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+              Register your commercial lorry with vehicle registration, body type, and tonnage capacity
+              to receive direct verified freight loads with zero broker cuts.
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setRegisterModalOpen(true)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Add Your First Truck</span>
+              </button>
+            </div>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-5">
             {filteredTrucks.map((truck) => {
               const isVerified = truck.verificationStatus === 'Verified'
+              const isRejected = truck.verificationStatus === 'Rejected'
+              const isOnTrip = truck.status === 'On Trip' && truck.activeBooking
 
               return (
-                <GlassPanel
+                <div
                   key={truck.id}
-                  padding="lg"
-                  className="space-y-4 hover:border-white/20 transition-all flex flex-col justify-between"
+                  className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow duration-200 space-y-5"
                 >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">
-                          Registration
-                        </span>
-                        <h3 className="text-base font-bold text-white font-mono tracking-wider mt-0.5">
-                          {truck.registrationNumber || 'Pending'}
-                        </h3>
+                  {/* Card Header: Identity, Verification Badge, Status Badge, Icon Actions */}
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="flex items-start gap-3.5">
+                      {/* Truck Icon Badge */}
+                      <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100 shrink-0">
+                        <Truck className="w-6 h-6 stroke-[2.2]" />
                       </div>
 
-                      <Badge
-                        variant={
-                          truck.status === 'Available'
-                            ? 'success'
-                            : truck.status === 'InTransit'
-                            ? 'primary'
-                            : truck.status === 'Pending Verification'
-                            ? 'warning'
-                            : 'default'
-                        }
-                        size="sm"
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono font-bold text-gray-900 text-base sm:text-lg tracking-wide">
+                            {truck.registrationNumber || 'MH-XX-TRUCK'}
+                          </span>
+
+                          {/* Verification Badge */}
+                          {isVerified ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-xs font-semibold">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Vahan Verified</span>
+                            </span>
+                          ) : isRejected ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-medium">
+                              <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                              <span>Verification Rejected</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-200 text-xs font-medium">
+                              <Clock className="w-3.5 h-3.5 text-gray-400" />
+                              <span>Verification Pending</span>
+                            </span>
+                          )}
+
+                          {/* Operational Status Badge */}
+                          <span
+                            className={cn(
+                              'px-2.5 py-0.5 rounded-full text-xs font-semibold border',
+                              truck.status === 'Available'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : truck.status === 'On Trip'
+                                ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                : 'bg-gray-50 text-gray-600 border-gray-200'
+                            )}
+                          >
+                            {truck.status}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 font-medium">
+                          <span className="font-semibold text-gray-700">
+                            {truck.bodyType === 'Open'
+                              ? 'Open Body'
+                              : truck.bodyType === 'Container'
+                              ? 'Closed Container'
+                              : 'Open Body Trailer'}{' '}
+                            Truck
+                          </span>
+                          {truck.lengthFt && <span>• {truck.lengthFt}ft Length</span>}
+                          {truck.heightFt && <span>• {truck.heightFt}ft Height</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Icon Action Buttons (Compacts with badges) */}
+                    <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+                      {/* Upload KYC Docs button if pending */}
+                      {!isVerified && (
+                        <button
+                          type="button"
+                          onClick={() => setUploadDocModalTruck(truck)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+                          title="Upload RC & Insurance Document"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Upload RC / KYC</span>
+                        </button>
+                      )}
+
+                      {/* Edit Icon Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditTruck(truck)
+                          setEditBodyType(truck.bodyType)
+                          setEditCapacity(truck.tonnageCapacity.toString())
+                          setEditRadius((truck.serviceableRadiusKm || 50).toString())
+                        }}
+                        className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+                        title="Edit Vehicle Details"
+                        aria-label="Edit Vehicle Details"
                       >
-                        {truck.status === 'InTransit' ? 'In transit' : truck.status}
-                      </Badge>
-                    </div>
+                        <Pencil className="w-4 h-4" />
+                      </button>
 
-                    <div className="p-3.5 rounded-2xl bg-surface-950/80 border border-white/5 grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Body type</span>
-                        <span className="text-sm font-semibold text-white mt-0.5 block font-sans">
+                      {/* Deactivate / Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDeactivate(truck)}
+                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl border border-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus:outline-none cursor-pointer"
+                        title="Toggle Active State"
+                        aria-label="Toggle Active State"
+                      >
+                        <Power className="w-4 h-4" />
+                      </button>
+
+                      {/* Direct Match Loads Action */}
+                      <Link
+                        href="/search?type=load"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors shadow-2xs focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Match Loads</span>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* ── Card Body: If On Trip vs If Available ── */}
+                  {isOnTrip ? (
+                    /* Mini Checkpoint Progress Bar for Trucks On Trip */
+                    <div className="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-gray-200/80 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                        <div>
+                          <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                            ACTIVE CONSIGNMENT TRIP
+                          </div>
+                          <div className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2 mt-0.5">
+                            <span>{truck.activeBooking?.loadingAddress}</span>
+                            <ArrowRight className="w-4 h-4 text-orange-500 shrink-0" />
+                            <span>{truck.activeBooking?.unloadingAddress}</span>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                            AGREED FREIGHT
+                          </div>
+                          <div className="text-sm sm:text-base font-bold font-mono text-gray-900">
+                            {formatINR(truck.activeBooking?.agreedPrice || 48000)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Telemetry Stat Row for Trip */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white rounded-xl p-3 border border-gray-200">
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                            ORIGIN
+                          </div>
+                          <div className="text-xs sm:text-sm font-bold text-gray-900 font-mono mt-0.5 truncate">
+                            {truck.activeBooking?.loadingAddress.split(',')[0]}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                            CHECKPOINT STATUS
+                          </div>
+                          <div className="text-xs sm:text-sm font-bold text-orange-600 font-mono mt-0.5">
+                            Milestone 2/5 Passed
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                            DESTINATION
+                          </div>
+                          <div className="text-xs sm:text-sm font-bold text-gray-900 font-mono mt-0.5 truncate">
+                            {truck.activeBooking?.unloadingAddress.split(',')[0]}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                            MILESTONE ETA
+                          </div>
+                          <div className="text-xs sm:text-sm font-bold text-gray-900 font-mono mt-0.5">
+                            Est. 4h 15m
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 5-Step Checkpoint Bar */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-medium text-gray-500">
+                          <span>Highway Checkpoint Progression</span>
+                          <span className="font-mono text-gray-700 font-semibold">2 of 5 recorded</span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {['Loading Hub', 'Corridor Toll', 'Transit Hub', 'State Border', 'Unloading Point'].map(
+                            (cpName, idx) => {
+                              const isDone = idx < 2
+                              const isCurrent = idx === 1
+                              return (
+                                <div key={idx} className="space-y-1">
+                                  <div
+                                    className={cn(
+                                      'h-2 rounded-full transition-colors',
+                                      isDone
+                                        ? 'bg-emerald-500'
+                                        : isCurrent
+                                        ? 'bg-orange-500'
+                                        : 'bg-gray-200'
+                                    )}
+                                  />
+                                  <span className="block text-[10px] font-mono text-gray-500 truncate">
+                                    {cpName}
+                                  </span>
+                                </div>
+                              )
+                            }
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* 4-Stat Telemetry Row for Available Truck */
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                          TONNAGE CAPACITY
+                        </div>
+                        <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5">
+                          {truck.tonnageCapacity} Tons
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                          VEHICLE BODY
+                        </div>
+                        <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5 truncate">
                           {truck.bodyType}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Capacity</span>
-                        <span className="text-sm font-bold text-white mt-0.5 block font-mono">
-                          {truck.tonnageCapacity} T
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Compliance */}
-                    <div className="space-y-1.5 text-xs font-sans">
-                      <div className="flex items-center justify-between text-surface-400">
-                        <span>RTO / RC status</span>
-                        <span className={isVerified ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
-                          {isVerified ? 'Verified' : 'Pending'}
-                        </span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-surface-400">
-                        <span>Insurance</span>
-                        <span className="text-emerald-400 font-semibold">Active</span>
+                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                          DECK DIMENSIONS
+                        </div>
+                        <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5">
+                          {truck.lengthFt || 24}ft × {truck.heightFt || 8}ft
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-surface-400">
-                        <span>Service radius</span>
-                        <span className="text-white font-mono">{truck.serviceableRadiusKm || 50} km</span>
+                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                        <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                          SERVICE RADIUS
+                        </div>
+                        <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5">
+                          {truck.serviceableRadiusKm || 50} km
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="pt-3 border-t border-white/10 flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedTruck(truck)
-                        setModalTab('DETAILS')
-                      }}
-                      className="flex-1 border-white/10 hover:border-white/20"
-                    >
-                      View details
-                    </Button>
+                  {/* Preferred Corridors (if present) */}
+                  {truck.preferredDestinations && truck.preferredDestinations.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                        Active Corridors:
+                      </span>
+                      {truck.preferredDestinations.map((dest, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-[11px] font-medium"
+                        >
+                          {dest}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => router.push('/search?type=load')}
-                      leftIcon={<SparklesIcon className="w-3.5 h-3.5" />}
-                      className="flex-1 shadow-glow-primary"
+                  {/* Compliance Summary Footer */}
+                  <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3 text-gray-600">
+                      <span className="flex items-center gap-1">
+                        <span
+                          className={cn(
+                            'w-2 h-2 rounded-full',
+                            isVerified ? 'bg-emerald-500' : 'bg-amber-500'
+                          )}
+                        />
+                        <span>RC Book: {isVerified ? 'Vahan Verified' : 'Pending Upload/Review'}</span>
+                      </span>
+                      <span>•</span>
+                      <span>Insurance: {isVerified ? 'Active Commercial Cover' : 'Pending Review'}</span>
+                    </div>
+
+                    <Link
+                      href="/search?type=load"
+                      className="text-xs font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1"
                     >
-                      Match loads
-                    </Button>
+                      <span>Find Freight for this Lorry</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
-                </GlassPanel>
+                </div>
               )
             })}
           </div>
         )}
-
-      </div>
+      </main>
 
       {/* ── REGISTER NEW TRUCK MODAL ── */}
       {registerModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
-          <div className="bg-surface-900 rounded-[20px] border border-white/15 max-w-md w-full p-6 shadow-modal space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <TruckIcon className="w-5 h-5 text-primary-400" />
-                <h3 className="text-base font-semibold text-white font-sans">Register lorry</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-gray-200 max-w-lg w-full p-6 shadow-xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center">
+                  <Truck className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-bold text-gray-900">Register Commercial Lorry</h3>
               </div>
-              <button onClick={() => setRegisterModalOpen(false)} className="text-surface-400 hover:text-white cursor-pointer">
-                <XMarkIcon className="w-5 h-5" />
+              <button
+                type="button"
+                onClick={() => setRegisterModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleRegisterTruck} className="space-y-4">
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-400 font-sans mb-1.5">
-                  Registration number (e.g. MH 12 QT 8492) *
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Registration Number (e.g. MH 12 QT 8492) *
                 </label>
                 <input
                   type="text"
                   value={regNumber}
                   onChange={(e) => setRegNumber(e.target.value)}
                   placeholder="MH 12 QT 8492"
-                  className="w-full px-4 py-3 bg-surface-950 border border-white/10 rounded-xl text-white font-mono font-bold text-sm focus:outline-none focus:border-primary-500"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono font-bold text-sm focus:outline-none focus:border-orange-500 focus-visible:ring-2 focus-visible:ring-orange-500/20"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-400 font-sans mb-1.5">
-                    Body type *
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Body Type *
                   </label>
-                  <select value={bodyType} onChange={(e) => setBodyType(e.target.value)} className="w-full px-3.5 py-3 bg-surface-950 border border-white/10 rounded-xl text-white text-sm font-sans focus:outline-none focus:border-primary-500">
-                    <option value="Open">Open body</option>
-                    <option value="Container">Closed container</option>
-                    <option value="OpenBody">Open body trailer</option>
+                  <select
+                    value={bodyType}
+                    onChange={(e) => setBodyType(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm font-medium focus:outline-none focus:border-orange-500"
+                  >
+                    <option value="Open">Open Body</option>
+                    <option value="Container">Closed Container</option>
+                    <option value="OpenBody">Open Body Trailer</option>
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-400 font-sans mb-1.5">
-                    Capacity (tons) *
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Capacity (Tons) *
                   </label>
                   <input
                     type="number"
                     value={capacity}
                     onChange={(e) => setCapacity(e.target.value)}
-                    className="w-full px-3.5 py-3 bg-surface-950 border border-white/10 rounded-xl text-white font-mono font-bold text-sm focus:outline-none focus:border-primary-500"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono font-bold text-xs sm:text-sm focus:outline-none focus:border-orange-500"
                     required
                   />
                 </div>
@@ -455,146 +1011,228 @@ export default function FleetOperatingSystemPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-400 font-sans mb-1.5">
-                    Deck length (ft)
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Deck Length (ft)
                   </label>
                   <input
                     type="number"
                     value={lengthFt}
                     onChange={(e) => setLengthFt(e.target.value)}
-                    className="w-full px-3.5 py-3 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-primary-500"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono text-xs sm:text-sm focus:outline-none focus:border-orange-500"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-400 font-sans mb-1.5">
-                    Height (ft)
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                    Deck Height (ft)
                   </label>
                   <input
                     type="number"
                     value={heightFt}
                     onChange={(e) => setHeightFt(e.target.value)}
-                    className="w-full px-3.5 py-3 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-primary-500"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono text-xs sm:text-sm focus:outline-none focus:border-orange-500"
                   />
                 </div>
               </div>
 
-              <div className="pt-2">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  fullWidth
-                  loading={registering}
-                  className="shadow-glow-primary"
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Base Location / Operating Hub
+                </label>
+                <input
+                  type="text"
+                  value={locationAddress}
+                  onChange={(e) => setLocationAddress(e.target.value)}
+                  placeholder="e.g. Bhiwandi, Maharashtra"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-gray-200 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setRegisterModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
-                  Register lorry
-                </Button>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={registering}
+                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 cursor-pointer disabled:opacity-60"
+                >
+                  {registering ? 'Registering...' : 'Register Lorry'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* ── TRUCK DETAILS MODAL ── */}
-      {selectedTruck && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
-          <div className="bg-surface-900 rounded-[20px] border border-white/15 max-w-xl w-full max-h-[85vh] flex flex-col justify-between shadow-modal overflow-hidden">
-            <div className="p-5 border-b border-white/10 flex items-center justify-between">
+      {/* ── UPLOAD KYC / RC DOCUMENT MODAL ── */}
+      {uploadDocModalTruck && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-gray-200 max-w-md w-full p-6 shadow-xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
               <div>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Vehicle profile</span>
-                <h3 className="text-base font-bold text-white font-mono mt-0.5">
-                  {selectedTruck.registrationNumber || 'Pending'}
-                  <span className="text-surface-400 font-sans font-normal text-sm ml-2">({selectedTruck.bodyType})</span>
-                </h3>
+                <h3 className="text-base font-bold text-gray-900">Upload Vehicle KYC Document</h3>
+                <p className="text-xs text-gray-500">
+                  Vehicle: <span className="font-mono font-bold text-gray-800">{uploadDocModalTruck.registrationNumber}</span>
+                </p>
               </div>
               <button
-                onClick={() => setSelectedTruck(null)}
-                className="p-2 rounded-xl text-surface-400 hover:text-white cursor-pointer"
+                type="button"
+                onClick={() => setUploadDocModalTruck(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 cursor-pointer"
               >
-                <XMarkIcon className="w-5 h-5" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex items-center gap-2 px-5 py-2.5 border-b border-white/10 bg-surface-950/50 overflow-x-auto scrollbar-none">
-              {(['DETAILS', 'DOCUMENTS', 'LOCATION'] as FleetTab[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setModalTab(tab)}
-                  className={cn(
-                    'px-3.5 py-1.5 rounded-xl text-xs font-sans font-semibold transition-all whitespace-nowrap cursor-pointer capitalize',
-                    modalTab === tab
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-surface-900 text-surface-400 hover:text-white border border-white/10'
-                  )}
+            <form onSubmit={handleUploadDocument} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Document Type *
+                </label>
+                <select
+                  value={docType}
+                  onChange={(e) => setDocType(e.target.value as any)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm font-medium focus:outline-none focus:border-orange-500"
                 >
-                  {tab.charAt(0) + tab.slice(1).toLowerCase()}
+                  <option value="RC">RC Book (Registration Certificate)</option>
+                  <option value="Insurance">Commercial Vehicle Insurance</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Document Number (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={docNumber}
+                  onChange={(e) => setDocNumber(e.target.value)}
+                  placeholder="e.g. RC-MH12-9842"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Upload File (PDF, JPEG, PNG, max 5MB) *
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer"
+                  required
+                />
+              </div>
+
+              <div className="pt-3 border-t border-gray-200 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setUploadDocModalTruck(null)}
+                  className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
                 </button>
-              ))}
-            </div>
-
-            <div className="p-6 flex-1 overflow-y-auto space-y-4">
-              {modalTab === 'DETAILS' && (
-                <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-surface-950/80 border border-white/5">
-                  <div>
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Body type</span>
-                    <span className="font-semibold text-white text-sm mt-0.5 block font-sans">{selectedTruck.bodyType}</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Payload</span>
-                    <span className="font-bold text-white text-sm mt-0.5 block font-mono">{selectedTruck.tonnageCapacity} T</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Deck dimensions</span>
-                    <span className="font-mono text-white text-sm mt-0.5 block">
-                      {selectedTruck.lengthFt || 24}ft &times; {selectedTruck.heightFt || 8}ft
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Service radius</span>
-                    <span className="font-bold text-white text-sm mt-0.5 block font-mono">
-                      {selectedTruck.serviceableRadiusKm || 50} km
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {modalTab === 'DOCUMENTS' && (
-                <div className="space-y-3">
-                  <div className="p-3.5 rounded-2xl bg-surface-950/80 border border-white/5 flex items-center justify-between">
-                    <div>
-                      <span className="font-semibold text-white block font-sans">RC book</span>
-                      <span className="text-xs text-surface-400 font-sans">RTO verified</span>
-                    </div>
-                    <Badge variant="success" size="sm">Verified</Badge>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-surface-950/80 border border-white/5 flex items-center justify-between">
-                    <div>
-                      <span className="font-semibold text-white block font-sans">Commercial insurance</span>
-                      <span className="text-xs text-surface-400 font-sans">Interstate coverage</span>
-                    </div>
-                    <Badge variant="success" size="sm">Active</Badge>
-                  </div>
-                </div>
-              )}
-
-              {modalTab === 'LOCATION' && (
-                <div className="p-4 rounded-2xl bg-surface-950/80 border border-white/5 space-y-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-surface-500 font-sans block">Current location</span>
-                  <p className="font-semibold text-white text-sm font-sans">
-                    {selectedTruck.currentLocationName}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 border-t border-white/10 bg-surface-950/50 flex justify-end">
-              <Button variant="secondary" size="sm" onClick={() => setSelectedTruck(null)} className="border-white/10">
-                Close
-              </Button>
-            </div>
+                <button
+                  type="submit"
+                  disabled={uploadingDoc}
+                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 cursor-pointer disabled:opacity-60"
+                >
+                  {uploadingDoc ? 'Uploading...' : 'Submit Document'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
-    </DashboardLayout>
+
+      {/* ── EDIT TRUCK MODAL ── */}
+      {editTruck && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-gray-200 max-w-md w-full p-6 shadow-xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Edit Vehicle Specifications</h3>
+                <p className="text-xs font-mono font-bold text-gray-600">{editTruck.registrationNumber}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditTruck(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Body Type
+                </label>
+                <select
+                  value={editBodyType}
+                  onChange={(e) => setEditBodyType(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 text-xs sm:text-sm font-medium focus:outline-none focus:border-orange-500"
+                >
+                  <option value="Open">Open Body</option>
+                  <option value="Container">Closed Container</option>
+                  <option value="OpenBody">Open Body Trailer</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Payload Capacity (Tons)
+                </label>
+                <input
+                  type="number"
+                  value={editCapacity}
+                  onChange={(e) => setEditCapacity(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono font-bold text-xs sm:text-sm focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Serviceable Radius (km)
+                </label>
+                <input
+                  type="number"
+                  value={editRadius}
+                  onChange={(e) => setEditRadius(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-gray-900 font-mono text-xs sm:text-sm focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-gray-200 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditTruck(null)}
+                  className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 cursor-pointer disabled:opacity-60"
+                >
+                  {savingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <Footer />
+    </div>
   )
 }

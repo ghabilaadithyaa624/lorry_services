@@ -11,20 +11,8 @@
     "db:studio": "npx prisma studio --schema=packages/database/prisma/schema.prisma",
     "db:generate": "npx prisma generate --schema=packages/database/prisma/schema.prisma"
   },
-  "dependencies": {
-    "@react-three/drei": "^9.102.0",
-    "@react-three/fiber": "^8.16.0",
-    "@vercel/speed-insights": "^2.0.0",
-    "expo-linking": "^57.0.5",
-    "framer-motion": "^11.0.0",
-    "hls.js": "^1.5.8",
-    "react-native-url-polyfill": "^4.0.0",
-    "three": "^0.162.0",
-    "three-stdlib": "^2.29.0"
-  },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
-    "@types/three": "^0.162.0",
     "prisma": "^5.22.0",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0"
@@ -34,8 +22,10 @@
     "packages/*"
   ],
   "overrides": {
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5"
   },
   "engines": {
     "node": ">=20.0.0"
