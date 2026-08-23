@@ -440,7 +440,7 @@ export class MapmyIndiaService {
    * In production, this method strictly returns null to prevent corrupting logistics matching.
    */
   private handleDevFallback(address: string, reason: string): GeocodeResult | null {
-    const nodeEnv = this.config.get<string>('NODE_ENV') || process.env.NODE_ENV || 'development'
+    const nodeEnv = this.config.get<string>('NODE_ENV') || 'development'
     const allowDevFallback = this.config.get<string>('ENABLE_GEOCODE_DEV_FALLBACK') === 'true'
 
     // Strict Production Gate: NEVER return fabricated coordinates in production
