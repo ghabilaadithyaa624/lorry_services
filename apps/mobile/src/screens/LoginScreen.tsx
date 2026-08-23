@@ -16,6 +16,7 @@ import { StackNavigationProp } from '@react-navigation/stack'
 import { AuthStackParamList } from '../navigation/types'
 import { authApi, setTokens } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import axios from 'axios'
 
 type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>
 
@@ -57,8 +58,14 @@ export function LoginScreen({ navigation }: LoginProps) {
       } else {
         Alert.alert('Error', res.data.message || 'Failed to send OTP')
       }
-    } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to send OTP')
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        Alert.alert('Error', err.response?.data?.message || 'Failed to send OTP')
+      } else if (err instanceof Error) {
+        Alert.alert('Error', err.message || 'Failed to send OTP')
+      } else {
+        Alert.alert('Error', 'Failed to send OTP')
+      }
     } finally {
       setLoading(false)
     }
@@ -81,8 +88,14 @@ export function LoginScreen({ navigation }: LoginProps) {
       // Existing user
       setTokens(accessToken, refreshToken)
       login(accessToken, refreshToken, user)
-    } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Invalid OTP')
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        Alert.alert('Error', err.response?.data?.message || 'Invalid OTP')
+      } else if (err instanceof Error) {
+        Alert.alert('Error', err.message || 'Invalid OTP')
+      } else {
+        Alert.alert('Error', 'Invalid OTP')
+      }
     } finally {
       setLoading(false)
     }
