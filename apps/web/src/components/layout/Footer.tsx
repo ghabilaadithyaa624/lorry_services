@@ -3,14 +3,15 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import {
-  TruckIcon,
-  PhoneIcon,
-  EnvelopeIcon,
-  ChevronDownIcon,
-  ShieldCheckIcon,
-  CheckBadgeIcon,
-  MapPinIcon,
-} from '@heroicons/react/24/outline'
+  Truck,
+  Phone,
+  Mail,
+  ChevronDown,
+  ShieldCheck,
+  CheckCircle2,
+  MapPin,
+  MessageSquare,
+} from 'lucide-react'
 import { whatsappLink, cn } from '@/lib/utils'
 
 export function Footer() {
@@ -25,7 +26,7 @@ export function Footer() {
       title: 'PLATFORM',
       links: [
         { label: 'Live Matching Engine', href: '/#live-network' },
-        { label: '50km Proximity Engine', href: '/#live-network font-mono' },
+        { label: '50km Proximity Engine', href: '/#live-network' },
         { label: 'Transit Telemetry', href: '/#transit-intelligence' },
         { label: 'Vahan Verification', href: '/#comparison' },
         { label: 'Direct Freight OS', href: '/' },
@@ -95,36 +96,39 @@ export function Footer() {
     {
       title: 'Verified Transporters',
       desc: 'Government Vahan & RC authentication for every registered vehicle.',
-      icon: ShieldCheckIcon,
+      icon: ShieldCheck,
     },
     {
       title: 'Zero Brokerage',
       desc: '100% direct contact & payment between shipper and lorry owner.',
-      icon: CheckBadgeIcon,
+      icon: CheckCircle2,
     },
     {
       title: '50km Proximity Engine',
       desc: 'Instant radial matching for fast loading and reduced deadhead miles.',
-      icon: MapPinIcon,
+      icon: MapPin,
     },
   ]
 
   return (
-    <footer className="bg-[#0F131D] text-surface-300 border-t border-white/10 font-sans">
+    <footer className="bg-slate-50 text-gray-600 border-t border-gray-200 font-sans">
       {/* Executive Value Highlights */}
-      <div className="border-b border-white/10 bg-[#070A11]/80 py-8">
+      <div className="border-b border-gray-200 bg-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {trustBadges.map((b) => {
               const Icon = b.icon
               return (
-                <div key={b.title} className="flex items-start gap-3.5 p-3 rounded-xl bg-[#0F131D] border border-white/5">
-                  <div className="w-10 h-10 rounded-lg bg-primary-500/10 border border-primary-500/20 text-primary-400 flex items-center justify-center shrink-0">
+                <div
+                  key={b.title}
+                  className="flex items-start gap-3.5 p-4 rounded-2xl bg-slate-50 border border-gray-200/80 shadow-2xs hover:shadow-xs transition-shadow"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-100 text-orange-600 flex items-center justify-center shrink-0">
                     <Icon className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">{b.title}</h4>
-                    <p className="text-xs text-surface-400 mt-0.5 leading-relaxed">{b.desc}</p>
+                    <h4 className="text-sm font-bold text-gray-900">{b.title}</h4>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{b.desc}</p>
                   </div>
                 </div>
               )
@@ -135,19 +139,18 @@ export function Footer() {
 
       {/* Main Enterprise Footer Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        
         {/* Brand & Direct Contact Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-10 border-b border-white/10 gap-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-10 border-b border-gray-200 gap-6">
           <div className="space-y-3 max-w-xl">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-primary-500 flex items-center justify-center text-white shadow-glow-primary">
-                <TruckIcon className="w-5 h-5 stroke-[2.2]" />
+              <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-sm">
+                <Truck className="w-5 h-5 stroke-[2.4]" />
               </div>
-              <span className="text-xl font-black tracking-tight text-white leading-none">
-                Lorry<span className="text-primary-500">Carry</span>
+              <span className="text-xl font-black tracking-tight text-gray-900 leading-none">
+                Lorry<span className="text-orange-500">Carry</span>
               </span>
             </Link>
-            <p className="text-xs sm:text-sm text-surface-400 leading-relaxed font-sans">
+            <p className="text-xs sm:text-sm text-gray-500 leading-relaxed font-sans">
               India&apos;s Direct Freight Operating Network. Connecting shippers directly with Vahan-verified lorry owners across India&apos;s major highway corridors.
             </p>
           </div>
@@ -155,9 +158,9 @@ export function Footer() {
           <div className="flex flex-wrap items-center gap-3">
             <a
               href="tel:+918072025106"
-              className="px-4 py-2.5 rounded-xl bg-[#070A11] border border-white/10 hover:border-white/30 text-xs font-mono font-bold text-white flex items-center gap-2 transition-all"
+              className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 hover:border-gray-300 text-xs font-mono font-bold text-gray-800 flex items-center gap-2 transition-colors shadow-2xs focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
             >
-              <PhoneIcon className="w-4 h-4 text-primary-400" />
+              <Phone className="w-4 h-4 text-orange-500" />
               <span>+91 80720 25106</span>
             </a>
 
@@ -165,9 +168,9 @@ export function Footer() {
               href={whatsappLink('918072025106', 'Hi LorryCarry Team, I need help with freight dispatch.')}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2.5 rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/25 text-xs font-bold flex items-center gap-2 transition-all"
+              className="px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 text-xs font-bold flex items-center gap-2 transition-colors shadow-2xs focus-visible:ring-2 focus-visible:ring-emerald-500 focus:outline-none"
             >
-              <EnvelopeIcon className="w-4 h-4" />
+              <MessageSquare className="w-4 h-4 text-emerald-600" />
               <span>WhatsApp Helpline</span>
             </a>
           </div>
@@ -177,7 +180,7 @@ export function Footer() {
         <div className="hidden md:grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-8 pt-10">
           {footerGroups.map((group) => (
             <div key={group.title} className="space-y-3">
-              <h5 className="text-[11px] font-mono font-bold text-white uppercase tracking-wider">
+              <h5 className="text-[11px] font-mono font-bold text-gray-900 uppercase tracking-wider">
                 {group.title}
               </h5>
               <ul className="space-y-2 text-xs">
@@ -185,7 +188,7 @@ export function Footer() {
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="text-surface-400 hover:text-white transition-colors block truncate"
+                      className="text-gray-500 hover:text-gray-900 transition-colors block truncate"
                     >
                       {link.label}
                     </Link>
@@ -201,15 +204,18 @@ export function Footer() {
           {footerGroups.map((group) => {
             const isOpen = !!openSections[group.title]
             return (
-              <div key={group.title} className="border-b border-white/10 pb-3">
+              <div key={group.title} className="border-b border-gray-200 pb-3">
                 <button
                   type="button"
                   onClick={() => toggleSection(group.title)}
-                  className="w-full flex items-center justify-between py-1 text-xs font-mono font-bold text-white uppercase tracking-wider text-left"
+                  className="w-full flex items-center justify-between py-1 text-xs font-mono font-bold text-gray-900 uppercase tracking-wider text-left"
                 >
                   <span>{group.title}</span>
-                  <ChevronDownIcon
-                    className={cn('w-4 h-4 text-surface-400 transition-transform duration-200', isOpen && 'rotate-180 text-primary-400')}
+                  <ChevronDown
+                    className={cn(
+                      'w-4 h-4 text-gray-400 transition-transform duration-200',
+                      isOpen && 'rotate-180 text-orange-500'
+                    )}
                   />
                 </button>
 
@@ -217,7 +223,10 @@ export function Footer() {
                   <ul className="pt-2 pb-1 space-y-2 text-xs">
                     {group.links.map((link) => (
                       <li key={link.label}>
-                        <Link href={link.href} className="text-surface-400 hover:text-white transition-colors block py-0.5">
+                        <Link
+                          href={link.href}
+                          className="text-gray-500 hover:text-gray-900 transition-colors block py-0.5"
+                        >
                           {link.label}
                         </Link>
                       </li>
@@ -230,14 +239,13 @@ export function Footer() {
         </div>
 
         {/* Bottom Legal / Copyright Bar */}
-        <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-surface-400">
+        <div className="mt-12 pt-8 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-gray-500">
           <p>© {new Date().getFullYear()} LorryCarry Operations Platform. All rights reserved.</p>
-          <p className="flex items-center gap-1.5 text-[11px] text-surface-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          <p className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <span>Direct Freight Operating System • Zero Middleman Brokerage</span>
           </p>
         </div>
-
       </div>
     </footer>
   )
