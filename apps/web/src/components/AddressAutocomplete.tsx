@@ -36,6 +36,10 @@ export function AddressAutocomplete({
   const [loading, setLoading] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
+  const generatedId = useId()
+  const inputId = id || `address-input-${generatedId}`
+  const listboxId = `address-listbox-${generatedId}`
+
   useEffect(() => {
     setQuery(value)
   }, [value])
@@ -143,9 +147,14 @@ export function AddressAutocomplete({
         placeholder={placeholder}
         className="input"
         autoComplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={showSuggestions && suggestions.length > 0}
+        aria-controls={listboxId}
+        aria-haspopup="listbox"
       />
       {loading && (
-        <div className="absolute right-3 top-9 text-xs text-gray-400">
+        <div role="status" aria-live="polite" className="absolute right-3 top-9 text-xs text-gray-400">
           Loading...
         </div>
       )}
