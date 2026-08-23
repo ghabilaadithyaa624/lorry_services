@@ -150,12 +150,16 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex border-b border-surface-200 dark:border-surface-700 text-xs font-bold gap-4">
+      <div role="tablist" aria-label="Freight rate analysis options" className="flex border-b border-surface-200 dark:border-surface-700 text-xs font-bold gap-4">
         <button
           type="button"
+          role="tab"
+          id="tab-overview"
+          aria-selected={activeTab === 'overview'}
+          aria-controls="panel-overview"
           onClick={() => setActiveTab('overview')}
           className={cn(
-            'pb-2 border-b-2 transition-colors cursor-pointer',
+            'pb-2 border-b-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-t',
             activeTab === 'overview'
               ? 'border-primary-500 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-surface-500 hover:text-surface-900'
@@ -166,9 +170,13 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
 
         <button
           type="button"
+          role="tab"
+          id="tab-sensitivity"
+          aria-selected={activeTab === 'sensitivity'}
+          aria-controls="panel-sensitivity"
           onClick={() => setActiveTab('sensitivity')}
           className={cn(
-            'pb-2 border-b-2 transition-colors cursor-pointer flex items-center gap-1',
+            'pb-2 border-b-2 transition-colors cursor-pointer flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-t',
             activeTab === 'sensitivity'
               ? 'border-primary-500 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-surface-500 hover:text-surface-900'
@@ -180,9 +188,13 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
 
         <button
           type="button"
+          role="tab"
+          id="tab-comparison"
+          aria-selected={activeTab === 'comparison'}
+          aria-controls="panel-comparison"
           onClick={() => setActiveTab('comparison')}
           className={cn(
-            'pb-2 border-b-2 transition-colors cursor-pointer flex items-center gap-1',
+            'pb-2 border-b-2 transition-colors cursor-pointer flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-t',
             activeTab === 'comparison'
               ? 'border-primary-500 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-surface-500 hover:text-surface-900'
@@ -195,7 +207,7 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
 
       {/* TAB CONTENT 1: OVERVIEW & BREAKDOWN */}
       {activeTab === 'overview' && (
-        <div className="space-y-3 pt-1">
+        <div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="space-y-3 pt-1">
           {/* Adjustments Pills */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div className="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60 space-y-1">
@@ -229,8 +241,10 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
           <div className="bg-primary-50/40 dark:bg-primary-950/20 p-3 rounded-xl border border-primary-100/60 dark:border-primary-900/40 space-y-2 text-xs">
             <button
               type="button"
+              aria-expanded={showExplanation}
+              aria-controls="pricing-explanation-panel"
               onClick={() => setShowExplanation(!showExplanation)}
-              className="w-full flex items-center justify-between font-bold text-primary-800 dark:text-primary-200 cursor-pointer"
+              className="w-full flex items-center justify-between font-bold text-primary-800 dark:text-primary-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
             >
               <span className="flex items-center gap-1.5 text-[11px]">
                 <InformationCircleIcon className="w-4 h-4 text-primary-500 shrink-0" />
@@ -244,7 +258,7 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
             </button>
 
             {showExplanation && (
-              <div className="pt-2 text-[11px] text-surface-600 dark:text-surface-300 space-y-1.5 leading-relaxed border-t border-primary-100 dark:border-primary-900/40">
+              <div id="pricing-explanation-panel" className="pt-2 text-[11px] text-surface-600 dark:text-surface-300 space-y-1.5 leading-relaxed border-t border-primary-100 dark:border-primary-900/40">
                 <p>{estimate.explanation}</p>
                 <div className="p-2 rounded-lg bg-white/70 dark:bg-surface-900/70 font-mono text-[10px] space-y-0.5 text-surface-800 dark:text-surface-200">
                   <div>Base Freight = {estimate.distanceKm} km × {estimate.tonnage} T × ₹{estimate.ratePerTonKm.toFixed(2)} = ₹{Math.round(estimate.distanceKm * estimate.tonnage * estimate.ratePerTonKm).toLocaleString('en-IN')}</div>
@@ -259,7 +273,7 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
 
       {/* TAB CONTENT 2: PRICE SENSITIVITY */}
       {activeTab === 'sensitivity' && (
-        <div className="space-y-3 pt-1 text-xs">
+        <div id="panel-sensitivity" role="tabpanel" aria-labelledby="tab-sensitivity" className="space-y-3 pt-1 text-xs">
           <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60 space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">
               Tonnage Volume Sensitivity Analysis (±10% Payload)
@@ -305,7 +319,7 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
 
       {/* TAB CONTENT 3: ROUTE & VEHICLE COMPARISON */}
       {activeTab === 'comparison' && (
-        <div className="space-y-3 pt-1 text-xs">
+        <div id="panel-comparison" role="tabpanel" aria-labelledby="tab-comparison" className="space-y-3 pt-1 text-xs">
           <div className="overflow-x-auto rounded-xl border border-surface-200 dark:border-surface-700">
             <table className="w-full text-left border-collapse">
               <thead>
