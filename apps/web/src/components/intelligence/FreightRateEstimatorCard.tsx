@@ -150,8 +150,7 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div role="tablist" aria-label="Freight rate analysis options" className="flex border-b border-surface-200 dark:border-surface-700 text-xs font-bold gap-4">
-      <div className="flex border-b border-hairline text-xs font-bold gap-4">
+      <div role="tablist" aria-label="Freight rate analysis options" className="flex border-b border-hairline text-xs font-bold gap-4">
         <button
           type="button"
           role="tab"
@@ -259,8 +258,7 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
             </button>
 
             {showExplanation && (
-              <div id="pricing-explanation-panel" className="pt-2 text-[11px] text-surface-600 dark:text-surface-300 space-y-1.5 leading-relaxed border-t border-primary-100 dark:border-primary-900/40">
-              <div className="pt-2 text-[11px] text-muted space-y-1.5 leading-relaxed border-t border-primary-100 dark:border-primary-900/40">
+              <div id="pricing-explanation-panel" className="pt-2 text-[11px] text-muted space-y-1.5 leading-relaxed border-t border-primary-100 dark:border-primary-900/40">
                 <p>{estimate.explanation}</p>
                 <div className="p-2 rounded-lg bg-sunken/70 font-mono text-[10px] space-y-0.5 text-muted">
                   <div>Base Freight = {estimate.distanceKm} km × {estimate.tonnage} T × ₹{estimate.ratePerTonKm.toFixed(2)} = ₹{Math.round(estimate.distanceKm * estimate.tonnage * estimate.ratePerTonKm).toLocaleString('en-IN')}</div>
@@ -276,8 +274,6 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
       {/* TAB CONTENT 2: PRICE SENSITIVITY */}
       {activeTab === 'sensitivity' && (
         <div id="panel-sensitivity" role="tabpanel" aria-labelledby="tab-sensitivity" className="space-y-3 pt-1 text-xs">
-          <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-100 dark:border-surface-700/60 space-y-2">
-        <div className="space-y-3 pt-1 text-xs">
           <div className="p-3 rounded-xl bg-sunken/40 border border-hairline/60 space-y-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-surface-400 block">
               Tonnage Volume Sensitivity Analysis (±10% Payload)
@@ -324,8 +320,6 @@ export function FreightRateEstimatorCard({ input, className }: FreightRateEstima
       {/* TAB CONTENT 3: ROUTE & VEHICLE COMPARISON */}
       {activeTab === 'comparison' && (
         <div id="panel-comparison" role="tabpanel" aria-labelledby="tab-comparison" className="space-y-3 pt-1 text-xs">
-          <div className="overflow-x-auto rounded-xl border border-surface-200 dark:border-surface-700">
-        <div className="space-y-3 pt-1 text-xs">
           <div className="overflow-x-auto rounded-xl border border-hairline">
             <table className="w-full text-left border-collapse">
               <thead>

@@ -7,7 +7,7 @@ describe('FreightRateEstimatorCard component accessibility & functionality', () 
   })
 
   it('should render correct tablist, tab roles, aria-selected, and focus-visible attributes', () => {
-    let stateMap: Record<string, any> = {}
+    const stateMap: Record<string, any> = {}
     let stateIndex = 0
 
     const mockDispatcher = {
@@ -80,7 +80,7 @@ describe('FreightRateEstimatorCard component accessibility & functionality', () 
   })
 
   it('should render collapsible pricing explanation button with proper aria-expanded attribute', () => {
-    let stateMap: Record<string, any> = {}
+    const stateMap: Record<string, any> = {}
     let stateIndex = 0
 
     const mockDispatcher = {

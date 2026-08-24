@@ -26,7 +26,7 @@ import {
   GlobeAsiaAustraliaIcon,
 } from '@heroicons/react/24/outline'
 import { usersApi } from '@/lib/api'
-import { Badge, Avatar } from '@/components/ui'
+import { Avatar } from '@/components/ui'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { AIFreightAssistantDrawer } from '@/components/intelligence'
 import { cn, formatPhone } from '@/lib/utils'

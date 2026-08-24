@@ -13,7 +13,7 @@ import {
   MapIcon,
 } from '@heroicons/react/24/outline'
 import { DashboardLayout } from '@/components/layout'
-import { Card, PageHeader, Badge } from '@/components/ui'
+import { Card, PageHeader } from '@/components/ui'
 import { cn } from '@/lib/utils'
 
 /**

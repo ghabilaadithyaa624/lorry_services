@@ -24,7 +24,7 @@ import {
   Skeleton,
   Tabs,
 } from '@/components/ui'
-import { cn, formatINR } from '@/lib/utils'
+import { formatINR } from '@/lib/utils'
 
 /**
  * Booking statuses exactly as defined by the backend `BookingStatus` enum.
