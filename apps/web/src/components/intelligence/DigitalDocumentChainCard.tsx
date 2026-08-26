@@ -300,14 +300,24 @@ export function DigitalDocumentChainCard({
 
       {/* ── UPLOAD MODAL ── */}
       {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="upload-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in"
+        >
           <div className="bg-panel rounded-2xl border border-white/15 max-w-md w-full p-6 shadow-modal space-y-4 text-white">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <h3 className="text-base font-bold text-white">
+              <h3 id="upload-modal-title" className="text-base font-bold text-white">
                 Upload to Digital Freight Chain
               </h3>
-              <button onClick={() => setUploadModalOpen(false)} className="text-surface-400 hover:text-white cursor-pointer">
-                <XMarkIcon className="w-5 h-5" />
+              <button
+                type="button"
+                onClick={() => setUploadModalOpen(false)}
+                aria-label="Close upload modal"
+                className="p-1 rounded-lg text-surface-400 hover:text-white transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              >
+                <XMarkIcon className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -389,14 +399,24 @@ export function DigitalDocumentChainCard({
 
       {/* ── PHOTO PREVIEW MODAL ── */}
       {previewPhotoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pod-preview-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in"
+        >
           <div className="bg-panel rounded-2xl border border-white/15 max-w-lg w-full p-5 shadow-modal space-y-4 text-white">
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <h3 className="text-sm font-bold text-white">
+              <h3 id="pod-preview-modal-title" className="text-sm font-bold text-white">
                 Proof of Delivery (POD) Attachment Preview
               </h3>
-              <button onClick={() => setPreviewPhotoModal(null)} className="text-surface-400 hover:text-white cursor-pointer">
-                <XMarkIcon className="w-5 h-5" />
+              <button
+                type="button"
+                onClick={() => setPreviewPhotoModal(null)}
+                aria-label="Close POD attachment preview"
+                className="p-1 rounded-lg text-surface-400 hover:text-white transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              >
+                <XMarkIcon className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
