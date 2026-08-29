@@ -71,4 +71,38 @@ describe('getAllowedOrigins', () => {
     expect(origins).toContain('http://localhost:3010')
     expect(origins).toContain('http://localhost:3011')
   })
+
+  it('should return an empty array in production if no origins are configured', () => {
+    mockConfigService.get.mockImplementation((key: string) => {
+      if (key === 'NODE_ENV') return 'production'
+      return null
+    })
+
+    const origins = getAllowedOrigins(mockConfigService)
+    expect(origins).toEqual([])
+  })
+
+  it('should deduplicate identical origins provided across different environment variables', () => {
+    mockConfigService.get.mockImplementation((key: string) => {
+      if (key === 'NODE_ENV') return 'production'
+      if (key === 'CLIENT_URL') return 'https://lorrycarry.com'
+      if (key === 'ADMIN_URL') return 'https://lorrycarry.com'
+      if (key === 'CORS_ORIGIN') return 'https://lorrycarry.com,https://lorrycarry.com'
+      return null
+    })
+
+    const origins = getAllowedOrigins(mockConfigService)
+    expect(origins).toEqual(['https://lorrycarry.com'])
+  })
+
+  it('should correctly parse a CORS_ORIGIN string with multiple spaces, empty segments, and missing values', () => {
+    mockConfigService.get.mockImplementation((key: string) => {
+      if (key === 'NODE_ENV') return 'production'
+      if (key === 'CORS_ORIGIN') return '  https://a.com  , ,, https://b.com, '
+      return null
+    })
+
+    const origins = getAllowedOrigins(mockConfigService)
+    expect(origins).toEqual(['https://a.com', 'https://b.com'])
+  })
 })
