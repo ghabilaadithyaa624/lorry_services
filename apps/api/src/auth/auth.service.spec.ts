@@ -358,13 +358,10 @@ describe('AuthService', () => {
     it('should revoke all session families on logoutAll', async () => {
       redisClient.smembers.mockResolvedValueOnce(['fam-1', 'fam-2'])
 
-      const readPipeline = {
-        get: jest.fn().mockReturnThis(),
-        exec: jest.fn().mockResolvedValue([
-          [null, JSON.stringify({ activeTokenId: 'token-abc' })],
-          [null, JSON.stringify({ activeTokenId: 'token-xyz' })],
-        ]),
-      }
+      redisClient.mget = jest.fn().mockResolvedValueOnce([
+        JSON.stringify({ activeTokenId: 'token-abc' }),
+        JSON.stringify({ activeTokenId: 'token-xyz' }),
+      ])
 
       const writePipeline = {
         del: jest.fn().mockReturnThis(),
@@ -374,14 +371,11 @@ describe('AuthService', () => {
 
       redisClient.pipeline = jest
         .fn()
-        .mockReturnValueOnce(readPipeline)
         .mockReturnValueOnce(writePipeline)
 
       await service.logoutAll('usr-1')
 
-      expect(readPipeline.get).toHaveBeenCalledWith('auth:family:fam-1')
-      expect(readPipeline.get).toHaveBeenCalledWith('auth:family:fam-2')
-      expect(readPipeline.exec).toHaveBeenCalled()
+      expect(redisClient.mget).toHaveBeenCalledWith(['auth:family:fam-1', 'auth:family:fam-2'])
 
       expect(writePipeline.del).toHaveBeenCalledWith('auth:rt:active:token-abc')
       expect(writePipeline.del).toHaveBeenCalledWith('auth:rt:active:token-xyz')
@@ -415,10 +409,12 @@ describe('AuthService', () => {
             await delay(2)
             return familyIds
           }),
-          get: jest.fn().mockImplementation(async (key: string) => {
+          mget: jest.fn().mockImplementation(async (keys: string[]) => {
             await delay(2)
-            const familyId = key.split(':').pop()
-            return JSON.stringify({ activeTokenId: `token-${familyId}` })
+            return keys.map((key: string) => {
+              const familyId = key.split(':').pop()
+              return JSON.stringify({ activeTokenId: `token-${familyId}` })
+            })
           }),
           del: jest.fn().mockImplementation(async () => {
             await delay(2)
@@ -431,10 +427,6 @@ describe('AuthService', () => {
           pipeline: jest.fn().mockImplementation(() => {
             const commands: any[] = []
             const pipelineInstance = {
-              get(key: string) {
-                commands.push({ name: 'get', args: [key] })
-                return pipelineInstance
-              },
               del(key: string) {
                 commands.push({ name: 'del', args: [key] })
                 return pipelineInstance
@@ -446,10 +438,6 @@ describe('AuthService', () => {
               async exec() {
                 await delay(2)
                 return commands.map(cmd => {
-                  if (cmd.name === 'get') {
-                    const familyId = cmd.args[0].split(':').pop()
-                    return [null, JSON.stringify({ activeTokenId: `token-${familyId}` })]
-                  }
                   return [null, 'OK']
                 })
               }
