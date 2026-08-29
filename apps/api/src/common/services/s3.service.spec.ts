@@ -219,7 +219,7 @@ describe('S3Service', () => {
       expect(mockGetSignedUrl).toHaveBeenCalledTimes(2)
     })
 
-    it('should handle capacity limit and evict expired/all entries when limit is reached', async () => {
+    it('should handle capacity limit and evict LRU entry when limit is reached', async () => {
       const mockGetSignedUrl = getSignedUrl as jest.Mock
       mockGetSignedUrl.mockResolvedValue('https://mocked-signed-url')
 
@@ -233,12 +233,13 @@ describe('S3Service', () => {
 
       expect(service['signedUrlCache'].size).toBe(1000)
 
-      // Next call should trigger eviction logic
+      // Next call should trigger LRU eviction logic
       await service.getSignedUrl('key-new', 3600)
 
-      // Since all 1000 entries were active (unexpired), the cache should have been cleared entirely before inserting the new entry
-      expect(service['signedUrlCache'].size).toBe(1)
+      // The LRUCache manages max limits by evicting the least recently used entries
+      expect(service['signedUrlCache'].size).toBe(1000)
       expect(service['signedUrlCache'].has('key-new:3600')).toBe(true)
+      expect(service['signedUrlCache'].has('key-0:3600')).toBe(false) // First inserted item should be evicted
     })
   })
 
