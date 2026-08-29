@@ -27,6 +27,23 @@ jest.mock('@lorrycarry/database', () => {
   }
 })
 
+interface RedisPipelineMock {
+  get: jest.Mock
+  set: jest.Mock
+  del: jest.Mock
+  exec: jest.Mock
+}
+
+interface RedisClientMock {
+  get: jest.Mock
+  set: jest.Mock
+  del: jest.Mock
+  sadd: jest.Mock
+  srem: jest.Mock
+  smembers: jest.Mock
+  pipeline: jest.Mock
+}
+
 describe('AuthService', () => {
   let service: AuthService
   let jwtService: jest.Mocked<JwtService>
@@ -35,9 +52,9 @@ describe('AuthService', () => {
   let gupshupService: jest.Mocked<GupshupService>
   let rateLimitService: jest.Mocked<RateLimitService>
   let otpStorageService: jest.Mocked<OtpStorageService>
-  let redisClient: any
+  let redisClient: RedisClientMock
 
-  let mockPipeline: any
+  let mockPipeline: RedisPipelineMock
 
   beforeEach(async () => {
     jest.clearAllMocks()
@@ -495,7 +512,7 @@ describe('AuthService', () => {
           gupshupService,
           rateLimitService,
           otpStorageService,
-          redisClient
+          redisClient as any
         )
       }).toThrow('JWT_REFRESH_SECRET must be configured')
     })
