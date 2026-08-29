@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { ConfigService } from '@nestjs/config'
-import { CashfreeService } from './cashfree.service'
+import { CashfreeService, CashfreeError } from './cashfree.service'
 import axios from 'axios'
 import * as crypto from 'crypto'
 
@@ -127,7 +127,10 @@ describe('CashfreeService', () => {
         description: 'Test order',
       }
 
-      await expect(service.createOrder(request)).rejects.toThrow('Failed to create payment order')
+      await expect(service.createOrder(request)).rejects.toThrow(CashfreeError)
+
+      mockedAxios.post.mockRejectedValueOnce(new Error('API Error'))
+      await expect(service.createOrder(request)).rejects.toThrow('Failed to create payment order: API Error')
     })
   })
 
@@ -249,7 +252,12 @@ describe('CashfreeService', () => {
       mockedAxios.post.mockRejectedValueOnce(new Error('API Error'))
       await expect(
         service.initiateKyc('rc-123', 'chassis-123', 'https://callback.url')
-      ).rejects.toThrow('Failed to initiate KYC verification')
+      ).rejects.toThrow(CashfreeError)
+
+      mockedAxios.post.mockRejectedValueOnce(new Error('API Error'))
+      await expect(
+        service.initiateKyc('rc-123', 'chassis-123', 'https://callback.url')
+      ).rejects.toThrow('Failed to initiate KYC verification: API Error')
     })
   })
 
