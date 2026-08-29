@@ -52,11 +52,19 @@ export class Msg91Service {
         success: response.data.type === 'success',
         message: response.data.message || 'OTP sent successfully'
       }
-    } catch (error: any) {
-      this.logger.error(`MSG91 failed: ${error.message}`, error.response?.data)
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        this.logger.error(`MSG91 failed: ${error.message}`, error.response?.data)
+        return {
+          success: false,
+          message: error.response?.data?.message || 'Failed to send SMS'
+        }
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      this.logger.error(`MSG91 failed: ${errorMessage}`)
       return { 
         success: false, 
-        message: error.response?.data?.message || 'Failed to send SMS' 
+        message: 'Failed to send SMS'
       }
     }
   }
@@ -80,9 +88,14 @@ export class Msg91Service {
         success: response.data.type === 'success',
         message: response.data.message
       }
-    } catch (error: any) {
-      this.logger.error(`MSG91 resend failed: ${error.message}`)
-      return { success: false, message: error.response?.data?.message || 'Resend failed' }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        this.logger.error(`MSG91 resend failed: ${error.message}`)
+        return { success: false, message: error.response?.data?.message || 'Resend failed' }
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      this.logger.error(`MSG91 resend failed: ${errorMessage}`)
+      return { success: false, message: 'Resend failed' }
     }
   }
 
@@ -106,8 +119,9 @@ export class Msg91Service {
         success: response.data.type === 'success',
         message: response.data.message
       }
-    } catch (error: any) {
-      this.logger.error(`MSG91 verify failed: ${error.message}`)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      this.logger.error(`MSG91 verify failed: ${errorMessage}`)
       return { success: false, message: 'Invalid OTP' }
     }
   }
