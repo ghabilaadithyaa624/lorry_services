@@ -677,9 +677,13 @@ function SearchPageContent() {
         {/* ── 3. Search Panel (White Card, Rounded-2xl, Border) ── */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-7 space-y-6">
           {/* Tab Toggle */}
-          <div className="flex items-center gap-6 border-b border-gray-200">
+          <div role="tablist" aria-label="Marketplace search mode" className="flex items-center gap-6 border-b border-gray-200">
             <button
+              id="tab-trucks"
+              role="tab"
               type="button"
+              aria-selected={mode === 'trucks'}
+              aria-controls="panel-marketplace-results"
               onClick={() => {
                 setMode('trucks')
                 router.replace('/search?type=truck')
@@ -697,7 +701,11 @@ function SearchPageContent() {
             </button>
 
             <button
+              id="tab-loads"
+              role="tab"
               type="button"
+              aria-selected={mode === 'loads'}
+              aria-controls="panel-marketplace-results"
               onClick={() => {
                 setMode('loads')
                 router.replace('/search?type=load')
@@ -886,7 +894,7 @@ function SearchPageContent() {
         </div>
 
         {/* ── 4. Results Header & Sorting Controls ── */}
-        <div className="space-y-4">
+        <div id="panel-marketplace-results" role="tabpanel" aria-labelledby={mode === 'trucks' ? 'tab-trucks' : 'tab-loads'} className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:px-6 rounded-2xl border border-gray-200 shadow-xs">
             <div className="flex items-center gap-2.5">
               <p className="text-sm sm:text-base text-gray-700 font-medium">
