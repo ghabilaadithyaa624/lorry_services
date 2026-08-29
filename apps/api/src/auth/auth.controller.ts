@@ -39,8 +39,11 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response
   ) {
-    const secret = this.configService.get<string>('CSRF_SECRET') || 'default-csrf-secret-key-change-in-production'
-    const token = generateCsrfTokenForRequest(req, res, secret)
+    const secret = this.configService.get<string>('CSRF_SECRET')
+    if (this.configService.get('NODE_ENV') === 'production' && !secret) {
+      throw new Error('CSRF_SECRET must be configured in production environment')
+    }
+    const token = generateCsrfTokenForRequest(req, res, secret || 'default-csrf-secret-key-change-in-production')
     return res.json({ csrfToken: token })
   }
 
