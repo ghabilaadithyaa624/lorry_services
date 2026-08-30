@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 
 interface BookingTermsModalProps {
@@ -58,6 +58,14 @@ export function BookingTermsModal({
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60  animate-fadeIn">
