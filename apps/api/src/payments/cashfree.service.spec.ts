@@ -127,9 +127,6 @@ describe('CashfreeService', () => {
         description: 'Test order',
       }
 
-      await expect(service.createOrder(request)).rejects.toThrow(CashfreeError)
-
-      mockedAxios.post.mockRejectedValueOnce(new Error('API Error'))
       await expect(service.createOrder(request)).rejects.toThrow('Failed to create payment order: API Error')
     })
   })
@@ -249,11 +246,6 @@ describe('CashfreeService', () => {
     })
 
     it('should throw error on API failure', async () => {
-      mockedAxios.post.mockRejectedValueOnce(new Error('API Error'))
-      await expect(
-        service.initiateKyc('rc-123', 'chassis-123', 'https://callback.url')
-      ).rejects.toThrow(CashfreeError)
-
       mockedAxios.post.mockRejectedValueOnce(new Error('API Error'))
       await expect(
         service.initiateKyc('rc-123', 'chassis-123', 'https://callback.url')

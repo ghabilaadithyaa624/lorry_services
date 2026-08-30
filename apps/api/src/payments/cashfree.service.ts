@@ -89,15 +89,10 @@ export class CashfreeService {
         orderId: response.data.order_id,
         cfOrderId: response.data.cf_order_id,
       }
-    } catch (error: unknown) {
-      let errorMessage = 'Unknown error'
-      if (axios.isAxiosError(error)) {
-        errorMessage = error.response?.data?.message || error.message
-      } else if (error instanceof Error) {
-        errorMessage = error.message
-      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message
       this.logger.error(`Cashfree order failed: ${errorMessage}`)
-      throw new CashfreeError(`Failed to create payment order: ${errorMessage}`, error)
+      throw new Error(`Failed to create payment order: ${errorMessage}`)
     }
   }
 
@@ -189,15 +184,10 @@ export class CashfreeService {
         referenceId: response.data.reference_id,
         redirectUrl: response.data.redirect_url,
       }
-    } catch (error: unknown) {
-      let errorMessage = 'Unknown error'
-      if (axios.isAxiosError(error)) {
-        errorMessage = error.response?.data?.message || error.message
-      } else if (error instanceof Error) {
-        errorMessage = error.message
-      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message
       this.logger.error(`KYC initiation failed: ${errorMessage}`)
-      throw new CashfreeError(`Failed to initiate KYC verification: ${errorMessage}`, error)
+      throw new Error(`Failed to initiate KYC verification: ${errorMessage}`)
     }
   }
 
