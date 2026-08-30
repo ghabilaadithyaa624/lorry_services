@@ -71,4 +71,56 @@ describe('getAllowedOrigins', () => {
     expect(origins).toContain('http://localhost:3010')
     expect(origins).toContain('http://localhost:3011')
   })
+
+  it('should return empty array in production if no variables are configured', () => {
+    mockConfigService.get.mockImplementation((key: string) => {
+      if (key === 'NODE_ENV') return 'production'
+      return null
+    })
+
+    const origins = getAllowedOrigins(mockConfigService)
+
+    expect(origins).toEqual([])
+  })
+
+  it('should only return CLIENT_URL if it is the only one configured', () => {
+    mockConfigService.get.mockImplementation((key: string) => {
+      if (key === 'NODE_ENV') return 'production'
+      if (key === 'CLIENT_URL') return 'https://lorrycarry.com'
+      return null
+    })
+
+    const origins = getAllowedOrigins(mockConfigService)
+
+    expect(origins).toEqual(['https://lorrycarry.com'])
+  })
+
+  it('should handle CORS_ORIGIN with multiple delimiters and empty entries', () => {
+    mockConfigService.get.mockImplementation((key: string) => {
+      if (key === 'NODE_ENV') return 'production'
+      if (key === 'CORS_ORIGIN') return 'https://api.lorrycarry.com,,, https://other.domain.com , '
+      return null
+    })
+
+    const origins = getAllowedOrigins(mockConfigService)
+
+    expect(origins).toEqual([
+      'https://api.lorrycarry.com',
+      'https://other.domain.com',
+    ])
+  })
+
+  it('should include localhost origins for other non-production environments like staging or test', () => {
+    mockConfigService.get.mockImplementation((key: string) => {
+      if (key === 'NODE_ENV') return 'staging'
+      return null
+    })
+
+    const origins = getAllowedOrigins(mockConfigService)
+
+    expect(origins).toContain('http://localhost:3000')
+    expect(origins).toContain('http://localhost:3001')
+    expect(origins).toContain('http://localhost:3010')
+    expect(origins).toContain('http://localhost:3011')
+  })
 })

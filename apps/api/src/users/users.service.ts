@@ -261,37 +261,40 @@ export class UsersService {
       },
     });
 
-    const documentsWithUrls = await Promise.all(
-      documents.map(async (doc) => {
-        let signedUrl = doc.s3Url;
-        if (doc.s3Key) {
-          try {
-            signedUrl = await this.s3Service.getSignedUrl(doc.s3Key, 3600);
-          } catch (err: any) {
-            this.logger.warn(
-              `Could not generate signed URL for document ${doc.id}: ${err.message}`,
-            );
-          }
+    const documentsWithUrls = [];
+    for (const doc of documents) {
+      let signedUrl = doc.s3Url;
+      if (doc.s3Key) {
+        try {
+          signedUrl = await this.s3Service.getSignedUrl(doc.s3Key, 3600);
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          this.logger.warn(
+            `Could not generate signed URL for document ${doc.id}: ${errorMessage}`,
+          );
         }
+      }
 
-        return {
-          id: doc.id,
-          truckId: doc.truckId,
-          truckRegistration: doc.truck.registrationNumber,
-          truckBodyType: doc.truck.bodyType,
-          type: doc.type,
-          docNumber: doc.docNumber,
-          s3Url: signedUrl,
-          originalFilename: doc.originalFilename,
-          fileSize: doc.fileSize,
-          mimeType: doc.mimeType,
-          verificationStatus: doc.verificationStatus,
-          verificationNotes: doc.verificationNotes,
-          verifiedAt: doc.verifiedAt,
-          createdAt: doc.createdAt,
-        };
-      }),
-    );
+      // Yield to the event loop occasionally to avoid blocking if processing many documents
+      await new Promise(resolve => setImmediate(resolve));
+
+      documentsWithUrls.push({
+        id: doc.id,
+        truckId: doc.truckId,
+        truckRegistration: doc.truck.registrationNumber,
+        truckBodyType: doc.truck.bodyType,
+        type: doc.type,
+        docNumber: doc.docNumber,
+        s3Url: signedUrl,
+        originalFilename: doc.originalFilename,
+        fileSize: doc.fileSize,
+        mimeType: doc.mimeType,
+        verificationStatus: doc.verificationStatus,
+        verificationNotes: doc.verificationNotes,
+        verifiedAt: doc.verifiedAt,
+        createdAt: doc.createdAt,
+      });
+    }
 
     return {
       documents: documentsWithUrls,

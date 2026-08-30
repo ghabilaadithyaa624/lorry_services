@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { v4 as uuidv4 } from 'uuid'
+import { LRUCache } from 'lru-cache'
 
 export interface UploadResult {
   key: string
@@ -19,7 +20,9 @@ export class S3Service {
   private readonly logger = new Logger(S3Service.name)
   private readonly s3Client: S3Client
   private readonly bucket: string
-  private readonly signedUrlCache = new Map<string, { url: string; expiresAt: number }>()
+  private readonly signedUrlCache = new LRUCache<string, { url: string; expiresAt: number }>({
+    max: 1000,
+  })
 
   constructor(private config: ConfigService) {
     this.bucket = config.get('AWS_S3_BUCKET', 'lorrycarry-kyc')
@@ -93,19 +96,6 @@ export class S3Service {
     })
 
     const url = await getSignedUrl(this.s3Client, command, { expiresIn })
-
-    // Implement capacity limit & automatic eviction
-    if (this.signedUrlCache.size >= 1000) {
-      for (const [k, v] of this.signedUrlCache.entries()) {
-        if (v.expiresAt - buffer <= now) {
-          this.signedUrlCache.delete(k)
-        }
-      }
-      // If still exceeding or at capacity limit, clear to prevent memory leaks
-      if (this.signedUrlCache.size >= 1000) {
-        this.signedUrlCache.clear()
-      }
-    }
 
     this.signedUrlCache.set(cacheKey, {
       url,

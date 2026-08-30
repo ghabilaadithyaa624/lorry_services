@@ -39,7 +39,13 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response
   ) {
-    const secret = this.configService.get<string>('CSRF_SECRET') || 'default-csrf-secret-key-change-in-production'
+    let secret = this.configService.get<string>('CSRF_SECRET')
+    if (!secret) {
+      if (this.configService.get<string>('NODE_ENV') === 'production') {
+        throw new Error('CSRF_SECRET must be configured in production')
+      }
+      secret = 'default-csrf-secret-key-change-in-production'
+    }
     const token = generateCsrfTokenForRequest(req, res, secret)
     return res.json({ csrfToken: token })
   }
@@ -119,4 +125,4 @@ export class AuthController {
     await this.authService.logoutAll(userId)
     return { success: true, message: 'All active sessions have been revoked successfully' }
   }
-}
+}
