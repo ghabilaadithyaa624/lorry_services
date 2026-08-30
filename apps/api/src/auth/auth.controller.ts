@@ -125,4 +125,4 @@ export class AuthController {
     await this.authService.logoutAll(userId)
     return { success: true, message: 'All active sessions have been revoked successfully' }
   }
-}
+}
