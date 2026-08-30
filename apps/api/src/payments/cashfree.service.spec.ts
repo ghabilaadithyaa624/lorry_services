@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { ConfigService } from '@nestjs/config'
-import { CashfreeService } from './cashfree.service'
+import { CashfreeService, CashfreeError } from './cashfree.service'
 import axios from 'axios'
 import * as crypto from 'crypto'
 

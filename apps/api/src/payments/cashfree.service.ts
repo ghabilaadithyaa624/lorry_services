@@ -3,6 +3,13 @@ import { ConfigService } from '@nestjs/config'
 import axios from 'axios'
 import * as crypto from 'crypto'
 
+export class CashfreeError extends Error {
+  constructor(message: string, public readonly originalError?: unknown) {
+    super(message)
+    this.name = 'CashfreeError'
+  }
+}
+
 export interface CreateOrderRequest {
   orderId: string
   amount: number
@@ -118,8 +125,9 @@ export class CashfreeService {
         .digest('base64')
       
       return signature === expectedSignature
-    } catch (err: any) {
-      this.logger.error(`Webhook signature verification error: ${err.message}`)
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      this.logger.error(`Webhook signature verification error: ${errorMessage}`)
       return false
     }
   }
@@ -140,8 +148,9 @@ export class CashfreeService {
         }
       )
       return response.data
-    } catch (error: any) {
-      this.logger.error(`Get order status failed: ${error.message}`)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      this.logger.error(`Get order status failed: ${errorMessage}`)
       throw error
     }
   }
@@ -198,8 +207,9 @@ export class CashfreeService {
         }
       )
       return response.data
-    } catch (error: any) {
-      this.logger.error(`KYC status check failed: ${error.message}`)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      this.logger.error(`KYC status check failed: ${errorMessage}`)
       throw error
     }
   }
