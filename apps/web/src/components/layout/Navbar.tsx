@@ -1,306 +1,296 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   Truck,
   Search,
   PlusCircle,
   CreditCard,
-  LogOut,
   Menu,
   X,
-  Sparkles,
   Bell,
-  ShieldCheck,
+  LayoutDashboard,
 } from 'lucide-react'
-import { authApi } from '@/lib/api'
+import { usersApi } from '@/lib/api'
+import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
+import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 
-interface UserState {
-  id?: string
-  phone?: string
-  name?: string
-  role?: 'load_owner' | 'truck_owner' | 'admin'
-}
-
+/**
+ * Navbar — top-level application chrome.
+ *
+ * Shows marketing navigation on the public landing page and role-aware
+ * application navigation once signed in. Uses a glass surface, which is one of
+ * the contexts where frosting is appropriate.
+ */
 export function Navbar() {
   const pathname = usePathname()
-  const router = useRouter()
-  const [user, setUser] = useState<UserState | null>(null)
+  const [user, setUser] = useState<ProfileMenuUser | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [verified, setVerified] = useState(false)
+  const [subscriptionActive, setSubscriptionActive] = useState(false)
 
   useEffect(() => {
     try {
       const storedUser = localStorage.getItem('user')
-      if (storedUser) {
-        setUser(JSON.parse(storedUser))
-      }
+      if (storedUser) setUser(JSON.parse(storedUser))
+      else setUser(null)
     } catch {
-      // Ignore
+      setUser(null)
     }
-
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 10)
-    }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
   }, [pathname])
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 8)
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  const handleLogout = async () => {
+  /**
+   * Load the notification badge and account status.
+   * Failures are silent: the badge is supplementary and must never block chrome.
+   */
+  const loadAccountSignals = useCallback(async () => {
+    if (!user) return
     try {
-      await authApi.logout()
+      const [notifications, profile] = await Promise.allSettled([
+        usersApi.getNotifications(),
+        usersApi.getProfile(),
+      ])
+      if (notifications.status === 'fulfilled') {
+        setUnreadCount(notifications.value.data?.unreadCount || 0)
+      }
+      if (profile.status === 'fulfilled') {
+        setVerified(Boolean(profile.value.data?.verification?.isVerifiedTransporter))
+        setSubscriptionActive(Boolean(profile.value.data?.subscription?.isActive))
+      }
     } catch {
-      // Ignore
+      // Non-critical.
     }
-    setUser(null)
-    router.push('/login')
-  }
+  }, [user])
 
-  const isAuthPage = pathname === '/login' || pathname === '/role-select'
-  if (isAuthPage) return null
+  useEffect(() => {
+    loadAccountSignals()
+  }, [loadAccountSignals])
+
+  // Auth screens render without global chrome.
+  if (pathname === '/login' || pathname === '/role-select') return null
 
   const isPublicPage = pathname === '/'
 
-  const getDashboardHref = () => {
-    if (!user) return '/login'
-    if (user.role === 'admin') return '/admin'
-    if (user.role === 'truck_owner') return '/dashboard/truck-owner'
-    return '/dashboard/load-owner'
-  }
-
-  // Public enterprise marketing navigation links
   const publicNavLinks = [
     { name: 'Platform', href: '/#live-network' },
-    { name: 'Solutions', href: '/#solutions' },
-    { name: 'For Shippers', href: '/search?type=truck' },
-    { name: 'For Fleet Owners', href: '/search?type=load' },
-    { name: 'Corridors', href: '/#active-corridors' },
+    { name: 'For shippers', href: '/search?type=truck' },
+    { name: 'For fleet owners', href: '/search?type=load' },
     { name: 'Pricing', href: '/subscribe' },
-    { name: 'Resources', href: '/#resources' },
   ]
 
-  // Authenticated application navigation links
   const appNavLinks = [
     {
-      name: 'Control Tower',
-      href: '/tracking',
-      icon: Sparkles,
-      active: pathname === '/tracking',
+      name: 'Dashboard',
+      href: '/dashboard',
+      icon: LayoutDashboard,
+      active: pathname.startsWith('/dashboard'),
     },
     {
-      name: 'Find Trucks',
+      name: 'Find trucks',
       href: '/search?type=truck',
       icon: Truck,
-      active: pathname.startsWith('/search') && pathname.includes('truck'),
+      active: pathname.startsWith('/search'),
     },
     {
-      name: 'Find Loads',
+      name: 'Find loads',
       href: '/search?type=load',
       icon: Search,
-      active: pathname.startsWith('/search') && pathname.includes('load'),
+      active: false,
     },
     {
-      name: 'Pricing & Plans',
+      name: 'Pricing',
       href: '/subscribe',
       icon: CreditCard,
       active: pathname.startsWith('/subscribe'),
     },
   ]
 
+  const navLinks = isPublicPage ? publicNavLinks : appNavLinks
+
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 w-full transition-all duration-200 border-b font-sans',
-        scrolled
-          ? 'bg-white/95 backdrop-blur-md border-gray-200 shadow-sm'
-          : 'bg-white/90 backdrop-blur-md border-gray-200/80 shadow-xs'
+        'sticky top-0 z-40 w-full transition-shadow duration-200 border-b glass',
+        scrolled ? 'shadow-card border-hairline' : 'border-hairline'
       )}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          {/* Brand Logo */}
-          <div className="flex items-center gap-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Brand + desktop navigation */}
+          <div className="flex items-center gap-8 min-w-0">
             <Link
               href="/"
-              className="flex items-center gap-2.5 group focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 rounded-xl focus:outline-none"
+              className="flex items-center gap-2.5 group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas shrink-0"
             >
-              <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
-                <Truck className="w-5 h-5 stroke-[2.4]" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xl font-black tracking-tight text-gray-900 leading-none">
-                  Lorry<span className="text-orange-500">Carry</span>
-                </span>
-                <span className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-wider mt-0.5">
-                  Direct Freight Network
-                </span>
-              </div>
+              <span
+                className="w-9 h-9 rounded-xl bg-primary-500 flex items-center justify-center text-white shadow-sm transition-transform duration-200 group-hover:scale-105 motion-reduce:group-hover:scale-100"
+                aria-hidden="true"
+              >
+                <Truck className="w-[18px] h-[18px] stroke-[2.4]" />
+              </span>
+              <span className="text-lg font-bold tracking-tight text-ink leading-none">
+                Lorry<span className="text-primary-500">Carry</span>
+              </span>
             </Link>
 
-            {/* Desktop Navigation Links */}
-            {isPublicPage ? (
-              <nav className="hidden lg:flex items-center gap-1">
-                {publicNavLinks.map((link) => (
+            <nav className="hidden lg:flex items-center gap-1" aria-label="Primary">
+              {navLinks.map((link: any) => {
+                const Icon = link.icon
+                return (
                   <Link
                     key={link.name}
                     href={link.href}
-                    className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                      link.active
+                        ? 'text-primary-600 dark:text-primary-400 bg-primary-500/10'
+                        : 'text-body hover:text-ink hover:bg-wash'
+                    )}
+                    aria-current={link.active ? 'page' : undefined}
                   >
-                    {link.name}
+                    {Icon && <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />}
+                    <span>{link.name}</span>
                   </Link>
-                ))}
-              </nav>
-            ) : (
-              <nav className="hidden md:flex items-center gap-1">
-                {appNavLinks.map((link) => {
-                  const Icon = link.icon
-                  return (
-                    <Link
-                      key={link.name}
-                      href={link.href}
-                      className={cn(
-                        'flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none',
-                        link.active
-                          ? 'text-orange-600 bg-orange-50'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                      )}
-                    >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span>{link.name}</span>
-                    </Link>
-                  )
-                })}
-              </nav>
-            )}
+                )
+              })}
+            </nav>
           </div>
 
-          {/* Desktop Right Side Actions */}
-          <div className="hidden sm:flex items-center gap-3">
+          {/* Right side */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {user ? (
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="relative p-2.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
-                  title="Notifications"
-                  aria-label="Notifications"
-                >
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white" />
-                </button>
-
+              <>
                 <Link
-                  href={getDashboardHref()}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 hover:border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:text-gray-900 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none shadow-2xs"
+                  href="/notifications"
+                  className="relative p-2.5 rounded-xl text-muted hover:text-ink hover:bg-wash transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  aria-label={
+                    unreadCount > 0
+                      ? `Notifications, ${unreadCount} unread`
+                      : 'Notifications'
+                  }
                 >
-                  <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-xs">
-                    {user.name ? user.name.charAt(0).toUpperCase() : user.role === 'truck_owner' ? 'T' : 'S'}
-                  </div>
-                  <span>Dashboard</span>
-                  <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px] font-mono">
-                    {user.role === 'truck_owner' ? 'Fleet Owner' : 'Shipper'}
-                  </span>
+                  <Bell className="w-5 h-5" aria-hidden="true" />
+                  {unreadCount > 0 && (
+                    <span
+                      className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-canvas"
+                      aria-hidden="true"
+                    >
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Link>
 
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus:outline-none cursor-pointer"
-                >
-                  Sign out
-                </button>
-              </div>
+                <div className="hidden sm:block">
+                  <ProfileMenu
+                    user={user}
+                    verified={verified}
+                    subscriptionActive={subscriptionActive}
+                  />
+                </div>
+              </>
             ) : (
-              <div className="flex items-center gap-2.5">
-                <Link
-                  href="/login"
-                  className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
-                >
-                  Sign In
-                </Link>
-
-                <Link
+              <div className="hidden sm:flex items-center gap-2">
+                <Button as={Link} href="/login" variant="ghost" size="sm">
+                  Sign in
+                </Button>
+                <Button
+                  as={Link}
                   href="/login?redirect=/post-load"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs sm:text-sm font-bold transition-colors shadow-2xs focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none"
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<PlusCircle className="w-4 h-4" />}
                 >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>Post Freight</span>
-                </Link>
+                  Post freight
+                </Button>
               </div>
             )}
-          </div>
 
-          {/* Mobile Menu Button */}
-          <div className="flex lg:hidden items-center gap-2">
+            {/* Mobile menu toggle */}
             <button
               type="button"
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2.5 rounded-xl text-muted hover:text-ink hover:bg-wash transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              onClick={() => setMobileMenuOpen((open) => !open)}
               aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
               aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? (
+                <X className="w-5 h-5" aria-hidden="true" />
+              ) : (
+                <Menu className="w-5 h-5" aria-hidden="true" />
+              )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Navigation Drawer */}
+      {/* Mobile drawer */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-white border-t border-gray-200 px-4 py-4 space-y-3 shadow-lg animate-fade-in">
-          <nav className="space-y-1">
-            {(isPublicPage ? publicNavLinks : appNavLinks).map((link) => (
+        <div
+          id="mobile-navigation"
+          className="lg:hidden border-t border-hairline bg-panel px-4 py-4 space-y-3 shadow-elevated animate-fade-in"
+        >
+          <nav className="space-y-1" aria-label="Mobile">
+            {navLinks.map((link: any) => (
               <Link
                 key={link.name}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="block px-3.5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+                className="block px-3.5 py-3 rounded-xl text-sm font-medium text-body hover:text-ink hover:bg-wash transition-colors min-h-[44px]"
               >
                 {link.name}
               </Link>
             ))}
           </nav>
 
-          <div className="pt-3 border-t border-gray-100 space-y-2">
+          <div className="pt-3 border-t border-hairline space-y-2">
             {user ? (
               <>
                 <Link
-                  href={getDashboardHref()}
+                  href="/profile"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-3.5 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 rounded-xl"
+                  className="block px-3.5 py-3 rounded-xl text-sm font-medium text-body hover:bg-wash min-h-[44px]"
                 >
-                  Go to Dashboard
+                  Profile & account
                 </Link>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="w-full text-left px-3.5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl"
+                <Link
+                  href="/settings"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3.5 py-3 rounded-xl text-sm font-medium text-body hover:bg-wash min-h-[44px]"
                 >
-                  Sign out
-                </button>
+                  Settings
+                </Link>
               </>
             ) : (
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2.5 text-center rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50"
-                >
-                  Sign In
-                </Link>
-                <Link
+              <div className="grid grid-cols-2 gap-2">
+                <Button as={Link} href="/login" variant="secondary" size="md" fullWidth>
+                  Sign in
+                </Button>
+                <Button
+                  as={Link}
                   href="/login?redirect=/post-load"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2.5 text-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-2xs"
+                  variant="primary"
+                  size="md"
+                  fullWidth
                 >
-                  Post Freight
-                </Link>
+                  Post freight
+                </Button>
               </div>
             )}
           </div>
@@ -309,3 +299,5 @@ export function Navbar() {
     </header>
   )
 }
+
+export default Navbar

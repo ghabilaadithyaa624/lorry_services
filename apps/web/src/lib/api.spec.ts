@@ -1,7 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-require-imports */
 import axios from 'axios'
 
-let mockResponseInterceptorResolve: any
 let mockResponseInterceptorReject: any
 
 const mockApiInstance = jest.fn() as any
@@ -11,8 +9,7 @@ mockApiInstance.interceptors = {
     eject: jest.fn(),
   },
   response: {
-    use: jest.fn((resolve, reject) => {
-      mockResponseInterceptorResolve = resolve
+    use: jest.fn((_resolve, reject) => {
       mockResponseInterceptorReject = reject
     }),
     eject: jest.fn(),
@@ -86,7 +83,8 @@ localGlobal.document = {
 }
 
 // Use require instead of ES import to prevent hoisting above mock variables initialization
-const { api } = require('./api')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+require('./api')
 
 describe('api Response Interceptor — Refresh Token Retry & Error Paths', () => {
   const mockPost = axios.post as jest.Mock

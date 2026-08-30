@@ -73,7 +73,7 @@ export default function AdminNationalIntelligencePage() {
       <div className="space-y-6 max-w-7xl mx-auto">
         
         {/* ── METRIC CLASSIFICATION LEGEND NOTICE ── */}
-        <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-5 shadow-modal flex flex-wrap items-center justify-between gap-3 text-xs font-sans">
+        <div className="bg-panel rounded-[20px] border border-white/10 p-5 shadow-modal flex flex-wrap items-center justify-between gap-3 text-xs font-sans">
           <div className="flex items-center gap-2">
             <GlobeAsiaAustraliaIcon className="w-5 h-5 text-primary-400" />
             <span className="font-bold text-white">Metric Transparency Classification:</span>
@@ -109,7 +109,7 @@ export default function AdminNationalIntelligencePage() {
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono">
-                <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
                   <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
                     Completed Trips
                   </span>
@@ -119,7 +119,7 @@ export default function AdminNationalIntelligencePage() {
                   <span className="text-[10px] text-surface-400">Verified trip deliveries</span>
                 </div>
 
-                <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
                   <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
                     Gross Payment Volume
                   </span>
@@ -129,7 +129,7 @@ export default function AdminNationalIntelligencePage() {
                   <span className="text-[10px] text-surface-400">Settled transaction volume</span>
                 </div>
 
-                <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
                   <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
                     Verified Fleet Lorries
                   </span>
@@ -139,7 +139,7 @@ export default function AdminNationalIntelligencePage() {
                   <span className="text-[10px] text-surface-400">RTO / RC Verified vehicles</span>
                 </div>
 
-                <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
                   <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
                     KYC Approval Pipeline
                   </span>
@@ -155,7 +155,7 @@ export default function AdminNationalIntelligencePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
               
               {/* ESTIMATED METRICS */}
-              <div className="bg-[#0F131D] p-6 rounded-[20px] border border-white/10 shadow-modal space-y-4">
+              <div className="bg-panel p-6 rounded-[20px] border border-white/10 shadow-modal space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-white/10">
                   <div className="flex items-center gap-2">
                     <ScaleIcon className="w-5 h-5 text-sky-400" />
@@ -180,7 +180,7 @@ export default function AdminNationalIntelligencePage() {
               </div>
 
               {/* PREDICTIVE METRICS */}
-              <div className="bg-[#0F131D] p-6 rounded-[20px] border border-white/10 shadow-modal space-y-4">
+              <div className="bg-panel p-6 rounded-[20px] border border-white/10 shadow-modal space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-white/10">
                   <div className="flex items-center gap-2">
                     <SparklesIcon className="w-5 h-5 text-purple-400" />
@@ -207,7 +207,7 @@ export default function AdminNationalIntelligencePage() {
             </div>
 
             {/* ── SECTION 4: CORRIDOR INTELLIGENCE TABLE ── */}
-            <div className="bg-[#0F131D] rounded-[20px] border border-white/10 p-6 shadow-modal space-y-5 font-sans">
+            <div className="bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal space-y-5 font-sans">
               <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <div className="flex items-center gap-2">
                   <MapPinIcon className="w-5 h-5 text-primary-400" />

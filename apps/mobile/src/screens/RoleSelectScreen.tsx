@@ -13,6 +13,7 @@ import { StackNavigationProp } from '@react-navigation/stack'
 import { AuthStackParamList } from '../navigation/types'
 import { authApi, setTokens } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import axios from 'axios'
 
 type RoleSelectScreenRouteProp = RouteProp<AuthStackParamList, 'RoleSelect'>
 type RoleSelectScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'RoleSelect'>
@@ -38,8 +39,14 @@ export function RoleSelectScreen({ route, navigation }: RoleSelectProps) {
 
       setTokens(accessToken, refreshToken)
       login(accessToken, refreshToken, user)
-    } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to create account')
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        Alert.alert('Error', err.response?.data?.message || 'Failed to create account')
+      } else if (err instanceof Error) {
+        Alert.alert('Error', err.message || 'Failed to create account')
+      } else {
+        Alert.alert('Error', 'Failed to create account')
+      }
     } finally {
       setLoading(false)
     }

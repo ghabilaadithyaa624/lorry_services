@@ -84,13 +84,15 @@ export function BookingTermsModal({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 id="booking-terms-title" className="text-lg font-bold text-gray-900 dark:text-white">Confirm Booking</h3>
+            <h3 id="booking-terms-title" className="text-lg font-bold text-ink">
+              Confirm Booking
+            </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close modal"
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
+            aria-label="Close dialog"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -109,7 +111,7 @@ export function BookingTermsModal({
                 Verified Transporter
               </span>
             </div>
-            <p className="text-base font-bold text-gray-900 dark:text-white">
+            <p className="text-base font-bold text-ink">
               {truckInfo.registrationNumber}
             </p>
             <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -120,7 +122,7 @@ export function BookingTermsModal({
           {/* Form Inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="agreedPrice" className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
                 Agreed Freight Price (₹) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
@@ -128,8 +130,10 @@ export function BookingTermsModal({
                   ₹
                 </span>
                 <input
+                  id="agreedPrice"
                   type="number"
                   required
+                  aria-required="true"
                   min="1"
                   value={agreedPrice}
                   onChange={(e) => setAgreedPrice(e.target.value)}
@@ -140,10 +144,11 @@ export function BookingTermsModal({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="ewayBillNumber" className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
                 E-Way Bill Number <span className="text-gray-400 font-normal">(Optional)</span>
               </label>
               <input
+                id="ewayBillNumber"
                 type="text"
                 value={ewayBillNumber}
                 onChange={(e) => setEwayBillNumber(e.target.value)}
@@ -155,7 +160,7 @@ export function BookingTermsModal({
 
           {/* Payment Terms */}
           <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 space-y-2">
-            <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+            <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
               Standard Commercial Terms
             </h4>
             <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1.5">

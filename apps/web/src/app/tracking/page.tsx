@@ -2,12 +2,11 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import {
   Truck,
   Search,
   PlusCircle,
-  CreditCard,
   Bell,
   Menu,
   X,
@@ -17,12 +16,7 @@ import {
   Sparkles,
   ArrowRight,
   Info,
-  MapPin,
-  Clock,
-  FileText,
-  User,
   ChevronDown,
-  Navigation,
   ShieldCheck,
 } from 'lucide-react'
 import { api, authApi } from '@/lib/api'
@@ -37,7 +31,6 @@ import { toast } from '@/lib/toast'
 
 export default function ControlTowerTrackingPage() {
   const router = useRouter()
-  const pathname = usePathname()
 
   const [bookings, setBookings] = useState<BookingData[]>([])
   const [loading, setLoading] = useState(true)

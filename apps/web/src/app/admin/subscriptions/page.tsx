@@ -90,7 +90,7 @@ export default function RevenueSubscriptionsPage() {
 
   if (error) {
     return (
-      <div className="p-12 bg-[#0F131D] rounded-[20px] border border-white/10 text-center space-y-4 max-w-md mx-auto font-sans">
+      <div className="p-12 bg-panel rounded-[20px] border border-white/10 text-center space-y-4 max-w-md mx-auto font-sans">
         <ExclamationTriangleIcon className="w-12 h-12 text-danger-400 mx-auto" />
         <h3 className="text-base font-bold text-white">Failed to Load Revenue Subscriptions</h3>
         <p className="text-xs font-mono text-surface-400">{error}</p>
@@ -108,7 +108,7 @@ export default function RevenueSubscriptionsPage() {
     <div className="space-y-6 max-w-7xl mx-auto font-sans">
       
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0F131D] p-6 rounded-[20px] border border-white/10 shadow-modal relative overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-panel p-6 rounded-[20px] border border-white/10 shadow-modal relative overflow-hidden">
         {/* Ambient Background Glow & Grid */}
 
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
@@ -136,7 +136,7 @@ export default function RevenueSubscriptionsPage() {
 
       {/* KPI Cards Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono">
-        <div className="p-5 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+        <div className="p-5 rounded-[20px] bg-panel border border-white/10 shadow-card space-y-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-surface-400 block">Total Passes</span>
           <span className="text-2xl sm:text-3xl font-black text-white block">{total}</span>
           <span className="text-[11px] text-surface-400 block">All-time passes issued</span>
@@ -148,7 +148,7 @@ export default function RevenueSubscriptionsPage() {
           <span className="text-[11px] text-emerald-300/80 block">Active subscribers on page</span>
         </div>
 
-        <div className="p-5 rounded-[20px] bg-[#0F131D] border border-white/10 shadow-card space-y-1">
+        <div className="p-5 rounded-[20px] bg-panel border border-white/10 shadow-card space-y-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-surface-400 block">Expired Passes</span>
           <span className="text-2xl sm:text-3xl font-black text-surface-300 block">{expiredCount}</span>
           <span className="text-[11px] text-surface-400 block">Renewal candidate passes</span>
@@ -162,7 +162,7 @@ export default function RevenueSubscriptionsPage() {
       </div>
 
       {/* Subscriptions Table Card */}
-      <div className="bg-[#0F131D] rounded-[20px] border border-white/10 shadow-modal overflow-hidden font-mono">
+      <div className="bg-panel rounded-[20px] border border-white/10 shadow-modal overflow-hidden font-mono">
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
           <span className="text-xs font-bold uppercase tracking-wider text-white">
             Subscription Pass Records (Page {page} of {pages})

@@ -70,3 +70,7 @@ temp/
 *.tmp
 
 vite.config.ts.timestamp-*.mjs
+
+# Python bytecode (skill scripts)
+__pycache__/
+*.pyc

@@ -14,7 +14,6 @@ import {
   Clock,
   Navigation,
   Bell,
-  User,
   ChevronDown,
   Sparkles,
   ArrowRight,
@@ -32,7 +31,6 @@ import {
   calculateMatchScore,
   estimateFreightRate,
   sortMarketplaceItems,
-  evaluateBackhaulOpportunities,
   MatchSortOption,
   MatchResult,
 } from '@/lib/intelligence'
@@ -70,8 +68,6 @@ interface LoadResult {
 }
 
 type SearchMode = 'trucks' | 'loads'
-
-const TRUCK_TYPES = ['Open', 'Container', 'OpenBody']
 
 const SORT_OPTIONS: Array<{ id: MatchSortOption; label: string }> = [
   { id: 'BEST_MATCH', label: 'Best Match' },
@@ -112,7 +108,6 @@ function SearchPageContent() {
     Array<{ placeId: string; address: string; lat?: number; lng?: number; city?: string; state?: string }>
   >([])
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [isSuggesting, setIsSuggesting] = useState(false)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
   // Top Nav User State
@@ -166,7 +161,6 @@ function SearchPageContent() {
     }
 
     const timer = setTimeout(async () => {
-      setIsSuggesting(true)
       try {
         const res = await locationApi.getSuggestions(
           locationLabel.trim(),
@@ -179,8 +173,6 @@ function SearchPageContent() {
         }
       } catch {
         // Silent
-      } finally {
-        setIsSuggesting(false)
       }
     }, 300)
 

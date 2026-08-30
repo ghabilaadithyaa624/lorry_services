@@ -236,17 +236,17 @@ export default function ProcurementPage() {
         
         {/* ── B2B PROCUREMENT SUMMARY KPI HEADER ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-card">
+          <div className="bg-sunken p-4 rounded-2xl border border-hairline/90 shadow-card">
             <span className="text-[10px] text-surface-400 font-black uppercase tracking-wider block">
               Active Sourcing RFFs
             </span>
-            <span className="text-2xl sm:text-3xl font-black text-surface-900 dark:text-white mt-1 block">
+            <span className="text-2xl sm:text-3xl font-black text-ink mt-1 block">
               {rffList.filter((r) => r.status === 'OPEN_FOR_BIDS').length}
             </span>
             <span className="text-[11px] text-surface-500 font-medium">Bidding in progress</span>
           </div>
 
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-card">
+          <div className="bg-sunken p-4 rounded-2xl border border-hairline/90 shadow-card">
             <span className="text-[10px] text-primary-600 dark:text-primary-400 font-black uppercase tracking-wider block">
               Carrier Quotes Received
             </span>
@@ -256,7 +256,7 @@ export default function ProcurementPage() {
             <span className="text-[11px] text-primary-600 font-medium">Sealed bids evaluated</span>
           </div>
 
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-card">
+          <div className="bg-sunken p-4 rounded-2xl border border-hairline/90 shadow-card">
             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-wider block">
               Awarded Contracts
             </span>
@@ -266,7 +266,7 @@ export default function ProcurementPage() {
             <span className="text-[11px] text-emerald-600 font-medium">Verified Carrier Awards</span>
           </div>
 
-          <div className="bg-white dark:bg-surface-900 p-4 rounded-2xl border border-surface-200/90 dark:border-surface-800 shadow-card">
+          <div className="bg-sunken p-4 rounded-2xl border border-hairline/90 shadow-card">
             <span className="text-[10px] text-purple-600 dark:text-purple-400 font-black uppercase tracking-wider block">
               Total Contract Volume
             </span>
@@ -278,11 +278,11 @@ export default function ProcurementPage() {
         </div>
 
         {/* ── RFF REQUESTS BOARD ── */}
-        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-6 shadow-card space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
+        <div className="bg-sunken rounded-2xl border border-hairline/90 p-6 shadow-card space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-hairline">
             <div className="flex items-center gap-2">
               <BuildingOffice2Icon className="w-5 h-5 text-primary-500" />
-              <h2 className="text-base font-bold text-surface-900 dark:text-white">
+              <h2 className="text-base font-bold text-ink">
                 B2B Freight Requests for Freight (RFF / RFQ)
               </h2>
             </div>
@@ -298,11 +298,11 @@ export default function ProcurementPage() {
               return (
                 <div
                   key={rff.id}
-                  className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-surface-50/50 dark:hover:bg-surface-800/30 p-3 rounded-xl transition-colors"
+                  className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-wash p-3 rounded-xl transition-colors"
                 >
                   <div className="space-y-2 max-w-2xl">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-extrabold text-surface-900 dark:text-white font-mono">
+                      <h3 className="text-sm font-extrabold text-ink font-mono">
                         {rff.title}
                       </h3>
                       <Badge variant={isAwarded ? 'success' : 'primary'} size="sm">
@@ -310,7 +310,7 @@ export default function ProcurementPage() {
                       </Badge>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-surface-600 dark:text-surface-300">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
                       <span>🚚 {rff.tonnage}T {rff.truckType}</span>
                       <span>•</span>
                       <span>📦 {rff.monthlyVolume} shipments / month</span>
@@ -365,32 +365,32 @@ export default function ProcurementPage() {
         </div>
 
         {/* ── B2B ARCHITECTURE & DTO AUDIT REPORT ── */}
-        <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200/90 dark:border-surface-800 p-6 shadow-card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-surface-100 dark:border-surface-800">
+        <div className="bg-sunken rounded-2xl border border-hairline/90 p-6 shadow-card space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-hairline">
             <ShieldCheckIcon className="w-5 h-5 text-emerald-500" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-surface-900 dark:text-white">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-ink">
               B2B Freight Procurement Backend & Authorization Architecture
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-200/60 dark:border-surface-700 space-y-1">
-              <span className="font-bold text-surface-900 dark:text-white block">1. Sealed-Bid Authorization Model</span>
-              <p className="text-[11px] text-surface-500 dark:text-surface-400">
+            <div className="p-3.5 rounded-xl bg-sunken/40 border border-hairline/60 space-y-1">
+              <span className="font-bold text-ink block">1. Sealed-Bid Authorization Model</span>
+              <p className="text-[11px] text-subtle">
                 Carriers can ONLY inspect their own submitted bids. Competing carrier quotes are strictly encrypted and sealed until the evaluation phase.
               </p>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-200/60 dark:border-surface-700 space-y-1">
-              <span className="font-bold text-surface-900 dark:text-white block">2. Multi-Round Negotiation DTO</span>
-              <p className="text-[11px] text-surface-500 dark:text-surface-400">
+            <div className="p-3.5 rounded-xl bg-sunken/40 border border-hairline/60 space-y-1">
+              <span className="font-bold text-ink block">2. Multi-Round Negotiation DTO</span>
+              <p className="text-[11px] text-subtle">
                 Supports counter-offers with `counterAmount` & `remarks`. Shippers and carriers can iterate rates before binding contract execution.
               </p>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/40 border border-surface-200/60 dark:border-surface-700 space-y-1">
-              <span className="font-bold text-surface-900 dark:text-white block">3. Financial Transaction Safety</span>
-              <p className="text-[11px] text-surface-500 dark:text-surface-400">
+            <div className="p-3.5 rounded-xl bg-sunken/40 border border-hairline/60 space-y-1">
+              <span className="font-bold text-ink block">3. Financial Transaction Safety</span>
+              <p className="text-[11px] text-subtle">
                 Awarding an RFF generates a binding procurement contract without initiating automated payment release until trip loading confirmation.
               </p>
             </div>
@@ -401,14 +401,14 @@ export default function ProcurementPage() {
 
       {/* ── BID COMPARISON & AWARD MODAL ── */}
       {comparisonModalOpen && selectedRff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
-          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-4xl w-full max-h-[90vh] flex flex-col justify-between shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-panel p-4 animate-fade-in">
+          <div className="bg-sunken rounded-2xl border border-hairline max-w-4xl w-full max-h-[90vh] flex flex-col justify-between shadow-2xl overflow-hidden">
             
             {/* Modal Header */}
-            <div className="p-5 border-b border-surface-100 dark:border-surface-800 flex items-center justify-between bg-surface-50 dark:bg-surface-800/60">
+            <div className="p-5 border-b border-hairline flex items-center justify-between bg-sunken/60">
               <div>
                 <span className="text-[10px] text-surface-400 uppercase font-bold block">Side-by-Side Bid Comparison</span>
-                <h3 className="text-base font-black text-surface-900 dark:text-white font-mono">
+                <h3 className="text-base font-black text-ink font-mono">
                   {selectedRff.title} ({selectedRff.tonnage}T • {selectedRff.monthlyVolume} shipments/mo)
                 </h3>
               </div>
@@ -435,13 +435,13 @@ export default function ProcurementPage() {
                         'p-4 rounded-xl border flex flex-col justify-between space-y-3 transition-all',
                         isWinning
                           ? 'bg-emerald-50/80 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 shadow-md'
-                          : 'bg-white dark:bg-surface-800/50 border-surface-200 dark:border-surface-700'
+                          : 'bg-sunken border-hairline'
                       )}
                     >
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-1">
                           <div>
-                            <span className="font-bold text-surface-900 dark:text-white text-xs block truncate">
+                            <span className="font-bold text-ink text-xs block truncate">
                               {bid.carrierOrgName}
                             </span>
                             <span className="text-[10px] text-emerald-600 font-bold">
@@ -452,7 +452,7 @@ export default function ProcurementPage() {
                         </div>
 
                         {/* Price Callout */}
-                        <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-900 border border-surface-100 dark:border-surface-700 text-center">
+                        <div className="p-3 rounded-xl bg-sunken border border-hairline text-center">
                           <span className="text-[10px] text-surface-400 uppercase font-bold block">Submitted Quote</span>
                           <span className="text-xl font-black text-primary-600 dark:text-primary-400 mt-0.5 block">
                             {formatINR(bid.quoteAmount)}
@@ -462,14 +462,14 @@ export default function ProcurementPage() {
                           </span>
                         </div>
 
-                        <p className="text-[11px] text-surface-500 dark:text-surface-400 italic">
+                        <p className="text-[11px] text-subtle italic">
                           "{bid.notes}"
                         </p>
                       </div>
 
                       {/* Actions */}
                       {selectedRff.status !== 'AWARDED' && (
-                        <div className="pt-2 border-t border-surface-100 dark:border-surface-700 space-y-2">
+                        <div className="pt-2 border-t border-hairline space-y-2">
                           <Button
                             variant="primary"
                             size="sm"
@@ -502,7 +502,7 @@ export default function ProcurementPage() {
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-surface-100 dark:border-surface-800 bg-surface-50 dark:bg-surface-800/60 flex justify-end">
+            <div className="p-4 border-t border-hairline bg-sunken/60 flex justify-end">
               <Button variant="secondary" size="sm" onClick={() => setComparisonModalOpen(false)}>
                 Close Bid Matrix
               </Button>
@@ -513,10 +513,10 @@ export default function ProcurementPage() {
 
       {/* ── CREATE RFF MODAL ── */}
       {createRffModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
-          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
-              <h3 className="text-base font-bold text-surface-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-panel p-4 animate-fade-in">
+          <div className="bg-sunken rounded-2xl border border-hairline max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-hairline">
+              <h3 className="text-base font-bold text-ink">
                 Create B2B Freight RFF
               </h3>
               <button onClick={() => setCreateRffModalOpen(false)} className="text-surface-400 hover:text-surface-600">
@@ -526,7 +526,7 @@ export default function ProcurementPage() {
 
             <form onSubmit={handleCreateRff} className="space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                <label className="block font-bold text-body mb-1">
                   Origin Hub Address *
                 </label>
                 <input
@@ -539,7 +539,7 @@ export default function ProcurementPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                <label className="block font-bold text-body mb-1">
                   Destination ICD / Terminal *
                 </label>
                 <input
@@ -553,7 +553,7 @@ export default function ProcurementPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                  <label className="block font-bold text-body mb-1">
                     Tonnage Capacity (Tons)
                   </label>
                   <input
@@ -566,7 +566,7 @@ export default function ProcurementPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                  <label className="block font-bold text-body mb-1">
                     Vehicle Type
                   </label>
                   <select
@@ -582,7 +582,7 @@ export default function ProcurementPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                  <label className="block font-bold text-body mb-1">
                     Monthly Shipment Volume
                   </label>
                   <input
@@ -595,7 +595,7 @@ export default function ProcurementPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                  <label className="block font-bold text-body mb-1">
                     Indicative Target Rate (₹)
                   </label>
                   <input
@@ -627,10 +627,10 @@ export default function ProcurementPage() {
 
       {/* ── COUNTER OFFER MODAL ── */}
       {negotiateModalOpen && activeBidForCounter && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F131D] p-4 animate-fade-in">
-          <div className="bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-surface-100 dark:border-surface-800">
-              <h3 className="text-base font-bold text-surface-900 dark:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-panel p-4 animate-fade-in">
+          <div className="bg-sunken rounded-2xl border border-hairline max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-hairline">
+              <h3 className="text-base font-bold text-ink">
                 Transmit Counter-Offer to Carrier
               </h3>
               <button onClick={() => setNegotiateModalOpen(false)} className="text-surface-400 hover:text-surface-600">
@@ -639,13 +639,13 @@ export default function ProcurementPage() {
             </div>
 
             <form onSubmit={handleSendCounterOffer} className="space-y-4 text-xs">
-              <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800 border border-surface-200 text-xs">
-                <span className="font-bold text-surface-900 dark:text-white block">{activeBidForCounter.carrierOrgName}</span>
+              <div className="p-3 rounded-xl bg-sunken border border-surface-200 text-xs">
+                <span className="font-bold text-ink block">{activeBidForCounter.carrierOrgName}</span>
                 <span className="text-surface-500">Original Carrier Quote: {formatINR(activeBidForCounter.quoteAmount)}</span>
               </div>
 
               <div>
-                <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                <label className="block font-bold text-body mb-1">
                   Counter-Offer Amount (₹) *
                 </label>
                 <input
@@ -658,7 +658,7 @@ export default function ProcurementPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-surface-700 dark:text-surface-300 mb-1">
+                <label className="block font-bold text-body mb-1">
                   Negotiation Notes / Terms
                 </label>
                 <textarea

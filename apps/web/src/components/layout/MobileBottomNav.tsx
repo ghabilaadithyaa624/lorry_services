@@ -8,8 +8,8 @@ import {
   MagnifyingGlassIcon,
   TruckIcon,
   ClipboardDocumentListIcon,
-  ClockIcon,
-  UserIcon
+  BriefcaseIcon,
+  UserIcon,
 } from '@heroicons/react/24/outline'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +20,12 @@ interface UserState {
   role?: 'load_owner' | 'truck_owner' | 'admin'
 }
 
+/**
+ * MobileBottomNav — primary navigation on small screens.
+ *
+ * Rendered once globally from the root layout. Hidden on the marketing page,
+ * auth screens, and the admin console (which has its own dense navigation).
+ */
 export function MobileBottomNav() {
   const pathname = usePathname()
   const [user, setUser] = useState<UserState | null>(null)
@@ -27,36 +33,32 @@ export function MobileBottomNav() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem('user')
-      if (stored) {
-        setUser(JSON.parse(stored))
-      }
+      setUser(stored ? JSON.parse(stored) : null)
     } catch {
-      // Ignore
+      setUser(null)
     }
   }, [pathname])
 
-  if (pathname === '/' || pathname === '/login' || pathname === '/role-select' || pathname.startsWith('/admin')) {
+  const hiddenRoutes = ['/', '/login', '/role-select']
+  if (hiddenRoutes.includes(pathname) || pathname.startsWith('/admin')) {
     return null
   }
 
-  const getDashboardHref = () => {
-    if (!user) return '/login'
-    if (user.role === 'truck_owner') return '/dashboard/truck-owner'
-    return '/dashboard/load-owner'
-  }
+  // Only render for signed-in users; anonymous visitors use the Navbar.
+  if (!user) return null
 
-  const isTruckOwner = user?.role === 'truck_owner'
+  const isTruckOwner = user.role === 'truck_owner'
 
   const items = [
     {
       name: 'Home',
-      href: getDashboardHref(),
+      href: isTruckOwner ? '/dashboard/truck-owner' : '/dashboard/load-owner',
       icon: HomeIcon,
       active: pathname.startsWith('/dashboard'),
     },
     {
       name: 'Search',
-      href: '/search',
+      href: isTruckOwner ? '/search?type=load' : '/search?type=truck',
       icon: MagnifyingGlassIcon,
       active: pathname.startsWith('/search'),
     },
@@ -64,13 +66,13 @@ export function MobileBottomNav() {
       name: isTruckOwner ? 'Fleet' : 'Loads',
       href: isTruckOwner ? '/my-trucks' : '/my-loads',
       icon: isTruckOwner ? TruckIcon : ClipboardDocumentListIcon,
-      active: isTruckOwner ? pathname.startsWith('/my-trucks') : pathname.startsWith('/my-loads'),
+      active: pathname.startsWith(isTruckOwner ? '/my-trucks' : '/my-loads'),
     },
     {
-      name: 'Activity',
-      href: '/activity',
-      icon: ClockIcon,
-      active: pathname === '/activity',
+      name: 'Bookings',
+      href: '/bookings',
+      icon: BriefcaseIcon,
+      active: pathname.startsWith('/booking'),
     },
     {
       name: 'Profile',
@@ -81,27 +83,34 @@ export function MobileBottomNav() {
   ]
 
   return (
-    <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#0F131D]/95  border-t border-white/10 px-2 py-1.5 flex items-center justify-around font-sans pb-safe">
+    <nav
+      aria-label="Mobile navigation"
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 glass-strong border-t border-hairline px-1 pt-1 pb-safe flex items-stretch justify-around"
+    >
       {items.map((item) => {
         const Icon = item.icon
-        const isActive = item.active
-
         return (
           <Link
             key={item.name}
             href={item.href}
+            aria-current={item.active ? 'page' : undefined}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 px-2 py-1.5 rounded-xl transition-all cursor-pointer min-w-0 flex-1 min-h-[48px]',
-              isActive
-                ? 'text-primary-400 font-semibold bg-primary-500/10'
-                : 'text-surface-400 hover:text-white hover:bg-white/5'
+              'flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-xl transition-colors min-w-0 flex-1 min-h-[52px]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset',
+              item.active
+                ? 'text-primary-600 dark:text-primary-400'
+                : 'text-muted hover:text-ink'
             )}
           >
-            <Icon className={cn('w-5 h-5', isActive ? 'text-primary-400' : 'text-surface-400')} />
-            <span className="text-[10px] leading-none truncate w-full text-center">{item.name}</span>
+            <Icon className="w-[22px] h-[22px] shrink-0" aria-hidden="true" />
+            <span className="text-[10px] font-medium leading-none truncate w-full text-center">
+              {item.name}
+            </span>
           </Link>
         )
       })}
-    </div>
+    </nav>
   )
 }
+
+export default MobileBottomNav

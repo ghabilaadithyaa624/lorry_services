@@ -96,7 +96,7 @@ export default function AdminTrustRiskConsolePage() {
         
         {/* ── RISK OVERVIEW KPIS ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-sans">
-          <div className="bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+          <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
             <span className="text-[10px] text-surface-400 font-mono font-bold uppercase tracking-widest block">
               Total Audited Accounts
             </span>
@@ -138,7 +138,7 @@ export default function AdminTrustRiskConsolePage() {
         </div>
 
         {/* ── TOOLBAR: SEARCH & TIER FILTER ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0F131D] p-5 rounded-[20px] border border-white/10 shadow-modal font-sans">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal font-sans">
           <div className="flex items-center gap-2 flex-1 max-w-md">
             <div className="relative w-full">
               <MagnifyingGlassIcon className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -177,7 +177,7 @@ export default function AdminTrustRiskConsolePage() {
             <p className="text-xs font-bold text-surface-400 uppercase tracking-widest">Evaluating platform risk signals...</p>
           </div>
         ) : (
-          <div className="bg-[#0F131D] rounded-[20px] border border-white/10 shadow-modal overflow-hidden font-sans">
+          <div className="bg-panel rounded-[20px] border border-white/10 shadow-modal overflow-hidden font-sans">
             <div className="p-5 border-b border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShieldExclamationIcon className="w-5 h-5 text-primary-400" />
@@ -283,7 +283,7 @@ export default function AdminTrustRiskConsolePage() {
       {/* ── RISK EVIDENCE INSPECTION MODAL ── */}
       {selectedEvaluation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80  p-4 animate-fade-in font-sans">
-          <div className="bg-[#0F131D] rounded-[20px] border border-white/10 max-w-2xl w-full max-h-[90vh] flex flex-col justify-between shadow-modal overflow-hidden text-white">
+          <div className="bg-panel rounded-[20px] border border-white/10 max-w-2xl w-full max-h-[90vh] flex flex-col justify-between shadow-modal overflow-hidden text-white">
             
             {/* Header */}
             <div className="p-5 border-b border-white/10 flex items-center justify-between bg-surface-950/80">

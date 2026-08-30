@@ -41,6 +41,8 @@ export function MatchScoreBadge({
     <div className={cn('relative inline-block', className)}>
       <button
         type="button"
+        aria-expanded={expanded}
+        aria-label="Toggle match score breakdown"
         onClick={(e) => {
           e.stopPropagation()
           setExpanded(!expanded)
@@ -62,7 +64,7 @@ export function MatchScoreBadge({
       {isDetailsVisible && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute z-40 left-0 sm:right-0 sm:left-auto mt-2 w-80 sm:w-96 bg-[#0F131D] rounded-2xl border border-white/10 p-4 text-xs shadow-modal animate-fade-in divide-y divide-white/10 text-white font-sans"
+          className="absolute z-40 left-0 sm:right-0 sm:left-auto mt-2 w-80 sm:w-96 bg-panel rounded-2xl border border-white/10 p-4 text-xs shadow-modal animate-fade-in divide-y divide-white/10 text-white font-sans"
         >
           {/* Header */}
           <div className="pb-3 flex items-center justify-between">
@@ -80,6 +82,7 @@ export function MatchScoreBadge({
               </span>
               <button
                 type="button"
+                aria-label="Close match breakdown"
                 onClick={() => setExpanded(false)}
                 className="p-1 text-surface-400 hover:text-white rounded-md"
               >
@@ -185,13 +188,13 @@ function FactorRow({
             fit ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'
           )}
         />
-        <span className="text-surface-600 dark:text-surface-400 font-medium whitespace-nowrap">
+        <span className="text-muted font-medium whitespace-nowrap">
           {label}
         </span>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-[11px] font-bold text-surface-800 dark:text-surface-200 truncate max-w-[130px]">
+        <span className="text-[11px] font-bold text-muted truncate max-w-[130px]">
           {value}
         </span>
         <span
@@ -199,7 +202,7 @@ function FactorRow({
             'font-mono text-[10px] font-bold px-1.5 py-0.2 rounded',
             fit
               ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-              : 'bg-surface-100 dark:bg-surface-800 text-surface-500'
+              : 'bg-sunken text-surface-500'
           )}
         >
           +{score}/{maxScore}
@@ -220,7 +223,7 @@ export function MatchInlineBreakdown({
 
   return (
     <div className={cn('space-y-2 text-xs', className)}>
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3 rounded-xl bg-surface-50 dark:bg-surface-800/60 border border-surface-200/80 dark:border-surface-700 font-medium">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3 rounded-xl bg-sunken/60 border border-hairline/80 font-medium">
         {/* Capacity */}
         <div className="space-y-0.5">
           <div className="flex items-center gap-1 text-[10px] text-surface-400 font-bold uppercase tracking-wider">
@@ -232,7 +235,7 @@ export function MatchInlineBreakdown({
               <span className="text-amber-500 font-black">!</span>
             )}
           </div>
-          <span className="font-bold text-surface-900 dark:text-white block truncate text-[11px]">
+          <span className="font-bold text-ink block truncate text-[11px]">
             {f.capacity.value}
           </span>
         </div>
@@ -248,7 +251,7 @@ export function MatchInlineBreakdown({
               <span className="text-amber-500 font-black">!</span>
             )}
           </div>
-          <span className="font-bold text-surface-900 dark:text-white block truncate text-[11px]">
+          <span className="font-bold text-ink block truncate text-[11px]">
             {f.bodyType.value}
           </span>
         </div>
@@ -264,7 +267,7 @@ export function MatchInlineBreakdown({
               <span className="text-amber-500 font-black">!</span>
             )}
           </div>
-          <span className="font-bold text-surface-900 dark:text-white block truncate text-[11px]">
+          <span className="font-bold text-ink block truncate text-[11px]">
             {f.proximity.value}
           </span>
         </div>
@@ -280,7 +283,7 @@ export function MatchInlineBreakdown({
               <span className="text-amber-500 font-black">!</span>
             )}
           </div>
-          <span className="font-bold text-surface-900 dark:text-white block truncate text-[11px]">
+          <span className="font-bold text-ink block truncate text-[11px]">
             {f.verification.value}
           </span>
         </div>
@@ -296,7 +299,7 @@ export function MatchInlineBreakdown({
               <span className="text-surface-400 font-normal">-</span>
             )}
           </div>
-          <span className="font-bold text-surface-900 dark:text-white block truncate text-[11px]">
+          <span className="font-bold text-ink block truncate text-[11px]">
             {f.corridor.value}
           </span>
         </div>
@@ -324,16 +327,16 @@ export function MatchFactorCard({ match, className }: { match: MatchResult; clas
   return (
     <div
       className={cn(
-        'p-4 rounded-2xl bg-surface-50/80 dark:bg-surface-800/60 border border-surface-200/80 dark:border-surface-700 space-y-3',
+        'p-4 rounded-2xl bg-sunken/80 border border-hairline/80 space-y-3',
         className
       )}
     >
-      <div className="flex items-center justify-between pb-2 border-b border-surface-200/60 dark:border-surface-700">
+      <div className="flex items-center justify-between pb-2 border-b border-hairline/60">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-black uppercase tracking-wider text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950 px-2 py-0.5 rounded-md border border-primary-200 dark:border-primary-800">
             Smart Match
           </span>
-          <span className="text-xs font-bold text-surface-900 dark:text-white">
+          <span className="text-xs font-bold text-ink">
             Score Breakdown
           </span>
         </div>

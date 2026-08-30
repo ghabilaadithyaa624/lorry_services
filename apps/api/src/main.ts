@@ -2,14 +2,29 @@ import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { ConfigService } from '@nestjs/config'
+import * as cookieParser from 'cookie-parser'
 import helmet from 'helmet'
 import { AppModule } from './app.module'
 import { getAllowedOrigins } from './common/utils/cors.util'
+import { getCsrfMiddleware } from './common/utils/csrf.util'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true })
   const configService = app.get(ConfigService)
   
+  // Use cookie parser before CSRF
+  app.use(cookieParser())
+
+  // Conditional CSRF protection
+  let csrfSecret = configService.get<string>('CSRF_SECRET')
+  if (!csrfSecret) {
+    if (configService.get<string>('NODE_ENV') === 'production') {
+      throw new Error('CSRF_SECRET must be configured in production')
+    }
+    csrfSecret = 'default-csrf-secret-key-change-in-production'
+  }
+  app.use(getCsrfMiddleware(csrfSecret))
+
   // Security headers with helmet
   app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
