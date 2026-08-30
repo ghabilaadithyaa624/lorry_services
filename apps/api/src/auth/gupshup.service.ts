@@ -54,12 +54,17 @@ export class GupshupService {
         success: response.data.status === 'success',
         message: response.data.message || 'WhatsApp OTP sent'
       }
-    } catch (error: any) {
-      this.logger.error(`Gupshup failed: ${error.message}`, error.response?.data)
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Failed to send WhatsApp'
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        this.logger.error(`Gupshup failed: ${error.message}`, error.response?.data)
+        return {
+          success: false,
+          message: error.response?.data?.message || 'Failed to send WhatsApp'
+        }
       }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      this.logger.error(`Gupshup failed: ${errorMessage}`)
+      return { success: false, message: 'Failed to send WhatsApp' }
     }
   }
 
@@ -98,8 +103,13 @@ export class GupshupService {
         success: response.data.status === 'success',
         message: 'Notification sent'
       }
-    } catch (error: any) {
-      this.logger.error(`Gupshup notification failed: ${error.message}`)
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        this.logger.error(`Gupshup notification failed: ${error.message}`)
+        return { success: false, message: 'Failed to send notification' }
+      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      this.logger.error(`Gupshup notification failed: ${errorMessage}`)
       return { success: false, message: 'Failed to send notification' }
     }
   }
