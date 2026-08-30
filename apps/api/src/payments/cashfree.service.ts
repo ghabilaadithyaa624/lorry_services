@@ -83,8 +83,9 @@ export class CashfreeService {
         cfOrderId: response.data.cf_order_id,
       }
     } catch (error: any) {
-      this.logger.error(`Cashfree order failed: ${error.response?.data?.message || error.message}`)
-      throw new Error('Failed to create payment order')
+      const errorMessage = error.response?.data?.message || error.message
+      this.logger.error(`Cashfree order failed: ${errorMessage}`)
+      throw new Error(`Failed to create payment order: ${errorMessage}`)
     }
   }
 
@@ -175,8 +176,9 @@ export class CashfreeService {
         redirectUrl: response.data.redirect_url,
       }
     } catch (error: any) {
-      this.logger.error(`KYC initiation failed: ${error.message}`)
-      throw new Error('Failed to initiate KYC verification')
+      const errorMessage = error.response?.data?.message || error.message
+      this.logger.error(`KYC initiation failed: ${errorMessage}`)
+      throw new Error(`Failed to initiate KYC verification: ${errorMessage}`)
     }
   }
 
