@@ -39,7 +39,7 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
       <div className="flex items-center justify-between pb-3 border-b border-white/10">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
-            <BellAlertIcon className="w-4 h-4" />
+            <BellAlertIcon className="w-4 h-4" aria-hidden="true" />
           </div>
           <h3 className="text-xs font-mono font-bold text-white uppercase tracking-widest">
             Operational Action Center
@@ -65,7 +65,7 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
                     ? 'bg-danger-500/10 text-danger-400 border-danger-500/30'
                     : 'bg-primary-500/10 text-primary-400 border-primary-500/30'
                 )}>
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4" aria-hidden="true" />
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-white">
@@ -79,10 +79,11 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
 
               <Link
                 href={task.actionUrl}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-primary-500 hover:from-primary-600 hover:to-primary-700 text-white shadow-glow-primary text-xs font-bold shrink-0 transition-all cursor-pointer border border-primary-400/30"
+                aria-label={`${task.actionLabel} for ${task.title}`}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-primary-500 hover:from-primary-600 hover:to-primary-700 text-white shadow-glow-primary text-xs font-bold shrink-0 transition-all cursor-pointer border border-primary-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-panel"
               >
                 <span>{task.actionLabel}</span>
-                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0" />
+                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               </Link>
             </div>
           )
