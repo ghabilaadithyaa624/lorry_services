@@ -16,11 +16,14 @@ async function bootstrap() {
   app.use(cookieParser())
 
   // Conditional CSRF protection
-  const csrfSecret = configService.get<string>('CSRF_SECRET')
-  if (configService.get('NODE_ENV') === 'production' && !csrfSecret) {
-    throw new Error('CSRF_SECRET must be configured in production environment')
+  let csrfSecret = configService.get<string>('CSRF_SECRET')
+  if (!csrfSecret) {
+    if (configService.get<string>('NODE_ENV') === 'production') {
+      throw new Error('CSRF_SECRET must be configured in production')
+    }
+    csrfSecret = 'default-csrf-secret-key-change-in-production'
   }
-  app.use(getCsrfMiddleware(csrfSecret || 'default-csrf-secret-key-change-in-production'))
+  app.use(getCsrfMiddleware(csrfSecret))
 
   // Security headers with helmet
   app.use(helmet({

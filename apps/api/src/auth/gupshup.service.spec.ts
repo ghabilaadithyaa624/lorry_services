@@ -3,7 +3,20 @@ import { ConfigService } from '@nestjs/config'
 import { GupshupService } from './gupshup.service'
 import axios from 'axios'
 
-jest.mock('axios')
+jest.mock('axios', () => {
+  const originalModule = jest.requireActual('axios');
+  return {
+    __esModule: true,
+    ...originalModule,
+    default: {
+      ...originalModule.default,
+      post: jest.fn(),
+      isAxiosError: jest.fn((error) => error && error.isAxiosError === true),
+    },
+    post: jest.fn(),
+    isAxiosError: jest.fn((error) => error && error.isAxiosError === true),
+  };
+});
 
 describe('GupshupService', () => {
   let service: GupshupService
@@ -37,6 +50,7 @@ describe('GupshupService', () => {
   describe('sendOtp', () => {
     it('should handle API failure with standard error message', async () => {
       const mockError = {
+        isAxiosError: true,
         message: 'Request failed',
         response: {
           data: {
@@ -57,6 +71,7 @@ describe('GupshupService', () => {
 
     it('should handle API failure with fallback error message', async () => {
       const mockError = {
+        isAxiosError: true,
         message: 'Network Error',
         response: {
           // data or data.message is undefined
