@@ -1,5 +1,9 @@
 'use client'
 
+import React from 'react'
+import { LockClosedIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { Modal, Button } from '@/components/ui'
+
 interface ContactRevealModalProps {
   onClose: () => void
   onSubscribe: () => void
@@ -7,44 +11,61 @@ interface ContactRevealModalProps {
 
 export function ContactRevealModal({ onClose, onSubscribe }: ContactRevealModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 ">
-      <div className="bg-white dark:bg-gray-900 rounded-card p-6 md:p-8 max-w-md w-full shadow-2xl border border-gray-100 dark:border-gray-800">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-orange-100 text-primary-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
-            🔒
-          </div>
-          
-          <h2 className="text-2xl font-bold mb-2">Unlock Contact Details</h2>
-          <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
-            Subscribe to view phone numbers and connect directly with truck/load owners via WhatsApp.
-          </p>
-
-          <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-card text-left mb-6 text-sm space-y-2">
-            <div className="font-semibold mb-1">Subscription includes:</div>
-            <div className="flex items-center text-green-600 dark:text-green-400">
-              ✓ Unlimited contact reveals
-            </div>
-            <div className="flex items-center text-green-600 dark:text-green-400">
-              ✓ Direct WhatsApp integration
-            </div>
-            <div className="flex items-center text-green-600 dark:text-green-400">
-              ✓ Verified truck owner details
-            </div>
-            <div className="flex items-center text-green-600 dark:text-green-400">
-              ✓ Priority customer support
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <button onClick={onSubscribe} className="btn-primary w-full text-base py-3">
-              Subscribe Now
-            </button>
-            <button onClick={onClose} className="btn-secondary w-full text-base py-2.5">
-              Maybe Later
-            </button>
+    <Modal
+      open={true}
+      onClose={onClose}
+      title="Unlock Contact Details"
+      description="Subscribe to view phone numbers and connect directly with truck/load owners via WhatsApp."
+      size="md"
+    >
+      <div className="space-y-5">
+        <div className="flex justify-center py-1">
+          <div className="w-14 h-14 bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 rounded-full flex items-center justify-center">
+            <LockClosedIcon className="w-7 h-7" aria-hidden="true" />
           </div>
         </div>
+
+        <div className="bg-wash p-4 rounded-xl text-left text-xs sm:text-sm border border-hairline">
+          <p className="font-semibold text-ink mb-2">Subscription includes:</p>
+          <ul className="space-y-1.5">
+            <li className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium">
+              <CheckIcon className="w-4 h-4 mr-2 shrink-0 stroke-[2.5]" aria-hidden="true" />
+              Unlimited contact reveals
+            </li>
+            <li className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium">
+              <CheckIcon className="w-4 h-4 mr-2 shrink-0 stroke-[2.5]" aria-hidden="true" />
+              Direct WhatsApp integration
+            </li>
+            <li className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium">
+              <CheckIcon className="w-4 h-4 mr-2 shrink-0 stroke-[2.5]" aria-hidden="true" />
+              Verified truck owner details
+            </li>
+            <li className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium">
+              <CheckIcon className="w-4 h-4 mr-2 shrink-0 stroke-[2.5]" aria-hidden="true" />
+              Priority customer support
+            </li>
+          </ul>
+        </div>
+
+        <div className="flex flex-col gap-2.5 pt-1">
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            onClick={onSubscribe}
+          >
+            Subscribe Now
+          </Button>
+          <Button
+            variant="secondary"
+            size="md"
+            fullWidth
+            onClick={onClose}
+          >
+            Maybe Later
+          </Button>
+        </div>
       </div>
-    </div>
+    </Modal>
   )
 }
