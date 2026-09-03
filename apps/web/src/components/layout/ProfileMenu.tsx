@@ -26,12 +26,13 @@ import { Avatar, Badge } from '@/components/ui'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import { authApi } from '@/lib/api'
 import { cn, formatPhone } from '@/lib/utils'
+import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
 
 export interface ProfileMenuUser {
   id?: string
   phone?: string
   name?: string
-  role?: 'factory_owner' | 'truck_driver' | 'admin'
+  role?: 'load_owner' | 'truck_owner' | 'driver' | 'admin'
 }
 
 interface ProfileMenuProps {
@@ -41,12 +42,6 @@ interface ProfileMenuProps {
   /** Active subscription state from GET /users/me, when loaded. */
   subscriptionActive?: boolean
   className?: string
-}
-
-const ROLE_LABEL: Record<string, string> = {
-  factory_owner: 'Factory owner',
-  truck_driver: 'Truck driver',
-  admin: 'Administrator',
 }
 
 /**
@@ -75,7 +70,7 @@ export function ProfileMenu({
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const isTruckDriver = user.role === 'truck_driver'
+  const isTruckOwner = isVehicleSideRole(user.role)
   const isAdmin = user.role === 'admin'
 
   const displayName = user.name?.trim() || (user.phone ? formatPhone(user.phone) : 'My account')
@@ -195,7 +190,7 @@ export function ProfileMenu({
       ]
     : [
         { name: 'Profile', href: '/profile', icon: UserCircleIcon },
-        isTruckDriver
+        isTruckOwner
           ? { name: 'My trucks', href: '/my-trucks', icon: TruckIcon }
           : { name: 'My loads', href: '/my-loads', icon: ClipboardDocumentListIcon },
         { name: 'Bookings', href: '/bookings', icon: BriefcaseIcon },
@@ -268,8 +263,8 @@ export function ProfileMenu({
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 mt-3">
-              <Badge variant={isAdmin ? 'danger' : isTruckDriver ? 'info' : 'primary'} size="sm">
-                {ROLE_LABEL[user.role || 'factory_owner']}
+              <Badge variant={isAdmin ? 'danger' : isTruckOwner ? 'info' : 'primary'} size="sm">
+                {getRoleLabel(user.role)}
               </Badge>
 
               {verified && (

@@ -26,15 +26,28 @@ export interface UiLanguageOption {
   shortLabel: string
   /** English name, used for accessible annotations. */
   name: string
-  /** Document text direction — Hindi is rendered right-to-left. */
+  /** Document text direction for this language's script. */
   direction: 'ltr' | 'rtl'
 }
 
-/** Text direction per supported UI language. */
+/**
+ * Text direction per supported UI language script.
+ *
+ * Tamil and Hindi (Devanagari) are both left-to-right scripts — only Hindi's
+ * *keyboard layout* is sometimes confused with RTL languages like Urdu/Arabic,
+ * but the Devanagari script itself reads left-to-right. This map is kept
+ * (rather than hardcoding `dir="ltr"` everywhere) so the layout is genuinely
+ * RTL-ready: adding a real RTL language later (e.g. Urdu `ur`) only requires
+ * a new entry here — every chrome component listed below reads its
+ * start/end spacing from Tailwind's logical utilities (`ms-*`, `me-*`,
+ * `ps-*`, `pe-*`, `start-*`, `end-*`, `border-s`, `border-e`, `text-start`)
+ * plus the `rtl:` variant for iconography, so they mirror automatically
+ * once `<html dir="rtl">` is set — no per-language CSS overrides needed.
+ */
 export const LANGUAGE_DIRECTIONS: Record<UiLanguage, 'ltr' | 'rtl'> = {
   en: 'ltr',
   ta: 'ltr',
-  hi: 'rtl',
+  hi: 'ltr',
 }
 
 /**
@@ -42,7 +55,7 @@ export const LANGUAGE_DIRECTIONS: Record<UiLanguage, 'ltr' | 'rtl'> = {
  */
 export const UI_LANGUAGES: UiLanguageOption[] = [
   { value: 'ta', label: 'தமிழ்', shortLabel: 'தமிழ்', name: 'Tamil', direction: 'ltr' },
-  { value: 'hi', label: 'हिन्दी', shortLabel: 'हिं', name: 'Hindi', direction: 'rtl' },
+  { value: 'hi', label: 'हिन्दी', shortLabel: 'हिं', name: 'Hindi', direction: 'ltr' },
   { value: 'en', label: 'English', shortLabel: 'EN', name: 'English', direction: 'ltr' },
 ]
 
@@ -66,15 +79,43 @@ export function readStoredLanguage(): UiLanguage {
 }
 
 /**
- * Apply the language and its text direction to <html lang="…"> and <html dir>
- * so assistive technology, hyphenation, font selection and RTL layout match the
- * chosen interface language.
+ * Every script-specific class this module may add to <html>. Cleared before
+ * applying the new language's class so switching languages never leaves a
+ * stale scaling/direction hint behind.
+ */
+const LANGUAGE_HTML_CLASSES = ['lang-scale-ta'] as const
+
+/**
+ * Apply the language, its text direction, and script-specific presentation
+ * hints to <html> so assistive technology, hyphenation, font selection, RTL
+ * layout, and Tamil font scaling all match the chosen interface language.
+ *
+ * - `lang="…"` — assistive tech pronunciation, hyphenation, spellcheck.
+ * - `dir="…"` — logical (`ms-*`/`ps-*`/`text-start`/`rtl:`) utilities mirror
+ *   automatically for any future RTL language; Tamil and Hindi stay LTR.
+ * - `.lang-scale-ta` — Tamil glyphs (vowel signs, ligatures) render visually
+ *   smaller than Latin/Devanagari at the same font-size, so this class drives
+ *   a compensating `font-size`/`line-height` bump defined in globals.css.
  */
 export function applyLanguage(language: UiLanguage): void {
   if (typeof document === 'undefined') return
-  document.documentElement.lang = language
-  document.documentElement.dir = LANGUAGE_DIRECTIONS[language] || 'ltr'
+  const root = document.documentElement
+  root.lang = language
+  root.dir = LANGUAGE_DIRECTIONS[language] || 'ltr'
+  root.classList.remove(...LANGUAGE_HTML_CLASSES)
+  if (language === 'ta') root.classList.add('lang-scale-ta')
 }
+
+/**
+ * Blocking script injected into <head> so the stored language's `lang`/`dir`
+ * attributes and the Tamil font-scaling class are applied before first
+ * paint — mirrors THEME_INIT_SCRIPT so switching to Tamil never flashes
+ * undersized glyphs, and a future RTL language never flashes a mirrored
+ * layout snap-in.
+ */
+export const LANGUAGE_INIT_SCRIPT = `(function(){try{var k='${LANGUAGE_STORAGE_KEY}';var dirs=${JSON.stringify(
+  LANGUAGE_DIRECTIONS
+)};var l=localStorage.getItem(k);if(!dirs.hasOwnProperty(l))l='en';var r=document.documentElement;r.lang=l;r.dir=dirs[l]||'ltr';if(l==='ta'){r.classList.add('lang-scale-ta');}}catch(e){}})();`
 
 /**
  * Persist the preference locally, apply it to the document, and broadcast the

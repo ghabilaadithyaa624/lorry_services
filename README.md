@@ -11,13 +11,14 @@ LorryCarry is a high-performance monorepo platform connecting factory owners and
 - **5-Stage Trip Tracking**: Geofence checkpoint tracking with automated WhatsApp notifications at every leg of the journey.
 - **Production Admin Dashboard**:
   - **Overview & KPI Analytics**: Real-time stats on users, trucks, loads, bookings, conversion rates, and revenue.
+  - **Dashboard Analytics**: Trip completion, earnings summary, active booking pipeline and a route efficiency heatmap (corridor × month) with CSV/PDF report export.
   - **KYC Verification Queue**: Document verification pipeline (RC, Insurance) with instant Verify/Reject actions, modal confirmations, and rejection notes.
   - **Fleet & Listings Management**: Overview of active trucks and freight listings with direct truck verification controls.
   - **Subscription Management**: Track active, expired, and cancelled plan subscriptions with expiration alerts.
   - **User Directory**: Search and filter factory owners, truck drivers, and administrators with detailed operational metrics.
   - **Booking Lifecycle**: Monitor all bookings from pending quotation to in-transit and delivery completion.
 - **Cashfree Paywall & Subscription Engine**: Secure billing (`₹999/month` and per-unlock credits) with webhook-driven auto-activation.
-- **WhatsApp Notification Engine**: Instant booking confirmations, checkpoint updates, and OTP verification via Gupshup.
+- **WhatsApp Notification Engine**: Instant booking confirmations, dispatch updates, delivery-completion alerts, checkpoint updates, and OTP verification via Gupshup — with a persisted in-app notification centre and read/unread state on web and mobile.
 
 ---
 

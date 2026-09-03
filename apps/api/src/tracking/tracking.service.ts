@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { prisma, BookingStatus } from '@lorrycarry/database'
-import { GupshupService } from '../auth/gupshup.service'
+import { NotificationsService } from '../notifications/notifications.service'
 
 /**
  * Checkpoint-based tracking service
@@ -11,7 +11,7 @@ import { GupshupService } from '../auth/gupshup.service'
 export class TrackingService {
   private readonly logger = new Logger(TrackingService.name)
 
-  constructor(private gupshup: GupshupService) {}
+  constructor(private readonly notifications: NotificationsService) {}
 
   /**
    * Process geofence crossing event from mobile app
@@ -75,32 +75,10 @@ export class TrackingService {
       })
     }
 
-    // Send WhatsApp notification
-    await this.sendCheckpointNotification(checkpoint, checkpointSeq)
+    // Send WhatsApp + in-app checkpoint alert
+    await this.notifications.sendCheckpointCrossed(checkpoint)
 
     return { success: true, message: 'Checkpoint recorded' }
-  }
-
-  /**
-   * Send checkpoint crossed notification
-   */
-  private async sendCheckpointNotification(checkpoint: any, seq: number) {
-    const { booking } = checkpoint
-    const progress = `${seq}/5`
-
-    if (booking?.load?.user?.phone) {
-      // Notify factory owner
-      await this.gupshup.sendNotification(
-        booking.load.user.phone,
-        'checkpoint_crossed',
-        [
-          booking.truck?.registrationNumber || 'Truck',
-          checkpoint.name,
-          progress,
-          new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-        ]
-      )
-    }
   }
 
   /**
@@ -132,7 +110,7 @@ export class TrackingService {
       const booking = await prisma.booking.findFirst({
         where: {
           id: bookingId,
-          OR: [{ factoryOwnerId: userId }, { truckDriverId: userId }],
+          OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
         },
       })
       if (!booking) {
@@ -178,18 +156,37 @@ export class TrackingService {
   ) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
+      include: {
+        load: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+        truck: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+      },
     })
 
     if (!booking) {
       throw new NotFoundException('Booking not found')
     }
 
-    await prisma.booking.update({
+    const updated = await prisma.booking.update({
       where: { id: bookingId },
       data: {
         status: BookingStatus.Completed,
       },
+      include: {
+        load: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+        truck: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+      },
     })
+
+    // WhatsApp + in-app delivery-completed alert for both parties.
+    await this.notifications.sendDeliveryCompleted(updated)
 
     this.logger.log(`POD uploaded for booking ${bookingId} by user ${userId}: ${dto.podUrl || 'Digital Signature'}`)
 

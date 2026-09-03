@@ -21,6 +21,7 @@ import { usersApi } from '@/lib/api'
 import { Badge, GlassPanel, Skeleton } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { cn, formatPhone } from '@/lib/utils'
+import { getDashboardForRole, getRoleLabel, isVehicleSideRole } from '@/lib/roles'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null)
@@ -73,7 +74,7 @@ export default function ProfilePage() {
     }
   }
 
-  const isTruckDriver = profile?.role === 'truck_driver'
+  const isTruckOwner = isVehicleSideRole(profile?.role)
   const isAdmin = profile?.role === 'admin'
 
   const score = profile?.profileCompletion?.score || 50
@@ -142,11 +143,11 @@ export default function ProfilePage() {
                   )}
 
                   <Badge
-                    variant={isTruckDriver ? 'info' : isAdmin ? 'danger' : 'primary'}
+                    variant={isTruckOwner ? 'info' : isAdmin ? 'danger' : 'primary'}
                     size="sm"
                     className="capitalize"
                   >
-                    {isTruckDriver ? 'Truck driver' : isAdmin ? 'Administrator' : 'Factory owner'}
+                    {getRoleLabel(profile?.role)}
                   </Badge>
                 </div>
 
@@ -177,7 +178,7 @@ export default function ProfilePage() {
               >
                 Security & sessions
               </Link>
-              {isTruckDriver && (
+              {isTruckOwner && (
                 <Link
                   href="/documents"
                   className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500/20 border border-primary-500/30 text-xs font-bold text-primary-300 hover:bg-primary-500/30 transition-colors"
@@ -267,7 +268,7 @@ export default function ProfilePage() {
                 <span className="text-surface-400">Business Verification</span>
                 <span className="font-bold text-emerald-400 flex items-center gap-1">
                   <ShieldCheckIcon className="w-4 h-4" />
-                  {isTruckDriver
+                  {isTruckOwner
                     ? profile?.verification?.fleetStatus || 'Pending RTO Audit'
                     : 'Active Cargo Shipper'}
                 </span>
@@ -279,17 +280,17 @@ export default function ProfilePage() {
           <GlassPanel padding="lg" className="space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
-                {isTruckDriver ? (
+                {isTruckOwner ? (
                   <TruckIcon className="w-5 h-5 text-blue-400" />
                 ) : (
                   <ArchiveBoxIcon className="w-5 h-5 text-primary-400" />
                 )}
                 <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-                  {isTruckDriver ? 'Fleet Portfolio Overview' : 'Shipper Activity Volume'}
+                  {isTruckOwner ? 'Fleet Portfolio Overview' : 'Shipper Activity Volume'}
                 </h2>
               </div>
               <Link
-                href={isTruckDriver ? '/dashboard/truck-driver' : '/my-loads'}
+                href={isTruckOwner ? getDashboardForRole(profile?.role) : '/my-loads'}
                 className="text-xs font-bold text-primary-400 hover:text-primary-300 flex items-center gap-1"
               >
                 <span>View Dashboard</span>
@@ -298,7 +299,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
-              {isTruckDriver ? (
+              {isTruckOwner ? (
                 <>
                   <div className="p-3.5 bg-surface-950/80 rounded-2xl border border-white/5">
                     <span className="text-[11px] text-surface-400 block">Registered Trucks</span>

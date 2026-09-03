@@ -21,6 +21,8 @@ import {
 import { Navbar, Footer } from '@/components/layout'
 import { FreightNetworkDiagram } from '@/components/ui'
 import HeroSection from '@/components/HeroSection'
+import { StructuredData } from '@/components/seo/StructuredData'
+import { getFaqStructuredData, getBreadcrumbStructuredData } from '@/lib/seo/structuredData'
 import { cn } from '@/lib/utils'
 
 export default function HomePage() {
@@ -246,8 +248,19 @@ export default function HomePage() {
     },
   ]
 
+  // Structured data for SEO — FAQ and Breadcrumbs (rendered as JSON-LD for rich results)
+  const faqStructuredData = getFaqStructuredData(faqItems)
+  const breadcrumbStructuredData = getBreadcrumbStructuredData([
+    { name: 'Home', url: '/' },
+    { name: 'Search Trucks', url: '/search?type=truck' },
+    { name: 'Search Loads', url: '/search?type=load' },
+  ])
+
   return (
     <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+      {/* JSON-LD Structured Data for freight services — helps search engines surface rich results */}
+      <StructuredData data={faqStructuredData} id="faq-ld" />
+      <StructuredData data={breadcrumbStructuredData} id="breadcrumb-ld" />
       <Navbar />
 
       <main className="flex-1 overflow-x-hidden">

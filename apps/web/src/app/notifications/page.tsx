@@ -14,7 +14,7 @@ import {
   CheckIcon,
 } from '@heroicons/react/24/outline'
 import { DashboardLayout } from '@/components/layout'
-import { usersApi } from '@/lib/api'
+import { notificationsApi } from '@/lib/api'
 import {
   Badge,
   Button,
@@ -38,6 +38,9 @@ interface NotificationItem {
   timestamp: string
   read: boolean
   actionUrl?: string
+  channel?: string
+  providerStatus?: string
+  deliveredAt?: string
 }
 
 const CATEGORY_META: Record<
@@ -72,7 +75,7 @@ export default function NotificationsPage() {
     try {
       setLoading(true)
       setError('')
-      const res = await usersApi.getNotifications()
+      const res = await notificationsApi.getNotifications()
       setNotifications(res.data.notifications || [])
     } catch {
       setError('We could not load your notifications. Please try again.')
@@ -98,7 +101,7 @@ export default function NotificationsPage() {
       prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
     )
     try {
-      await usersApi.markNotificationRead(item.id)
+      await notificationsApi.markRead(item.id)
     } catch {
       setNotifications((prev) =>
         prev.map((n) => (n.id === item.id ? { ...n, read: false } : n))
@@ -119,7 +122,7 @@ export default function NotificationsPage() {
     setMarkingAll(true)
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
     try {
-      const res = await usersApi.markAllNotificationsRead()
+      const res = await notificationsApi.markAllRead()
       toast.success(`${res.data.markedCount} notification${res.data.markedCount === 1 ? '' : 's'} marked as read`)
     } catch {
       setNotifications(snapshot)
@@ -292,6 +295,14 @@ function NotificationRow({
               <Badge variant="neutral" size="sm">
                 {meta.label}
               </Badge>
+              {item.channel === 'whatsapp' && (
+                <Badge
+                  variant={item.providerStatus === 'sent' || item.providerStatus === 'Delivered' ? 'success' : 'warning'}
+                  size="sm"
+                >
+                  WhatsApp {item.providerStatus === 'sent' || item.providerStatus === 'Delivered' ? '✓' : item.providerStatus === 'failed' ? 'failed' : item.providerStatus === 'skipped' ? 'off' : '—'}
+                </Badge>
+              )}
               <time
                 className="text-xs text-subtle"
                 dateTime={new Date(item.timestamp).toISOString()}

@@ -16,6 +16,9 @@ export enum OtpChannel {
 }
 
 const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60 // 30 days in seconds (2,592,000)
+/** Every newly registered operator receives this full-access trial once. */
+export const FREE_TRIAL_DURATION_DAYS = 90
+export const FREE_TRIAL_PLAN = 'free_trial'
 
 @Injectable()
 export class AuthService {
@@ -115,6 +118,11 @@ export class AuthService {
       name: string | null
       role: UserRole
       isNewUser: boolean
+      trial?: {
+        startedAt: Date
+        expiresAt: Date
+        durationDays: number
+      }
     }
   }> {
     // Validate phone
@@ -125,6 +133,7 @@ export class AuthService {
     // Find user by phone to determine if new registration
     let user = await prisma.user.findUnique({ where: { phone } })
     let isNewUser = false
+    let trial: { startedAt: Date; expiresAt: Date; durationDays: number } | undefined
 
     if (!user) {
       // New user - role required
@@ -134,7 +143,17 @@ export class AuthService {
       if (role === UserRole.admin) {
         throw new UnauthorizedException('Admin role cannot be selected during public registration')
       }
-      if (!Object.values(UserRole).includes(role) || (role !== UserRole.factory_owner && role !== UserRole.truck_driver)) {
+      const validRegistrationRoles: string[] = [
+        UserRole.load_owner,
+        UserRole.truck_owner,
+        UserRole.driver,
+        UserRole.factory_owner,
+        UserRole.truck_driver,
+      ]
+      if (
+        !Object.values(UserRole).includes(role) ||
+        !validRegistrationRoles.includes(role)
+      ) {
         throw new UnauthorizedException('Invalid registration role')
       }
     }
@@ -154,15 +173,37 @@ export class AuthService {
     }
 
     if (!user) {
+      const trialStartedAt = new Date()
+      const trialExpiresAt = new Date(trialStartedAt)
+      trialExpiresAt.setDate(trialExpiresAt.getDate() + FREE_TRIAL_DURATION_DAYS)
+
+      // User creation and the complimentary entitlement are written together.
+      // Creating the trial server-side prevents a client from skipping the
+      // onboarding screen and guarantees dashboard access immediately after OTP.
       user = await prisma.user.create({
-        data: { 
-          phone, 
+        data: {
+          phone,
           role: role!,
           name: null,
+          subscriptions: {
+            create: {
+              plan: FREE_TRIAL_PLAN,
+              status: 'active',
+              startedAt: trialStartedAt,
+              expiresAt: trialExpiresAt,
+            },
+          },
         },
       })
       isNewUser = true
-      this.logger.log(`New user registered: ${phone} as ${role}`)
+      trial = {
+        startedAt: trialStartedAt,
+        expiresAt: trialExpiresAt,
+        durationDays: FREE_TRIAL_DURATION_DAYS,
+      }
+      this.logger.log(
+        `New user registered: ${phone} as ${role}; ${FREE_TRIAL_DURATION_DAYS}-day free trial ends ${trialExpiresAt.toISOString()}`,
+      )
     } else {
       this.logger.log(`Existing user logged in: ${phone}`)
     }
@@ -219,6 +260,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         isNewUser,
+        ...(trial && { trial }),
       },
     }
   }

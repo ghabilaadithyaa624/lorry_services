@@ -47,7 +47,7 @@ export class BookingsController {
   ) {
     return this.bookingsService.findByUser(
       userId,
-      role === UserRole.factory_owner ? 'factory_owner' : 'truck_driver'
+      role === UserRole.load_owner || (role as any) === 'factory_owner' ? 'load_owner' : 'truck_owner'
     )
   }
 

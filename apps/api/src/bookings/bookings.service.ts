@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, Optional } from '@nestjs/common'
 import { randomUUID } from 'crypto'
 import { 
   prisma, 
@@ -7,7 +7,8 @@ import {
   LoadStatus, 
   SubscriptionStatus 
 } from '@lorrycarry/database'
-import { GupshupService } from '../auth/gupshup.service'
+import { NotificationsService } from '../notifications/notifications.service'
+import { MatchingService } from '../matching/matching.service'
 
 export interface CreateBookingDto {
   loadId: string
@@ -19,26 +20,29 @@ export interface CreateBookingDto {
 
 @Injectable()
 export class BookingsService {
-  constructor(private gupshup: GupshupService) {}
+  constructor(
+    private readonly notifications: NotificationsService,
+    @Optional() private matchingService?: MatchingService,
+  ) {}
 
   /**
    * Create booking with commercial terms within an atomic database transaction
    * 1. Validates load status and ownership
    * 2. Validates truck availability & verification
-   * 3. Checks factory owner active subscription
+   * 3. Checks load owner active subscription
    * 4. Atomically transitions load to Matched
    * 5. Creates booking record
    * 6. Generates 5 highway tracking checkpoints
    */
   async create(
-    factoryOwnerId: string,
+    loadOwnerId: string,
     dto: CreateBookingDto
   ) {
     const booking = await prisma.$transaction(async (tx) => {
       // 1-3. Retrieve load, truck, and subscription concurrently to reduce database roundtrip latency inside transaction
       const [load, truck, subscription] = await Promise.all([
         tx.load.findFirst({
-          where: { id: dto.loadId, userId: factoryOwnerId, status: LoadStatus.Open },
+          where: { id: dto.loadId, userId: loadOwnerId, status: LoadStatus.Open },
           include: { user: true },
         }),
         tx.truck.findFirst({
@@ -51,7 +55,7 @@ export class BookingsService {
         }),
         tx.subscription.findFirst({
           where: {
-            userId: factoryOwnerId,
+            userId: loadOwnerId,
             status: SubscriptionStatus.active,
             expiresAt: { gt: new Date() },
           },
@@ -68,7 +72,7 @@ export class BookingsService {
         throw new NotFoundException('Truck not found, unverified, or currently assigned to another active trip')
       }
 
-      // Validate factory owner subscription
+      // Validate load owner subscription
       if (!subscription) {
         throw new ForbiddenException({
           code: 'SUBSCRIPTION_REQUIRED',
@@ -78,7 +82,7 @@ export class BookingsService {
 
       // 4. Atomically claim and transition load status to prevent concurrent double-booking
       const claimResult = await tx.load.updateMany({
-        where: { id: dto.loadId, userId: factoryOwnerId, status: LoadStatus.Open },
+        where: { id: dto.loadId, userId: loadOwnerId, status: LoadStatus.Open },
         data: { status: LoadStatus.Matched },
       })
 
@@ -91,8 +95,8 @@ export class BookingsService {
         data: {
           loadId: dto.loadId,
           truckId: dto.truckId,
-          factoryOwnerId,
-          truckDriverId: truck.userId,
+          loadOwnerId,
+          truckOwnerId: truck.userId,
           agreedPrice: dto.agreedPrice,
           ewayBillNumber: dto.ewayBillNumber,
           liabilityAccepted: dto.liabilityAccepted,
@@ -126,8 +130,15 @@ export class BookingsService {
       return createdBooking
     })
 
-    // Send WhatsApp notifications asynchronously outside the transaction
-    await this.sendBookingNotifications(booking)
+    // Send booking confirmation + in-app alerts outside the transaction
+    await this.notifications.sendBookingConfirmed(booking)
+
+    // Transition matching engine status: Pending → Booked (WhatsApp already triggered on match, now book)
+    try {
+      await this.matchingService?.handleBookingCreated(booking)
+    } catch {
+      // ignore matching transition errors
+    }
 
     return booking
   }
@@ -181,39 +192,6 @@ export class BookingsService {
   }
 
   /**
-   * Send booking confirmation WhatsApp messages
-   */
-  private async sendBookingNotifications(booking: any) {
-    // Notify truck driver
-    if (booking.truck?.user?.phone) {
-      await this.gupshup.sendNotification(
-        booking.truck.user.phone,
-        'booking_confirmed_driver',
-        [
-          booking.load?.loadingAddress || 'Loading Point',
-          booking.load?.unloadingAddress || 'Unloading Point',
-          booking.agreedPrice.toString(),
-          booking.id.slice(0, 8),
-        ]
-      )
-    }
-
-    // Notify factory owner
-    if (booking.load?.user?.phone) {
-      await this.gupshup.sendNotification(
-        booking.load.user.phone,
-        'booking_confirmed_shipper',
-        [
-          booking.truck?.registrationNumber || 'Truck',
-          booking.truck?.user?.name || 'Transporter',
-          booking.agreedPrice.toString(),
-          booking.id.slice(0, 8),
-        ]
-      )
-    }
-  }
-
-  /**
    * Update booking status (advance paid, in transit, etc.)
    */
   async updateStatus(
@@ -225,7 +203,15 @@ export class BookingsService {
     const booking = await prisma.booking.findFirst({
       where: {
         id: bookingId,
-        OR: [{ factoryOwnerId: userId }, { truckDriverId: userId }],
+        OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
+      },
+      include: {
+        load: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+        truck: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
       },
     })
 
@@ -258,10 +244,40 @@ export class BookingsService {
       })
     }
 
-    return prisma.booking.update({
+    const updated = await prisma.booking.update({
       where: { id: bookingId },
       data,
+      include: {
+        load: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+        truck: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+      },
     })
+
+    // WhatsApp + in-app dispatch alerts on meaningful status transitions,
+    // alongside matching-engine state transitions.
+    if (status === BookingStatus.InTransit) {
+      await this.notifications.sendDispatchUpdate(updated, 'InTransit')
+      try {
+        await this.matchingService?.handleBookingCreated(updated)
+      } catch {
+        // ignore
+      }
+    } else if (status === BookingStatus.Completed) {
+      await this.notifications.sendDeliveryCompleted(updated)
+      try {
+        await this.matchingService?.handleBookingCompleted(updated)
+      } catch {
+        // ignore
+      }
+    } else if (status === BookingStatus.Cancelled) {
+      await this.notifications.sendDispatchUpdate(updated, 'Cancelled')
+    }
+
+    return updated
   }
 
   /**
@@ -271,7 +287,7 @@ export class BookingsService {
     const booking = await prisma.booking.findFirst({
       where: {
         id: bookingId,
-        OR: [{ factoryOwnerId: userId }, { truckDriverId: userId }],
+        OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
       },
       include: {
         load: true,
@@ -298,10 +314,10 @@ export class BookingsService {
   /**
    * Get user's bookings
    */
-  async findByUser(userId: string, role: 'factory_owner' | 'truck_driver') {
-    const where = role === 'factory_owner' 
-      ? { factoryOwnerId: userId }
-      : { truckDriverId: userId }
+  async findByUser(userId: string, role: 'load_owner' | 'truck_owner') {
+    const where = role === 'load_owner' 
+      ? { loadOwnerId: userId }
+      : { truckOwnerId: userId }
 
     return prisma.booking.findMany({
       where,

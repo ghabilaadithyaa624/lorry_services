@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TrackingService } from './tracking.service';
-import { GupshupService } from '../auth/gupshup.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { prisma } from '@lorrycarry/database';
 
 jest.mock('@lorrycarry/database', () => ({
@@ -18,7 +18,13 @@ describe('TrackingService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TrackingService,
-        { provide: GupshupService, useValue: {} },
+        {
+          provide: NotificationsService,
+          useValue: {
+            sendCheckpointCrossed: jest.fn().mockResolvedValue(null),
+            sendDeliveryCompleted: jest.fn().mockResolvedValue(null),
+          },
+        },
       ],
     }).compile();
 

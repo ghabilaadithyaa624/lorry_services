@@ -106,6 +106,56 @@
     text-rendering: optimizeLegibility;
   }
 
+  /*
+   * Multilingual UI — Tamil / Hindi / English
+   * ──────────────────────────────────────────
+   * The active language is applied to <html lang dir> by
+   * `applyLanguage()` (see src/lib/language.ts), both on toggle and via a
+   * blocking init script so there's no flash on load.
+   *
+   * RTL-ready architecture: Tamil and Hindi (Devanagari) both read
+   * left-to-right, so neither mirrors today — but every chrome component
+   * (Navbar, LanguageToggle, Footer, DashboardLayout, MobileBottomNav) is
+   * built with Tailwind's logical-property utilities (`ms-*`/`me-*`,
+   * `ps-*`/`pe-*`, `start-*`/`end-*`, `border-s`/`border-e`, `text-start`)
+   * instead of physical `ml-*`/`pl-*`/`left-*`/`text-left`. If a genuinely
+   * RTL language (e.g. Urdu) is added later, setting `dir="rtl"` mirrors the
+   * whole layout automatically — no per-component CSS changes required.
+   */
+  html[dir='rtl'] {
+    direction: rtl;
+  }
+
+  /*
+   * Tamil dynamic font scaling.
+   * Tamil vowel signs/ligatures render visually smaller than Latin or
+   * Devanagari glyphs at an identical `font-size`, hurting legibility at the
+   * small UI sizes used across the app (nav labels, badges, form hints).
+   * `.lang-scale-ta` is toggled on <html> whenever Tamil is the active UI
+   * language and nudges font-size/line-height/letter-spacing up slightly,
+   * scoped to text utilities so layout-affecting sizes (icons, spacing) are
+   * untouched.
+   */
+  html.lang-scale-ta {
+    font-size: 106.5%;
+  }
+
+  html.lang-scale-ta body {
+    letter-spacing: 0.005em;
+    line-height: 1.6;
+  }
+
+  html.lang-scale-ta .text-2xs,
+  html.lang-scale-ta .text-xs,
+  html.lang-scale-ta .text-sm {
+    line-height: 1.55;
+  }
+
+  html.lang-scale-ta .text-\[10px\],
+  html.lang-scale-ta .text-\[11px\] {
+    font-size: 12px;
+  }
+
   body {
     @apply bg-canvas text-body;
     @apply selection:bg-primary-500 selection:text-white;

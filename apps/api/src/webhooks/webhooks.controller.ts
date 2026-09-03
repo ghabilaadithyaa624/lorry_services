@@ -28,7 +28,7 @@ export class WebhooksController {
     const result = await this.paymentsService.handleWebhook(payload)
     
     // Send WhatsApp notification on success
-    if (result.success && result.userId) {
+    if (result && result.success && result.userId) {
       // Notification handled after subscription activation
     }
 

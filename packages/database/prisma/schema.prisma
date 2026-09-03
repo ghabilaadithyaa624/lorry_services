@@ -17,15 +17,17 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   
-  loads              Load[]
-  trucks             Truck[]
-  subscriptions      Subscription[]
-  factoryOwnerBookings  Booking[] @relation("FactoryOwnerBookings")
-  truckDriverBookings Booking[] @relation("TruckDriverBookings")
-  payments           Payment[]
-  notifications      Notification[]
+  loads                Load[]
+  trucks               Truck[]
+  subscriptions        Subscription[]
+  loadOwnerBookings    Booking[] @relation("LoadOwnerBookings")
+  truckOwnerBookings   Booking[] @relation("TruckOwnerBookings")
+  payments             Payment[]
+  notifications        Notification[]
   notificationReceipts NotificationReceipt[]
-  preference         UserPreference?
+  preference           UserPreference?
+  givenRatings         Rating[] @relation("RaterRatings")
+  receivedRatings      Rating[] @relation("RatedRatings")
   
   @@index([phone])
   @@index([role])
@@ -90,6 +92,12 @@ model NotificationReceipt {
 }
 
 enum UserRole {
+  /// Factory owners / shippers who post freight requirements.
+  load_owner
+  /// Fleet operators / transporters who list vehicles.
+  truck_owner
+  /// Individual drivers who work from the vehicle-side workspace.
+  driver
   factory_owner
   truck_driver
   admin
@@ -153,6 +161,7 @@ model Load {
   
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   bookings Booking[]
+  matches  Match[]
   
   @@index([userId])
   @@index([status])
@@ -199,6 +208,7 @@ model Truck {
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents Document[]
   bookings  Booking[]
+  matches   Match[]
   
   @@index([userId])
   @@index([verificationStatus])
@@ -256,8 +266,8 @@ model Booking {
   id                  String              @id @default(uuid())
   loadId              String              @map("load_id")
   truckId             String              @map("truck_id")
-  factoryOwnerId      String              @map("load_owner_id")
-  truckDriverId       String              @map("truck_owner_id")
+  loadOwnerId         String              @map("load_owner_id")
+  truckOwnerId        String              @map("truck_owner_id")
   agreedPrice         Decimal             @map("agreed_price") @db.Decimal(12, 2)
   advanceConfirmed    Boolean             @default(false) @map("advance_confirmed")
   advanceConfirmedAt  DateTime?           @map("advance_confirmed_at")
@@ -281,15 +291,18 @@ model Booking {
   
   load        Load         @relation(fields: [loadId], references: [id])
   truck       Truck        @relation(fields: [truckId], references: [id])
-  factoryOwner   User         @relation("FactoryOwnerBookings", fields: [factoryOwnerId], references: [id])
-  truckDriver  User         @relation("TruckDriverBookings", fields: [truckDriverId], references: [id])
+  loadOwner   User         @relation("LoadOwnerBookings", fields: [loadOwnerId], references: [id])
+  truckOwner  User         @relation("TruckOwnerBookings", fields: [truckOwnerId], references: [id])
   checkpoints Checkpoint[]
+  matches     Match[]
+  payments    Payment[]
+  ratings     Rating[]
   
   @@index([loadId])
   @@index([truckId])
   @@index([status])
-  @@index([factoryOwnerId])
-  @@index([truckDriverId])
+  @@index([loadOwnerId])
+  @@index([truckOwnerId])
   @@index([whatsappTriggerStatus])
   @@map("bookings")
 }
@@ -338,6 +351,7 @@ model Checkpoint {
 model Payment {
   id              String          @id @default(uuid())
   userId          String          @map("user_id")
+  bookingId       String?         @map("booking_id")
   amount          Decimal         @db.Decimal(12, 2)
   currency        String          @default("INR")
   purpose         PaymentPurpose
@@ -352,9 +366,11 @@ model Payment {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
   
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   
   @@index([userId])
+  @@index([bookingId])
   @@index([status])
   @@index([providerTxnId])
   @@map("payments")
@@ -410,4 +426,73 @@ enum NotificationStatus {
   Sent
   Delivered
   Failed
+}
+
+// Matching Engine — Need Load ↔ Need Vehicle pairing
+enum MatchStatus {
+  Pending   // Initial algorithmic match, awaiting booking
+  Booked    // Load+Truck have a confirmed booking
+  Completed // Trip completed / POD confirmed
+  Cancelled
+}
+
+model Match {
+  id               String      @id @default(uuid())
+  loadId           String      @map("load_id")
+  truckId          String      @map("truck_id")
+  loadOwnerId      String      @map("load_owner_id")
+  truckOwnerId     String      @map("truck_owner_id")
+  bookingId        String?     @map("booking_id")
+  status           MatchStatus @default(Pending)
+  // Derived compatibility signals
+  distanceKm       Decimal?    @map("distance_km") @db.Decimal(10, 2)
+  matchScore       Int?        @map("match_score")
+  tonnageCompatible Boolean    @default(false) @map("tonnage_compatible")
+  routeCompatible   Boolean    @default(false) @map("route_compatible")
+  budgetCompatible  Boolean    @default(false) @map("budget_compatible")
+  // WhatsApp trigger tracking
+  notifiedAt       DateTime?   @map("notified_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  load    Load     @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  truck   Truck    @relation(fields: [truckId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@unique([loadId, truckId])
+  @@index([loadId])
+  @@index([truckId])
+  @@index([loadOwnerId])
+  @@index([truckOwnerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("matches")
+}
+
+// Ratings for completed trips
+model Rating {
+  id          String    @id @default(uuid())
+  bookingId   String    @map("booking_id")
+  raterId     String    @map("rater_id")
+  ratedUserId String    @map("rated_user_id")
+  rating      Int       // 1-5 stars
+  review      String?   @db.Text
+  category    RatingCategory @default(overall)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  rater     User     @relation("RaterRatings", fields: [raterId], references: [id], onDelete: Cascade)
+  ratedUser User     @relation("RatedRatings", fields: [ratedUserId], references: [id], onDelete: Cascade)
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  @@unique([bookingId, raterId])
+  @@index([raterId])
+  @@index([ratedUserId])
+  @@map("ratings")
+}
+
+enum RatingCategory {
+  driver_service  // Factory owner rating driver
+  factory_payment // Driver rating factory owner payment behavior
+  overall         // General rating
 }

@@ -23,8 +23,8 @@ describe('Language System (header toggle: தமிழ் | हिन्दी |
     }
   })
 
-  it('maps Hindi to RTL and the other languages to LTR', () => {
-    expect(LANGUAGE_DIRECTIONS.hi).toBe('rtl')
+  it('keeps every supported script LTR (Tamil and Devanagari both read left-to-right)', () => {
+    expect(LANGUAGE_DIRECTIONS.hi).toBe('ltr')
     expect(LANGUAGE_DIRECTIONS.ta).toBe('ltr')
     expect(LANGUAGE_DIRECTIONS.en).toBe('ltr')
   })
@@ -76,7 +76,18 @@ describe('Language System (header toggle: தமிழ் | हिन्दी |
           this.detail = init?.detail
         }
       }
-      ;(global as any).document = { documentElement: { lang: 'en', dir: 'ltr' } }
+      const classes = new Set<string>()
+      ;(global as any).document = {
+        documentElement: {
+          lang: 'en',
+          dir: 'ltr',
+          classList: {
+            add: (...names: string[]) => names.forEach((n) => classes.add(n)),
+            remove: (...names: string[]) => names.forEach((n) => classes.delete(n)),
+            contains: (name: string) => classes.has(name),
+          },
+        },
+      }
     })
 
     afterEach(() => {
@@ -98,8 +109,16 @@ describe('Language System (header toggle: தமிழ் | हिन्दी |
       persistLanguage('hi')
       expect(store[LANGUAGE_STORAGE_KEY]).toBe('hi')
       expect((global as any).document.documentElement.lang).toBe('hi')
-      expect((global as any).document.documentElement.dir).toBe('rtl')
+      expect((global as any).document.documentElement.dir).toBe('ltr')
       expect(dispatched).toContain('lc-language-change')
+    })
+
+    it('toggles the Tamil font-scaling class on <html> and clears it for other languages', () => {
+      persistLanguage('ta')
+      expect((global as any).document.documentElement.classList.contains('lang-scale-ta')).toBe(true)
+
+      persistLanguage('en')
+      expect((global as any).document.documentElement.classList.contains('lang-scale-ta')).toBe(false)
     })
   })
 })

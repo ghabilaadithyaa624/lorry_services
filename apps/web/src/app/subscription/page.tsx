@@ -5,9 +5,10 @@ import {
   CheckCircleIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
-import { api, usersApi } from '@/lib/api'
+import { api } from '@/lib/api'
 import { load } from '@cashfreepayments/cashfree-js'
 import { Navbar, Footer } from '@/components/layout'
+import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
 import { Button, Badge, GlassPanel, StatusDot, Skeleton } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { formatINR } from '@/lib/utils'
@@ -15,21 +16,15 @@ import { formatINR } from '@/lib/utils'
 export default function SubscriptionPage() {
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
-  const [subStatus, setSubStatus] = useState<any>(null)
+  const [subStatus, setSubStatus] = useState<TrialStatus | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
         setFetching(true)
-        const [searchRes, profileRes] = await Promise.all([
-          api.get('/search/subscription-status').catch(() => ({ data: { hasSubscription: false } })),
-          usersApi.getProfile().catch(() => ({ data: null })),
-        ])
-        setSubStatus({
-          hasSubscription: searchRes.data?.hasSubscription || false,
-          profileSub: profileRes.data?.subscription || null,
-        })
+        const statusRes = await api.get<TrialStatus>('/subscriptions/status')
+        setSubStatus(statusRes.data)
       } catch {
         setError('Failed to fetch subscription details')
       } finally {
@@ -70,7 +65,8 @@ export default function SubscriptionPage() {
     }
   }
 
-  const isSubscribed = subStatus?.hasSubscription === true || subStatus?.profileSub?.isActive === true
+  const isSubscribed = subStatus?.hasSubscription === true
+  const isTrial = subStatus?.isTrial === true
 
   return (
     <div className="min-h-screen bg-canvas text-surface-100 flex flex-col justify-between font-sans selection:bg-primary-500 selection:text-white">
@@ -94,6 +90,8 @@ export default function SubscriptionPage() {
         {/* Current Active Status Card */}
         {fetching ? (
           <Skeleton.Card />
+        ) : isTrial ? (
+          <TrialAccessBanner status={subStatus} />
         ) : isSubscribed ? (
           <GlassPanel padding="lg" className="border-emerald-500/30 bg-emerald-950/30 font-mono">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -109,7 +107,7 @@ export default function SubscriptionPage() {
                     </Badge>
                   </div>
                   <p className="text-xs text-emerald-300/80 font-sans mt-0.5">
-                    Plan: <strong className="text-white uppercase">{subStatus?.profileSub?.plan || 'PRO ACCESS'}</strong>
+                    Plan: <strong className="text-white uppercase">{subStatus?.plan || 'PRO ACCESS'}</strong>
                   </p>
                 </div>
               </div>
@@ -164,7 +162,7 @@ export default function SubscriptionPage() {
 
             <div className="pt-6 font-mono">
               <button disabled className="w-full py-3 rounded-xl bg-surface-950 text-surface-500 text-xs font-mono font-bold cursor-default border border-white/5">
-                {isSubscribed ? 'BASIC LEVEL' : 'CURRENT LEVEL'}
+                {isTrial ? 'TRIAL ACTIVE' : isSubscribed ? 'BASIC LEVEL' : 'CURRENT LEVEL'}
               </button>
             </div>
           </GlassPanel>
@@ -214,13 +212,19 @@ export default function SubscriptionPage() {
               <Button
                 onClick={handleSubscribe}
                 loading={loading}
-                disabled={isSubscribed}
+                disabled={isSubscribed && !isTrial}
                 variant="primary"
                 size="lg"
                 fullWidth
                 className="py-3.5 text-sm font-bold shadow-glow-primary"
               >
-                {loading ? 'Initializing Payment Gateway...' : isSubscribed ? 'PASS ACTIVE' : `Subscribe Now — ${formatINR(999)}`}
+                {loading
+                  ? 'Initializing Payment Gateway...'
+                  : isSubscribed && !isTrial
+                    ? 'PASS ACTIVE'
+                    : isTrial
+                      ? `Upgrade from trial — ${formatINR(999)}`
+                      : `Subscribe Now — ${formatINR(999)}`}
               </Button>
             </div>
           </GlassPanel>

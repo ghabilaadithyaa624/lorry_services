@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useState, useEffect, useCallback } from 'react'
+import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
@@ -13,10 +13,12 @@ import {
   X,
   Bell,
 } from 'lucide-react'
-import { usersApi } from '@/lib/api'
+import { notificationsApi, usersApi } from '@/lib/api'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { LanguageToggle } from './LanguageToggle'
+import { PostFreightModal } from '@/components/post-freight/PostFreightModal'
 import { Button } from '@/components/ui'
+import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
@@ -163,6 +165,7 @@ export function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [verified, setVerified] = useState(false)
   const [subscriptionActive, setSubscriptionActive] = useState(false)
+  const [postFreightOpen, setPostFreightOpen] = useState(false)
 
   useEffect(() => {
     try {
@@ -185,6 +188,8 @@ export function Navbar() {
     setMobileMenuOpen(false)
   }, [pathname])
 
+  const lastUnreadCount = useRef(-1)
+
   /**
    * Load the notification badge and account status.
    * Failures are silent: the badge is supplementary and must never block chrome.
@@ -193,11 +198,19 @@ export function Navbar() {
     if (!user) return
     try {
       const [notifications, profile] = await Promise.allSettled([
-        usersApi.getNotifications(),
+        notificationsApi.getUnreadCount(),
         usersApi.getProfile(),
       ])
       if (notifications.status === 'fulfilled') {
-        setUnreadCount(notifications.value.data?.unreadCount || 0)
+        const next = notifications.value.data?.unreadCount || 0
+        // In-app alert for newly arrived WhatsApp/tracking alerts.
+        if (lastUnreadCount.current >= 0 && next > lastUnreadCount.current) {
+          toast.info(
+            `You have ${next - lastUnreadCount.current} new notification${next - lastUnreadCount.current === 1 ? '' : 's'}`,
+          )
+        }
+        lastUnreadCount.current = next
+        setUnreadCount(next)
       }
       if (profile.status === 'fulfilled') {
         setVerified(Boolean(profile.value.data?.verification?.isVerifiedTransporter))
@@ -209,15 +222,22 @@ export function Navbar() {
   }, [user])
 
   useEffect(() => {
+    lastUnreadCount.current = -1
     loadAccountSignals()
+
+    // Poll for fresh in-app alerts so the bell and toast stay live without a
+    // page reload. The API is lightweight; failures are ignored by the loader.
+    const interval = setInterval(loadAccountSignals, 30_000)
+    return () => clearInterval(interval)
   }, [loadAccountSignals])
 
   // Auth screens render without global chrome.
   if (pathname === '/login' || pathname === '/role-select') return null
 
-  // The CTA is the highest-visibility action in the product; signed-out
-  // operators are routed through sign-in and land back on the posting flow.
-  const postFreightHref = user ? '/post-load' : '/login?redirect=/post-load'
+  // The CTA opens the role-aware quick-post dialog: factory owners get the
+  // “Need Vehicle” form, truck owners the “Need Load” form, and anonymous
+  // operators are guided through sign-in inside the dialog itself.
+  const openPostFreight = () => setPostFreightOpen(true)
 
   return (
     <>
@@ -284,23 +304,27 @@ export function Navbar() {
                 </Link>
               )}
 
-              {/* Bright orange “Post Freight” CTA — always visible on the right */}
+              {/* Bright orange “Post Freight” CTA — always visible on the right.
+                  Opens the role-aware quick-post modal instead of navigating. */}
               <Button
-                as={Link}
-                href={postFreightHref}
+                type="button"
+                onClick={openPostFreight}
                 variant="primary"
                 size="sm"
                 leftIcon={<PlusCircle className="w-4 h-4" />}
+                aria-haspopup="dialog"
                 className="hidden sm:inline-flex bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
               >{t('nav.postFreight')}</Button>
               {/* Icon-only CTA keeps the action one tap away on phones */}
-              <Link
-                href={postFreightHref}
-                aria-label="Post Freight"
-                className="sm:hidden inline-flex items-center justify-center min-h-[40px] min-w-[40px] rounded-button bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-glow-primary border border-primary-500/40 transition-colors hover:from-primary-600 hover:to-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+              <button
+                type="button"
+                onClick={openPostFreight}
+                aria-label={t('nav.postFreight')}
+                aria-haspopup="dialog"
+                className="sm:hidden inline-flex items-center justify-center min-h-[40px] min-w-[40px] rounded-button bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-glow-primary border border-primary-500/40 transition-colors hover:from-primary-600 hover:to-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas cursor-pointer"
               >
                 <PlusCircle className="w-5 h-5" aria-hidden="true" />
-              </Link>
+              </button>
 
               {user ? (
                 <div className="hidden sm:block">
@@ -359,12 +383,16 @@ export function Navbar() {
               {user ? (
                 <>
                   <Button
-                    as={Link}
-                    href={postFreightHref}
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false)
+                      openPostFreight()
+                    }}
                     variant="primary"
                     size="md"
                     fullWidth
                     leftIcon={<PlusCircle className="w-4 h-4" />}
+                    aria-haspopup="dialog"
                     className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
                   >{t('nav.postFreight')}</Button>
                   <Link
@@ -394,12 +422,16 @@ export function Navbar() {
                 <div className="grid grid-cols-2 gap-2">
                   <Button as={Link} href="/login" variant="secondary" size="md" fullWidth>{t('nav.signIn')}</Button>
                   <Button
-                    as={Link}
-                    href={postFreightHref}
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false)
+                      openPostFreight()
+                    }}
                     variant="primary"
                     size="md"
                     fullWidth
                     leftIcon={<PlusCircle className="w-4 h-4" />}
+                    aria-haspopup="dialog"
                     className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
                   >{t('nav.postFreight')}</Button>
                 </div>
@@ -411,6 +443,10 @@ export function Navbar() {
 
       {/* Spacer keeps page content clear of the fixed header. */}
       <div aria-hidden="true" className="h-16 shrink-0" />
+
+      {/* Role-aware quick-post dialog (Need Vehicle / Need Load) with an
+          in-modal தமிழ் / हिन्दी / English language toggle. */}
+      <PostFreightModal open={postFreightOpen} onClose={() => setPostFreightOpen(false)} user={user} />
     </>
   )
 }

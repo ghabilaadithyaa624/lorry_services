@@ -13,6 +13,7 @@ describe('AdminController', () => {
   beforeEach(async () => {
     const mockAdminService = {
       getDashboardStats: jest.fn(),
+      getAnalytics: jest.fn(),
       listUsers: jest.fn(),
       getPendingDocuments: jest.fn(),
       verifyDocument: jest.fn(),
@@ -51,6 +52,34 @@ describe('AdminController', () => {
       const result = await controller.getStats(mockUserId)
       expect(result).toEqual(mockStats)
       expect(adminService.getDashboardStats).toHaveBeenCalledWith(mockUserId)
+    })
+  })
+
+  describe('getAnalytics', () => {
+    it('should return analytics with default 30 day range', async () => {
+      const mockAnalytics = { rangeDays: 30, trips: {}, earnings: {}, bookings: {}, routes: {} }
+      adminService.getAnalytics.mockResolvedValue(mockAnalytics as any)
+
+      const result = await controller.getAnalytics(mockUserId)
+      expect(result).toEqual(mockAnalytics)
+      expect(adminService.getAnalytics).toHaveBeenCalledWith(mockUserId, 30)
+    })
+
+    it('should pass a valid requested range', async () => {
+      const mockAnalytics = { rangeDays: 90, trips: {}, earnings: {}, bookings: {}, routes: {} }
+      adminService.getAnalytics.mockResolvedValue(mockAnalytics as any)
+
+      const result = await controller.getAnalytics(mockUserId, '90')
+      expect(result).toEqual(mockAnalytics)
+      expect(adminService.getAnalytics).toHaveBeenCalledWith(mockUserId, 90)
+    })
+
+    it('should fall back to 30 days for an invalid range', async () => {
+      const mockAnalytics = { rangeDays: 30, trips: {}, earnings: {}, bookings: {}, routes: {} }
+      adminService.getAnalytics.mockResolvedValue(mockAnalytics as any)
+
+      const result = await controller.getAnalytics(mockUserId, '999')
+      expect(adminService.getAnalytics).toHaveBeenCalledWith(mockUserId, 30)
     })
   })
 

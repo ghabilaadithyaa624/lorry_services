@@ -12,12 +12,14 @@ import {
   UserIcon,
 } from '@heroicons/react/24/outline'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
+import { getDashboardForRole, isVehicleSideRole } from '@/lib/roles'
 
 interface UserState {
   id?: string
   phone?: string
   name?: string
-  role?: 'factory_owner' | 'truck_driver' | 'admin'
+  role?: 'load_owner' | 'truck_owner' | 'driver' | 'admin'
 }
 
 /**
@@ -28,6 +30,7 @@ interface UserState {
  */
 export function MobileBottomNav() {
   const pathname = usePathname()
+  const { t } = useI18n()
   const [user, setUser] = useState<UserState | null>(null)
 
   useEffect(() => {
@@ -47,35 +50,35 @@ export function MobileBottomNav() {
   // Only render for signed-in users; anonymous visitors use the Navbar.
   if (!user) return null
 
-  const isTruckDriver = user.role === 'truck_driver'
+  const isTruckOwner = isVehicleSideRole(user.role)
 
   const items = [
     {
-      name: 'Home',
-      href: isTruckDriver ? '/dashboard/truck-driver' : '/dashboard/factory-owner',
+      name: t('mobileNav.home'),
+      href: getDashboardForRole(user.role),
       icon: HomeIcon,
       active: pathname.startsWith('/dashboard'),
     },
     {
-      name: 'Search',
-      href: isTruckDriver ? '/search?type=load' : '/search?type=truck',
+      name: t('mobileNav.search'),
+      href: isTruckOwner ? '/search?type=load' : '/search?type=truck',
       icon: MagnifyingGlassIcon,
       active: pathname.startsWith('/search'),
     },
     {
-      name: isTruckDriver ? 'Fleet' : 'Loads',
-      href: isTruckDriver ? '/my-trucks' : '/my-loads',
-      icon: isTruckDriver ? TruckIcon : ClipboardDocumentListIcon,
-      active: pathname.startsWith(isTruckDriver ? '/my-trucks' : '/my-loads'),
+      name: isTruckOwner ? t('mobileNav.fleet') : t('mobileNav.loads'),
+      href: isTruckOwner ? '/my-trucks' : '/my-loads',
+      icon: isTruckOwner ? TruckIcon : ClipboardDocumentListIcon,
+      active: pathname.startsWith(isTruckOwner ? '/my-trucks' : '/my-loads'),
     },
     {
-      name: 'Bookings',
+      name: t('dash.bookings'),
       href: '/bookings',
       icon: BriefcaseIcon,
       active: pathname.startsWith('/booking'),
     },
     {
-      name: 'Profile',
+      name: t('common.profile'),
       href: '/profile',
       icon: UserIcon,
       active: pathname === '/profile',

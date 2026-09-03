@@ -386,11 +386,11 @@ export default function MarketplaceListingsPage() {
                     </td>
                     <td className="py-3.5 px-4">
                       <Badge
-                        variant={u.role === 'factory_owner' ? 'info' : u.role === 'truck_driver' ? 'success' : 'danger'}
+                        variant={u.role === 'load_owner' ? 'info' : u.role === 'admin' ? 'danger' : 'success'}
                         size="sm"
                         className="font-mono text-[10px]"
                       >
-                        {u.role === 'factory_owner' ? 'Factory Owner' : u.role === 'truck_driver' ? 'Truck Driver' : 'Admin'}
+                        {u.role === 'load_owner' ? 'Factory Owner' : u.role === 'truck_owner' ? 'Transporter' : u.role === 'driver' ? 'Driver' : 'Admin'}
                       </Badge>
                     </td>
                     <td className="py-3.5 px-4 text-right font-black text-amber-400">{u._count.loads}</td>
