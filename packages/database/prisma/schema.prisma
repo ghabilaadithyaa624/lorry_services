@@ -90,8 +90,12 @@ model NotificationReceipt {
 }
 
 enum UserRole {
+  /// Factory owners / shippers who post freight requirements.
   load_owner
+  /// Fleet operators / transporters who list vehicles.
   truck_owner
+  /// Individual drivers who work from the vehicle-side workspace.
+  driver
   admin
 }
 

@@ -22,6 +22,7 @@ jest.mock('@lorrycarry/database', () => {
     UserRole: {
       load_owner: 'load_owner',
       truck_owner: 'truck_owner',
+      driver: 'driver',
       admin: 'admin',
     },
   }
@@ -41,6 +42,7 @@ interface RedisClientMock {
   sadd: jest.Mock
   srem: jest.Mock
   smembers: jest.Mock
+  mget: jest.Mock
   pipeline: jest.Mock
 }
 
@@ -73,6 +75,7 @@ describe('AuthService', () => {
       sadd: jest.fn(),
       srem: jest.fn(),
       smembers: jest.fn(),
+      mget: jest.fn(),
       pipeline: jest.fn().mockReturnValue(mockPipeline),
     }
 
@@ -238,6 +241,20 @@ describe('AuthService', () => {
       const res = await service.verifyOtp('+919876543210', '123456', UserRole.load_owner)
       expect(res.user.id).toBe('usr-1')
       expect(res.user.isNewUser).toBe(true)
+      expect(res.user.trial?.durationDays).toBe(90)
+      expect(res.user.trial?.expiresAt.getTime()).toBeGreaterThan(res.user.trial?.startedAt.getTime() || 0)
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subscriptions: expect.objectContaining({
+              create: expect.objectContaining({
+                plan: 'free_trial',
+                status: 'active',
+              }),
+            }),
+          }),
+        }),
+      )
       expect(redisClient.set).toHaveBeenCalled()
     })
   })
