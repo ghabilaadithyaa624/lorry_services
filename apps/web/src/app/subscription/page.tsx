@@ -5,30 +5,39 @@ import {
   CheckCircleIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
-import { api, usersApi } from '@/lib/api'
-import { load } from '@cashfreepayments/cashfree-js'
+import { usersApi } from '@/lib/api'
 import { Navbar, Footer } from '@/components/layout'
 import { Button, Badge, GlassPanel, StatusDot, Skeleton } from '@/components/ui'
+import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
 import { toast } from '@/lib/toast'
 import { formatINR } from '@/lib/utils'
+import {
+  getEntitlement,
+  initiateSubscription,
+  openCheckout,
+  SubscriptionEntitlement,
+} from '@/lib/subscription'
 
 export default function SubscriptionPage() {
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [subStatus, setSubStatus] = useState<any>(null)
+  const [entitlement, setEntitlement] = useState<SubscriptionEntitlement | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
         setFetching(true)
-        const [searchRes, profileRes] = await Promise.all([
-          api.get('/search/subscription-status').catch(() => ({ data: { hasSubscription: false } })),
-          usersApi.getProfile().catch(() => ({ data: null })),
+        const [entRes, profileRes] = await Promise.allSettled([
+          getEntitlement(),
+          usersApi.getProfile(),
         ])
+        const ent = entRes.status === 'fulfilled' ? entRes.value : null
+        setEntitlement(ent)
         setSubStatus({
-          hasSubscription: searchRes.data?.hasSubscription || false,
-          profileSub: profileRes.data?.subscription || null,
+          hasSubscription: ent?.hasSubscription || false,
+          profileSub: profileRes.status === 'fulfilled' ? profileRes.value.data?.subscription : null,
         })
       } catch {
         setError('Failed to fetch subscription details')
@@ -44,24 +53,11 @@ export default function SubscriptionPage() {
     setError('')
 
     try {
-      const res = await api.post('/subscriptions/initiate', {
-        plan: 'monthly',
-      })
-
-      const { paymentSessionId } = res.data
-      if (!paymentSessionId) {
-        throw new Error('Payment session was not created')
+      const result = await initiateSubscription('monthly')
+      const gatewayOrderId = await openCheckout(result)
+      if (gatewayOrderId) {
+        window.location.href = `/subscribe/callback?provider=razorpay&order_id=${encodeURIComponent(gatewayOrderId)}`
       }
-
-      const cashfree = await load({ mode: 'sandbox' })
-      if (!cashfree) {
-        throw new Error('Unable to load Cashfree checkout gateway')
-      }
-
-      await cashfree.checkout({
-        paymentSessionId,
-        redirectTarget: '_self',
-      })
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Failed to initiate subscription payment.'
       setError(msg)
@@ -78,6 +74,11 @@ export default function SubscriptionPage() {
 
       <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto w-full space-y-8">
         
+        {/* Trial countdown + expired upgrade CTA */}
+        {entitlement && !entitlement.hasSubscription && (
+          <TrialCountdownBanner entitlement={entitlement} />
+        )}
+
         {/* Header Title */}
         <div className="text-center space-y-3 font-mono">
           <Badge variant="primary" size="md" className="text-xs">

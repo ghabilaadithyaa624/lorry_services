@@ -62,12 +62,6 @@ export class Msg91Service {
       }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       this.logger.error(`MSG91 failed: ${errorMessage}`)
-      return { 
-        success: false, 
-        message: 'Failed to send SMS'
-      }
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      this.logger.error(`MSG91 failed: ${errorMessage}`)
       return { success: false, message: 'Failed to send SMS' }
     }
   }

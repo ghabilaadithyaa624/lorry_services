@@ -19,9 +19,11 @@ export class AdminService {
   async getDashboardStats(adminId: string) {
     await this.assertAdmin(adminId)
 
+    const now = new Date()
+
     const [
       totalUsers, totalLoads, totalTrucks, totalBookings,
-      pendingDocuments, activeSubscriptions,
+      pendingDocuments, activeSubscriptions, activeTrials, expiredTrials,
       recentPayments,
     ] = await prisma.$transaction([
       prisma.user.count(),
@@ -29,7 +31,21 @@ export class AdminService {
       prisma.truck.count(),
       prisma.booking.count(),
       prisma.document.count({ where: { verificationStatus: VerificationStatus.Pending } }),
-      prisma.subscription.count({ where: { status: 'active', expiresAt: { gt: new Date() } } }),
+      prisma.subscription.count({ where: { status: 'active', expiresAt: { gt: now } } }),
+      prisma.user.count({
+        where: {
+          trialStartedAt: { not: null },
+          trialConvertedAt: null,
+          trialEndsAt: { gt: now },
+        },
+      }),
+      prisma.user.count({
+        where: {
+          trialStartedAt: { not: null },
+          trialConvertedAt: null,
+          trialEndsAt: { lte: now },
+        },
+      }),
       prisma.payment.findMany({
         where: { status: 'Success' },
         orderBy: { paidAt: 'desc' },
@@ -50,6 +66,8 @@ export class AdminService {
       totalBookings,
       pendingDocuments,
       activeSubscriptions,
+      activeTrials,
+      expiredTrials,
       totalRevenue: totalRevenue._sum.amount ?? 0,
       recentPayments,
     }

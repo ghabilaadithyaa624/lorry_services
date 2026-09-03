@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, Logger, Inject } from '@nestjs/commo
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { prisma, UserRole } from '@lorrycarry/database'
+import { TRIAL_DURATION_DAYS } from '@lorrycarry/shared'
 import { REDIS_CLIENT } from '../common/redis/redis.module'
 import Redis from 'ioredis'
 import * as crypto from 'crypto'
@@ -154,15 +155,24 @@ export class AuthService {
     }
 
     if (!user) {
+      // New accounts receive a one-time 3-month free trial immediately.
+      const trialStartedAt = new Date()
+      const trialEndsAt = new Date(trialStartedAt)
+      trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DURATION_DAYS)
+
       user = await prisma.user.create({
-        data: { 
-          phone, 
+        data: {
+          phone,
           role: role!,
           name: null,
+          trialStartedAt,
+          trialEndsAt,
         },
       })
       isNewUser = true
-      this.logger.log(`New user registered: ${phone} as ${role}`)
+      this.logger.log(
+        `New user registered: ${phone} as ${role} (3-month trial until ${trialEndsAt.toISOString()})`,
+      )
     } else {
       this.logger.log(`Existing user logged in: ${phone}`)
     }

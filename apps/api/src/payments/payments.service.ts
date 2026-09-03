@@ -106,7 +106,14 @@ export class PaymentsService {
           startedAt: new Date(),
           expiresAt: subscriptionEnd,
           paymentId: payment.id,
+          provider: 'cashfree',
         },
+      })
+
+      // Convert the one-time free trial so it can never be re-issued.
+      await prisma.user.updateMany({
+        where: { id: payment.userId, trialConvertedAt: null },
+        data: { trialConvertedAt: new Date() },
       })
 
       return { success: true, message: 'Subscription activated', userId: payment.userId }

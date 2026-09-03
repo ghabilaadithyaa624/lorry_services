@@ -16,6 +16,12 @@ model User {
   role      UserRole
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 3-month free trial entitlement. One trial per account, granted lazily on
+  // first entitlement lookup (or at registration) and never re-issued.
+  trialStartedAt   DateTime? @map("trial_started_at")
+  trialEndsAt      DateTime? @map("trial_ends_at")
+  trialConvertedAt DateTime? @map("trial_converted_at") // set when user upgrades to a paid plan
   
   loads              Load[]
   trucks             Truck[]
@@ -31,6 +37,7 @@ model User {
   
   @@index([phone])
   @@index([role])
+  @@index([trialEndsAt])
   @@map("users")
 }
 
@@ -99,19 +106,22 @@ enum UserRole {
 
 // Subscription paywall
 model Subscription {
-  id        String             @id @default(uuid())
-  userId    String             @map("user_id")
-  plan      String // 'monthly_unlimited', 'pay_per_unlock', etc.
-  status    SubscriptionStatus
-  startedAt DateTime           @map("started_at")
-  expiresAt DateTime           @map("expires_at")
-  paymentId String?            @map("payment_id")
-  createdAt DateTime           @default(now()) @map("created_at")
+  id              String             @id @default(uuid())
+  userId          String             @map("user_id")
+  plan            String // 'monthly_unlimited', 'pay_per_unlock', etc.
+  status          SubscriptionStatus
+  startedAt       DateTime           @map("started_at")
+  expiresAt       DateTime           @map("expires_at")
+  paymentId       String?            @map("payment_id")
+  provider        String             @default("cashfree") // 'cashfree' | 'razorpay' | 'stripe'
+  providerOrderId String?            @map("provider_order_id") // Gateway order/session id
+  createdAt       DateTime           @default(now()) @map("created_at")
   
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
   @@index([status])
+  @@index([providerOrderId])
   @@map("subscriptions")
 }
 

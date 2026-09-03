@@ -1,5 +1,14 @@
 import {
-  Controller, Get, Post, Body, Param, Headers, UseGuards, RawBodyRequest, Req,
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Headers,
+  UseGuards,
+  RawBodyRequest,
+  Req,
+  BadRequestException,
 } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { ConfigService } from '@nestjs/config'
@@ -22,25 +31,29 @@ export class SubscriptionsController {
   @Post('initiate')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Initiate subscription payment (returns Cashfree payment URL)' })
+  @ApiOperation({ summary: 'Initiate subscription payment (Cashfree / Razorpay / Stripe)' })
   async initiate(
     @Body() dto: InitiateSubscriptionDto,
     @CurrentUser('id') userId: string,
   ) {
-    return this.subscriptionsService.initiate(userId, dto.plan)
+    return this.subscriptionsService.initiate(userId, dto.plan, dto.provider)
   }
 
   @Get('status')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get current subscription status' })
+  @ApiOperation({ summary: 'Get entitlement status incl. 3-month trial + countdown data' })
   async getStatus(@CurrentUser('id') userId: string) {
     return this.subscriptionsService.getStatus(userId)
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Cashfree
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
-   * Cashfree webhook — receives payment status notifications
-   * Must be public (no JwtAuthGuard), but signature-verified
+   * Cashfree webhook — receives payment status notifications.
+   * Public (no JwtAuthGuard) but signature-verified.
    */
   @Public()
   @Post('webhook/cashfree')
@@ -50,15 +63,15 @@ export class SubscriptionsController {
     @Headers('x-webhook-timestamp') timestamp: string,
     @Req() req: RawBodyRequest<Request>,
   ) {
-    // Verify Cashfree webhook signature
-    const secretKey = this.config.get<string>('CASHFREE_SECRET_KEY')
+    const secretKey = this.config.get<string>('CASHFREE_SECRET_KEY') || ''
     const rawBody = req.rawBody?.toString() ?? ''
+
     const expectedSig = crypto
       .createHmac('sha256', secretKey)
       .update(`${timestamp}${rawBody}`)
       .digest('base64')
 
-    if (signature !== expectedSig) {
+    if (!signature || signature !== expectedSig) {
       return { received: false, error: 'Invalid signature' }
     }
 
@@ -66,36 +79,103 @@ export class SubscriptionsController {
     const { type, data } = event
 
     if (type === 'PAYMENT_SUCCESS_WEBHOOK') {
-      const { order } = data
       await this.subscriptionsService.verifyAndActivate(
-        order.order_id,
-        data.payment?.cf_payment_id?.toString(),
+        data?.order?.order_id,
+        data?.payment?.cf_payment_id?.toString(),
       )
     } else if (type === 'PAYMENT_FAILED_WEBHOOK') {
-      const { order, payment } = data
       await this.subscriptionsService.markFailed(
-        order.order_id,
-        payment?.payment_message,
+        data?.order?.order_id,
+        data?.payment?.payment_message,
       )
     }
 
     return { received: true }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Razorpay
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Public()
+  @Post('webhook/razorpay')
+  @ApiOperation({ summary: 'Razorpay payment webhook (internal)' })
+  async razorpayWebhook(
+    @Headers('x-razorpay-signature') signature: string,
+    @Req() req: RawBodyRequest<Request>,
+  ) {
+    const rawBody = req.rawBody?.toString() ?? ''
+    const valid = this.subscriptionsService
+      .getRazorpayGateway()
+      .verifyWebhookSignature(rawBody, signature)
+    if (!valid) {
+      return { received: false, error: 'Invalid signature' }
+    }
+
+    const event = JSON.parse(rawBody)
+    const entity = event?.payload?.payment?.entity || event?.payload?.order?.entity || {}
+
+    if (event?.event === 'payment.captured' || event?.event === 'order.paid') {
+      const orderId = entity.order_id || entity.id
+      if (!orderId) throw new BadRequestException('Missing order id in webhook payload')
+      await this.subscriptionsService.verifyAndActivate(orderId, entity.id)
+    } else if (event?.event === 'payment.failed') {
+      const orderId = entity.order_id || entity.id
+      await this.subscriptionsService.markFailed(orderId, entity.error_description || 'Payment failed')
+    }
+
+    return { received: true }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Stripe
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Public()
+  @Post('webhook/stripe')
+  @ApiOperation({ summary: 'Stripe payment webhook (internal)' })
+  async stripeWebhook(
+    @Headers('stripe-signature') signature: string,
+    @Req() req: RawBodyRequest<Request>,
+  ) {
+    const rawBody = req.rawBody?.toString() ?? ''
+    let event: any
+    try {
+      event = this.subscriptionsService.getStripeGateway().constructEvent(rawBody, signature)
+    } catch (err: any) {
+      return { received: false, error: 'Invalid signature', message: err.message }
+    }
+
+    const session = event.data?.object || {}
+    const orderId = session.id
+
+    if (event.type === 'checkout.session.completed' && session.payment_status === 'paid') {
+      await this.subscriptionsService.verifyAndActivate(orderId, session.payment_intent?.toString())
+    } else if (event.type === 'checkout.session.expired' || event.type === 'checkout.session.async_payment_failed') {
+      await this.subscriptionsService.markFailed(orderId, `Stripe session ${event.type}`)
+    }
+
+    return { received: true }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Return-URL verification (all providers)
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
-   * Return URL callback / verification endpoint — user lands here after Cashfree redirect
-   * Frontend polls this to confirm payment status and activate subscription
+   * Return URL callback / verification endpoint — user lands here after the
+   * gateway redirect. Frontend polls this to confirm payment + activate.
    */
   @Public()
   @Get('callback/:orderId')
-  @ApiOperation({ summary: 'Verify payment after Cashfree redirect' })
+  @ApiOperation({ summary: 'Verify payment after gateway redirect' })
   async callback(@Param('orderId') orderId: string) {
     return this.subscriptionsService.verifyOrder(orderId)
   }
 
   @Public()
   @Get('verify/:orderId')
-  @ApiOperation({ summary: 'Verify payment by order ID' })
+  @ApiOperation({ summary: 'Verify payment by order ID (all providers)' })
   async verify(@Param('orderId') orderId: string) {
     return this.subscriptionsService.verifyOrder(orderId)
   }

@@ -1,43 +1,149 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { prisma } from '@lorrycarry/database'
-import axios from 'axios'
-
-const PLAN_CONFIG = {
-  monthly:   { price: 999,  durationDays: 30,  label: 'Monthly Unlimited' },
-  quarterly: { price: 2499, durationDays: 90,  label: 'Quarterly Unlimited' },
-  annual:    { price: 7999, durationDays: 365, label: 'Annual Unlimited' },
-} as const
-
-type PlanId = keyof typeof PLAN_CONFIG
+import {
+  SUBSCRIPTION_PLANS,
+  TRIAL_DURATION_DAYS,
+  SubscriptionPlanId,
+  SubscriptionEntitlement,
+} from '@lorrycarry/shared'
+import { CashfreeGateway } from './providers/cashfree.gateway'
+import { RazorpayGateway } from './providers/razorpay.gateway'
+import { StripeGateway } from './providers/stripe.gateway'
+import { PaymentGateway, ProviderId } from './providers/payment-gateway.interface'
 
 @Injectable()
 export class SubscriptionsService {
   private readonly logger = new Logger(SubscriptionsService.name)
 
-  constructor(private config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly cashfree: CashfreeGateway,
+    private readonly razorpay: RazorpayGateway,
+    private readonly stripe: StripeGateway,
+  ) {}
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Trial lifecycle
+  // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Create a Cashfree payment order and return payment URL
+   * Idempotently ensure the user holds a one-time 90-day free trial.
+   * - New accounts are granted a trial at registration (AuthService) AND here,
+   *   lazily, so pre-existing accounts also receive it on first lookup.
+   * - Accounts that already made a subscription payment are never given a trial.
    */
-  async initiate(userId: string, plan: PlanId) {
-    const planConfig = PLAN_CONFIG[plan]
+  async ensureTrial(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, trialStartedAt: true, trialEndsAt: true },
+    })
+    if (!user) throw new BadRequestException('User not found')
+    if (user.trialStartedAt) return user
+
+    const hasEverSubscribed = await prisma.subscription.findFirst({
+      where: { userId },
+      select: { id: true },
+    })
+    if (hasEverSubscribed) return user
+
+    const now = new Date()
+    const trialEndsAt = new Date(now)
+    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DURATION_DAYS)
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { trialStartedAt: now, trialEndsAt },
+      select: { id: true, trialStartedAt: true, trialEndsAt: true },
+    })
+    this.logger.log(`Trial activated for user=${userId} until=${trialEndsAt.toISOString()}`)
+    return updated
+  }
+
+  /**
+   * Full entitlement snapshot for the dashboard paywall + countdown timer.
+   * Auto-grants the 3-month trial on first call.
+   */
+  async getStatus(userId: string): Promise<SubscriptionEntitlement> {
+    const now = new Date()
+
+    const trial = await this.ensureTrial(userId)
+
+    const subscription = await prisma.subscription.findFirst({
+      where: { userId, status: 'active', expiresAt: { gt: now } },
+      orderBy: { expiresAt: 'desc' },
+    })
+
+    const hasSubscription = !!subscription
+    const trialActive =
+      !!trial.trialStartedAt &&
+      !!trial.trialEndsAt &&
+      trial.trialEndsAt.getTime() > now.getTime() &&
+      !hasSubscription
+
+    const hasPremiumAccess = hasSubscription || trialActive
+    const trialDaysRemaining = trial.trialEndsAt
+      ? Math.max(0, Math.ceil((trial.trialEndsAt.getTime() - now.getTime()) / 86_400_000))
+      : 0
+
+    const status: SubscriptionEntitlement['status'] = hasSubscription
+      ? 'active'
+      : trialActive
+        ? 'trial'
+        : 'expired'
+
+    return {
+      status,
+      hasSubscription,
+      hasPremiumAccess,
+      isTrialActive: trialActive,
+      plan: hasSubscription ? (subscription.plan as SubscriptionPlanId) : null,
+      expiresAt: subscription?.expiresAt?.toISOString() ?? null,
+      trialStartedAt: trial.trialStartedAt?.toISOString() ?? null,
+      trialEndsAt: trial.trialEndsAt?.toISOString() ?? null,
+      trialDaysRemaining,
+      trialDurationDays: TRIAL_DURATION_DAYS,
+      upgradeRequired: !hasPremiumAccess,
+      upgradeReason: hasSubscription ? null : trialActive ? null : 'trial_expired',
+    }
+  }
+
+  /** True when the user may use premium features (paid subscription OR trial). */
+  async hasPremiumAccess(userId: string): Promise<boolean> {
+    const entitlement = await this.getStatus(userId)
+    return entitlement.hasPremiumAccess
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Multi-provider checkout initiation
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private gatewayFor(provider?: string): PaymentGateway {
+    const requested = provider || this.config.get<string>('PAYMENT_PROVIDER') || 'cashfree'
+    switch (requested) {
+      case 'cashfree':
+        return this.cashfree
+      case 'razorpay':
+        return this.razorpay
+      case 'stripe':
+        return this.stripe
+      default:
+        throw new BadRequestException(`Unsupported payment provider: ${requested}`)
+    }
+  }
+
+  /**
+   * Create a payment record + gateway checkout session and return the
+   * provider-specific payload the frontend needs to open checkout.
+   */
+  async initiate(userId: string, plan: SubscriptionPlanId, provider?: ProviderId) {
+    const planConfig = SUBSCRIPTION_PLANS[plan]
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) throw new BadRequestException('User not found')
 
-    const orderId = `sub_${userId.slice(0, 8)}_${Date.now()}`
-    const cashfreeApiKey = this.config.get<string>('CASHFREE_API_KEY') || this.config.get<string>('CASHFREE_APP_ID')
-    const cashfreeSecretKey = this.config.get<string>('CASHFREE_SECRET_KEY')
-    const cashfreeEnv = this.config.get<string>('CASHFREE_ENV', 'sandbox')
-    const appUrl = this.config.get<string>('APP_URL') || this.config.get<string>('CLIENT_URL') || 'http://localhost:3010'
-    const rawApiUrl = this.config.get<string>('API_URL') || 'http://localhost:3002'
-    const apiUrl = rawApiUrl.replace(/\/api\/v1\/?$/, '')
+    const gateway = this.gatewayFor(provider)
+    const clientOrderId = `sub_${userId.slice(0, 8)}_${Date.now()}`
 
-    const baseUrl = cashfreeEnv === 'production'
-      ? 'https://api.cashfree.com/pg'
-      : 'https://sandbox.cashfree.com/pg'
-
-    // Create payment record
     const payment = await prisma.payment.create({
       data: {
         userId,
@@ -45,76 +151,74 @@ export class SubscriptionsService {
         currency: 'INR',
         purpose: 'subscription',
         status: 'Pending',
-        provider: 'cashfree',
-        providerOrderId: orderId,
-        metadata: { plan, planLabel: planConfig.label },
+        provider: gateway.provider,
+        providerOrderId: clientOrderId,
+        metadata: {
+          plan,
+          planLabel: planConfig.label,
+          provider: gateway.provider,
+          clientOrderId,
+        },
       },
     })
 
-    // Create Cashfree order
-    const orderPayload = {
-      order_id: orderId,
-      order_amount: planConfig.price,
-      order_currency: 'INR',
-      customer_details: {
-        customer_id: userId,
-        customer_phone: user.phone,
-        customer_name: user.name || 'LorryCarry User',
-      },
-      order_meta: {
-        return_url: `${appUrl}/subscribe/callback?order_id={order_id}&payment_id=${payment.id}`,
-        notify_url: `${apiUrl}/api/v1/payments/webhook/cashfree`,
-      },
-      order_note: `LorryCarry ${planConfig.label} Subscription`,
-    }
+    const session = await gateway.createCheckoutSession({
+      paymentId: payment.id,
+      orderId: clientOrderId,
+      userId,
+      customerPhone: user.phone,
+      customerName: user.name,
+      plan,
+      amount: planConfig.price,
+      currency: 'INR',
+      planLabel: planConfig.label,
+    })
 
-    try {
-      const res = await axios.post(`${baseUrl}/orders`, orderPayload, {
-        headers: {
-          'x-client-id': cashfreeApiKey,
-          'x-client-secret': cashfreeSecretKey,
-          'x-api-version': '2023-08-01',
-          'Content-Type': 'application/json',
+    // Persist the gateway-specific order/session id for webhooks + verify.
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        providerOrderId: session.gatewayOrderId,
+        metadata: {
+          plan,
+          planLabel: planConfig.label,
+          provider: gateway.provider,
+          clientOrderId,
+          gatewayOrderId: session.gatewayOrderId,
         },
-      })
+      },
+    })
 
-      this.logger.log(`Cashfree order created: ${JSON.stringify(res.data)}`)
-
-      return {
-        paymentSessionId: res.data.payment_session_id,
-        orderId: res.data.order_id ?? orderId,
-        paymentId: payment.id,
-        amount: planConfig.price,
-        plan,
-      }
-    } catch (err: any) {
-      this.logger.error('Cashfree order creation failed', err.response?.data)
-      throw new BadRequestException('Payment initiation failed. Please try again.')
+    return {
+      provider: gateway.provider,
+      paymentId: payment.id,
+      orderId: session.gatewayOrderId,
+      amount: planConfig.price,
+      plan,
+      checkout: session.payload,
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Verification & activation (shared by return-URL polling + webhooks)
+  // ─────────────────────────────────────────────────────────────────────────
+
   /**
-   * Verify Cashfree order with Cashfree PG API and activate subscription
-   * Used by return URL callback and polling verification
+   * Verify a gateway order (server-side) and activate the subscription.
+   * Returns SUCCESS / PENDING / FAILED for the callback polling page.
    */
-  async verifyOrder(orderId: string) {
-    this.logger.log(`Cashfree verification started: orderId=${orderId}`)
+  async verifyOrder(gatewayOrderId: string) {
+    this.logger.log(`Subscription verification started: orderId=${gatewayOrderId}`)
 
-    // 1. Find local payment record
     const payment = await prisma.payment.findFirst({
-      where: { providerOrderId: orderId },
+      where: { providerOrderId: gatewayOrderId },
     })
-
     if (!payment) {
-      this.logger.warn(`Payment verification failed: orderId=${orderId} (record not found)`)
-      return {
-        status: 'FAILED',
-        orderId,
-        message: 'Payment record not found',
-      }
+      this.logger.warn(`Payment verification failed (record not found): ${gatewayOrderId}`)
+      return { status: 'FAILED', orderId: gatewayOrderId, message: 'Payment record not found' }
     }
 
-    // 2. Check if already marked Success & active subscription exists (Idempotency)
+    // Idempotent short-circuit
     const existingSubscription = await prisma.subscription.findFirst({
       where: {
         OR: [
@@ -124,12 +228,11 @@ export class SubscriptionsService {
       },
       orderBy: { expiresAt: 'desc' },
     })
-
     if (payment.status === 'Success' && existingSubscription) {
-      this.logger.log(`Payment already verified and subscription active: orderId=${orderId}`)
+      this.logger.log(`Payment already verified and subscription active: ${gatewayOrderId}`)
       return {
         status: 'SUCCESS',
-        orderId,
+        orderId: gatewayOrderId,
         paymentId: payment.id,
         hasSubscription: true,
         plan: existingSubscription.plan,
@@ -137,130 +240,67 @@ export class SubscriptionsService {
       }
     }
 
-    // 3. Query Cashfree Sandbox/Production API
-    const cashfreeApiKey = this.config.get<string>('CASHFREE_API_KEY') || this.config.get<string>('CASHFREE_APP_ID')
-    const cashfreeSecretKey = this.config.get<string>('CASHFREE_SECRET_KEY')
-    const cashfreeEnv = this.config.get<string>('CASHFREE_ENV', 'sandbox')
-    const baseUrl = cashfreeEnv === 'production'
-      ? 'https://api.cashfree.com/pg'
-      : 'https://sandbox.cashfree.com/pg'
+    const gateway = this.gatewayFor(payment.provider)
+    const result = await gateway.verifyPayment(gatewayOrderId)
 
-    const headers = {
-      'x-client-id': cashfreeApiKey,
-      'x-client-secret': cashfreeSecretKey,
-      'x-api-version': '2023-08-01',
+    if (result.paid) {
+      const activationResult = await this.verifyAndActivate(gatewayOrderId, result.txnId)
+      return {
+        status: 'SUCCESS',
+        orderId: gatewayOrderId,
+        paymentId: payment.id,
+        hasSubscription: true,
+        plan: (payment.metadata as any)?.plan,
+        expiresAt: activationResult.expiresAt,
+      }
     }
 
-    try {
-      // Get order details from Cashfree
-      const orderRes = await axios.get(`${baseUrl}/orders/${orderId}`, { headers })
-      const orderStatus = orderRes.data?.order_status
-      this.logger.log(`Cashfree order status: orderId=${orderId} status=${orderStatus}`)
+    const failed = ['expired', 'expired_at', 'failed', 'failure', 'cancelled', 'canceled', 'terminated']
+    if (failed.includes((result.status || '').toLowerCase())) {
+      await this.markFailed(gatewayOrderId, `Gateway order status: ${result.status}`)
+      return { status: 'FAILED', orderId: gatewayOrderId, message: `Payment failed (${result.status})` }
+    }
 
-      // Get payments list for order from Cashfree
-      let paymentsData: any[] = []
-      try {
-        const paymentsRes = await axios.get(`${baseUrl}/orders/${orderId}/payments`, { headers })
-        paymentsData = Array.isArray(paymentsRes.data) ? paymentsRes.data : []
-      } catch (pErr: any) {
-        this.logger.warn(`Could not fetch payments list for order ${orderId}: ${pErr.message}`)
-      }
-
-      const successfulPayment = paymentsData.find((p: any) => p.payment_status === 'SUCCESS')
-      const paymentStatus = successfulPayment?.payment_status ?? paymentsData[0]?.payment_status ?? orderStatus
-
-      this.logger.log(`Cashfree payment status: orderId=${orderId} paymentStatus=${paymentStatus}`)
-
-      // If order is PAID or any payment attempt SUCCEEDED
-      if (orderStatus === 'PAID' || successfulPayment) {
-        const txnId = successfulPayment?.cf_payment_id?.toString() || orderRes.data?.cf_order_id?.toString() || orderId
-        const activationResult = await this.verifyAndActivate(orderId, txnId)
-
-        return {
-          status: 'SUCCESS',
-          orderId,
-          paymentId: payment.id,
-          hasSubscription: true,
-          plan: (payment.metadata as any)?.plan,
-          expiresAt: activationResult.expiresAt,
-        }
-      }
-
-      // If order is still ACTIVE / pending
-      if (orderStatus === 'ACTIVE') {
-        return {
-          status: 'PENDING',
-          orderId,
-          message: 'Payment is being processed by Cashfree',
-        }
-      }
-
-      // If order is EXPIRED / TERMINATED / CANCELLED
-      if (['EXPIRED', 'TERMINATED', 'CANCELLED'].includes(orderStatus)) {
-        await this.markFailed(orderId, `Cashfree order status: ${orderStatus}`)
-        this.logger.warn(`Payment verification failed: orderId=${orderId} status=${orderStatus}`)
-        return {
-          status: 'FAILED',
-          orderId,
-          message: `Payment failed (${orderStatus})`,
-        }
-      }
-
-      return {
-        status: 'PENDING',
-        orderId,
-        message: 'Payment status pending',
-      }
-    } catch (err: any) {
-      this.logger.error(`Payment verification error: orderId=${orderId}`, err.response?.data || err.message)
-      return {
-        status: 'PENDING',
-        orderId,
-        message: 'Unable to verify payment with Cashfree at this time',
-      }
+    return {
+      status: 'PENDING',
+      orderId: gatewayOrderId,
+      message: result.message || 'Payment status pending',
     }
   }
 
   /**
-   * Verify Cashfree payment and activate subscription atomically
-   * Called from webhook or return URL verification after Cashfree PG independently confirms success
+   * Activate a subscription atomically after the gateway independently
+   * confirms payment success (webhook OR server-side verification).
    */
-  async verifyAndActivate(orderId: string, cashfreeTxnId: string) {
+  async verifyAndActivate(gatewayOrderId: string, txnId?: string) {
     return prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findFirst({
-        where: { providerOrderId: orderId },
+        where: { providerOrderId: gatewayOrderId },
       })
       if (!payment) throw new BadRequestException('Payment record not found')
 
-      // Idempotency: check if subscription already exists for this payment
       const existingSubscription = await tx.subscription.findFirst({
         where: { paymentId: payment.id },
       })
       if (existingSubscription) {
-        this.logger.log(`Subscription already exists for paymentId=${payment.id}, skipping creation`)
+        this.logger.log(`Subscription already exists for paymentId=${payment.id}; skipping`)
         return { activated: true, expiresAt: existingSubscription.expiresAt }
       }
 
-      const plan = (payment.metadata as any)?.plan as PlanId
-      const planConfig = PLAN_CONFIG[plan] || PLAN_CONFIG.monthly
+      const metadata = (payment.metadata as any) || {}
+      const plan = (metadata.plan as SubscriptionPlanId) || 'monthly'
+      const planConfig = SUBSCRIPTION_PLANS[plan] || SUBSCRIPTION_PLANS.monthly
+      const provider = (payment.provider || 'cashfree') as ProviderId
 
       const now = new Date()
       const expiresAt = new Date(now)
       expiresAt.setDate(expiresAt.getDate() + planConfig.durationDays)
 
-      this.logger.log(`Subscription activation started: userId=${payment.userId} plan=${plan}`)
-
-      // Update payment record within transaction
       await tx.payment.update({
         where: { id: payment.id },
-        data: {
-          status: 'Success',
-          providerTxnId: cashfreeTxnId,
-          paidAt: now,
-        },
+        data: { status: 'Success', providerTxnId: txnId || null, paidAt: now },
       })
 
-      // Create active subscription within transaction
       await tx.subscription.create({
         data: {
           userId: payment.userId,
@@ -269,36 +309,44 @@ export class SubscriptionsService {
           startedAt: now,
           expiresAt,
           paymentId: payment.id,
+          provider,
+          providerOrderId: gatewayOrderId,
         },
       })
 
-      this.logger.log(`Subscription activated: userId=${payment.userId} plan=${plan} expires=${expiresAt.toISOString()}`)
+      // Mark the one-time trial as converted so it can never be re-issued.
+      await tx.user.updateMany({
+        where: { id: payment.userId, trialConvertedAt: null },
+        data: { trialConvertedAt: now },
+      })
+
+      this.logger.log(
+        `Subscription activated: user=${payment.userId} plan=${plan} provider=${provider} expires=${expiresAt.toISOString()}`,
+      )
       return { activated: true, expiresAt }
     })
   }
 
-  /**
-   * Mark payment as failed
-   */
-  async markFailed(orderId: string, reason?: string) {
+  async markFailed(gatewayOrderId: string, reason?: string) {
     await prisma.payment.updateMany({
-      where: { providerOrderId: orderId, status: 'Pending' },
+      where: { providerOrderId: gatewayOrderId, status: 'Pending' },
       data: { status: 'Failed', failureReason: reason },
     })
   }
 
-  /**
-   * Get current subscription status for user
-   */
-  async getStatus(userId: string) {
-    const subscription = await prisma.subscription.findFirst({
-      where: { userId, status: 'active', expiresAt: { gt: new Date() } },
-      orderBy: { expiresAt: 'desc' },
-    })
-    return {
-      hasSubscription: !!subscription,
-      plan: subscription?.plan ?? null,
-      expiresAt: subscription?.expiresAt ?? null,
-    }
+  // ─────────────────────────────────────────────────────────────────────────
+  // Gateway accessors for the controller (webhooks)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  getCashfreeGateway() {
+    return this.cashfree
+  }
+
+  getRazorpayGateway() {
+    return this.razorpay
+  }
+
+  getStripeGateway() {
+    return this.stripe
   }
 }

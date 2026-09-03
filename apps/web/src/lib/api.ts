@@ -253,6 +253,25 @@ export const adminApi = {
   getAnalytics: (range = 30) => api.get(`/admin/analytics?range=${range}`),
 }
 
+/**
+ * Subscription / trial entitlement API.
+ * Feature 13: 3-month free trial, countdown data & multi-gateway checkout.
+ */
+export const subscriptionsApi = {
+  /** Full entitlement snapshot (trial + subscription status, countdown data). */
+  getStatus: () => api.get('/subscriptions/status'),
+
+  /** Create a gateway checkout session (cashfree | razorpay | stripe). */
+  initiate: (plan: 'monthly' | 'quarterly' | 'annual', provider?: 'cashfree' | 'razorpay' | 'stripe') =>
+    api.post('/subscriptions/initiate', { plan, provider }),
+
+  /** Server-side payment verification used by the callback page. */
+  verify: (orderId: string) => api.get(`/subscriptions/verify/${orderId}`),
+
+  /** Dedicated callback verification endpoint (kept for Cashfree compat). */
+  callback: (orderId: string) => api.get(`/subscriptions/callback/${orderId}`),
+}
+
 // Trucks & Documents API
 export const trucksApi = {
   getMyTrucks: () => api.get('/trucks/my-trucks'),

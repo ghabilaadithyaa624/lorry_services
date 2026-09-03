@@ -18,12 +18,14 @@ import {
   X,
   Menu,
 } from 'lucide-react'
-import { api, usersApi, authApi } from '@/lib/api'
+import { api, usersApi, authApi, subscriptionsApi } from '@/lib/api'
 import { Footer } from '@/components/layout'
 import { AnalyticsSnapshot } from '@/components/dashboard/AnalyticsSnapshot'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
+import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo } from '@/lib/utils'
+import type { SubscriptionEntitlement } from '@/lib/subscription'
 
 interface UserState {
   id?: string
@@ -115,6 +117,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const [user, setUser] = useState<UserState | null>(null)
   const [loading, setLoading] = useState(true)
   const [hasSubscription, setHasSubscription] = useState(false)
+  const [entitlement, setEntitlement] = useState<SubscriptionEntitlement | null>(null)
   const [kycComplete, setKycComplete] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -150,13 +153,15 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
       setLoading(true)
 
       const [subRes, docRes, activityRes] = await Promise.allSettled([
-        api.get('/search/subscription-status'),
+        subscriptionsApi.getStatus(),
         usersApi.getDocuments(),
         usersApi.getActivity(),
       ])
 
       if (subRes.status === 'fulfilled') {
-        setHasSubscription(Boolean(subRes.value.data?.hasSubscription))
+        const ent = subRes.value.data as SubscriptionEntitlement
+        setEntitlement(ent)
+        setHasSubscription(Boolean(ent.hasSubscription))
       }
 
       // Check KYC status
@@ -462,6 +467,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
           </div>
         )}
 
+        {/* ── 2b. Subscription & 3-Month Free Trial Banner (live countdown) ── */}
+        <TrialCountdownBanner entitlement={entitlement} />
+
         {/* ── 4. Quick Actions Header & Role Greeting ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
           <div className="space-y-1">
@@ -532,11 +540,15 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                   'w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border',
                   hasSubscription
                     ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30'
-                    : 'bg-primary-500/10 text-primary-400 border-primary-500/20'
+                    : entitlement?.isTrialActive
+                      ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/25'
+                      : 'bg-primary-500/10 text-primary-400 border-primary-500/20'
                 )}
               >
                 {hasSubscription ? (
                   <ShieldCheck className="w-6 h-6 stroke-[2.2]" />
+                ) : entitlement?.isTrialActive ? (
+                  <Clock className="w-6 h-6 stroke-[2.2]" />
                 ) : (
                   <Sparkles className="w-6 h-6 stroke-[2.2]" />
                 )}
@@ -547,24 +559,30 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                   <h2 className="text-base sm:text-lg font-bold text-white">
                     {hasSubscription
                       ? 'National Enterprise Subscription Active'
-                      : 'Unlock Direct Contact Access on Matched Trucks & Loads'}
+                      : entitlement?.isTrialActive
+                        ? '3-Month Free Trial — Full Premium Access Unlocked'
+                        : 'Unlock Direct Contact Access on Matched Trucks & Loads'}
                   </h2>
                   <span
                     className={cn(
                       'px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono border',
                       hasSubscription
                         ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30'
-                        : 'bg-primary-500/10 text-primary-400 border-primary-500/20'
+                        : entitlement?.isTrialActive
+                          ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/25'
+                          : 'bg-primary-500/10 text-primary-400 border-primary-500/20'
                     )}
                   >
-                    {hasSubscription ? 'Pass Active' : 'Upgrade Available'}
+                    {hasSubscription ? 'Pass Active' : entitlement?.isTrialActive ? 'Free Trial' : 'Upgrade Available'}
                   </span>
                 </div>
 
                 <p className="text-xs sm:text-sm text-surface-300 leading-relaxed max-w-3xl">
                   {hasSubscription
                     ? 'Unlimited direct telephone contact and direct WhatsApp dispatch unlocked across all highway freight corridors with zero brokerage fees.'
-                    : 'Unlock verified contact numbers and direct WhatsApp dispatch for all matched vehicles and consignments across Indian freight corridors.'}
+                    : entitlement?.isTrialActive
+                      ? `${entitlement.trialDaysRemaining} days of unlimited premium access left in your 3-month free trial. Upgrade any time to keep the benefits uninterrupted.`
+                      : 'Your free trial has ended. Unlock verified contact numbers and direct WhatsApp dispatch for all matched vehicles and consignments across Indian freight corridors.'}
                 </p>
               </div>
             </div>
@@ -578,7 +596,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                   : 'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-glow-primary border border-primary-400/30'
               )}
             >
-              <span>{hasSubscription ? 'Manage Pass' : 'View Subscription Plans'}</span>
+              <span>{hasSubscription ? 'Manage Pass' : entitlement?.isTrialActive ? 'Upgrade Now' : 'Upgrade Now'}</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -589,7 +607,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
           totalLoads={isTruckOwner ? fleetSize : loads.length}
           trucksMatched={verifiedTruckCount || trucks.length}
           avgHireRate={averageHireRate}
-          subscriptionActive={hasSubscription}
+          subscriptionActive={entitlement?.hasPremiumAccess ?? hasSubscription}
           className="space-y-4"
         />
 

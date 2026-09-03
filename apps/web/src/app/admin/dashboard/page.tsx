@@ -23,6 +23,8 @@ interface Stats {
   totalBookings: number
   pendingDocuments: number
   activeSubscriptions: number
+  activeTrials: number
+  expiredTrials: number
   totalRevenue: number
   recentPayments: Array<{
     id: string
@@ -167,6 +169,12 @@ export default function AdminDashboardPage() {
           <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 block">Active Passes</span>
           <span className="text-2xl font-black text-purple-300 block">{stats.activeSubscriptions}</span>
           <span className="text-[10px] text-purple-400/80 block">Subscriptions</span>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-sky-950/40 border border-sky-500/30 shadow-card space-y-1">
+          <span className="text-[10px] font-black uppercase tracking-widest text-sky-400 block">Free Trials</span>
+          <span className="text-2xl font-black text-sky-300 block">{stats.activeTrials ?? 0}</span>
+          <span className="text-[10px] text-sky-400/80 block">{stats.expiredTrials ?? 0} expired → upgrade queue</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 shadow-card space-y-1 col-span-2 sm:col-span-1">

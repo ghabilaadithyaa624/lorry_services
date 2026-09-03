@@ -105,7 +105,7 @@ function CallbackContent() {
                 VERIFYING PAYMENT
               </h1>
               <p className="text-xs text-surface-400 font-sans">
-                Please wait while we confirm your payment with Cashfree gateway...
+                Please wait while we confirm your payment with the payment gateway...
               </p>
             </div>
             <div className="pt-2">
@@ -172,7 +172,7 @@ function CallbackContent() {
                 VERIFICATION PENDING
               </h1>
               <p className="text-xs text-surface-300 font-sans leading-relaxed">
-                Your payment may still be processing with your bank or Cashfree. Your subscription will activate automatically once confirmed.
+                Your payment may still be processing with your bank or the payment gateway. Your subscription will activate automatically once confirmed.
               </p>
             </div>
 

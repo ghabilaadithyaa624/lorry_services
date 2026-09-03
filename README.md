@@ -18,7 +18,10 @@ LorryCarry is a high-performance monorepo platform connecting load owners and tr
   - **Subscription Management**: Track active, expired, and cancelled plan subscriptions with expiration alerts.
   - **User Directory**: Search and filter load owners, truck owners, and administrators with detailed operational metrics.
   - **Booking Lifecycle**: Monitor all bookings from pending quotation to in-transit and delivery completion.
-- **Cashfree Paywall & Subscription Engine**: Secure billing (`₹999/month` and per-unlock credits) with webhook-driven auto-activation.
+- **Subscription & Trial Flow**:
+  - **3-Month Free Trial**: Every account receives a one-time 90-day full access trial (granted at registration + lazily for existing users) with a live countdown timer on the dashboard.
+  - **Upgrade CTA After Expiry**: The dashboard replaces the countdown with a prominent upgrade call-to-action the moment the trial ends; the contact-reveal paywall also re-engages.
+  - **Multi-Provider Subscriptions**: `cashfree` (default), `razorpay`, or `stripe` — switch via `PAYMENT_PROVIDER` or per-checkout; webhooks + server-side verification activate passes idempotently (`₹999/month`, `₹2,499/quarter`, `₹7,999/year`).
 - **WhatsApp Notification Engine**: Instant booking confirmations, checkpoint updates, and OTP verification via Gupshup.
 
 ---
@@ -99,10 +102,23 @@ cp .env.example .env
 Key environment variables:
 - `DATABASE_URL`: PostgreSQL connection string with PostGIS enabled
 - `JWT_SECRET` & `JWT_REFRESH_SECRET`: Secure cryptographic secrets
-- `CASHFREE_API_KEY` & `CASHFREE_SECRET_KEY`: Cashfree sandbox or production credentials
+- `PAYMENT_PROVIDER`: Default subscription gateway — `cashfree` | `razorpay` | `stripe`
+- `CASHFREE_APP_ID` & `CASHFREE_SECRET_KEY`: Cashfree sandbox or production credentials
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`: Razorpay credentials + webhook secret
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`: Stripe secret key + webhook signing secret
 - `PORT`: Backend port (default `3002`)
 - `CLIENT_URL`: Web client URL (`http://localhost:3010`)
 - `ADMIN_URL`: Admin portal URL (`http://localhost:3011`)
+
+### Subscription webhooks
+
+| Gateway | Endpoint | Notes |
+| :--- | :--- | :--- |
+| Cashfree | `POST /api/v1/subscriptions/webhook/cashfree` | HMAC signature verified |
+| Razorpay | `POST /api/v1/subscriptions/webhook/razorpay` | `x-razorpay-signature` (HMAC-SHA256) verified |
+| Stripe | `POST /api/v1/subscriptions/webhook/stripe` | `stripe-signature` verified via Stripe SDK |
+
+Trial state is stored per user (`trial_started_at`, `trial_ends_at`, `trial_converted_at`); see `GET /api/v1/subscriptions/status` for the entitlement + countdown payload consumed by the dashboard.
 
 ### 3. Database Setup & Migrations
 
