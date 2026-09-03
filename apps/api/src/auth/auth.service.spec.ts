@@ -44,6 +44,7 @@ interface RedisClientMock {
   smembers: jest.Mock
   mget: jest.Mock
   pipeline: jest.Mock
+  mget?: jest.Mock
 }
 
 describe('AuthService', () => {

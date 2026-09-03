@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, Optional } from '@nestjs/common'
 import { randomUUID } from 'crypto'
 import { 
   prisma, 
@@ -8,6 +8,7 @@ import {
   SubscriptionStatus 
 } from '@lorrycarry/database'
 import { GupshupService } from '../auth/gupshup.service'
+import { MatchingService } from '../matching/matching.service'
 
 export interface CreateBookingDto {
   loadId: string
@@ -19,7 +20,10 @@ export interface CreateBookingDto {
 
 @Injectable()
 export class BookingsService {
-  constructor(private gupshup: GupshupService) {}
+  constructor(
+    private gupshup: GupshupService,
+    @Optional() private matchingService?: MatchingService,
+  ) {}
 
   /**
    * Create booking with commercial terms within an atomic database transaction
@@ -128,6 +132,13 @@ export class BookingsService {
 
     // Send WhatsApp notifications asynchronously outside the transaction
     await this.sendBookingNotifications(booking)
+
+    // Transition matching engine status: Pending → Booked (WhatsApp already triggered on match, now book)
+    try {
+      await this.matchingService?.handleBookingCreated(booking)
+    } catch {
+      // ignore matching transition errors
+    }
 
     return booking
   }
@@ -258,10 +269,28 @@ export class BookingsService {
       })
     }
 
-    return prisma.booking.update({
+    const updated = await prisma.booking.update({
       where: { id: bookingId },
       data,
     })
+
+    // Matching engine: Booked → Completed
+    if (status === BookingStatus.Completed) {
+      try {
+        await this.matchingService?.handleBookingCompleted(updated)
+      } catch {
+        // ignore
+      }
+    } else if (status === BookingStatus.InTransit) {
+      // InTransit is still Booked in match terms, ensure match is Booked
+      try {
+        await this.matchingService?.handleBookingCreated(updated)
+      } catch {
+        // ignore
+      }
+    }
+
+    return updated
   }
 
   /**

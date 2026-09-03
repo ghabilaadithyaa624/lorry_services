@@ -12,28 +12,43 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger'
 import { UserRole } from '@prisma/client'
+import { Optional } from '@nestjs/common'
 import { TrucksService } from './trucks.service'
 import { CreateTruckDto } from './dto/create-truck.dto'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { Roles } from '../common/decorators/roles.decorator'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
+import { MatchingService } from '../matching/matching.service'
 
 @ApiTags('Trucks')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('trucks')
 export class TrucksController {
-  constructor(private readonly trucksService: TrucksService) {}
+  constructor(
+    private readonly trucksService: TrucksService,
+    @Optional() private readonly matchingService?: MatchingService,
+  ) {}
 
   @Post()
   @Roles(UserRole.truck_owner, UserRole.driver)
-  @ApiOperation({ summary: 'Register a new truck' })
+  @ApiOperation({ summary: 'Register a new truck (Need Vehicle) — triggers tonnage/route/budget matching & WhatsApp' })
   async create(
     @Body() dto: CreateTruckDto,
     @CurrentUser('id') userId: string
   ) {
-    return this.trucksService.create(userId, dto)
+    const truck = await this.trucksService.create(userId, dto)
+    if (this.matchingService) {
+      setImmediate(async () => {
+        try {
+          await this.matchingService!.evaluateMatchesForTruck(truck.id, 50)
+        } catch {
+          // ignore background
+        }
+      })
+    }
+    return truck
   }
 
   @Post(':id/documents/:type')
@@ -69,12 +84,22 @@ export class TrucksController {
 
   @Patch(':id/location')
   @Roles(UserRole.truck_owner, UserRole.driver)
-  @ApiOperation({ summary: 'Update truck current location' })
+  @ApiOperation({ summary: 'Update truck current location — re-evaluates proximity matches' })
   async updateLocation(
     @Param('id') id: string,
     @Body('address') address: string,
     @CurrentUser('id') userId: string
   ) {
-    return this.trucksService.updateLocation(id, userId, address)
+    const updated = await this.trucksService.updateLocation(id, userId, address)
+    if (this.matchingService) {
+      setImmediate(async () => {
+        try {
+          await this.matchingService!.evaluateMatchesForTruck(id, 50)
+        } catch {
+          // ignore
+        }
+      })
+    }
+    return updated
   }
 }

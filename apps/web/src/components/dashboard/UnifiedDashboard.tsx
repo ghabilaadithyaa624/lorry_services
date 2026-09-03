@@ -24,6 +24,7 @@ import { AnalyticsSnapshot } from '@/components/dashboard/AnalyticsSnapshot'
 import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
 import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
+import { MatchesPanel } from '@/components/matching/MatchesPanel'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo } from '@/lib/utils'
 
@@ -697,6 +698,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             </>
           )}
         </div>
+
+        {/* ── 4b. Smart Matching Engine — Need Load ↔ Need Vehicle (tonnage/route/budget, ≤50km, WhatsApp trigger) ── */}
+        <MatchesPanel role={isTruckOwner ? 'truck_owner' : 'load_owner'} />
 
         {/* ── 5. My Trips Widget (Active & Completed Tabs) ── */}
         <div className="bg-panel rounded-2xl border border-white/10 shadow-modal p-5 sm:p-7 space-y-6">

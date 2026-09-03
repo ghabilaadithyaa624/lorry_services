@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
+import { Optional } from '@nestjs/common'
 import { LoadStatus, UserRole } from '@prisma/client'
 import { LoadsService } from './loads.service'
 import { CreateLoadDto } from './dto/create-load.dto'
@@ -17,22 +18,37 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { Roles } from '../common/decorators/roles.decorator'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
+import { MatchingService } from '../matching/matching.service'
 
 @ApiTags('Loads')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('loads')
 export class LoadsController {
-  constructor(private readonly loadsService: LoadsService) {}
+  constructor(
+    private readonly loadsService: LoadsService,
+    @Optional() private readonly matchingService?: MatchingService,
+  ) {}
 
   @Post()
   @Roles(UserRole.load_owner)
-  @ApiOperation({ summary: 'Post a new load' })
+  @ApiOperation({ summary: 'Post a new load (Need Load) — triggers tonnage/route/budget matching & WhatsApp' })
   async create(
     @Body() dto: CreateLoadDto,
     @CurrentUser('id') userId: string
   ) {
-    return this.loadsService.create(userId, dto)
+    const load = await this.loadsService.create(userId, dto)
+    // Fire-and-forget: evaluate Need Vehicle matches within 50km, tonnage/budget gated, triggers WhatsApp on match
+    if (this.matchingService) {
+      setImmediate(async () => {
+        try {
+          await this.matchingService!.evaluateMatchesForLoad(load.id, 50)
+        } catch {
+          // ignore background matching errors
+        }
+      })
+    }
+    return load
   }
 
   @Get('my-loads')
