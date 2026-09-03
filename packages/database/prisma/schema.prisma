@@ -16,6 +16,12 @@ model User {
   role      UserRole
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 3-month free trial entitlement. One trial per account, granted lazily on
+  // first entitlement lookup (or at registration) and never re-issued.
+  trialStartedAt   DateTime? @map("trial_started_at")
+  trialEndsAt      DateTime? @map("trial_ends_at")
+  trialConvertedAt DateTime? @map("trial_converted_at") // set when user upgrades to a paid plan
   
   loads                Load[]
   trucks               Truck[]
@@ -28,9 +34,15 @@ model User {
   preference           UserPreference?
   givenRatings         Rating[] @relation("RaterRatings")
   receivedRatings      Rating[] @relation("RatedRatings")
+  disputesRaised     BookingDispute[] @relation("DisputesRaised")
+  disputesResolved   BookingDispute[] @relation("DisputesResolved")
+  preference         UserPreference?
+  givenRatings       Rating[] @relation("RaterRatings")
+  receivedRatings    Rating[] @relation("RatedRatings")
   
   @@index([phone])
   @@index([role])
+  @@index([trialEndsAt])
   @@map("users")
 }
 
@@ -118,12 +130,22 @@ model Subscription {
   autoRenew Boolean            @default(false) @map("auto_renew")
   paymentId String?            @map("payment_id")
   createdAt DateTime           @default(now()) @map("created_at")
+  id              String             @id @default(uuid())
+  userId          String             @map("user_id")
+  plan            String // 'monthly_unlimited', 'pay_per_unlock', etc.
+  status          SubscriptionStatus
+  startedAt       DateTime           @map("started_at")
+  expiresAt       DateTime           @map("expires_at")
+  paymentId       String?            @map("payment_id")
+  provider        String             @default("cashfree") // 'cashfree' | 'razorpay' | 'stripe'
+  providerOrderId String?            @map("provider_order_id") // Gateway order/session id
+  createdAt       DateTime           @default(now()) @map("created_at")
   
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
   @@index([status])
-  @@index([expiresAt])
+  @@index([providerOrderId])
   @@map("subscriptions")
 }
 
@@ -186,6 +208,25 @@ enum LoadStatus {
   Cancelled
 }
 
+// ── Verification & Compliance ──────────────────────────────────────────────
+/// FASTag toll-readiness status for a truck. `Unknown` until the owner or an
+/// admin confirms it; derived/manual — Vahan does not expose FASTag state.
+enum FastagStatus {
+  Unknown
+  Active
+  LowBalance
+  Inactive
+}
+
+/// Lifecycle of the E-Way Bill attached to a booking. `Expired`/`Invalid` are
+/// computed when the checklist is read or when the record is updated.
+enum EwayBillStatus {
+  Pending
+  Active
+  Expired
+  Invalid
+}
+
 // Truck registrations with geospatial
 model Truck {
   id                  String             @id @default(uuid())
@@ -202,8 +243,15 @@ model Truck {
   preferredDestinations Json?            @map("preferred_destinations") // Array of city names
   verificationStatus  VerificationStatus @default(Pending) @map("verification_status")
   verifiedAt          DateTime?          @map("verified_at")
+  /// Last successful RC validation snapshot from the Vahan (mParivahan) API.
+  vahanDetails        Json?              @map("vahan_details")
+  vahanValidatedAt    DateTime?          @map("vahan_validated_at")
+  /// FASTag toll-readiness (Active / LowBalance / Inactive / Unknown).
+  fastagStatus        FastagStatus       @default(Unknown) @map("fastag_status")
+  fastagUpdatedAt     DateTime?          @map("fastag_updated_at")
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
+
   
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents Document[]
@@ -212,6 +260,8 @@ model Truck {
   
   @@index([userId])
   @@index([verificationStatus])
+  @@index([vahanValidatedAt])
+  @@index([fastagStatus])
   @@index([bodyType])
   @@index([tonnageCapacity])
   @@map("trucks")
@@ -221,6 +271,18 @@ enum VerificationStatus {
   Pending
   Verified
   Rejected
+}
+
+/// Result of the external Parivahan / Vahan registration lookup.
+/// `Unavailable` is explicit when provider credentials are not configured;
+/// it must never be presented as a successful government verification.
+enum VahanCheckStatus {
+  NotChecked
+  Pending
+  Verified
+  Mismatch
+  Unavailable
+  Error
 }
 
 // KYC documents (RC, Insurance)
@@ -263,31 +325,28 @@ enum DocumentType {
 
 // Bookings with commercial terms
 model Booking {
-  id                  String              @id @default(uuid())
-  loadId              String              @map("load_id")
-  truckId             String              @map("truck_id")
-  loadOwnerId         String              @map("load_owner_id")
-  truckOwnerId        String              @map("truck_owner_id")
-  agreedPrice         Decimal             @map("agreed_price") @db.Decimal(12, 2)
-  advanceConfirmed    Boolean             @default(false) @map("advance_confirmed")
-  advanceConfirmedAt  DateTime?           @map("advance_confirmed_at")
-  balanceConfirmed    Boolean             @default(false) @map("balance_confirmed")
-  balanceConfirmedAt  DateTime?           @map("balance_confirmed_at")
-  ewayBillNumber      String?             @map("eway_bill_number")
-  liabilityAccepted   Boolean             @default(false) @map("liability_accepted")
-  liabilityAcceptedAt DateTime?           @map("liability_accepted_at")
-  status              BookingStatus       @default(Pending)
-  /// Rollup of the outbound WhatsApp confirmation trigger fired for this
-  /// booking (see `sendBookingNotifications`). Distinct from the granular,
-  /// per-recipient `Notification` rows: this is the fast/denormalized flag
-  /// the booking detail screen reads to show "WhatsApp sent ✓ / pending /
-  /// failed" without joining the Notification table.
-  whatsappTriggerStatus   WhatsappTriggerStatus @default(NotTriggered) @map("whatsapp_trigger_status")
-  whatsappTriggeredAt     DateTime?             @map("whatsapp_triggered_at")
-  startedAt           DateTime?           @map("started_at")
-  completedAt         DateTime?           @map("completed_at")
-  createdAt           DateTime            @default(now()) @map("created_at")
-  updatedAt           DateTime            @updatedAt @map("updated_at")
+  id                  String          @id @default(uuid())
+  loadId              String          @map("load_id")
+  truckId             String          @map("truck_id")
+  loadOwnerId         String          @map("load_owner_id")
+  truckOwnerId        String          @map("truck_owner_id")
+  agreedPrice         Decimal         @map("agreed_price") @db.Decimal(12, 2)
+  advanceConfirmed    Boolean         @default(false) @map("advance_confirmed")
+  advanceConfirmedAt  DateTime?       @map("advance_confirmed_at")
+  balanceConfirmed    Boolean         @default(false) @map("balance_confirmed")
+  balanceConfirmedAt  DateTime?       @map("balance_confirmed_at")
+  ewayBillNumber      String?         @map("eway_bill_number")
+  /// Lifecycle status of the attached E-Way Bill (see EwayBillStatus).
+  ewayBillStatus      EwayBillStatus  @default(Pending) @map("eway_bill_status")
+  ewayBillValidUpto   DateTime?       @map("eway_bill_valid_upto")
+  ewayBillUpdatedAt   DateTime?       @map("eway_bill_updated_at")
+  liabilityAccepted   Boolean         @default(false) @map("liability_accepted")
+  liabilityAcceptedAt DateTime?       @map("liability_accepted_at")
+  status              BookingStatus   @default(Pending)
+  startedAt           DateTime?       @map("started_at")
+  completedAt         DateTime?       @map("completed_at")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
   
   load        Load         @relation(fields: [loadId], references: [id])
   truck       Truck        @relation(fields: [truckId], references: [id])
@@ -301,6 +360,7 @@ model Booking {
   @@index([loadId])
   @@index([truckId])
   @@index([status])
+  @@index([ewayBillStatus])
   @@index([loadOwnerId])
   @@index([truckOwnerId])
   @@index([whatsappTriggerStatus])
@@ -321,6 +381,55 @@ enum BookingStatus {
   InTransit @map("In-transit")
   Completed
   Cancelled
+}
+
+/// A counterparty-reported booking issue that can be investigated and resolved
+/// by an administrator. Disputes are additive so existing bookings remain valid.
+model BookingDispute {
+  id           String          @id @default(uuid())
+  bookingId    String          @map("booking_id")
+  raisedById   String          @map("raised_by_id")
+  category     DisputeCategory  @default(Other)
+  priority     DisputePriority  @default(Medium)
+  status       DisputeStatus    @default(Open)
+  description  String
+  resolution   String?
+  resolvedById String?          @map("resolved_by_id")
+  resolvedAt   DateTime?        @map("resolved_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  raisedBy   User    @relation("DisputesRaised", fields: [raisedById], references: [id])
+  resolvedBy User?   @relation("DisputesResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([raisedById])
+  @@index([status])
+  @@index([priority])
+  @@map("booking_disputes")
+}
+
+enum DisputeCategory {
+  Payment
+  CargoDamage @map("Cargo_Damage")
+  Delay
+  Document
+  Other
+}
+
+enum DisputePriority {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum DisputeStatus {
+  Open
+  Investigating
+  Resolved
+  Rejected
 }
 
 // Checkpoint-based tracking (NOT live GPS)

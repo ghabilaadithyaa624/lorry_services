@@ -29,7 +29,7 @@ describe('WebhooksController', () => {
     (cashfreeService.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
     const result = await controller.handleCashfreeWebhook({ data: 'test' }, 'valid_sig');
     expect(result.success).toBe(true);
-    expect(paymentsService.handleWebhook).toHaveBeenCalledWith({ data: 'test' });
+    expect(paymentsService.handleWebhook).toHaveBeenCalledWith('cashfree', { data: 'test' });
   });
 
   it('should reject cashfree webhook with invalid signature', async () => {

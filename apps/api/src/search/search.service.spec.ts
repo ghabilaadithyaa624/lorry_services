@@ -4,13 +4,38 @@ import { SearchService } from './search.service'
 import { prisma } from '@lorrycarry/database'
 
 jest.mock('@lorrycarry/database', () => {
-  const actual = jest.requireActual('@lorrycarry/database')
+  const sql = (strings: TemplateStringsArray, ...values: any[]) => {
+    let text = ''
+    const params: any[] = []
+    strings.forEach((segment, i) => {
+      text += segment
+      if (i < values.length) {
+        const value = values[i]
+        // Nested Prisma.Sql support (e.g. `WHERE ${whereClause}`)
+        if (value && typeof value === 'object' && 'text' in value && 'values' in value) {
+          text += value.text
+          params.push(...value.values)
+        } else {
+          text += `$${params.length + 1}`
+          params.push(value)
+        }
+      }
+    })
+    return { text, values: params }
+  }
+  const join = (parts: any[], separator = ', ') => ({
+    text: parts.map((p) => (typeof p === 'string' ? p : p?.text || '')).join(separator),
+    values: parts.flatMap((p) => p?.values || []),
+  })
+
   return {
-    ...actual,
     prisma: {
       $queryRaw: jest.fn(),
       subscription: {
         findFirst: jest.fn(),
+      },
+      user: {
+        findUnique: jest.fn(),
       },
       truck: {
         findUnique: jest.fn(),
@@ -19,6 +44,7 @@ jest.mock('@lorrycarry/database', () => {
         findUnique: jest.fn(),
       },
     },
+    Prisma: { sql, join },
   }
 })
 
@@ -178,6 +204,11 @@ describe('SearchService', () => {
         status: 'active',
         expiresAt: new Date(Date.now() + 100000),
       })
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: userId,
+        trialStartedAt: null,
+        trialEndsAt: null,
+      })
 
       const mockTruck = { id: listingId, user: { name: 'John Doe', phone: '1234567890' } }
       ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(mockTruck)
@@ -190,6 +221,7 @@ describe('SearchService', () => {
           status: 'active',
           expiresAt: { gt: expect.any(Date) },
         },
+        select: { id: true },
       })
       expect(prisma.truck.findUnique).toHaveBeenCalledWith({
         where: { id: listingId },
@@ -203,11 +235,12 @@ describe('SearchService', () => {
       })
     })
 
-    it('should reveal load contact details if subscription is active', async () => {
-      ;(prisma.subscription.findFirst as jest.Mock).mockResolvedValueOnce({
-        id: 'sub-1',
-        status: 'active',
-        expiresAt: new Date(Date.now() + 100000),
+    it('should reveal load contact details when the user is on a 3-month trial', async () => {
+      ;(prisma.subscription.findFirst as jest.Mock).mockResolvedValueOnce(null)
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: userId,
+        trialStartedAt: new Date(),
+        trialEndsAt: new Date(Date.now() + 90 * 86400000),
       })
 
       const mockLoad = { id: listingId, user: { name: 'Jane Doe', phone: '0987654321' } }
@@ -223,36 +256,33 @@ describe('SearchService', () => {
       })
     })
 
-    it('should throw Payment Required exception if no active subscription', async () => {
+    it('should throw Payment Required when subscription and trial are both inactive', async () => {
       ;(prisma.subscription.findFirst as jest.Mock).mockResolvedValueOnce(null)
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: userId,
+        trialStartedAt: new Date(Date.now() - 200 * 86400000),
+        trialEndsAt: new Date(Date.now() - 100 * 86400000),
+      })
 
       await expect(service.revealContact(userId, listingId, 'truck')).rejects.toThrow(
         new HttpException(
           {
             statusCode: HttpStatus.PAYMENT_REQUIRED,
             error: 'Payment Required',
-            message: 'An active subscription is required to view contact details.',
+            message: 'An active subscription or free trial is required to view contact details.',
           },
           HttpStatus.PAYMENT_REQUIRED,
         )
       )
     })
 
-    it('should throw Payment Required if no active subscription exists', async () => {
-      ;(prisma.subscription.findFirst as jest.Mock).mockResolvedValueOnce(null)
-
-      await expect(
-        service.revealContact('user-1', 'truck-123', 'truck')
-      ).rejects.toThrow(
-        new HttpException(
-          'An active subscription is required to view contact details.',
-          HttpStatus.PAYMENT_REQUIRED
-        )
-      )
-    })
-
     it('should reveal truck details if active subscription exists', async () => {
       ;(prisma.subscription.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'sub-1' })
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'user-1',
+        trialStartedAt: null,
+        trialEndsAt: null,
+      })
       const mockTruck = { id: 'truck-123', user: { name: 'Owner' } }
       ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(mockTruck)
 
@@ -262,6 +292,11 @@ describe('SearchService', () => {
 
     it('should reveal load details if active subscription exists', async () => {
       ;(prisma.subscription.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'sub-1' })
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'user-1',
+        trialStartedAt: null,
+        trialEndsAt: null,
+      })
       const mockLoad = { id: 'load-123', user: { name: 'Shipper' } }
       ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
 

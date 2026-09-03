@@ -1,6 +1,8 @@
 import axios, { InternalAxiosRequestConfig } from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api/v1'
+// Same-origin by default: Vite proxies /api to the NestJS service in dev,
+// while production can provide VITE_API_URL for a dedicated API origin.
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -103,5 +105,17 @@ export const authApi = {
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
   },
+}
+
+export const adminApi = {
+  checkVahan: (truckId: string) => api.post(`/admin/trucks/${truckId}/vahan-check`),
+  listDisputes: (status?: string, page = 1, limit = 20) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+    if (status) params.set('status', status)
+    return api.get(`/admin/disputes?${params.toString()}`)
+  },
+  resolveDispute: (disputeId: string, status: 'Investigating' | 'Resolved' | 'Rejected', resolution?: string) =>
+    api.patch(`/admin/disputes/${disputeId}/resolve`, { status, resolution }),
+  getAnalytics: (range = 30) => api.get(`/admin/analytics?range=${range}`),
 }
 

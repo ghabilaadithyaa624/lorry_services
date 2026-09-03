@@ -148,7 +148,11 @@ async function main() {
 
   console.log('✅ Loads seeded');
 
-  // 4. Create Trucks
+  // 4. Create Trucks (with Vahan RC verification + FASTag compliance data)
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  const isoDate = (offsetDays: number) => new Date(now + offsetDays * DAY).toISOString().slice(0, 10);
+
   const truck1 = await prisma.truck.create({
     data: {
       userId: truckDriver1.id,
@@ -160,6 +164,30 @@ async function main() {
       serviceableRadiusKm: 100,
       preferredDestinations: ['Bangalore', 'Chennai', 'Hyderabad'],
       verificationStatus: VerificationStatus.Verified,
+      verifiedAt: new Date(now - 9 * DAY),
+      vahanValidatedAt: new Date(now - 2 * DAY),
+      vahanDetails: {
+        registrationNumber: 'MH12QW8842',
+        registrationStatus: 'ACTIVE',
+        ownerNameMasked: 'Transporter K.',
+        makerModel: 'Tata LPT 3118',
+        vehicleClass: 'Heavy Goods Vehicle (HGV)',
+        fuelType: 'DIESEL',
+        registrationDate: isoDate(-2100),
+        fitnessValidUpto: isoDate(320),
+        insuranceValidUpto: isoDate(200),
+        pucValidUpto: isoDate(120),
+        permitType: 'National Permit',
+        permitValidUpto: isoDate(280),
+        rto: 'RTO-MH12',
+        state: 'MH',
+        chassisNumberMasked: 'ME****421',
+        engineNumberMasked: 'EN****883',
+        source: 'vahan_api',
+        checkedAt: new Date(now - 2 * DAY).toISOString(),
+      },
+      fastagStatus: 'Active',
+      fastagUpdatedAt: new Date(now - 1 * DAY),
     },
   });
 
@@ -174,6 +202,30 @@ async function main() {
       serviceableRadiusKm: 60,
       preferredDestinations: ['Bangalore', 'Hubballi', 'Belagavi'],
       verificationStatus: VerificationStatus.Verified,
+      verifiedAt: new Date(now - 5 * DAY),
+      vahanValidatedAt: new Date(now - 5 * DAY),
+      vahanDetails: {
+        registrationNumber: 'MH09DT5112',
+        registrationStatus: 'ACTIVE',
+        ownerNameMasked: 'Transporter S.',
+        makerModel: 'Ashok Leyland 2820',
+        vehicleClass: 'Heavy Goods Vehicle (HGV)',
+        fuelType: 'DIESEL',
+        registrationDate: isoDate(-1500),
+        fitnessValidUpto: isoDate(95),
+        insuranceValidUpto: isoDate(30),
+        pucValidUpto: isoDate(-10), // expired — demonstrates the action-required path
+        permitType: 'National Permit',
+        permitValidUpto: isoDate(150),
+        rto: 'RTO-MH09',
+        state: 'MH',
+        chassisNumberMasked: 'MB****107',
+        engineNumberMasked: 'EE****542',
+        source: 'sandbox',
+        checkedAt: new Date(now - 5 * DAY).toISOString(),
+      },
+      fastagStatus: 'LowBalance',
+      fastagUpdatedAt: new Date(now - 3 * 60 * 60 * 1000),
     },
   });
 
@@ -233,7 +285,10 @@ async function main() {
       agreedPrice: 62000,
       advanceConfirmed: true,
       balanceConfirmed: false,
-      ewayBillNumber: 'EWAY-384910293841',
+      ewayBillNumber: '381234567890',
+      ewayBillStatus: 'Active',
+      ewayBillValidUpto: new Date(now + 2 * DAY),
+      ewayBillUpdatedAt: new Date(now - 12 * 60 * 60 * 1000),
       liabilityAccepted: true,
       liabilityAcceptedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
       status: BookingStatus.InTransit,

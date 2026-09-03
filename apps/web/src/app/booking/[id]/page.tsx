@@ -16,6 +16,7 @@ import { Navbar, Footer } from '@/components/layout'
 import { Badge, Button, Spinner } from '@/components/ui'
 import { assessShipmentIntelligence } from '@/lib/intelligence'
 import { ReturnLoadOpportunityCard, DigitalDocumentChainCard } from '@/components/intelligence'
+import { BookingComplianceCard } from '@/components/compliance/BookingComplianceCard'
 import { evaluateBackhaulOpportunities, BackhaulOpportunity } from '@/lib/intelligence/matchingEngine'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, whatsappLink } from '@/lib/utils'
@@ -33,6 +34,7 @@ export default function BookingDetailPage() {
   const [backhaulOpps, setBackhaulOpps] = useState<BackhaulOpportunity[]>([])
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string>('')
+  const [viewerRole, setViewerRole] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     if (id) {
@@ -47,6 +49,7 @@ export default function BookingDetailPage() {
       if (userStr) {
         const user = JSON.parse(userStr)
         setCurrentUserId(user.id || '')
+        setViewerRole(user.role)
       }
     } catch (err) {
       console.warn('Could not load current user')
@@ -147,6 +150,29 @@ export default function BookingDetailPage() {
     }
   }
 
+  const handleRaiseDispute = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (disputeDescription.trim().length < 10) {
+      toast.error('Please describe the issue in at least 10 characters')
+      return
+    }
+    setDisputeLoading(true)
+    try {
+      await api.post(`/bookings/${id}/disputes`, {
+        category: disputeCategory,
+        priority: disputePriority,
+        description: disputeDescription.trim(),
+      })
+      toast.success('Dispute submitted to LorryCarry operations')
+      setDisputeOpen(false)
+      setDisputeDescription('')
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Could not submit dispute')
+    } finally {
+      setDisputeLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-canvas text-surface-100 flex flex-col justify-between font-sans">
@@ -219,6 +245,14 @@ export default function BookingDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setDisputeOpen(true)}
+              className="text-xs font-bold border-danger-500/30 text-danger-300 hover:bg-danger-950/30"
+            >
+              Report an issue
+            </Button>
             {booking.truck?.user?.phone && (
               <a
                 href={whatsappLink(
@@ -404,6 +438,9 @@ export default function BookingDetailPage() {
           </div>
         </div>
 
+        {/* ── VERIFICATION & COMPLIANCE (Vahan RC · Insurance · E-Way Bill · FASTag) ── */}
+        <BookingComplianceCard bookingId={booking.id} viewerRole={viewerRole} />
+
         {/* ── DIGITAL FREIGHT DOCUMENT CHAIN ── */}
         <DigitalDocumentChainCard
           bookingId={booking.id}
@@ -478,6 +515,39 @@ export default function BookingDetailPage() {
             </div>
           )}
         </div>
+
+        {disputeOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Report a booking issue">
+            <div className="bg-panel border border-white/10 rounded-[20px] shadow-modal max-w-lg w-full p-6 space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <span className="text-[10px] uppercase tracking-widest text-danger-300 font-mono font-bold">Booking support case</span>
+                  <h2 className="text-xl font-black text-white mt-1">Report an issue</h2>
+                  <p className="text-xs text-surface-400 mt-1">Our operations team will review the evidence and contact both parties.</p>
+                </div>
+                <button type="button" onClick={() => setDisputeOpen(false)} className="text-surface-400 hover:text-white p-1" aria-label="Close report issue dialog">✕</button>
+              </div>
+              <form onSubmit={handleRaiseDispute} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-xs font-bold text-surface-300">Issue type
+                    <select value={disputeCategory} onChange={(event) => setDisputeCategory(event.target.value)} className="input mt-1.5">
+                      <option value="Payment">Payment</option><option value="Delay">Transit delay</option><option value="CargoDamage">Cargo damage</option><option value="Document">Documentation</option><option value="Other">Other</option>
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-surface-300">Priority
+                    <select value={disputePriority} onChange={(event) => setDisputePriority(event.target.value)} className="input mt-1.5">
+                      <option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option>
+                    </select>
+                  </label>
+                </div>
+                <label className="block text-xs font-bold text-surface-300">What happened?
+                  <textarea value={disputeDescription} onChange={(event) => setDisputeDescription(event.target.value)} className="input mt-1.5 min-h-[120px] resize-none" placeholder="Share dates, payment references, checkpoint details, or cargo evidence..." required minLength={10} maxLength={2000} />
+                </label>
+                <div className="flex justify-end gap-2 pt-2 border-t border-white/10"><Button type="button" variant="ghost" size="sm" onClick={() => setDisputeOpen(false)}>Cancel</Button><Button type="submit" variant="danger" size="sm" loading={disputeLoading}>Submit dispute</Button></div>
+              </form>
+            </div>
+          </div>
+        )}
 
       </main>
 

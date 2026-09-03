@@ -22,6 +22,8 @@ import {
 import { api, trucksApi, authApi, matchesApi } from '@/lib/api'
 import { Footer, LanguageToggle } from '@/components/layout'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
+import { VerifiedBadge } from '@/components/VerifiedBadge'
+import { TruckCompliancePanel } from '@/components/compliance/TruckCompliancePanel'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, formatPhone, whatsappLink } from '@/lib/utils'
 
@@ -35,6 +37,10 @@ interface FleetTruck {
   serviceableRadiusKm?: number
   verificationStatus: 'Verified' | 'Pending' | 'Rejected' | string
   status?: 'Available' | 'On Trip' | 'Under Verification' | 'Maintenance' | string
+  /** ISO timestamp of the last Vahan RC validation. */
+  vahanValidatedAt?: string | null
+  /** FASTag readiness: Unknown | Active | LowBalance | Inactive. */
+  fastagStatus?: string | null
   currentLat?: number
   currentLng?: number
   currentLocationName?: string
@@ -683,10 +689,7 @@ export default function MyFleetPage() {
 
                           {/* Verification Badge */}
                           {isVerified ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>Vahan Verified</span>
-                            </span>
+                            <VerifiedBadge verified source="vahan" validatedAt={truck.vahanValidatedAt} variant="dark" />
                           ) : isRejected ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-950/60 text-rose-300 border border-rose-500/30 text-xs font-medium">
                               <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
@@ -939,6 +942,9 @@ export default function MyFleetPage() {
                     </div>
                   )}
 
+                  {/* Verification & Compliance Panel (Vahan RC · FASTag · checklist) */}
+                  <TruckCompliancePanel truck={truck} onChanged={loadFleetData} />
+
                   {/* Compliance Summary Footer */}
                   <div className="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-3 text-surface-400">
@@ -953,6 +959,17 @@ export default function MyFleetPage() {
                       </span>
                       <span>•</span>
                       <span>Insurance: {isVerified ? 'Active Commercial Cover' : 'Pending Review'}</span>
+                      <span>•</span>
+                      <span>
+                        FASTag:{' '}
+                        {truck.fastagStatus === 'Active'
+                          ? 'Toll Ready'
+                          : truck.fastagStatus === 'LowBalance'
+                          ? 'Low Balance'
+                          : truck.fastagStatus === 'Inactive'
+                          ? 'Inactive'
+                          : 'Not Reported'}
+                      </span>
                     </div>
 
                     <Link

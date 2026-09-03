@@ -25,14 +25,9 @@ export class WebhooksController {
       throw new BadRequestException('Invalid or missing webhook signature')
     }
 
-    const result = await this.paymentsService.handleWebhook(payload)
-    
-    // Send WhatsApp notification on success
-    if (result && result.success && result.userId) {
-      // Notification handled after subscription activation
-    }
-
-    return result
+    // Provider is implied by the route; activation + side effects are handled
+    // inside the payments service.
+    return this.paymentsService.handleWebhook('cashfree', payload)
   }
 
   @Public()

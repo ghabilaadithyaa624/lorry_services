@@ -1,6 +1,8 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'
+// Use the same-origin rewrite by default so browser requests work behind a
+// preview/proxy host. Direct API origins remain configurable for deployments.
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1'
 
 // Create axios instance
 export const api = axios.create({
@@ -269,10 +271,39 @@ export const adminApi = {
     api.patch(`/admin/documents/${documentId}/verify`, { status, notes }),
   verifyTruck: (truckId: string, status: 'Verified' | 'Rejected') =>
     api.patch(`/admin/trucks/${truckId}/verify`, { status }),
+  checkVahan: (truckId: string) =>
+    api.post(`/admin/trucks/${truckId}/vahan-check`),
   listSubscriptions: (page = 1, limit = 20) =>
     api.get(`/admin/subscriptions?page=${page}&limit=${limit}`),
   listBookings: (page = 1, limit = 20) =>
     api.get(`/admin/bookings?page=${page}&limit=${limit}`),
+  listDisputes: (status?: string, page = 1, limit = 20) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+    if (status) params.set('status', status)
+    return api.get(`/admin/disputes?${params.toString()}`)
+  },
+  resolveDispute: (disputeId: string, status: 'Investigating' | 'Resolved' | 'Rejected', resolution?: string) =>
+    api.patch(`/admin/disputes/${disputeId}/resolve`, { status, resolution }),
+  getAnalytics: (range = 30) => api.get(`/admin/analytics?range=${range}`),
+}
+
+/**
+ * Subscription / trial entitlement API.
+ * Feature 13: 3-month free trial, countdown data & multi-gateway checkout.
+ */
+export const subscriptionsApi = {
+  /** Full entitlement snapshot (trial + subscription status, countdown data). */
+  getStatus: () => api.get('/subscriptions/status'),
+
+  /** Create a gateway checkout session (cashfree | razorpay | stripe). */
+  initiate: (plan: 'monthly' | 'quarterly' | 'annual', provider?: 'cashfree' | 'razorpay' | 'stripe') =>
+    api.post('/subscriptions/initiate', { plan, provider }),
+
+  /** Server-side payment verification used by the callback page. */
+  verify: (orderId: string) => api.get(`/subscriptions/verify/${orderId}`),
+
+  /** Dedicated callback verification endpoint (kept for Cashfree compat). */
+  callback: (orderId: string) => api.get(`/subscriptions/callback/${orderId}`),
 }
 
 // Trucks & Documents API
@@ -374,6 +405,76 @@ export const matchesApi = {
     api.patch<MatchRecord>(`/matches/${id}/status`, { status, bookingId }),
   delete: (id: string) => api.delete(`/matches/${id}`),
   create: (loadId: string, truckId: string) => api.post<MatchRecord>('/matches', { loadId, truckId }),
+}
+
+/**
+ * Verification & Compliance API — Vahan RC validation, FASTag status and
+ * E-Way Bill lifecycle tracking.
+ */
+export type ComplianceItemStatus = 'compliant' | 'action_required' | 'pending' | 'expired'
+
+export interface ComplianceItem {
+  key: string
+  label: string
+  status: ComplianceItemStatus
+  detail: string
+  source: 'vahan_api' | 'sandbox' | 'booking' | 'manual' | 'document'
+  verifiedAt?: string
+  expiresAt?: string
+}
+
+export interface ComplianceChecklist {
+  scope: 'truck' | 'booking'
+  scopeId: string
+  registrationNumber?: string
+  overall: ComplianceItemStatus
+  items: ComplianceItem[]
+  checkedAt: string
+}
+
+export interface VahanValidationResult {
+  valid: boolean
+  found: boolean
+  registrationNumber: string
+  source: 'vahan_api' | 'sandbox' | 'unavailable'
+  checkedAt: string
+  error?: string
+  data?: Record<string, unknown>
+}
+
+export const complianceApi = {
+  /** Full compliance checklist for a truck (RC, insurance, fitness, PUC, permit, FASTag). */
+  getTruckChecklist: (truckId: string) =>
+    api.get<ComplianceChecklist>(`/compliance/trucks/${truckId}`),
+
+  /** Run a fresh Vahan RC validation and store the snapshot. */
+  validateTruckRc: (truckId: string) =>
+    api.post<{ validation: VahanValidationResult; checklist: ComplianceChecklist }>(
+      `/compliance/trucks/${truckId}/validate-rc`
+    ),
+
+  /** Report FASTag readiness for a truck. */
+  updateFastag: (truckId: string, status: 'Active' | 'LowBalance' | 'Inactive') =>
+    api.patch<{ checklist: ComplianceChecklist }>(`/compliance/trucks/${truckId}/fastag`, { status }),
+
+  /** Trip compliance checklist for a booking (adds E-Way Bill lifecycle). */
+  getBookingChecklist: (bookingId: string) =>
+    api.get<ComplianceChecklist>(`/compliance/bookings/${bookingId}`),
+
+  /** Attach / update the 12-digit E-Way Bill number on a booking. */
+  updateEwayBill: (bookingId: string, ewayBillNumber: string, validUpto?: string) =>
+    api.post<{
+      ewayBill: {
+        ewayBillNumber: string | null
+        ewayBillStatus: string
+        ewayBillValidUpto: string | null
+        ewayBillUpdatedAt: string | null
+      }
+      checklist: ComplianceChecklist
+    }>(`/compliance/bookings/${bookingId}/eway-bill`, {
+      ewayBillNumber,
+      validUpto: validUpto || undefined,
+    }),
 }
 
 /**
