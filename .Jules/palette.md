@@ -19,3 +19,7 @@
 ## 2025-02-23 - WAI-ARIA Range Slider Accessibility & Dynamic Form Control Labeling
 **Learning:** Native `<input type="range">` sliders and search filter form controls in React applications must be dynamically bound to `<label>` elements using `useId()` and supplied with WAI-ARIA slider value attributes (`aria-valuemin`, `aria-valuemax`, `aria-valuenow`, `aria-valuetext`) so screen readers accurately communicate the slider's value and purpose.
 **Action:** Always generate unique element IDs using `useId()`, connect `<label htmlFor={id}>` to `<input id={id}>`, and pass formatted `aria-valuetext` strings on range inputs.
+
+## 2025-02-24 - WCAG 2.5.3 (Label in Name) Consistency for Buttons with Visible Text
+**Learning:** When adding `aria-label` descriptors to interactive buttons that display visible text (e.g. "Unlock Contact", "Book Lorry"), the `aria-label` must start with the exact visible text string to satisfy WCAG 2.5.3 (Label in Name) so speech navigation and voice control software can activate the control when users speak the visible text label.
+**Action:** Always ensure custom `aria-label` strings on buttons with visible text begin with the exact visible label string before adding supplemental contextual details.
