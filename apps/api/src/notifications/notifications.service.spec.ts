@@ -83,11 +83,13 @@ describe('NotificationsService', () => {
     expect(prisma.notification.create).toHaveBeenCalledTimes(1)
     expect(prisma.notification.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: 'u-1',
-        channel: 'whatsapp',
-        template: 'booking_confirmed_driver',
-        status: 'Pending',
-        provider: 'gupshup',
+        data: expect.objectContaining({
+          userId: 'u-1',
+          channel: 'whatsapp',
+          template: 'booking_confirmed_driver',
+          status: 'Pending',
+          provider: 'gupshup',
+        }),
       }),
     )
     expect(gupshup.sendNotification).toHaveBeenCalledWith(

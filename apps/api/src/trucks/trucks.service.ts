@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
-import { prisma, VerificationStatus } from '@lorrycarry/database'
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common'
+import { prisma, VerificationStatus, Prisma } from '@lorrycarry/database'
 import { MapmyIndiaService } from '../common/services/mapmyindia.service'
+import { VahanService } from '../common/services/vahan.service'
 import { S3Service } from '../common/services/s3.service'
 import { CreateTruckDto } from './dto/create-truck.dto'
 
@@ -8,13 +9,23 @@ import { CreateTruckDto } from './dto/create-truck.dto'
 export class TrucksService {
   constructor(
     private mapmyIndia: MapmyIndiaService,
+    private vahan: VahanService,
     private s3: S3Service
   ) {}
 
   async create(userId: string, dto: CreateTruckDto) {
+    const registrationNumber = dto.registrationNumber.toUpperCase().trim()
+
+    // Vahan format gate: reject malformed plates before any DB or API work.
+    if (!this.vahan.isValidRegistrationFormat(registrationNumber)) {
+      throw new BadRequestException(
+        'Registration number must be a valid Indian vehicle number, e.g. MH12QW8842 or 21BH0000AA'
+      )
+    }
+
     // Check for duplicate registration
     const existing = await prisma.truck.findUnique({
-      where: { registrationNumber: dto.registrationNumber.toUpperCase() },
+      where: { registrationNumber },
     })
 
     if (existing) {
@@ -28,10 +39,28 @@ export class TrucksService {
       throw new NotFoundException('Could not geocode location. Please check the address.')
     }
 
+    // Best-effort Vahan RC validation: never blocks registration, but stores
+    // the snapshot + validation timestamp when the RC resolves successfully.
+    let vahanDetails: Prisma.InputJsonValue | undefined
+    let vahanValidatedAt: Date | undefined
+    try {
+      const rcResult = await this.vahan.validateRC(registrationNumber)
+      const snapshot = this.vahan.toPersistableSnapshot(rcResult)
+      if (snapshot) {
+        vahanDetails = snapshot as Prisma.InputJsonValue
+        vahanValidatedAt = new Date()
+        if (!rcResult.valid) {
+          this.logRcConcern(registrationNumber, rcResult.error)
+        }
+      }
+    } catch (err: any) {
+      // Registry unavailable — registration proceeds, admin KYC still applies.
+    }
+
     const truck = await prisma.truck.create({
       data: {
         userId,
-        registrationNumber: dto.registrationNumber.toUpperCase(),
+        registrationNumber,
         bodyType: dto.bodyType,
         lengthFt: dto.lengthFt,
         heightFt: dto.heightFt,
@@ -41,6 +70,8 @@ export class TrucksService {
         serviceableRadiusKm: dto.serviceableRadiusKm ?? 50,
         preferredDestinations: dto.preferredDestinations || [],
         verificationStatus: VerificationStatus.Pending,
+        vahanDetails,
+        vahanValidatedAt,
       },
     })
 
@@ -51,6 +82,11 @@ export class TrucksService {
     }
 
     return truck
+  }
+
+  private logRcConcern(registrationNumber: string, error?: string): void {
+    // Surfaced for ops visibility; truck remains Pending for admin KYC review.
+    console.warn(`[TrucksService] Vahan RC concern for ${registrationNumber}: ${error || 'unknown'}`)
   }
 
   async uploadDocument(

@@ -29,6 +29,17 @@ interface PendingDoc {
     id: string
     registrationNumber: string
     bodyType: string
+    /** Vahan RC cross-check snapshot (present when the RC has been validated). */
+    vahanValidatedAt: string | null
+    vahanDetails: {
+      registrationStatus?: string
+      makerModel?: string | null
+      fuelType?: string | null
+      fitnessValidUpto?: string | null
+      insuranceValidUpto?: string | null
+      source?: string
+    } | null
+    fastagStatus?: string | null
     user: { name: string | null; phone: string }
   }
 }
@@ -193,6 +204,23 @@ export default function KycQueuePage() {
                     <td className="py-3.5 px-4">
                       <p className="font-bold text-white">🆔 {doc.truck.registrationNumber}</p>
                       <Badge variant="default" size="sm" className="font-mono text-[10px]">{doc.truck.bodyType}</Badge>
+                      {/* Vahan RC cross-check for the reviewer */}
+                      {doc.truck.vahanValidatedAt && doc.truck.vahanDetails ? (
+                        <p
+                          className="mt-1 text-[10px] font-mono text-emerald-400"
+                          title={`Vahan snapshot (${doc.truck.vahanDetails.source || 'vahan_api'}): ${
+                            doc.truck.vahanDetails.registrationStatus || 'ACTIVE'
+                          }${doc.truck.vahanDetails.makerModel ? ` · ${doc.truck.vahanDetails.makerModel}` : ''}${
+                            doc.truck.vahanDetails.insuranceValidUpto ? ` · insurance till ${doc.truck.vahanDetails.insuranceValidUpto}` : ''
+                          }`}
+                        >
+                          ✓ Vahan: {doc.truck.vahanDetails.registrationStatus || 'ACTIVE'}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-[10px] font-mono text-surface-500" title="RC not yet validated against the Vahan database">
+                          Vahan: not validated
+                        </p>
+                      )}
                     </td>
 
                     <td className="py-3.5 px-4">

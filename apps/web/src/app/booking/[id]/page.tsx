@@ -17,6 +17,7 @@ import { Navbar, Footer } from '@/components/layout'
 import { Badge, Button, Spinner } from '@/components/ui'
 import { assessShipmentIntelligence } from '@/lib/intelligence'
 import { ReturnLoadOpportunityCard, DigitalDocumentChainCard } from '@/components/intelligence'
+import { BookingComplianceCard } from '@/components/compliance/BookingComplianceCard'
 import { evaluateBackhaulOpportunities, BackhaulOpportunity } from '@/lib/intelligence/matchingEngine'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, whatsappLink } from '@/lib/utils'
@@ -36,6 +37,7 @@ export default function BookingDetailPage() {
   const [backhaulOpps, setBackhaulOpps] = useState<BackhaulOpportunity[]>([])
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string>('')
+  const [viewerRole, setViewerRole] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     if (id) {
@@ -50,6 +52,7 @@ export default function BookingDetailPage() {
       if (userStr) {
         const user = JSON.parse(userStr)
         setCurrentUserId(user.id || '')
+        setViewerRole(user.role)
       }
     } catch (err) {
       console.warn('Could not load current user')
@@ -406,6 +409,9 @@ export default function BookingDetailPage() {
             )}
           </div>
         </div>
+
+        {/* ── VERIFICATION & COMPLIANCE (Vahan RC · Insurance · E-Way Bill · FASTag) ── */}
+        <BookingComplianceCard bookingId={booking.id} viewerRole={viewerRole} />
 
         {/* ── DIGITAL FREIGHT DOCUMENT CHAIN ── */}
         <DigitalDocumentChainCard

@@ -377,6 +377,76 @@ export const matchesApi = {
 }
 
 /**
+ * Verification & Compliance API — Vahan RC validation, FASTag status and
+ * E-Way Bill lifecycle tracking.
+ */
+export type ComplianceItemStatus = 'compliant' | 'action_required' | 'pending' | 'expired'
+
+export interface ComplianceItem {
+  key: string
+  label: string
+  status: ComplianceItemStatus
+  detail: string
+  source: 'vahan_api' | 'sandbox' | 'booking' | 'manual' | 'document'
+  verifiedAt?: string
+  expiresAt?: string
+}
+
+export interface ComplianceChecklist {
+  scope: 'truck' | 'booking'
+  scopeId: string
+  registrationNumber?: string
+  overall: ComplianceItemStatus
+  items: ComplianceItem[]
+  checkedAt: string
+}
+
+export interface VahanValidationResult {
+  valid: boolean
+  found: boolean
+  registrationNumber: string
+  source: 'vahan_api' | 'sandbox' | 'unavailable'
+  checkedAt: string
+  error?: string
+  data?: Record<string, unknown>
+}
+
+export const complianceApi = {
+  /** Full compliance checklist for a truck (RC, insurance, fitness, PUC, permit, FASTag). */
+  getTruckChecklist: (truckId: string) =>
+    api.get<ComplianceChecklist>(`/compliance/trucks/${truckId}`),
+
+  /** Run a fresh Vahan RC validation and store the snapshot. */
+  validateTruckRc: (truckId: string) =>
+    api.post<{ validation: VahanValidationResult; checklist: ComplianceChecklist }>(
+      `/compliance/trucks/${truckId}/validate-rc`
+    ),
+
+  /** Report FASTag readiness for a truck. */
+  updateFastag: (truckId: string, status: 'Active' | 'LowBalance' | 'Inactive') =>
+    api.patch<{ checklist: ComplianceChecklist }>(`/compliance/trucks/${truckId}/fastag`, { status }),
+
+  /** Trip compliance checklist for a booking (adds E-Way Bill lifecycle). */
+  getBookingChecklist: (bookingId: string) =>
+    api.get<ComplianceChecklist>(`/compliance/bookings/${bookingId}`),
+
+  /** Attach / update the 12-digit E-Way Bill number on a booking. */
+  updateEwayBill: (bookingId: string, ewayBillNumber: string, validUpto?: string) =>
+    api.post<{
+      ewayBill: {
+        ewayBillNumber: string | null
+        ewayBillStatus: string
+        ewayBillValidUpto: string | null
+        ewayBillUpdatedAt: string | null
+      }
+      checklist: ComplianceChecklist
+    }>(`/compliance/bookings/${bookingId}/eway-bill`, {
+      ewayBillNumber,
+      validUpto: validUpto || undefined,
+    }),
+}
+
+/**
  * Location API — proxied through backend to keep Mappls API key server-side.
  * Never exposes the API key to the frontend bundle.
  */

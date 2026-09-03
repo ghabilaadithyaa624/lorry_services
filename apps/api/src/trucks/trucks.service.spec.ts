@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { ConflictException, NotFoundException } from '@nestjs/common'
+import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common'
 import { TrucksService } from './trucks.service'
 import { MapmyIndiaService } from '../common/services/mapmyindia.service'
+import { VahanService } from '../common/services/vahan.service'
 import { S3Service } from '../common/services/s3.service'
 import { prisma, VerificationStatus } from '@lorrycarry/database'
 
@@ -34,6 +35,12 @@ describe('TrucksService', () => {
     geocodeAddress: jest.fn(),
   }
 
+  const mockVahanService = {
+    isValidRegistrationFormat: jest.fn().mockReturnValue(true),
+    validateRC: jest.fn().mockResolvedValue({ valid: false, found: false, source: 'unavailable' }),
+    toPersistableSnapshot: jest.fn().mockReturnValue(null),
+  }
+
   const mockS3Service = {
     validateFile: jest.fn(),
     uploadFile: jest.fn(),
@@ -46,6 +53,7 @@ describe('TrucksService', () => {
       providers: [
         TrucksService,
         { provide: MapmyIndiaService, useValue: mockMapmyIndiaService },
+        { provide: VahanService, useValue: mockVahanService },
         { provide: S3Service, useValue: mockS3Service },
       ],
     }).compile()
@@ -176,6 +184,57 @@ describe('TrucksService', () => {
       const result = await service.create(userId, dto)
       expect(result).toEqual(mockTruck)
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(1)
+    })
+
+    it('should reject malformed registration numbers before any DB/API work', async () => {
+      mockVahanService.isValidRegistrationFormat.mockReturnValueOnce(false)
+      await expect(
+        service.create(userId, { ...dto, registrationNumber: 'NOT A PLATE' })
+      ).rejects.toThrow(BadRequestException)
+      expect(prisma.truck.findUnique).not.toHaveBeenCalled()
+      expect(mockMapmyIndiaService.geocodeAddress).not.toHaveBeenCalled()
+    })
+
+    it('should persist the Vahan RC snapshot when validation succeeds', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      mockMapmyIndiaService.geocodeAddress.mockResolvedValueOnce({ lat: 18.5204, lng: 73.8567 })
+      mockVahanService.validateRC.mockResolvedValueOnce({
+        valid: true,
+        found: true,
+        registrationNumber: 'MH12AB1234',
+        source: 'vahan_api',
+      })
+      const snapshot = { registrationNumber: 'MH12AB1234', registrationStatus: 'ACTIVE', source: 'vahan_api' }
+      mockVahanService.toPersistableSnapshot.mockReturnValueOnce(snapshot)
+      ;(prisma.truck.create as jest.Mock).mockResolvedValueOnce({ id: 'truck-vahan' })
+
+      await service.create(userId, dto)
+
+      expect(mockVahanService.validateRC).toHaveBeenCalledWith('MH12AB1234')
+      expect(prisma.truck.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            vahanDetails: snapshot,
+            vahanValidatedAt: expect.any(Date),
+          }),
+        }),
+      )
+    })
+
+    it('should still register the truck when Vahan validation throws', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(null)
+      mockMapmyIndiaService.geocodeAddress.mockResolvedValueOnce({ lat: 18.5204, lng: 73.8567 })
+      mockVahanService.validateRC.mockRejectedValueOnce(new Error('registry unreachable'))
+      ;(prisma.truck.create as jest.Mock).mockResolvedValueOnce({ id: 'truck-offline' })
+      ;(prisma.$executeRaw as jest.Mock).mockResolvedValueOnce(1)
+
+      const result = await service.create(userId, dto)
+      expect(result).toEqual({ id: 'truck-offline' })
+      expect(prisma.truck.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({ vahanValidatedAt: expect.anything() }),
+        }),
+      )
     })
   })
 

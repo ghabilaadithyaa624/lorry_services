@@ -9,6 +9,11 @@ LorryCarry is a high-performance monorepo platform connecting load owners and tr
 - **Direct Load & Truck Matching**: Load owners post freight requirements and discover verified truck operators within customizable search radii using PostGIS spatial indexing.
 - **Zero Broker Commissions**: Transparent direct bookings with standard commercial terms (50% advance at loading, 50% balance upon delivery confirmation).
 - **5-Stage Trip Tracking**: Geofence checkpoint tracking with automated WhatsApp notifications at every leg of the journey.
+- **Verification & Compliance (Vahan + FASTag + E-Way Bill)**:
+  - **Vahan RC Validation**: Every registered truck is validated against the Vahan (mParivahan) database via a provider-agnostic API adapter — format-checked registration numbers, PII-masked owner/chassis data, response caching, and a clearly-labelled sandbox mode for local development.
+  - **Verified Transporter Badges**: Search results and marketplace cards render a "Vahan Verified" badge backed by the live validation timestamp, plus a "FASTag Ready" chip when the tag is active.
+  - **Compliance Checklist**: Truck- and trip-level checklists (`/compliance/trucks/:id`, `/compliance/bookings/:id`) covering RC status, insurance validity, fitness certificate, national permit, PUC, FASTag readiness and E-Way Bill lifecycle (12-digit format validation, expiry tracking).
+  - **Admin KYC Cross-Check**: The verification queue surfaces the Vahan snapshot (registration status, insurance/fitness validity) next to each pending document.
 - **Production Admin Dashboard**:
   - **Overview & KPI Analytics**: Real-time stats on users, trucks, loads, bookings, conversion rates, and revenue.
   - **Dashboard Analytics**: Trip completion, earnings summary, active booking pipeline and a route efficiency heatmap (corridor × month) with CSV/PDF report export.
@@ -99,6 +104,7 @@ Key environment variables:
 - `DATABASE_URL`: PostgreSQL connection string with PostGIS enabled
 - `JWT_SECRET` & `JWT_REFRESH_SECRET`: Secure cryptographic secrets
 - `CASHFREE_API_KEY` & `CASHFREE_SECRET_KEY`: Cashfree sandbox or production credentials
+- `VAHAN_API_KEY`: Vahan (mParivahan) RC validation provider key — see `.env.example` for sandbox/cache options
 - `PORT`: Backend port (default `3002`)
 - `CLIENT_URL`: Web client URL (`http://localhost:3010`)
 - `ADMIN_URL`: Admin portal URL (`http://localhost:3011`)
@@ -151,6 +157,16 @@ The Next.js Admin Portal is located at `/admin` (or `http://localhost:3010/admin
 | `/admin/subscriptions` | Subscription directory with active/expired statuses and pagination |
 | `/admin/users` | User management with role filtering (`load_owner`, `truck_owner`, `admin`) |
 | `/admin/bookings` | End-to-end booking records with route addresses, pricing, and lifecycle tracking |
+
+### Verification & Compliance API
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/v1/compliance/trucks/:id` | GET | Truck compliance checklist (RC, insurance, fitness, permit, PUC, FASTag) |
+| `/api/v1/compliance/trucks/:id/validate-rc` | POST | Live Vahan RC validation + snapshot persistence (rate-limited) |
+| `/api/v1/compliance/trucks/:id/fastag` | PATCH | Report FASTag status (`Active` / `LowBalance` / `Inactive`) |
+| `/api/v1/compliance/bookings/:id` | GET | Trip compliance checklist (adds E-Way Bill lifecycle) |
+| `/api/v1/compliance/bookings/:id/eway-bill` | POST | Attach/update the 12-digit E-Way Bill number + validity |
 
 ---
 

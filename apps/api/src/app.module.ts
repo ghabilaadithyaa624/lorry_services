@@ -18,6 +18,7 @@ import { DocumentsModule } from './documents/documents.module'
 import { NotificationsModule } from './notifications/notifications.module'
 import { MatchingModule } from './matching/matching.module'
 import { RatingsModule } from './ratings/ratings.module'
+import { ComplianceModule } from './compliance/compliance.module'
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard'
 import { CommonModule } from './common/common.module'
 import { RedisModule } from './common/redis/redis.module'
@@ -49,6 +50,7 @@ import { RedisModule } from './common/redis/redis.module'
     NotificationsModule,
     MatchingModule,
     RatingsModule,
+    ComplianceModule,
   ],
   providers: [
     // Rate limiting guard

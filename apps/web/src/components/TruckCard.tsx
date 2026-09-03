@@ -6,7 +6,6 @@ import {
   MapPin,
   Lock,
   Clock,
-  ShieldCheck,
   Phone,
   ExternalLink,
   Sparkles,
@@ -15,6 +14,7 @@ import {
 import { api } from '@/lib/api'
 import { calculateMatchScore, MatchResult } from '@/lib/intelligence/matchingEngine'
 import { ContactRevealModal } from './ContactRevealModal'
+import { VerifiedBadge } from './VerifiedBadge'
 import { cn, formatPhone, whatsappLink } from '@/lib/utils'
 
 export interface Truck {
@@ -26,6 +26,8 @@ export interface Truck {
   serviceableRadiusKm?: number
   status: string
   verificationStatus: string
+  /** ISO timestamp of the last Vahan RC validation (drives the verified badge). */
+  vahanVerifiedAt?: string | null
   currentLocationName?: string
   distanceKm?: number
   preferredDestinations?: string[]
@@ -133,10 +135,7 @@ export function TruckCard({
                 </span>
 
                 {isVerified ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Vahan Verified</span>
-                  </span>
+                  <VerifiedBadge verified source="vahan" validatedAt={truck.vahanVerifiedAt} variant="dark" />
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-900 text-surface-400 border border-white/10 text-xs font-medium">
                     <Clock className="w-3.5 h-3.5 text-surface-400" />

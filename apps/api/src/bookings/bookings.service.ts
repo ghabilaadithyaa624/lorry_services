@@ -99,6 +99,8 @@ export class BookingsService {
           truckOwnerId: truck.userId,
           agreedPrice: dto.agreedPrice,
           ewayBillNumber: dto.ewayBillNumber,
+          ewayBillStatus: dto.ewayBillNumber ? 'Active' : 'Pending',
+          ewayBillUpdatedAt: dto.ewayBillNumber ? new Date() : null,
           liabilityAccepted: dto.liabilityAccepted,
           liabilityAcceptedAt: dto.liabilityAccepted ? new Date() : null,
           status: BookingStatus.Confirmed,

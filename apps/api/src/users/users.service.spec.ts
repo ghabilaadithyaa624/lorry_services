@@ -441,7 +441,6 @@ describe('UsersService', () => {
       const advAlert = result.notifications.find((n) => n.id === 'notif-adv-b-1')
       expect(advAlert).toBeDefined()
     })
-  })
 
     it('should surface rich metadata from persisted WhatsApp notifications', async () => {
       ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
