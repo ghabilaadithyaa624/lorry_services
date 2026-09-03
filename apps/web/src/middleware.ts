@@ -10,8 +10,8 @@ import type { NextRequest } from 'next/server'
 
 const PUBLIC_EXACT_PATHS = ['/']
 const PUBLIC_PREFIXES = ['/login', '/role-select', '/search', '/subscribe', '/subscription', '/api']
-const LOAD_OWNER_PATHS = ['/dashboard/load-owner', '/post-load', '/my-loads']
-const TRUCK_OWNER_PATHS = ['/dashboard/truck-owner', '/register-truck', '/my-trucks']
+const LOAD_OWNER_PATHS = ['/dashboard/load-owner', '/post-load', '/need-load', '/my-loads']
+const TRUCK_OWNER_PATHS = ['/dashboard/truck-owner', '/register-truck', '/need-vehicle', '/my-trucks']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

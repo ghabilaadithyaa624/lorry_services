@@ -21,6 +21,8 @@ import {
 import { api, usersApi, authApi } from '@/lib/api'
 import { Footer } from '@/components/layout'
 import { AnalyticsSnapshot } from '@/components/dashboard/AnalyticsSnapshot'
+import { DashboardSummaryCards } from '@/components/dashboard/DashboardSummaryCards'
+import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo } from '@/lib/utils'
@@ -296,6 +298,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
     trips.length > 0
       ? Math.round(trips.reduce((sum, trip) => sum + (trip.agreedPrice || 0), 0) / trips.length)
       : 48000
+  const earnings = trips
+    .filter((trip) => trip.status === 'Completed')
+    .reduce((sum, trip) => sum + Number(trip.agreedPrice || 0), 0)
 
   return (
     <div className="min-h-screen bg-canvas text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
@@ -343,6 +348,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
             {/* Right Actions & User Profile */}
             <div className="hidden sm:flex items-center gap-3">
+              {/* Tamil / Hindi / English language switcher */}
+              <LanguageToggle />
+
               {/* Notification Bell */}
               <Link
                 href="/notifications"
@@ -381,6 +389,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
             {/* Mobile Menu Toggle */}
             <div className="flex md:hidden items-center gap-2">
+              <LanguageToggle compact />
               <button
                 type="button"
                 className="p-2 text-surface-400 hover:text-white hover:bg-white/5 rounded-xl focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none border border-white/5"
@@ -488,7 +497,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             {isTruckOwner ? (
               <>
                 <Link
-                  href="/my-trucks"
+                  href="/need-vehicle"
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
                 >
                   <PlusCircle className="w-4 h-4" />
@@ -505,7 +514,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             ) : (
               <>
                 <Link
-                  href="/post-load"
+                  href="/need-load"
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
                 >
                   <PlusCircle className="w-4 h-4" />
@@ -522,6 +531,14 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             )}
           </div>
         </div>
+
+        {/* ── 3. Requested overview cards: bookings, completed trips, earnings ── */}
+        <DashboardSummaryCards
+          activeBookings={activeTrips.length}
+          completedTrips={completedTrips.filter((trip) => trip.status === 'Completed').length}
+          earnings={earnings}
+          loading={loading}
+        />
 
         {/* ── 3. Subscription Status & Upsell Card ── */}
         <div className="bg-panel rounded-2xl border border-white/10 p-5 sm:p-6 shadow-modal hover:border-primary-500/30 transition-all">

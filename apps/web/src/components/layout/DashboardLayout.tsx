@@ -28,6 +28,7 @@ import {
 import { usersApi } from '@/lib/api'
 import { Avatar } from '@/components/ui'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
+import { LanguageToggle } from './LanguageToggle'
 import { AIFreightAssistantDrawer } from '@/components/intelligence'
 import { cn, formatPhone } from '@/lib/utils'
 
@@ -244,6 +245,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
           </p>
 
           <div className="flex items-center gap-3">
+            <LanguageToggle />
             <Link
               href="/notifications"
               className="relative p-2.5 rounded-xl text-muted hover:text-ink hover:bg-wash transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -285,6 +287,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
           </Link>
 
           <div className="flex items-center gap-1.5">
+            <LanguageToggle compact />
             <Link
               href="/notifications"
               className="relative p-2 rounded-lg text-muted hover:text-ink hover:bg-wash min-h-[44px] min-w-[44px] flex items-center justify-center"

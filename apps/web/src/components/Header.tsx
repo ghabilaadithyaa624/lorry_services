@@ -133,7 +133,7 @@ export default function Header() {
             {/* Subtle Divider */}
             <div className="h-5 sm:h-6 w-px bg-gray-200 dark:bg-white/15" aria-hidden="true" />
 
-            {/* Language Toggle Pill (தமிழ் | English) */}
+            {/* Legacy language toggle — the shared header uses தமிழ் | हिन्दी | English. */}
             <div
               role="radiogroup"
               aria-label="Language selection"

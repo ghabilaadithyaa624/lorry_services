@@ -30,7 +30,7 @@ import { useI18n } from '@/lib/i18n'
  *   the drawer on mobile/tablet.
  * - Bright orange “Post Freight” CTA pinned to the right at every breakpoint
  *   (icon-only on phones); anonymous operators are routed through sign-in.
- * - தமிழ் | English language toggle beside the logo (compact on phones).
+ * - தமிழ் | हिन्दी | English language toggle beside the logo (compact on phones).
  * - Glass surface, which is one of the contexts where frosting is appropriate.
  */
 

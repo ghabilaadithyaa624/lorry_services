@@ -20,7 +20,7 @@ import {
   Bell,
 } from 'lucide-react'
 import { api, trucksApi, authApi } from '@/lib/api'
-import { Footer } from '@/components/layout'
+import { Footer, LanguageToggle } from '@/components/layout'
 import { toast } from '@/lib/toast'
 import { cn, formatINR } from '@/lib/utils'
 
@@ -473,7 +473,7 @@ export default function MyFleetPage() {
           {/* Add Truck Button (Top Right) */}
           <button
             type="button"
-            onClick={() => setRegisterModalOpen(true)}
+            onClick={() => router.push('/need-vehicle')}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none cursor-pointer self-start sm:self-auto shrink-0 border border-primary-400/30"
           >
             <PlusCircle className="w-4 h-4" />
@@ -618,7 +618,7 @@ export default function MyFleetPage() {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => setRegisterModalOpen(true)}
+                onClick={() => router.push('/need-vehicle')}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer border border-primary-400/30"
               >
                 <PlusCircle className="w-4 h-4" />

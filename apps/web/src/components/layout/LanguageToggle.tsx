@@ -20,8 +20,8 @@ interface LanguageToggleProps {
 }
 
 /**
- * LanguageToggle — தமிழ் | English segmented switch rendered beside the
- * LorryCarry logo in the global header.
+ * LanguageToggle — தமிழ் | हिन्दी | English segmented switch rendered beside
+ * the LorryCarry logo in the global header.
  *
  * Behaviour:
  * - Instantly applies from localStorage (no backend round-trip to paint).
