@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { useI18n } from '@/lib/i18n'
 
 interface HeroSectionProps {
   headline?: string
@@ -10,10 +11,16 @@ interface HeroSectionProps {
 }
 
 export default function HeroSection({
-  headline = "India's Direct Freight Operating Network",
-  subtext = "Connecting shippers directly with Vahan-verified lorry owners across India's major highway corridors.",
+  headline,
+  subtext,
   backgroundImageUrl = "/images/highway-trucks-hero.jpg",
 }: HeroSectionProps) {
+  const { t, language } = useI18n()
+  const headlineText = headline || t('hero.headline')
+  const subtextText = subtext || t('hero.subtext')
+  const englishHeadline =
+    language === 'en' && headlineText === "India's Direct Freight Operating Network"
+
   return (
     <section className="relative min-h-[580px] lg:min-h-[640px] flex items-center justify-center overflow-hidden bg-slate-950 text-white">
       {/* Background Image Container */}
@@ -50,30 +57,30 @@ export default function HeroSection({
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
           </span>
           <span className="font-semibold text-white tracking-wide uppercase text-[11px] sm:text-xs">
-            Direct Shipper-Carrier Portal
+            {t('hero.directPortal')}
           </span>
           <span className="text-white/40">•</span>
-          <span className="text-orange-300 font-medium">Zero Broker Fees</span>
+          <span className="text-orange-300 font-medium">{t('hero.zeroBroker')}</span>
         </div>
 
         {/* Primary Headline */}
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight sm:leading-tight lg:leading-tight mb-6 drop-shadow-sm">
-          {headline.split('Direct Freight').length > 1 ? (
+          {englishHeadline ? (
             <>
-              {headline.split('Direct Freight')[0]}
+              {headlineText.split('Direct Freight')[0]}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 via-orange-500 to-amber-400">
                 Direct Freight
               </span>
-              {headline.split('Direct Freight')[1]}
+              {headlineText.split('Direct Freight')[1]}
             </>
           ) : (
-            headline
+            headlineText
           )}
         </h1>
 
         {/* Subtext */}
         <p className="max-w-3xl mx-auto text-base sm:text-xl text-gray-200 sm:text-gray-100 font-normal leading-relaxed mb-10 drop-shadow">
-          {subtext}
+          {subtextText}
         </p>
 
         {/* Action Buttons: Find Trucks & Find Loads */}
@@ -87,7 +94,7 @@ export default function HeroSection({
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8m-8 4h5m5 0a3 3 0 013 3v4a2 2 0 01-2 2h-1m-10 0H8a2 2 0 01-2-2V9a2 2 0 012-2h8a2 2 0 012 2v2m-6 9a2 2 0 100-4 2 2 0 000 4zm10 0a2 2 0 100-4 2 2 0 000 4z" />
             </svg>
-            <span>Find Trucks</span>
+            <span>{t('hero.findTrucks')}</span>
           </Link>
 
           {/* Secondary High-Contrast CTA: Find Loads */}
@@ -99,7 +106,7 @@ export default function HeroSection({
             <svg className="w-6 h-6 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
-            <span>Find Loads</span>
+            <span>{t('hero.findLoads')}</span>
           </Link>
         </div>
 
@@ -107,19 +114,19 @@ export default function HeroSection({
         <div className="pt-6 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto text-xs sm:text-sm text-gray-300 font-medium">
           <div className="flex items-center justify-center gap-2">
             <span className="text-emerald-400 font-bold">✓</span>
-            <span>Vahan API Verified</span>
+            <span>{t('hero.vahanVerified')}</span>
           </div>
           <div className="flex items-center justify-center gap-2">
             <span className="text-emerald-400 font-bold">✓</span>
-            <span>50km Radius Match</span>
+            <span>{t('hero.radiusMatch')}</span>
           </div>
           <div className="flex items-center justify-center gap-2">
             <span className="text-emerald-400 font-bold">✓</span>
-            <span>Direct WhatsApp Alerts</span>
+            <span>{t('hero.whatsappAlerts')}</span>
           </div>
           <div className="flex items-center justify-center gap-2">
             <span className="text-emerald-400 font-bold">✓</span>
-            <span>Zero Broker Commission</span>
+            <span>{t('hero.zeroCommission')}</span>
           </div>
         </div>
 
