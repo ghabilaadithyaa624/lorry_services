@@ -225,6 +225,7 @@ export const usersApi = {
 // Admin Operations Command Center API
 export const adminApi = {
   getStats: () => api.get('/admin/stats'),
+  getAnalytics: (rangeDays = 30) => api.get(`/admin/analytics?range=${rangeDays}`),
   listUsers: (role?: string, page = 1, limit = 20) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) })
     if (role) params.set('role', role)

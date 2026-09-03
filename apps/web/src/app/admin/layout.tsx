@@ -10,6 +10,7 @@ import {
   CreditCardIcon,
   UsersIcon,
   CalendarDaysIcon,
+  ChartBarIcon,
   ShieldExclamationIcon,
   GlobeAsiaAustraliaIcon,
   ArrowRightOnRectangleIcon,
@@ -35,6 +36,7 @@ const NAV_GROUPS = [
     title: 'OPERATIONS',
     items: [
       { name: 'Command Tower', href: '/admin/dashboard', icon: HomeIcon },
+      { name: 'Dashboard Analytics', href: '/admin/analytics', icon: ChartBarIcon },
       { name: 'KYC Queue', href: '/admin/kyc', icon: DocumentCheckIcon },
       { name: 'Listings & Fleet', href: '/admin/listings', icon: ClipboardDocumentListIcon },
       { name: 'Freight Bookings', href: '/admin/bookings', icon: CalendarDaysIcon },
