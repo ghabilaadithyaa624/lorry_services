@@ -68,7 +68,6 @@ export class AdminService {
       totalCompleted,
       periodCompleted,
       previousPeriodCompleted,
-      statusGroups,
       completedAggregate,
       advanceAggregate,
       balanceAggregate,
@@ -84,7 +83,6 @@ export class AdminService {
       prisma.booking.count({
         where: { status: BookingStatus.Completed, completedAt: { gte: previousCutoff, lt: cutoff } },
       }),
-      prisma.booking.groupBy({ by: ['status'], _count: { _all: true } }),
       prisma.booking.aggregate({
         where: { status: BookingStatus.Completed },
         _sum: { agreedPrice: true },
@@ -136,6 +134,11 @@ export class AdminService {
         },
       }),
     ])
+
+    // Run separately from the $transaction tuple: combining groupBy with
+    // aggregates in one transaction trips a TypeScript mapped-type
+    // inference limit in Prisma 5 (TS2615 circular reference).
+    const statusGroups = await prisma.booking.groupBy({ by: ['status'], _count: { _all: true } })
 
     // ── Last 6 calendar months for trends & heatmap columns ──────────────
     const monthKeys: string[] = []
