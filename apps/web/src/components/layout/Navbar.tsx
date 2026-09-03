@@ -85,55 +85,52 @@ export function Navbar() {
   // Auth screens render without global chrome.
   if (pathname === '/login' || pathname === '/role-select') return null
 
-  const isPublicPage = pathname === '/'
+  type Language = 'en' | 'ta'
+  const [lang, setLang] = useState<Language>('en')
 
-  const publicNavLinks = [
-    { name: 'Platform', href: '/#live-network' },
-    { name: 'For shippers', href: '/search?type=truck' },
-    { name: 'For fleet owners', href: '/search?type=load' },
-    { name: 'Pricing', href: '/subscribe' },
-  ]
-
-  const appNavLinks = [
+  const navTabs = [
     {
-      name: 'Dashboard',
-      href: '/dashboard',
-      icon: LayoutDashboard,
-      active: pathname.startsWith('/dashboard'),
-    },
-    {
-      name: 'Find trucks',
+      nameEn: 'Find Trucks',
+      nameTa: 'சரக்கு வண்டிகள்',
       href: '/search?type=truck',
       icon: Truck,
-      active: pathname.startsWith('/search'),
+      active: pathname === '/search' && typeof window !== 'undefined' ? window.location.search.includes('truck') : pathname === '/search/trucks',
     },
     {
-      name: 'Find loads',
+      nameEn: 'Find Loads',
+      nameTa: 'சுமை தேடல்',
       href: '/search?type=load',
       icon: Search,
-      active: false,
+      active: pathname === '/search' && typeof window !== 'undefined' ? window.location.search.includes('load') : pathname === '/my-loads',
     },
     {
-      name: 'Pricing',
+      nameEn: 'Pricing & Plans',
+      nameTa: 'கட்டண திட்டங்கள்',
       href: '/subscribe',
       icon: CreditCard,
-      active: pathname.startsWith('/subscribe'),
+      active: pathname.startsWith('/subscribe') || pathname.startsWith('/subscription'),
+    },
+    {
+      nameEn: 'Control Tower',
+      nameTa: 'கட்டுப்பாட்டு அறை',
+      href: '/dashboard',
+      icon: LayoutDashboard,
+      active: pathname.startsWith('/dashboard') || pathname.startsWith('/admin') || pathname.startsWith('/tracking'),
+      badge: 'LIVE',
     },
   ]
-
-  const navLinks = isPublicPage ? publicNavLinks : appNavLinks
 
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 w-full transition-shadow duration-200 border-b glass',
-        scrolled ? 'shadow-card border-hairline' : 'border-hairline'
+        'sticky top-0 z-40 w-full transition-all duration-200 border-b glass',
+        scrolled ? 'shadow-card border-hairline bg-surface/95 backdrop-blur-md' : 'border-hairline bg-surface/85 backdrop-blur-sm'
       )}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Brand + desktop navigation */}
-          <div className="flex items-center gap-8 min-w-0">
+        <div className="flex items-center justify-between h-16 sm:h-[70px]">
+          {/* Brand + Language Toggle */}
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <Link
               href="/"
               className="flex items-center gap-2.5 group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas shrink-0"
@@ -144,36 +141,99 @@ export function Navbar() {
               >
                 <Truck className="w-[18px] h-[18px] stroke-[2.4]" />
               </span>
-              <span className="text-lg font-bold tracking-tight text-ink leading-none">
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-ink leading-none">
                 Lorry<span className="text-primary-500">Carry</span>
               </span>
             </Link>
 
-            <nav className="hidden lg:flex items-center gap-1" aria-label="Primary">
-              {navLinks.map((link: any) => {
-                const Icon = link.icon
-                return (
-                  <Link
-                    key={link.name}
-                    href={link.href}
-                    className={cn(
-                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                      link.active
-                        ? 'text-primary-600 dark:text-primary-400 bg-primary-500/10'
-                        : 'text-body hover:text-ink hover:bg-wash'
-                    )}
-                    aria-current={link.active ? 'page' : undefined}
-                  >
-                    {Icon && <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />}
-                    <span>{link.name}</span>
-                  </Link>
-                )
-              })}
-            </nav>
+            {/* Subtle Divider */}
+            <div className="h-5 sm:h-6 w-px bg-hairline" aria-hidden="true" />
+
+            {/* Language Toggle Beside Logo (தமிழ் | English) */}
+            <div
+              role="radiogroup"
+              aria-label="Language selector"
+              className="inline-flex items-center p-0.5 rounded-full bg-wash border border-hairline text-xs font-medium shrink-0"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={lang === 'ta'}
+                onClick={() => setLang('ta')}
+                className={cn(
+                  'px-2.5 py-1 rounded-full transition-all text-xs leading-none font-medium',
+                  lang === 'ta'
+                    ? 'bg-primary-500 text-white shadow-xs font-semibold'
+                    : 'text-muted hover:text-ink'
+                )}
+              >
+                தமிழ்
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={lang === 'en'}
+                onClick={() => setLang('en')}
+                className={cn(
+                  'px-2.5 py-1 rounded-full transition-all text-xs leading-none font-medium',
+                  lang === 'en'
+                    ? 'bg-primary-500 text-white shadow-xs font-semibold'
+                    : 'text-muted hover:text-ink'
+                )}
+              >
+                English
+              </button>
+            </div>
           </div>
 
-          {/* Right side */}
+          {/* Center Navigation: Four Main Tabs */}
+          <nav className="hidden lg:flex items-center gap-1.5" aria-label="Primary Navigation">
+            {navTabs.map((tab) => {
+              const Icon = tab.icon
+              const active = tab.active
+              return (
+                <Link
+                  key={tab.nameEn}
+                  href={tab.href}
+                  className={cn(
+                    'relative flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                    active
+                      ? 'text-primary-600 dark:text-primary-400 bg-primary-500/10 shadow-2xs'
+                      : 'text-body hover:text-ink hover:bg-wash'
+                  )}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span>{lang === 'ta' ? tab.nameTa : tab.nameEn}</span>
+                  {tab.badge && (
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                      {tab.badge}
+                    </span>
+                  )}
+                  {active && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary-500 rounded-full"
+                    />
+                  )}
+                </Link>
+              )
+            })}
+          </nav>
+
+          {/* Right Side: Bright Orange Post Freight CTA & Account */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Bright Orange Post Freight CTA Button */}
+            <Link
+              href="/post-load"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-md shadow-orange-500/25 hover:shadow-lg hover:shadow-orange-500/35 active:scale-[0.98] shrink-0 focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4 shrink-0 stroke-[2.5]" aria-hidden="true" />
+              <span className="whitespace-nowrap font-sans">
+                {lang === 'ta' ? 'சுமை பதிவிடுக' : 'Post Freight'}
+              </span>
+            </Link>
+
             {user ? (
               <>
                 <Link
@@ -205,18 +265,9 @@ export function Navbar() {
                 </div>
               </>
             ) : (
-              <div className="hidden sm:flex items-center gap-2">
+              <div className="hidden md:flex items-center gap-2">
                 <Button as={Link} href="/login" variant="ghost" size="sm">
-                  Sign in
-                </Button>
-                <Button
-                  as={Link}
-                  href="/login?redirect=/post-load"
-                  variant="primary"
-                  size="sm"
-                  leftIcon={<PlusCircle className="w-4 h-4" />}
-                >
-                  Post freight
+                  {lang === 'ta' ? 'உள்நுழைய' : 'Sign in'}
                 </Button>
               </div>
             )}
@@ -240,24 +291,83 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile / Tablet Drawer */}
       {mobileMenuOpen && (
         <div
           id="mobile-navigation"
-          className="lg:hidden border-t border-hairline bg-panel px-4 py-4 space-y-3 shadow-elevated animate-fade-in"
+          className="lg:hidden border-t border-hairline bg-panel px-4 py-5 space-y-4 shadow-elevated animate-fade-in max-h-[calc(100vh-70px)] overflow-y-auto"
         >
-          <nav className="space-y-1" aria-label="Mobile">
-            {navLinks.map((link: any) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block px-3.5 py-3 rounded-xl text-sm font-medium text-body hover:text-ink hover:bg-wash transition-colors min-h-[44px]"
+          {/* Mobile Language Switcher */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-wash border border-hairline">
+            <span className="text-xs font-semibold text-muted">
+              {lang === 'ta' ? 'மொழி (Language):' : 'Language / மொழி:'}
+            </span>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setLang('ta')}
+                className={cn(
+                  'px-3 py-1 rounded-lg text-xs font-medium transition-all',
+                  lang === 'ta' ? 'bg-primary-500 text-white font-bold' : 'text-muted hover:text-ink'
+                )}
               >
-                {link.name}
-              </Link>
-            ))}
+                தமிழ்
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang('en')}
+                className={cn(
+                  'px-3 py-1 rounded-lg text-xs font-medium transition-all',
+                  lang === 'en' ? 'bg-primary-500 text-white font-bold' : 'text-muted hover:text-ink'
+                )}
+              >
+                English
+              </button>
+            </div>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="space-y-1" aria-label="Mobile">
+            {navTabs.map((tab) => {
+              const Icon = tab.icon
+              const active = tab.active
+              return (
+                <Link
+                  key={tab.nameEn}
+                  href={tab.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    'flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-semibold transition-colors min-h-[44px]',
+                    active
+                      ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400'
+                      : 'text-body hover:text-ink hover:bg-wash'
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-5 h-5 text-muted" aria-hidden="true" />
+                    <span>{lang === 'ta' ? tab.nameTa : tab.nameEn}</span>
+                  </div>
+                  {tab.badge && (
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                      {tab.badge}
+                    </span>
+                  )}
+                </Link>
+              )
+            })}
           </nav>
+
+          {/* Full-Width Mobile CTA */}
+          <div className="pt-2">
+            <Link
+              href="/post-load"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-500 hover:bg-primary-600 text-white font-bold text-sm shadow-md shadow-orange-500/25"
+            >
+              <PlusCircle className="w-5 h-5" />
+              <span>{lang === 'ta' ? 'சரக்கு சுமை பதிவிடுக' : 'Post Freight Load'}</span>
+            </Link>
+          </div>
 
           <div className="pt-3 border-t border-hairline space-y-2">
             {user ? (
@@ -278,18 +388,9 @@ export function Navbar() {
                 </Link>
               </>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 <Button as={Link} href="/login" variant="secondary" size="md" fullWidth>
-                  Sign in
-                </Button>
-                <Button
-                  as={Link}
-                  href="/login?redirect=/post-load"
-                  variant="primary"
-                  size="md"
-                  fullWidth
-                >
-                  Post freight
+                  {lang === 'ta' ? 'கணக்கு உள்நுழைவு' : 'Sign in to account'}
                 </Button>
               </div>
             )}
