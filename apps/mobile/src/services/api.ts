@@ -63,7 +63,7 @@ export const authApi = {
   requestOtp: (phone: string, channel: 'whatsapp' | 'sms' = 'whatsapp') =>
     api.post('/auth/otp/request', { phone, channel }),
 
-  verifyOtp: (phone: string, otp: string, role?: 'load_owner' | 'truck_owner') =>
+  verifyOtp: (phone: string, otp: string, role?: 'load_owner' | 'truck_owner' | 'driver') =>
     api.post('/auth/otp/verify', { phone, otp, role }),
 
   refreshToken: (refreshToken: string) =>
