@@ -98,7 +98,7 @@ export class UsersService {
       missingSteps.push("Add your full name or company trading name");
     }
 
-    if (user.role === UserRole.truck_owner) {
+    if ((user.role === UserRole.truck_owner || user.role === UserRole.driver)) {
       if (user.trucks.length > 0) {
         completionScore += 20;
         const hasVerifiedDocs = user.trucks.some((t) =>
@@ -145,7 +145,7 @@ export class UsersService {
       | "Pending"
       | "Verified"
       | "Partially Verified" = "Not Registered";
-    if (user.role === UserRole.truck_owner) {
+    if ((user.role === UserRole.truck_owner || user.role === UserRole.driver)) {
       if (user.trucks.length === 0) {
         fleetVerificationStatus = "Not Registered";
       } else {
@@ -176,7 +176,7 @@ export class UsersService {
       verification: {
         phoneVerified: true, // Logged in via OTP
         fleetStatus:
-          user.role === UserRole.truck_owner
+          (user.role === UserRole.truck_owner || user.role === UserRole.driver)
             ? fleetVerificationStatus
             : undefined,
         isVerifiedTransporter: fleetVerificationStatus === "Verified",
@@ -195,7 +195,7 @@ export class UsersService {
         totalLoads: user._count.loads,
         totalTrucks: user._count.trucks,
         totalBookings:
-          user.role === UserRole.truck_owner
+          (user.role === UserRole.truck_owner || user.role === UserRole.driver)
             ? user._count.truckOwnerBookings
             : user._count.loadOwnerBookings,
         totalPayments: user._count.payments,
@@ -337,13 +337,13 @@ export class UsersService {
       id: `acc-create-${user.id}`,
       category: "ACCOUNT",
       title: "Account Registered",
-      description: `Registered with mobile ${user.phone} as ${user.role === "truck_owner" ? "Lorry Owner" : "Load Owner"}.`,
+      description: `Registered with mobile ${user.phone} as ${user.role === "driver" ? "Driver" : user.role === "truck_owner" ? "Transporter" : "Factory Owner"}.`,
       timestamp: user.createdAt,
       status: "Completed",
     });
 
     // Execute all independent queries concurrently
-    const isTruckOwner = user.role === UserRole.truck_owner;
+    const isTruckOwner = (user.role === UserRole.truck_owner || user.role === UserRole.driver);
     const [loads, trucks, bookings, payments] = await Promise.all([
       // 2. Loads (Only for load_owner or admin)
       user.role === UserRole.load_owner || user.role === UserRole.admin
@@ -355,7 +355,7 @@ export class UsersService {
         : Promise.resolve([]),
 
       // 3. Trucks & Documents (Only for truck_owner or admin)
-      user.role === UserRole.truck_owner || user.role === UserRole.admin
+      (user.role === UserRole.truck_owner || user.role === UserRole.driver) || user.role === UserRole.admin
         ? prisma.truck.findMany({
             where: { userId },
             include: { documents: true },
@@ -538,7 +538,7 @@ export class UsersService {
 
     // 2. Derive real operational notifications from active domain entities
     // Check pending KYC
-    if (user.role === UserRole.truck_owner) {
+    if ((user.role === UserRole.truck_owner || user.role === UserRole.driver)) {
       user.trucks.forEach((truck) => {
         if (truck.verificationStatus === "Pending") {
           items.push({
@@ -558,14 +558,14 @@ export class UsersService {
             message: `Truck ${truck.registrationNumber} is verified and visible in marketplace searches.`,
             timestamp: truck.verifiedAt || truck.updatedAt,
             read: true,
-            actionUrl: "/dashboard/truck-owner",
+            actionUrl: user.role === UserRole.driver ? "/dashboard/driver" : "/dashboard/truck-owner",
           });
         }
       });
     }
 
     // Check active bookings
-    const isTruckOwner = user.role === UserRole.truck_owner;
+    const isTruckOwner = (user.role === UserRole.truck_owner || user.role === UserRole.driver);
     const activeBookings = await prisma.booking.findMany({
       where: {
         ...(isTruckOwner ? { truckOwnerId: userId } : { loadOwnerId: userId }),
