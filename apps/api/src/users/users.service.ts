@@ -42,6 +42,12 @@ export interface UserNotificationItem {
   timestamp: Date;
   read: boolean;
   actionUrl?: string;
+  /** Delivery channel recorded for the event (whatsapp | sms | push). */
+  channel?: string;
+  /** Outbound provider delivery state (sent | failed | skipped). */
+  providerStatus?: string;
+  /** When the outbound WhatsApp message was sent. */
+  deliveredAt?: Date;
 }
 
 @Injectable()
@@ -516,6 +522,10 @@ export class UsersService {
       take: 30,
     });
 
+    const validCategories = new Set<
+      UserNotificationItem["category"]
+    >(["BOOKING", "LOAD", "TRUCK", "PAYMENT", "KYC", "TRACKING", "SYSTEM"]);
+
     dbNotifications.forEach((n) => {
       let category: UserNotificationItem["category"] = "SYSTEM";
       if (n.template?.includes("checkpoint")) category = "TRACKING";
@@ -525,14 +535,33 @@ export class UsersService {
         category = "KYC";
       else if (n.template?.includes("booking")) category = "BOOKING";
 
+      // NotificationsService stores the friendly title/category/actionUrl in
+      // variables; fall back to template-based labels for legacy rows.
+      const meta = (n.variables ?? {}) as Record<string, unknown>;
+      if (typeof meta.category === "string" && validCategories.has(meta.category as UserNotificationItem["category"])) {
+        category = meta.category as UserNotificationItem["category"];
+      }
+
       items.push({
         id: n.id,
         category,
         title:
-          n.template?.replace(/_/g, " ").toUpperCase() || "System Notification",
+          typeof meta.title === "string" && meta.title.length > 0
+            ? meta.title
+            : n.template?.replace(/_/g, " ").toUpperCase() || "System Notification",
         message: n.content || "You have an account update.",
         timestamp: n.createdAt,
-        read: n.status === "Delivered" || n.status === "Sent",
+        // Read state is managed by NotificationReceipt below; delivery status
+        // only tells us whether WhatsApp reached the provider, not whether the
+        // user read the alert.
+        read: false,
+        actionUrl: typeof meta.actionUrl === "string" ? meta.actionUrl : undefined,
+        channel: n.channel,
+        providerStatus:
+          typeof meta.whatsappStatus === "string"
+            ? (meta.whatsappStatus as string)
+            : n.status,
+        deliveredAt: n.deliveredAt,
       });
     });
 

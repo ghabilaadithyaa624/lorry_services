@@ -75,6 +75,27 @@ export const authApi = {
   },
 }
 
+export interface NotificationItem {
+  id: string
+  category: 'BOOKING' | 'LOAD' | 'TRUCK' | 'PAYMENT' | 'KYC' | 'TRACKING' | 'SYSTEM'
+  title: string
+  message: string
+  timestamp: string
+  read: boolean
+  actionUrl?: string
+  channel?: string
+  providerStatus?: string
+}
+
+/** WhatsApp + in-app notification centre API. */
+export const notificationsApi = {
+  getNotifications: () => api.get<{ notifications: NotificationItem[]; unreadCount: number }>('/notifications'),
+  getUnreadCount: () => api.get<{ unreadCount: number }>('/notifications/unread-count'),
+  markRead: (notificationKey: string) =>
+    api.post('/notifications/read', { notificationKey }),
+  markAllRead: () => api.post('/notifications/read-all'),
+}
+
 export const setTokens = (accessToken: string, refreshToken: string) => {
   storage.set('accessToken', accessToken)
   storage.set('refreshToken', refreshToken)

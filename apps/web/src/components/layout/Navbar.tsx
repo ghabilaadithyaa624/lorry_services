@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useState, useEffect, useCallback } from 'react'
+import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
@@ -13,10 +13,11 @@ import {
   X,
   Bell,
 } from 'lucide-react'
-import { usersApi } from '@/lib/api'
+import { notificationsApi, usersApi } from '@/lib/api'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { LanguageToggle } from './LanguageToggle'
 import { Button } from '@/components/ui'
+import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
@@ -185,6 +186,8 @@ export function Navbar() {
     setMobileMenuOpen(false)
   }, [pathname])
 
+  const lastUnreadCount = useRef(-1)
+
   /**
    * Load the notification badge and account status.
    * Failures are silent: the badge is supplementary and must never block chrome.
@@ -193,11 +196,19 @@ export function Navbar() {
     if (!user) return
     try {
       const [notifications, profile] = await Promise.allSettled([
-        usersApi.getNotifications(),
+        notificationsApi.getUnreadCount(),
         usersApi.getProfile(),
       ])
       if (notifications.status === 'fulfilled') {
-        setUnreadCount(notifications.value.data?.unreadCount || 0)
+        const next = notifications.value.data?.unreadCount || 0
+        // In-app alert for newly arrived WhatsApp/tracking alerts.
+        if (lastUnreadCount.current >= 0 && next > lastUnreadCount.current) {
+          toast.info(
+            `You have ${next - lastUnreadCount.current} new notification${next - lastUnreadCount.current === 1 ? '' : 's'}`,
+          )
+        }
+        lastUnreadCount.current = next
+        setUnreadCount(next)
       }
       if (profile.status === 'fulfilled') {
         setVerified(Boolean(profile.value.data?.verification?.isVerifiedTransporter))
@@ -209,7 +220,13 @@ export function Navbar() {
   }, [user])
 
   useEffect(() => {
+    lastUnreadCount.current = -1
     loadAccountSignals()
+
+    // Poll for fresh in-app alerts so the bell and toast stay live without a
+    // page reload. The API is lightweight; failures are ignored by the loader.
+    const interval = setInterval(loadAccountSignals, 30_000)
+    return () => clearInterval(interval)
   }, [loadAccountSignals])
 
   // Auth screens render without global chrome.

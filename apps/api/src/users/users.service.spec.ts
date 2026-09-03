@@ -442,6 +442,46 @@ describe('UsersService', () => {
     })
   })
 
+    it('should surface rich metadata from persisted WhatsApp notifications', async () => {
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'u-1',
+        role: UserRole.load_owner,
+        trucks: [],
+        subscriptions: [],
+      })
+      ;(prisma.notification.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'n-1',
+          userId: 'u-1',
+          template: 'booking_confirmed_driver',
+          channel: 'whatsapp',
+          variables: {
+            title: 'Booking confirmed',
+            category: 'BOOKING',
+            actionUrl: '/booking/b-1',
+            whatsappStatus: 'sent',
+          },
+          content: 'Vehicle KA01AB1234 is confirmed.',
+          status: 'Sent',
+          deliveredAt: new Date('2025-01-02T00:00:00Z'),
+          createdAt: new Date('2025-01-02T00:00:00Z'),
+        },
+      ])
+      ;(prisma.booking.findMany as jest.Mock).mockResolvedValueOnce([])
+
+      const result = await service.getNotifications('u-1')
+
+      const item = result.notifications.find((n) => n.id === 'n-1')
+      expect(item?.title).toBe('Booking confirmed')
+      expect(item?.category).toBe('BOOKING')
+      expect(item?.actionUrl).toBe('/booking/b-1')
+      expect(item?.channel).toBe('whatsapp')
+      expect(item?.providerStatus).toBe('sent')
+      // A delivered WhatsApp message is not a read receipt.
+      expect(item?.read).toBe(false)
+    })
+  })
+
   describe('notification read receipts', () => {
     it('marks a single notification as read idempotently', async () => {
       ;(prisma.notificationReceipt.upsert as jest.Mock).mockResolvedValueOnce({})
