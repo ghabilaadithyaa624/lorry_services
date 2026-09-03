@@ -45,6 +45,9 @@ export class SearchService {
         t.serviceable_radius_km as "serviceableRadiusKm",
         t.preferred_destinations as "preferredDestinations",
         t.verification_status as "verificationStatus",
+        -- Verification & Compliance signals for the transporter card badge
+        t.vahan_validated_at as "vahanVerifiedAt",
+        t.fastag_status as "fastagStatus",
         ST_Distance(t.current_location::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography) / 1000 as "distanceKm",
         -- MASKED: user_id, registration_number hidden for non-subscribers
         NULL as "registrationNumber",

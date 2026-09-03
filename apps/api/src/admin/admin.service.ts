@@ -385,6 +385,8 @@ export class AdminService {
         truck: {
           select: {
             id: true, registrationNumber: true, bodyType: true,
+            // Vahan RC cross-check snapshot for the KYC reviewer.
+            vahanValidatedAt: true, vahanDetails: true, fastagStatus: true,
             user: { select: { name: true, phone: true } },
           },
         },

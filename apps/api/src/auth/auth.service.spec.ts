@@ -39,6 +39,7 @@ interface RedisClientMock {
   get: jest.Mock
   set: jest.Mock
   del: jest.Mock
+  mget: jest.Mock
   sadd: jest.Mock
   srem: jest.Mock
   smembers: jest.Mock
@@ -73,6 +74,7 @@ describe('AuthService', () => {
       get: jest.fn(),
       set: jest.fn(),
       del: jest.fn(),
+      mget: jest.fn(),
       sadd: jest.fn(),
       srem: jest.fn(),
       smembers: jest.fn(),

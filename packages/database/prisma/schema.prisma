@@ -178,6 +178,25 @@ enum LoadStatus {
   Cancelled
 }
 
+// ── Verification & Compliance ──────────────────────────────────────────────
+/// FASTag toll-readiness status for a truck. `Unknown` until the owner or an
+/// admin confirms it; derived/manual — Vahan does not expose FASTag state.
+enum FastagStatus {
+  Unknown
+  Active
+  LowBalance
+  Inactive
+}
+
+/// Lifecycle of the E-Way Bill attached to a booking. `Expired`/`Invalid` are
+/// computed when the checklist is read or when the record is updated.
+enum EwayBillStatus {
+  Pending
+  Active
+  Expired
+  Invalid
+}
+
 // Truck registrations with geospatial
 model Truck {
   id                  String             @id @default(uuid())
@@ -194,8 +213,15 @@ model Truck {
   preferredDestinations Json?            @map("preferred_destinations") // Array of city names
   verificationStatus  VerificationStatus @default(Pending) @map("verification_status")
   verifiedAt          DateTime?          @map("verified_at")
+  /// Last successful RC validation snapshot from the Vahan (mParivahan) API.
+  vahanDetails        Json?              @map("vahan_details")
+  vahanValidatedAt    DateTime?          @map("vahan_validated_at")
+  /// FASTag toll-readiness (Active / LowBalance / Inactive / Unknown).
+  fastagStatus        FastagStatus       @default(Unknown) @map("fastag_status")
+  fastagUpdatedAt     DateTime?          @map("fastag_updated_at")
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
+
   
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents Document[]
@@ -204,6 +230,8 @@ model Truck {
   
   @@index([userId])
   @@index([verificationStatus])
+  @@index([vahanValidatedAt])
+  @@index([fastagStatus])
   @@index([bodyType])
   @@index([tonnageCapacity])
   @@map("trucks")
@@ -258,6 +286,10 @@ model Booking {
   balanceConfirmed    Boolean         @default(false) @map("balance_confirmed")
   balanceConfirmedAt  DateTime?       @map("balance_confirmed_at")
   ewayBillNumber      String?         @map("eway_bill_number")
+  /// Lifecycle status of the attached E-Way Bill (see EwayBillStatus).
+  ewayBillStatus      EwayBillStatus  @default(Pending) @map("eway_bill_status")
+  ewayBillValidUpto   DateTime?       @map("eway_bill_valid_upto")
+  ewayBillUpdatedAt   DateTime?       @map("eway_bill_updated_at")
   liabilityAccepted   Boolean         @default(false) @map("liability_accepted")
   liabilityAcceptedAt DateTime?       @map("liability_accepted_at")
   status              BookingStatus   @default(Pending)
@@ -278,6 +310,7 @@ model Booking {
   @@index([loadId])
   @@index([truckId])
   @@index([status])
+  @@index([ewayBillStatus])
   @@index([loadOwnerId])
   @@index([truckOwnerId])
   @@map("bookings")
