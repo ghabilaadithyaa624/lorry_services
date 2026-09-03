@@ -16,6 +16,7 @@ import {
 import { usersApi } from '@/lib/api'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { LanguageToggle } from './LanguageToggle'
+import { PostFreightModal } from '@/components/post-freight/PostFreightModal'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
@@ -163,6 +164,7 @@ export function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [verified, setVerified] = useState(false)
   const [subscriptionActive, setSubscriptionActive] = useState(false)
+  const [postFreightOpen, setPostFreightOpen] = useState(false)
 
   useEffect(() => {
     try {
@@ -215,9 +217,10 @@ export function Navbar() {
   // Auth screens render without global chrome.
   if (pathname === '/login' || pathname === '/role-select') return null
 
-  // The CTA is the highest-visibility action in the product; signed-out
-  // operators are routed through sign-in and land back on the posting flow.
-  const postFreightHref = user ? '/post-load' : '/login?redirect=/post-load'
+  // The CTA opens the role-aware quick-post dialog: factory owners get the
+  // “Need Vehicle” form, truck owners the “Need Load” form, and anonymous
+  // operators are guided through sign-in inside the dialog itself.
+  const openPostFreight = () => setPostFreightOpen(true)
 
   return (
     <>
@@ -284,23 +287,27 @@ export function Navbar() {
                 </Link>
               )}
 
-              {/* Bright orange “Post Freight” CTA — always visible on the right */}
+              {/* Bright orange “Post Freight” CTA — always visible on the right.
+                  Opens the role-aware quick-post modal instead of navigating. */}
               <Button
-                as={Link}
-                href={postFreightHref}
+                type="button"
+                onClick={openPostFreight}
                 variant="primary"
                 size="sm"
                 leftIcon={<PlusCircle className="w-4 h-4" />}
+                aria-haspopup="dialog"
                 className="hidden sm:inline-flex bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
               >{t('nav.postFreight')}</Button>
               {/* Icon-only CTA keeps the action one tap away on phones */}
-              <Link
-                href={postFreightHref}
-                aria-label="Post Freight"
-                className="sm:hidden inline-flex items-center justify-center min-h-[40px] min-w-[40px] rounded-button bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-glow-primary border border-primary-500/40 transition-colors hover:from-primary-600 hover:to-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+              <button
+                type="button"
+                onClick={openPostFreight}
+                aria-label={t('nav.postFreight')}
+                aria-haspopup="dialog"
+                className="sm:hidden inline-flex items-center justify-center min-h-[40px] min-w-[40px] rounded-button bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-glow-primary border border-primary-500/40 transition-colors hover:from-primary-600 hover:to-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas cursor-pointer"
               >
                 <PlusCircle className="w-5 h-5" aria-hidden="true" />
-              </Link>
+              </button>
 
               {user ? (
                 <div className="hidden sm:block">
@@ -359,12 +366,16 @@ export function Navbar() {
               {user ? (
                 <>
                   <Button
-                    as={Link}
-                    href={postFreightHref}
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false)
+                      openPostFreight()
+                    }}
                     variant="primary"
                     size="md"
                     fullWidth
                     leftIcon={<PlusCircle className="w-4 h-4" />}
+                    aria-haspopup="dialog"
                     className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
                   >{t('nav.postFreight')}</Button>
                   <Link
@@ -394,12 +405,16 @@ export function Navbar() {
                 <div className="grid grid-cols-2 gap-2">
                   <Button as={Link} href="/login" variant="secondary" size="md" fullWidth>{t('nav.signIn')}</Button>
                   <Button
-                    as={Link}
-                    href={postFreightHref}
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false)
+                      openPostFreight()
+                    }}
                     variant="primary"
                     size="md"
                     fullWidth
                     leftIcon={<PlusCircle className="w-4 h-4" />}
+                    aria-haspopup="dialog"
                     className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
                   >{t('nav.postFreight')}</Button>
                 </div>
@@ -411,6 +426,10 @@ export function Navbar() {
 
       {/* Spacer keeps page content clear of the fixed header. */}
       <div aria-hidden="true" className="h-16 shrink-0" />
+
+      {/* Role-aware quick-post dialog (Need Vehicle / Need Load) with an
+          in-modal தமிழ் / हिन्दी / English language toggle. */}
+      <PostFreightModal open={postFreightOpen} onClose={() => setPostFreightOpen(false)} user={user} />
     </>
   )
 }
