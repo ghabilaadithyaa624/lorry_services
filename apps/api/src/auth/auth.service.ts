@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, Logger, Inject } from '@nestjs/commo
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { prisma, UserRole } from '@lorrycarry/database'
+import { TRIAL_DURATION_DAYS } from '@lorrycarry/shared'
 import { REDIS_CLIENT } from '../common/redis/redis.module'
 import Redis from 'ioredis'
 import * as crypto from 'crypto'

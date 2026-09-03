@@ -19,6 +19,8 @@ LorryCarry is a high-performance monorepo platform connecting load owners and tr
   - **Dashboard Analytics**: Trip completion, earnings summary, active booking pipeline and a route efficiency heatmap (corridor × month) with CSV/PDF report export.
   - **KYC Verification Queue**: Document verification pipeline (RC, Insurance) with instant Verify/Reject actions, modal confirmations, and rejection notes.
   - **Fleet & Listings Management**: Overview of active trucks and freight listings with direct truck verification controls.
+  - **Booking Dispute Resolution**: Counterparty claims for payment, delay, documents, and cargo damage with investigation, decision notes, priority sorting, and recorded decision notes.
+  - **Performance Analytics**: Time-scoped trip count, completed deliveries, settled revenue, freight value, transit duration, and checkpoint-based route efficiency by corridor.
   - **Subscription Management**: Track active, expired, and cancelled plan subscriptions with expiration alerts.
   - **User Directory**: Search and filter load owners, truck owners, and administrators with detailed operational metrics.
   - **Booking Lifecycle**: Monitor all bookings from pending quotation to in-transit and delivery completion.
@@ -109,6 +111,16 @@ Key environment variables:
 - `CLIENT_URL`: Web client URL (`http://localhost:3010`)
 - `ADMIN_URL`: Admin portal URL (`http://localhost:3011`)
 
+### Subscription webhooks
+
+| Gateway | Endpoint | Notes |
+| :--- | :--- | :--- |
+| Cashfree | `POST /api/v1/subscriptions/webhook/cashfree` | HMAC signature verified |
+| Razorpay | `POST /api/v1/subscriptions/webhook/razorpay` | `x-razorpay-signature` (HMAC-SHA256) verified |
+| Stripe | `POST /api/v1/subscriptions/webhook/stripe` | `stripe-signature` verified via Stripe SDK |
+
+Trial state is stored per user (`trial_started_at`, `trial_ends_at`, `trial_converted_at`); see `GET /api/v1/subscriptions/status` for the entitlement + countdown payload consumed by the dashboard.
+
 ### 3. Database Setup & Migrations
 
 ```bash
@@ -157,6 +169,10 @@ The Next.js Admin Portal is located at `/admin` (or `http://localhost:3010/admin
 | `/admin/subscriptions` | Subscription directory with active/expired statuses and pagination |
 | `/admin/users` | User management with role filtering (`load_owner`, `truck_owner`, `admin`) |
 | `/admin/bookings` | End-to-end booking records with route addresses, pricing, and lifecycle tracking |
+| `/admin/disputes` | Priority-sorted booking dispute queue with investigation and resolution actions |
+| `/admin/analytics` | Time-scoped trip, revenue, and checkpoint-based route efficiency analytics |
+
+Admin API additions: `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`, `PATCH /admin/disputes/:id/resolve`, and `GET /admin/analytics?range=30`. Authenticated booking parties can raise a case through `POST /bookings/:id/disputes`.
 
 ### Verification & Compliance API
 

@@ -1,9 +1,15 @@
 import {
-  Controller, Get, Patch, Body, Param, Query, UseGuards,
+  Controller, Get, Post, Patch, Body, Param, Query, UseGuards,
 } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { AdminService } from './admin.service'
-import { VerifyDocumentDto, VerifyTruckDto, PaginationDto } from './dto/admin.dto'
+import {
+  VerifyDocumentDto,
+  VerifyTruckDto,
+  PaginationDto,
+  DisputeFilterDto,
+  ResolveDisputeDto,
+} from './dto/admin.dto'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { Roles } from '../common/decorators/roles.decorator'
@@ -65,7 +71,16 @@ export class AdminController {
     return this.adminService.verifyDocument(userId, documentId, dto.status, dto.notes)
   }
 
-  // ── Trucks ─────────────────────────────────────────────────────────────────
+  // ── Trucks & Vahan / RC verification ──────────────────────────────────────
+
+  @Post('trucks/:id/vahan-check')
+  @ApiOperation({ summary: 'Run a Vahan / Parivahan registration lookup for a truck' })
+  async checkVahan(
+    @Param('id') truckId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.adminService.checkVahan(userId, truckId)
+  }
 
   @Patch('trucks/:id/verify')
   @ApiOperation({ summary: 'Directly verify or reject a truck' })
@@ -97,5 +112,42 @@ export class AdminController {
     @Query() pagination?: PaginationDto,
   ) {
     return this.adminService.listBookings(userId, pagination?.page, pagination?.limit)
+  }
+
+  // ── Disputes ───────────────────────────────────────────────────────────────
+
+  @Get('disputes')
+  @ApiOperation({ summary: 'List booking disputes for the resolution queue' })
+  async listDisputes(
+    @CurrentUser('id') userId: string,
+    @Query() filters?: DisputeFilterDto,
+  ) {
+    return this.adminService.listDisputes(
+      userId,
+      filters?.status,
+      filters?.page,
+      filters?.limit,
+    )
+  }
+
+  @Patch('disputes/:id/resolve')
+  @ApiOperation({ summary: 'Move a booking dispute through investigation or resolve it' })
+  async resolveDispute(
+    @Param('id') disputeId: string,
+    @Body() dto: ResolveDisputeDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.adminService.resolveDispute(userId, disputeId, dto.status, dto.resolution)
+  }
+
+  // ── Analytics ──────────────────────────────────────────────────────────────
+
+  @Get('analytics')
+  @ApiOperation({ summary: 'Trip, revenue and route-efficiency analytics' })
+  async getAnalytics(
+    @CurrentUser('id') userId: string,
+    @Query('range') range?: string,
+  ) {
+    return this.adminService.getAnalytics(userId, range)
   }
 }

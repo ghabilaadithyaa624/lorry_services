@@ -15,4 +15,14 @@ export const LOGISTICS_CORRIDORS = {
     },
 };
 export const TRUCK_TYPES = ['Open', 'Container', 'Open body'];
+/** Duration (in days) of the one-time free trial granted to every account. */
+export const TRIAL_DURATION_DAYS = 90;
+/** Supported payment gateways for subscription checkout. */
+export const PAYMENT_PROVIDERS = ['cashfree', 'razorpay', 'stripe'];
+/** Subscribable plans. Prices in INR (whole rupees). */
+export const SUBSCRIPTION_PLANS = {
+    monthly: { price: 999, durationDays: 30, label: 'Monthly Unlimited' },
+    quarterly: { price: 2499, durationDays: 90, label: 'Quarterly Unlimited' },
+    annual: { price: 7999, durationDays: 365, label: 'Annual Unlimited' },
+};
 //# sourceMappingURL=index.js.map

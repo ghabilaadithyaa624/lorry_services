@@ -16,3 +16,38 @@ export const LOGISTICS_CORRIDORS = {
 };
 
 export const TRUCK_TYPES = ['Open', 'Container', 'Open body'] as const;
+
+/** Duration (in days) of the one-time free trial granted to every account. */
+export const TRIAL_DURATION_DAYS = 90;
+
+/** Supported payment gateways for subscription checkout. */
+export const PAYMENT_PROVIDERS = ['cashfree', 'razorpay', 'stripe'] as const;
+export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
+
+/** Subscribable plans. Prices in INR (whole rupees). */
+export const SUBSCRIPTION_PLANS = {
+  monthly:   { price: 999,  durationDays: 30,  label: 'Monthly Unlimited' },
+  quarterly: { price: 2499, durationDays: 90,  label: 'Quarterly Unlimited' },
+  annual:    { price: 7999, durationDays: 365, label: 'Annual Unlimited' },
+} as const;
+export type SubscriptionPlanId = keyof typeof SUBSCRIPTION_PLANS;
+
+/**
+ * Entitlement state returned by GET /subscriptions/status.
+ * `status` is one of: 'trial' (active trial, no paid plan), 'active' (paid),
+ * 'expired' (trial over, no paid plan).
+ */
+export interface SubscriptionEntitlement {
+  status: 'trial' | 'active' | 'expired'
+  hasSubscription: boolean
+  hasPremiumAccess: boolean
+  isTrialActive: boolean
+  plan: SubscriptionPlanId | null
+  expiresAt: string | null
+  trialStartedAt: string | null
+  trialEndsAt: string | null
+  trialDaysRemaining: number
+  trialDurationDays: number
+  upgradeRequired: boolean
+  upgradeReason: string | null
+}

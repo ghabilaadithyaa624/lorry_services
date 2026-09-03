@@ -7,10 +7,21 @@ import { SubscriptionsController } from './subscriptions.controller'
 import { SubscriptionsService } from './subscriptions.service'
 import { InitiateSubscriptionDto } from './dto/initiate-subscription.dto'
 
+jest.mock('@lorrycarry/database', () => ({
+  prisma: {},
+}))
+
 describe('SubscriptionsController', () => {
   let controller: SubscriptionsController
   let subscriptionsService: jest.Mocked<SubscriptionsService>
   let configService: jest.Mocked<ConfigService>
+
+  const razorpayGateway = {
+    verifyWebhookSignature: jest.fn(),
+  }
+  const stripeGateway = {
+    constructEvent: jest.fn(),
+  }
 
   const mockSubscriptionsService = {
     initiate: jest.fn(),
@@ -18,6 +29,8 @@ describe('SubscriptionsController', () => {
     verifyAndActivate: jest.fn(),
     markFailed: jest.fn(),
     verifyOrder: jest.fn(),
+    getRazorpayGateway: jest.fn(() => razorpayGateway),
+    getStripeGateway: jest.fn(() => stripeGateway),
   }
 
   const mockConfigService = {
@@ -60,7 +73,7 @@ describe('SubscriptionsController', () => {
 
       const result = await controller.initiate(dto, userId)
 
-      expect(subscriptionsService.initiate).toHaveBeenCalledWith(userId, dto.plan)
+      expect(subscriptionsService.initiate).toHaveBeenCalledWith(userId, dto.plan, undefined)
       expect(result).toEqual(mockResult)
     })
   })
@@ -155,6 +168,60 @@ describe('SubscriptionsController', () => {
 
       expect(subscriptionsService.verifyAndActivate).not.toHaveBeenCalled()
       expect(result).toEqual({ received: false, error: 'Invalid signature' })
+    })
+  })
+
+  describe('razorpayWebhook', () => {
+    it('should verify signature and activate on payment.captured', async () => {
+      razorpayGateway.verifyWebhookSignature.mockReturnValue(true)
+      const rawBody = JSON.stringify({
+        event: 'payment.captured',
+        payload: { payment: { entity: { id: 'pay_123', order_id: 'order_rzp_1' } } },
+      })
+      const req = { rawBody: Buffer.from(rawBody) } as RawBodyRequest<Request>
+
+      const result = await controller.razorpayWebhook('sig', req)
+
+      expect(razorpayGateway.verifyWebhookSignature).toHaveBeenCalledWith(rawBody, 'sig')
+      expect(subscriptionsService.verifyAndActivate).toHaveBeenCalledWith('order_rzp_1', 'pay_123')
+      expect(result).toEqual({ received: true })
+    })
+
+    it('should reject invalid signature', async () => {
+      razorpayGateway.verifyWebhookSignature.mockReturnValue(false)
+      const req = { rawBody: Buffer.from('{}') } as RawBodyRequest<Request>
+
+      const result = await controller.razorpayWebhook('bad', req)
+
+      expect(subscriptionsService.verifyAndActivate).not.toHaveBeenCalled()
+      expect(result).toEqual({ received: false, error: 'Invalid signature' })
+    })
+  })
+
+  describe('stripeWebhook', () => {
+    it('should activate on checkout.session.completed (paid)', async () => {
+      stripeGateway.constructEvent.mockReturnValue({
+        type: 'checkout.session.completed',
+        data: { object: { id: 'cs_test_1', payment_status: 'paid', payment_intent: 'pi_1' } },
+      })
+      const req = { rawBody: Buffer.from('{}') } as RawBodyRequest<Request>
+
+      const result = await controller.stripeWebhook('sig', req)
+
+      expect(subscriptionsService.verifyAndActivate).toHaveBeenCalledWith('cs_test_1', 'pi_1')
+      expect(result).toEqual({ received: true })
+    })
+
+    it('should reject invalid signature', async () => {
+      stripeGateway.constructEvent.mockImplementation(() => {
+        throw new Error('bad signature')
+      })
+      const req = { rawBody: Buffer.from('{}') } as RawBodyRequest<Request>
+
+      const result = await controller.stripeWebhook('bad', req)
+
+      expect(subscriptionsService.verifyAndActivate).not.toHaveBeenCalled()
+      expect(result).toEqual({ received: false, error: 'Invalid signature', message: 'bad signature' })
     })
   })
 

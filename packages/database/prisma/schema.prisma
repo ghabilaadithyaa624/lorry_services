@@ -16,6 +16,12 @@ model User {
   role      UserRole
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 3-month free trial entitlement. One trial per account, granted lazily on
+  // first entitlement lookup (or at registration) and never re-issued.
+  trialStartedAt   DateTime? @map("trial_started_at")
+  trialEndsAt      DateTime? @map("trial_ends_at")
+  trialConvertedAt DateTime? @map("trial_converted_at") // set when user upgrades to a paid plan
   
   loads              Load[]
   trucks             Truck[]
@@ -25,12 +31,15 @@ model User {
   payments           Payment[]
   notifications      Notification[]
   notificationReceipts NotificationReceipt[]
+  disputesRaised     BookingDispute[] @relation("DisputesRaised")
+  disputesResolved   BookingDispute[] @relation("DisputesResolved")
   preference         UserPreference?
   givenRatings       Rating[] @relation("RaterRatings")
   receivedRatings    Rating[] @relation("RatedRatings")
   
   @@index([phone])
   @@index([role])
+  @@index([trialEndsAt])
   @@map("users")
 }
 
@@ -103,19 +112,22 @@ enum UserRole {
 
 // Subscription paywall
 model Subscription {
-  id        String             @id @default(uuid())
-  userId    String             @map("user_id")
-  plan      String // 'monthly_unlimited', 'pay_per_unlock', etc.
-  status    SubscriptionStatus
-  startedAt DateTime           @map("started_at")
-  expiresAt DateTime           @map("expires_at")
-  paymentId String?            @map("payment_id")
-  createdAt DateTime           @default(now()) @map("created_at")
+  id              String             @id @default(uuid())
+  userId          String             @map("user_id")
+  plan            String // 'monthly_unlimited', 'pay_per_unlock', etc.
+  status          SubscriptionStatus
+  startedAt       DateTime           @map("started_at")
+  expiresAt       DateTime           @map("expires_at")
+  paymentId       String?            @map("payment_id")
+  provider        String             @default("cashfree") // 'cashfree' | 'razorpay' | 'stripe'
+  providerOrderId String?            @map("provider_order_id") // Gateway order/session id
+  createdAt       DateTime           @default(now()) @map("created_at")
   
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
   @@index([status])
+  @@index([providerOrderId])
   @@map("subscriptions")
 }
 
@@ -243,6 +255,18 @@ enum VerificationStatus {
   Rejected
 }
 
+/// Result of the external Parivahan / Vahan registration lookup.
+/// `Unavailable` is explicit when provider credentials are not configured;
+/// it must never be presented as a successful government verification.
+enum VahanCheckStatus {
+  NotChecked
+  Pending
+  Verified
+  Mismatch
+  Unavailable
+  Error
+}
+
 // KYC documents (RC, Insurance)
 model Document {
   id                 String             @id @default(uuid())
@@ -322,6 +346,55 @@ enum BookingStatus {
   InTransit @map("In-transit")
   Completed
   Cancelled
+}
+
+/// A counterparty-reported booking issue that can be investigated and resolved
+/// by an administrator. Disputes are additive so existing bookings remain valid.
+model BookingDispute {
+  id           String          @id @default(uuid())
+  bookingId    String          @map("booking_id")
+  raisedById   String          @map("raised_by_id")
+  category     DisputeCategory  @default(Other)
+  priority     DisputePriority  @default(Medium)
+  status       DisputeStatus    @default(Open)
+  description  String
+  resolution   String?
+  resolvedById String?          @map("resolved_by_id")
+  resolvedAt   DateTime?        @map("resolved_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  raisedBy   User    @relation("DisputesRaised", fields: [raisedById], references: [id])
+  resolvedBy User?   @relation("DisputesResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([raisedById])
+  @@index([status])
+  @@index([priority])
+  @@map("booking_disputes")
+}
+
+enum DisputeCategory {
+  Payment
+  CargoDamage @map("Cargo_Damage")
+  Delay
+  Document
+  Other
+}
+
+enum DisputePriority {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum DisputeStatus {
+  Open
+  Investigating
+  Resolved
+  Rejected
 }
 
 // Checkpoint-based tracking (NOT live GPS)

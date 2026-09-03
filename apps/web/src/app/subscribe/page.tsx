@@ -7,13 +7,18 @@ import {
   ShieldCheckIcon,
   LockClosedIcon,
 } from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
-import { load } from '@cashfreepayments/cashfree-js'
 import { Navbar, Footer } from '@/components/layout'
 import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
 import { Button, Badge, GlassPanel, Spinner } from '@/components/ui'
+import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
 import { toast } from '@/lib/toast'
 import { cn, formatINR } from '@/lib/utils'
+import {
+  getEntitlement,
+  initiateSubscription,
+  openCheckout,
+  SubscriptionEntitlement,
+} from '@/lib/subscription'
 
 const PLANS = [
   {
@@ -94,27 +99,13 @@ function SubscribeContent() {
     setError('')
 
     try {
-      const res = await api.post('/subscriptions/initiate', {
-        plan: selectedPlan,
-      })
+      const result = await initiateSubscription(selectedPlan as 'monthly' | 'quarterly' | 'annual')
+      const gatewayOrderId = await openCheckout(result)
 
-      const paymentSessionId = res.data?.paymentSessionId
-      if (!paymentSessionId) {
-        throw new Error('Payment session was not created')
+      // Razorpay's in-page checkout resolves after payment: verify server-side.
+      if (gatewayOrderId) {
+        router.push(`/subscribe/callback?provider=razorpay&order_id=${encodeURIComponent(gatewayOrderId)}`)
       }
-
-      const cashfree = await load({
-        mode: 'sandbox',
-      })
-
-      if (!cashfree) {
-        throw new Error('Unable to load Cashfree checkout gateway')
-      }
-
-      await cashfree.checkout({
-        paymentSessionId,
-        redirectTarget: '_self',
-      })
     } catch (err: any) {
       const msg =
         err.response?.data?.message ||
@@ -134,6 +125,11 @@ function SubscribeContent() {
 
       <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full space-y-8">
         
+        {/* Trial countdown + expired upgrade CTA */}
+        {entitlement && !entitlement.hasSubscription && (
+          <TrialCountdownBanner entitlement={entitlement} />
+        )}
+
         {/* Paywall Alert Banner if redirected from contact reveal */}
         {reason === 'reveal' && (
           <GlassPanel padding="lg" className="border-amber-500/30 bg-amber-950/40 font-sans">
@@ -316,7 +312,7 @@ function SubscribeContent() {
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-xs font-mono text-surface-400">
             <span className="flex items-center gap-1.5">
               <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
-              <span>256-bit Encrypted Cashfree Gateway</span>
+              <span>256-bit Encrypted Cashfree • Razorpay • Stripe Gateways</span>
             </span>
             <span>⚡ Instant Pass Activation</span>
             <span>↩️ Transparent Direct Terms</span>
