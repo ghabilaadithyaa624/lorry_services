@@ -1,5 +1,10 @@
 'use client'
 
+/**
+ * Heavy 3D fleet visualizer — loaded via next/dynamic with ssr:false
+ * See DynamicHeroTruckCanvas.tsx for the code-split wrapper that defers this bundle.
+ * Canvas is DPR-capped [1,1.5] and uses demand frameloop to avoid continuous GPU burn.
+ */
 import React, { useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei/core/OrbitControls'
@@ -227,11 +232,13 @@ export default function HeroTruckCanvas() {
       {/* Background Radial Glow */}
       <div className="absolute inset-0 pointer-events-none" />
 
-      {/* 3D Canvas with DPR limit for GPU efficiency */}
+      {/* 3D Canvas with DPR limit for GPU efficiency — demand frameloop prevents off-screen render burn */}
       <Canvas
         camera={{ position: [5.2, 2.2, 4.8], fov: 40 }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', stencil: false, depth: true }}
         dpr={[1, 1.5]}
+        performance={{ min: 0.5 }}
+        frameloop="demand"
         className="relative z-10"
       >
         {/* ── CINEMATIC 3-POINT LIGHTING SYSTEM ── */}

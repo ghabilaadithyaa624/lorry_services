@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, Optional } from '@nestjs/common'
 import { randomUUID } from 'crypto'
 import { 
   prisma, 
@@ -8,6 +8,7 @@ import {
   SubscriptionStatus 
 } from '@lorrycarry/database'
 import { NotificationsService } from '../notifications/notifications.service'
+import { MatchingService } from '../matching/matching.service'
 
 export interface CreateBookingDto {
   loadId: string
@@ -19,7 +20,10 @@ export interface CreateBookingDto {
 
 @Injectable()
 export class BookingsService {
-  constructor(private readonly notifications: NotificationsService) {}
+  constructor(
+    private readonly notifications: NotificationsService,
+    @Optional() private matchingService?: MatchingService,
+  ) {}
 
   /**
    * Create booking with commercial terms within an atomic database transaction
@@ -128,6 +132,13 @@ export class BookingsService {
 
     // Send booking confirmation + in-app alerts outside the transaction
     await this.notifications.sendBookingConfirmed(booking)
+
+    // Transition matching engine status: Pending → Booked (WhatsApp already triggered on match, now book)
+    try {
+      await this.matchingService?.handleBookingCreated(booking)
+    } catch {
+      // ignore matching transition errors
+    }
 
     return booking
   }
@@ -246,11 +257,22 @@ export class BookingsService {
       },
     })
 
-    // WhatsApp + in-app dispatch alert on meaningful status transitions.
+    // WhatsApp + in-app dispatch alerts on meaningful status transitions,
+    // alongside matching-engine state transitions.
     if (status === BookingStatus.InTransit) {
       await this.notifications.sendDispatchUpdate(updated, 'InTransit')
+      try {
+        await this.matchingService?.handleBookingCreated(updated)
+      } catch {
+        // ignore
+      }
     } else if (status === BookingStatus.Completed) {
       await this.notifications.sendDeliveryCompleted(updated)
+      try {
+        await this.matchingService?.handleBookingCompleted(updated)
+      } catch {
+        // ignore
+      }
     } else if (status === BookingStatus.Cancelled) {
       await this.notifications.sendDispatchUpdate(updated, 'Cancelled')
     }

@@ -44,6 +44,7 @@ jest.mock('@lorrycarry/database', () => {
     UserRole: {
       truck_owner: 'truck_owner',
       load_owner: 'load_owner',
+      driver: 'driver',
       admin: 'admin',
     },
     SubscriptionStatus: {

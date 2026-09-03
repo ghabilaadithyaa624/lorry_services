@@ -30,6 +30,7 @@ import { Avatar } from '@/components/ui'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { AIFreightAssistantDrawer } from '@/components/intelligence'
 import { cn, formatPhone } from '@/lib/utils'
+import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -99,7 +100,8 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     setSidebarOpen(false)
   }, [pathname])
 
-  const isTruckOwner = user?.role === 'truck_owner'
+  const isTruckOwner = isVehicleSideRole(user?.role)
+  const isDriver = user?.role === 'driver'
   const isAdmin = user?.role === 'admin'
 
   const loadOwnerNav: NavItem[] = [
@@ -142,9 +144,17 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: 'Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
   ]
 
-  const navItems = isAdmin ? adminNav : isTruckOwner ? truckOwnerNav : loadOwnerNav
+  const navItems = isAdmin
+    ? adminNav
+    : isTruckOwner
+      ? truckOwnerNav.map((item) =>
+          isDriver && item.href === '/dashboard/truck-owner'
+            ? { ...item, href: '/dashboard/driver' }
+            : item
+        )
+      : loadOwnerNav
 
-  const roleLabel = isTruckOwner ? 'Truck owner' : isAdmin ? 'Administrator' : 'Load owner'
+  const roleLabel = getRoleLabel(user?.role)
 
   /** Exact match for section roots, prefix match for nested routes. */
   const isActiveRoute = (href: string) => {
