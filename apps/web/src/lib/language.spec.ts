@@ -1,0 +1,93 @@
+import {
+  UI_LANGUAGES,
+  isUiLanguage,
+  readStoredLanguage,
+  applyLanguage,
+  persistLanguage,
+  LANGUAGE_STORAGE_KEY,
+} from './language'
+
+describe('Language System (header toggle: தமிழ் | English)', () => {
+  it('orders the toggle தமிழ் first, English second, per the navigation spec', () => {
+    expect(UI_LANGUAGES.map((l) => l.value)).toEqual(['ta', 'en'])
+    expect(UI_LANGUAGES[0].label).toBe('தமிழ்')
+    expect(UI_LANGUAGES[1].label).toBe('English')
+  })
+
+  it('provides short labels for the compact mobile breakpoint', () => {
+    for (const option of UI_LANGUAGES) {
+      expect(option.shortLabel.length).toBeGreaterThan(0)
+      expect(option.shortLabel.length).toBeLessThanOrEqual(option.label.length)
+    }
+  })
+
+  it('validates supported UI language codes', () => {
+    expect(isUiLanguage('en')).toBe(true)
+    expect(isUiLanguage('ta')).toBe(true)
+    expect(isUiLanguage('hi')).toBe(false)
+    expect(isUiLanguage('')).toBe(false)
+    expect(isUiLanguage(undefined)).toBe(false)
+    expect(isUiLanguage(null)).toBe(false)
+    expect(isUiLanguage(42)).toBe(false)
+  })
+
+  it('falls back to English when no window/storage is available (SSR)', () => {
+    expect(readStoredLanguage()).toBe('en')
+  })
+
+  it('no-ops safely when applying/persisting without a DOM', () => {
+    expect(() => applyLanguage('ta')).not.toThrow()
+    expect(() => persistLanguage('ta')).not.toThrow()
+  })
+
+  describe('with a mocked browser storage', () => {
+    const store: Record<string, string> = {}
+    const dispatched: string[] = []
+
+    beforeEach(() => {
+      Object.keys(store).forEach((key) => delete store[key])
+      dispatched.length = 0
+      ;(global as any).window = {
+        localStorage: {
+          getItem: (key: string) => (key in store ? store[key] : null),
+          setItem: (key: string, value: string) => {
+            store[key] = value
+          },
+        },
+        dispatchEvent: (event: any) => {
+          dispatched.push(event.type)
+          return true
+        },
+      }
+      ;(global as any).CustomEvent = class {
+        type: string
+        detail: unknown
+        constructor(type: string, init?: { detail?: unknown }) {
+          this.type = type
+          this.detail = init?.detail
+        }
+      }
+      ;(global as any).document = { documentElement: { lang: 'en' } }
+    })
+
+    afterEach(() => {
+      delete (global as any).window
+      delete (global as any).document
+      delete (global as any).CustomEvent
+    })
+
+    it('reads a persisted preference and rejects unknown values', () => {
+      store[LANGUAGE_STORAGE_KEY] = 'ta'
+      expect(readStoredLanguage()).toBe('ta')
+      store[LANGUAGE_STORAGE_KEY] = 'fr'
+      expect(readStoredLanguage()).toBe('en')
+    })
+
+    it('persists, applies <html lang>, and broadcasts the change', () => {
+      persistLanguage('ta')
+      expect(store[LANGUAGE_STORAGE_KEY]).toBe('ta')
+      expect((global as any).document.documentElement.lang).toBe('ta')
+      expect(dispatched).toContain('lc-language-change')
+    })
+  })
+})

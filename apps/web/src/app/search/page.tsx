@@ -1,8 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, Suspense } from 'react'
-import Link from 'next/link'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Truck,
   Package,
@@ -13,19 +12,15 @@ import {
   ShieldCheck,
   Clock,
   Navigation,
-  Bell,
   ChevronDown,
   Sparkles,
   ArrowRight,
   Phone,
-  Menu,
-  X,
-  PlusCircle,
   ExternalLink,
   RotateCw,
 } from 'lucide-react'
-import { api, locationApi, authApi } from '@/lib/api'
-import { Footer } from '@/components/layout'
+import { api, locationApi } from '@/lib/api'
+import { Footer, Navbar } from '@/components/layout'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
 import {
   calculateMatchScore,
@@ -87,7 +82,6 @@ function getRelativeTimestamp(id: string): string {
 
 function SearchPageContent() {
   const router = useRouter()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const initialType = searchParams.get('type') === 'load' ? 'loads' : 'trucks'
@@ -110,23 +104,8 @@ function SearchPageContent() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
-  // Top Nav User State
-  const [user, setUser] = useState<{ id?: string; name?: string; role?: string } | null>(null)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
   // Booking modal state
   const [selectedTruckForBooking, setSelectedTruckForBooking] = useState<TruckResult | null>(null)
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('user')
-      if (stored) {
-        setUser(JSON.parse(stored))
-      }
-    } catch {
-      // Ignore
-    }
-  }, [])
 
   // Sync mode with URL params if they change
   useEffect(() => {
@@ -381,16 +360,6 @@ function SearchPageContent() {
     }
   }
 
-  const handleLogout = async () => {
-    try {
-      await authApi.logout()
-    } catch {
-      // Ignore
-    }
-    setUser(null)
-    router.push('/login')
-  }
-
   // Calculate Match Score for every item and sort deterministically
   const targetLoadTonnage = tonnage ? parseFloat(tonnage) : 10
   const processedResults = rawResults.map((item) => {
@@ -438,218 +407,10 @@ function SearchPageContent() {
     targetLoadTonnage
   )
 
-  const navLinks = [
-    { name: 'Control Tower', href: '/tracking', active: pathname === '/tracking' },
-    {
-      name: 'Find Trucks',
-      href: '/search?type=truck',
-      active: mode === 'trucks',
-      onClick: (e: React.MouseEvent) => {
-        if (pathname === '/search') {
-          e.preventDefault()
-          setMode('trucks')
-          router.replace('/search?type=truck')
-        }
-      },
-    },
-    {
-      name: 'Find Loads',
-      href: '/search?type=load',
-      active: mode === 'loads',
-      onClick: (e: React.MouseEvent) => {
-        if (pathname === '/search') {
-          e.preventDefault()
-          setMode('loads')
-          router.replace('/search?type=load')
-        }
-      },
-    },
-    { name: 'Pricing & Plans', href: '/subscribe', active: pathname.startsWith('/subscribe') },
-  ]
-
   return (
     <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
-      {/* ── 1. Sticky Top Navigation ── */}
-      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20">
-            {/* Left: Brand Logo */}
-            <div className="flex items-center gap-8">
-              <Link
-                href="/"
-                className="flex items-center gap-2.5 group focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 rounded-xl focus:outline-none"
-              >
-                <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
-                  <Truck className="w-5 h-5 stroke-[2.4]" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xl font-black tracking-tight text-gray-900 leading-none">
-                    Lorry<span className="text-orange-500">Carry</span>
-                  </span>
-                  <span className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-wider mt-0.5">
-                    Direct Freight Network
-                  </span>
-                </div>
-              </Link>
-
-              {/* Desktop Nav Links */}
-              <nav className="hidden md:flex items-center gap-1">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.name}
-                    href={link.href}
-                    onClick={link.onClick}
-                    className={cn(
-                      'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none',
-                      link.active
-                        ? 'text-orange-600 bg-orange-50'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    )}
-                  >
-                    {link.name}
-                  </Link>
-                ))}
-              </nav>
-            </div>
-
-            {/* Right: Actions / Notification / User */}
-            <div className="hidden sm:flex items-center gap-3">
-              {/* Notification Bell */}
-              <button
-                type="button"
-                className="relative p-2.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
-                title="Notifications"
-                aria-label="Notifications"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white" />
-              </button>
-
-              {user ? (
-                <div className="flex items-center gap-3">
-                  <Link
-                    href={
-                      user.role === 'admin'
-                        ? '/admin'
-                        : user.role === 'truck_owner'
-                        ? '/dashboard/truck-owner'
-                        : '/dashboard/load-owner'
-                    }
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 hover:border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:text-gray-900 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
-                  >
-                    <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-xs">
-                      {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                    </div>
-                    <span>Dashboard</span>
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="text-xs font-medium text-gray-500 hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus:outline-none cursor-pointer"
-                  >
-                    Sign out
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Link
-                    href="/login"
-                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900 px-3.5 py-2 rounded-xl hover:bg-gray-100 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
-                  >
-                    Sign In
-                  </Link>
-
-                  <Link
-                    href="/post-load"
-                    className="inline-flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-semibold text-xs sm:text-sm px-4 py-2 rounded-xl transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Post Freight</span>
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Mobile Menu Toggle */}
-            <div className="flex md:hidden items-center gap-2">
-              <button
-                type="button"
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                aria-expanded={mobileMenuOpen}
-                aria-label={mobileMenuOpen ? 'Close main menu' : 'Open main menu'}
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Navigation Drawer */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-200 px-4 py-4 space-y-3 shadow-lg">
-            <nav className="space-y-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  onClick={(e) => {
-                    setMobileMenuOpen(false)
-                    if (link.onClick) link.onClick(e)
-                  }}
-                  className={cn(
-                    'block px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors',
-                    link.active
-                      ? 'bg-orange-50 text-orange-600'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  )}
-                >
-                  {link.name}
-                </Link>
-              ))}
-            </nav>
-
-            <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
-              {user ? (
-                <div className="space-y-2">
-                  <Link
-                    href="/dashboard/load-owner"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block px-3.5 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 rounded-xl"
-                  >
-                    Go to Dashboard
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full text-left px-3.5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl"
-                  >
-                    Sign out
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <Link
-                    href="/login"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="px-4 py-2.5 text-center text-xs font-semibold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/post-load"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="px-4 py-2.5 text-center text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl shadow-sm"
-                  >
-                    Post Freight
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </header>
+      {/* ── 1. Fixed Top Navigation (shared redesigned header) ── */}
+      <Navbar />
 
       {/* ── Main Content Area ── */}
       <main className="flex-1 py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
