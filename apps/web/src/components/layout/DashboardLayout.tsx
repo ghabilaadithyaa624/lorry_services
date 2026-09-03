@@ -25,13 +25,14 @@ import {
   UsersIcon,
   GlobeAsiaAustraliaIcon,
 } from '@heroicons/react/24/outline'
-import { usersApi } from '@/lib/api'
+import { notificationsApi, usersApi } from '@/lib/api'
 import { Avatar } from '@/components/ui'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { LanguageToggle } from './LanguageToggle'
 import { AIFreightAssistantDrawer } from '@/components/intelligence'
 import { useI18n } from '@/lib/i18n'
 import { cn, formatPhone } from '@/lib/utils'
+import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -76,7 +77,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
   const loadSignals = useCallback(async () => {
     try {
       const [notifications, profile] = await Promise.allSettled([
-        usersApi.getNotifications(),
+        notificationsApi.getUnreadCount(),
         usersApi.getProfile(),
       ])
       if (notifications.status === 'fulfilled') {
@@ -93,6 +94,8 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
 
   useEffect(() => {
     loadSignals()
+    const interval = setInterval(loadSignals, 30_000)
+    return () => clearInterval(interval)
   }, [loadSignals])
 
   // Close the mobile drawer on navigation.
@@ -100,7 +103,8 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     setSidebarOpen(false)
   }, [pathname])
 
-  const isTruckOwner = user?.role === 'truck_owner'
+  const isTruckOwner = isVehicleSideRole(user?.role)
+  const isDriver = user?.role === 'driver'
   const isAdmin = user?.role === 'admin'
 
   const loadOwnerNav: NavItem[] = [
@@ -143,13 +147,17 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: 'Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
   ]
 
-  const navItems = isAdmin ? adminNav : isTruckOwner ? truckOwnerNav : loadOwnerNav
+  const navItems = isAdmin
+    ? adminNav
+    : isTruckOwner
+      ? truckOwnerNav.map((item) =>
+          isDriver && item.href === '/dashboard/truck-owner'
+            ? { ...item, href: '/dashboard/driver' }
+            : item
+        )
+      : loadOwnerNav
 
-  const roleLabel = isTruckOwner
-    ? t('dash.roleTruckOwner')
-    : isAdmin
-      ? t('dash.roleAdmin')
-      : t('dash.roleLoadOwner')
+  const roleLabel = getRoleLabel(user?.role)
 
   /** Exact match for section roots, prefix match for nested routes. */
   const isActiveRoute = (href: string) => {

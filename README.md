@@ -18,7 +18,7 @@ LorryCarry is a high-performance monorepo platform connecting load owners and tr
   - **User Directory**: Search and filter load owners, truck owners, and administrators with detailed operational metrics.
   - **Booking Lifecycle**: Monitor all bookings from pending quotation to in-transit and delivery completion.
 - **Cashfree Paywall & Subscription Engine**: Secure billing (`₹999/month` and per-unlock credits) with webhook-driven auto-activation.
-- **WhatsApp Notification Engine**: Instant booking confirmations, checkpoint updates, and OTP verification via Gupshup.
+- **WhatsApp Notification Engine**: Instant booking confirmations, dispatch updates, delivery-completion alerts, checkpoint updates, and OTP verification via Gupshup — with a persisted in-app notification centre and read/unread state on web and mobile.
 
 ---
 

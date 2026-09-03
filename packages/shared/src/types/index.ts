@@ -10,7 +10,7 @@ export interface OTPRequestDTO {
 export interface OTPVerifyDTO {
   phone: string;
   code: string;
-  role?: 'load_owner' | 'truck_owner' | 'admin';
+  role?: 'load_owner' | 'truck_owner' | 'driver' | 'admin';
 }
 
 export interface AuthResponse {

@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { api } from '@/lib/api'
 import { format } from 'date-fns'
+import { MMKV } from 'react-native-mmkv'
 import { Navbar, Footer } from '@/components/layout'
 import { Badge, Button, Spinner } from '@/components/ui'
 import { assessShipmentIntelligence } from '@/lib/intelligence'
@@ -19,6 +20,10 @@ import { ReturnLoadOpportunityCard, DigitalDocumentChainCard } from '@/component
 import { evaluateBackhaulOpportunities, BackhaulOpportunity } from '@/lib/intelligence/matchingEngine'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, whatsappLink } from '@/lib/utils'
+import { PaymentSplitCard } from '@/components/PaymentSplitCard'
+import { RatingModal } from '@/components/RatingModal'
+
+const storage = new MMKV()
 
 export default function BookingDetailPage() {
   const params = useParams()
@@ -29,12 +34,27 @@ export default function BookingDetailPage() {
   const [error, setError] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [backhaulOpps, setBackhaulOpps] = useState<BackhaulOpportunity[]>([])
+  const [showRatingModal, setShowRatingModal] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string>('')
 
   useEffect(() => {
     if (id) {
       loadBooking()
+      loadCurrentUser()
     }
   }, [id])
+
+  const loadCurrentUser = () => {
+    try {
+      const userStr = storage.getString('user')
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        setCurrentUserId(user.id || '')
+      }
+    } catch (err) {
+      console.warn('Could not load current user')
+    }
+  }
 
   const loadBooking = async () => {
     try {
@@ -42,6 +62,21 @@ export default function BookingDetailPage() {
       const res = await api.get(`/bookings/${id}`)
       const bk = res.data
       setBooking(bk)
+
+      // Check if we need to show rating modal for completed booking
+      if (bk.status === 'Completed' && bk.loadOwnerId === currentUserId) {
+        try {
+          const pendingRatings = await api.get('/ratings/pending')
+          const needsRating = pendingRatings.data?.some(
+            (pr: any) => pr.bookingId === bk.id
+          )
+          if (needsRating) {
+            setTimeout(() => setShowRatingModal(true), 1000)
+          }
+        } catch (err) {
+          console.warn('Could not check pending ratings:', err)
+        }
+      }
 
       // Discover potential return loads from destination hub
       try {
@@ -79,11 +114,24 @@ export default function BookingDetailPage() {
   const handleConfirmAdvance = async () => {
     try {
       setActionLoading('advance')
-      await api.patch(`/bookings/${id}/confirm-advance`)
-      toast.success('50% Loading advance confirmed successfully!')
+      // Try the new payment endpoint first
+      try {
+        const response = await api.post('/payments/booking/initialize', {
+          bookingId: id,
+          paymentType: 'advance',
+          paymentMethod: 'upi',
+        })
+        if (response.data?.shortUrl) {
+          window.open(response.data.shortUrl, '_blank')
+        }
+      } catch {
+        // Fallback to old endpoint
+        await api.patch(`/bookings/${id}/confirm-advance`)
+      }
+      toast.success('50% Loading advance payment initiated!')
       loadBooking()
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Could not confirm advance')
+      toast.error(err.response?.data?.message || 'Could not initiate advance payment')
     } finally {
       setActionLoading(null)
     }
@@ -93,10 +141,10 @@ export default function BookingDetailPage() {
     try {
       setActionLoading('balance')
       await api.patch(`/bookings/${id}/confirm-balance`)
-      toast.success('Delivery balance confirmed successfully!')
+      toast.success('Delivery balance payment initiated!')
       loadBooking()
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Could not confirm balance')
+      toast.error(err.response?.data?.message || 'Could not initiate balance payment')
     } finally {
       setActionLoading(null)
     }
@@ -141,6 +189,7 @@ export default function BookingDetailPage() {
   }
 
   const intelligence = assessShipmentIntelligence(booking)
+  const isLoadOwner = booking.loadOwnerId === currentUserId
 
   return (
     <div className="min-h-screen bg-canvas text-surface-100 flex flex-col justify-between font-sans selection:bg-primary-500 selection:text-white">
@@ -269,7 +318,7 @@ export default function BookingDetailPage() {
                       onClick={handleConfirmAdvance}
                       className="shrink-0 text-xs font-bold py-2 shadow-glow-primary"
                     >
-                      Confirm 50% Advance
+                      Pay 50% Advance via UPI
                     </Button>
                   )}
 
@@ -281,7 +330,7 @@ export default function BookingDetailPage() {
                       onClick={handleConfirmBalance}
                       className="shrink-0 text-xs font-bold py-2 shadow-glow-primary"
                     >
-                      Confirm Final POD Balance
+                      Pay Final Balance
                     </Button>
                   )}
                 </div>
@@ -290,48 +339,14 @@ export default function BookingDetailPage() {
           )}
         </div>
 
-        {/* ── Commercial Terms Overview ── */}
-        <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-            <CurrencyRupeeIcon className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-base font-bold text-white">
-              50/50 Direct Commercial Terms
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
-            <div className="p-4 rounded-2xl bg-surface-950/80 border border-white/5 space-y-1">
-              <span className="text-surface-400 block text-[10px] uppercase tracking-widest">Total Agreed Freight</span>
-              <span className="text-lg font-black text-white mt-1 block">
-                {formatINR(Number(booking.agreedPrice))}
-              </span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-surface-950/80 border border-white/5 space-y-1">
-              <span className="text-surface-400 block text-[10px] uppercase tracking-widest">50% Loading Advance</span>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-lg font-black text-white">
-                  {formatINR(Math.round(Number(booking.agreedPrice) * 0.5))}
-                </span>
-                <Badge variant={booking.advanceConfirmed ? 'success' : 'warning'} size="sm" className="font-mono text-[10px]">
-                  {booking.advanceConfirmed ? 'Paid' : 'Pending'}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-surface-950/80 border border-white/5 space-y-1">
-              <span className="text-surface-400 block text-[10px] uppercase tracking-widest">50% Delivery Balance</span>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-lg font-black text-white">
-                  {formatINR(Number(booking.agreedPrice) - Math.round(Number(booking.agreedPrice) * 0.5))}
-                </span>
-                <Badge variant={booking.balanceConfirmed ? 'success' : 'default'} size="sm" className="font-mono text-[10px]">
-                  {booking.balanceConfirmed ? 'Settled' : 'On POD'}
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* ── Payment Split Card with Razorpay Integration ── */}
+        {currentUserId && (
+          <PaymentSplitCard
+            booking={booking}
+            currentUserId={currentUserId}
+            onPaymentComplete={loadBooking}
+          />
+        )}
 
         {/* ── 5-Stage Checkpoint Timeline ── */}
         <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-5">
@@ -468,6 +483,25 @@ export default function BookingDetailPage() {
         </div>
 
       </main>
+
+      {/* Rating Modal for Factory Owner */}
+      {showRatingModal && (
+        <RatingModal
+          isOpen={showRatingModal}
+          onClose={() => setShowRatingModal(false)}
+          booking={{
+            id: booking.id,
+            truckOwnerId: booking.truckOwnerId,
+            truckOwnerName: booking.truck?.user?.name || 'Driver',
+            truckRegistrationNumber: booking.truck?.registrationNumber,
+            loadOwnerName: booking.load?.user?.name || 'Factory Owner',
+          }}
+          onRatingSubmitted={() => {
+            setShowRatingModal(false)
+            loadBooking()
+          }}
+        />
+      )}
 
       <Footer />
     </div>

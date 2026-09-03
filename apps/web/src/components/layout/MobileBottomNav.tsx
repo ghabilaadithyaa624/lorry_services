@@ -13,12 +13,13 @@ import {
 } from '@heroicons/react/24/outline'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
+import { getDashboardForRole, isVehicleSideRole } from '@/lib/roles'
 
 interface UserState {
   id?: string
   phone?: string
   name?: string
-  role?: 'load_owner' | 'truck_owner' | 'admin'
+  role?: 'load_owner' | 'truck_owner' | 'driver' | 'admin'
 }
 
 /**
@@ -49,12 +50,12 @@ export function MobileBottomNav() {
   // Only render for signed-in users; anonymous visitors use the Navbar.
   if (!user) return null
 
-  const isTruckOwner = user.role === 'truck_owner'
+  const isTruckOwner = isVehicleSideRole(user.role)
 
   const items = [
     {
       name: t('mobileNav.home'),
-      href: isTruckOwner ? '/dashboard/truck-owner' : '/dashboard/load-owner',
+      href: getDashboardForRole(user.role),
       icon: HomeIcon,
       active: pathname.startsWith('/dashboard'),
     },
