@@ -11,6 +11,7 @@ LorryCarry is a high-performance monorepo platform connecting load owners and tr
 - **5-Stage Trip Tracking**: Geofence checkpoint tracking with automated WhatsApp notifications at every leg of the journey.
 - **Production Admin Dashboard**:
   - **Overview & KPI Analytics**: Real-time stats on users, trucks, loads, bookings, conversion rates, and revenue.
+  - **Dashboard Analytics**: Trip completion, earnings summary, active booking pipeline and a route efficiency heatmap (corridor × month) with CSV/PDF report export.
   - **KYC Verification Queue**: Document verification pipeline (RC, Insurance) with instant Verify/Reject actions, modal confirmations, and rejection notes.
   - **Fleet & Listings Management**: Overview of active trucks and freight listings with direct truck verification controls.
   - **Subscription Management**: Track active, expired, and cancelled plan subscriptions with expiration alerts.
