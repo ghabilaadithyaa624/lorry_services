@@ -18,9 +18,11 @@ import {
   Phone,
   ExternalLink,
   RotateCw,
+  CircleDollarSign,
 } from 'lucide-react'
 import { api, locationApi } from '@/lib/api'
 import { Footer, Navbar } from '@/components/layout'
+import { VerifiedBadge } from '@/components/VerifiedBadge'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
 import {
   calculateMatchScore,
@@ -31,6 +33,11 @@ import {
 } from '@/lib/intelligence'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, formatPhone, whatsappLink } from '@/lib/utils'
+import { StructuredData } from '@/components/seo/StructuredData'
+import {
+  getSearchResultsItemListStructuredData,
+  getBreadcrumbStructuredData,
+} from '@/lib/seo/structuredData'
 
 interface TruckResult {
   id: string
@@ -40,6 +47,9 @@ interface TruckResult {
   tonnageCapacity: number
   serviceableRadiusKm: number
   verificationStatus: 'Verified' | 'Pending' | 'Rejected'
+  /** ISO timestamp of the last Vahan RC validation — powers the verified badge. */
+  vahanVerifiedAt?: string | null
+  fastagStatus?: string | null
   distanceKm: number
   registrationNumber: string | null
   ownerPhone: string | null
@@ -407,8 +417,36 @@ function SearchPageContent() {
     targetLoadTonnage
   )
 
+  // Structured data for SEO: ItemList of current results + Breadcrumbs
+  const breadcrumbLd = getBreadcrumbStructuredData([
+    { name: 'Home', url: '/' },
+    { name: mode === 'trucks' ? 'Find Trucks' : 'Find Loads', url: `/search?type=${mode === 'trucks' ? 'truck' : 'load'}` },
+  ])
+
+  const itemListLd =
+    sortedResults.length > 0
+      ? getSearchResultsItemListStructuredData(
+          mode === 'trucks' ? 'truck' : 'load',
+          sortedResults.slice(0, 10).map((item: any) => ({
+            id: item.id,
+            title:
+              mode === 'trucks'
+                ? `${item.bodyType || 'Open'} Truck ${item.tonnageCapacity || ''}T — ${item.distanceKm?.toFixed(1) || ''}km away`
+                : `${item.loadingAddress} → ${item.unloadingAddress} — ${item.tonnageRequired}T`,
+            description:
+              mode === 'trucks'
+                ? `Vahan ${item.verificationStatus} ${item.bodyType} truck, ${item.tonnageCapacity}T capacity, within 50km`
+                : `Freight load: ${item.tonnageRequired}T ${item.truckType}, India logistics cargo dispatch`,
+            url: `/search?type=${mode === 'trucks' ? 'truck' : 'load'}`,
+          }))
+        )
+      : null
+
   return (
     <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+      {/* JSON-LD structured data for search marketplace */}
+      <StructuredData data={breadcrumbLd} id="search-breadcrumb-ld" />
+      {itemListLd && <StructuredData data={itemListLd} id="search-itemlist-ld" />}
       {/* ── 1. Fixed Top Navigation (shared redesigned header) ── */}
       <Navbar />
 
@@ -782,12 +820,14 @@ function SearchPageContent() {
                                   {truck.registrationNumber || 'MH-12-TRUCK'}
                                 </span>
 
-                                {/* Vahan Verification Badge */}
+                                {/* Vahan Verification Badge (backed by the Vahan RC validation API) */}
                                 {isVerified ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-xs font-semibold">
-                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span>Vahan Verified</span>
-                                  </span>
+                                  <VerifiedBadge
+                                    verified
+                                    source="vahan"
+                                    validatedAt={truck.vahanVerifiedAt}
+                                    variant="light"
+                                  />
                                 ) : (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-200 text-xs font-medium">
                                     <Clock className="w-3.5 h-3.5 text-gray-400" />
@@ -799,6 +839,17 @@ function SearchPageContent() {
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-500 text-white text-[11px] font-bold uppercase tracking-wider shadow-xs">
                                     <Sparkles className="w-3 h-3" />
                                     <span>Recommended</span>
+                                  </span>
+                                )}
+
+                                {/* FASTag readiness chip (compliance signal) */}
+                                {truck.fastagStatus === 'Active' && (
+                                  <span
+                                    title="FASTag is active with sufficient balance — toll-ready vehicle."
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80 text-[11px] font-semibold"
+                                  >
+                                    <CircleDollarSign className="w-3 h-3 text-blue-600" />
+                                    <span>FASTag Ready</span>
                                   </span>
                                 )}
                               </div>

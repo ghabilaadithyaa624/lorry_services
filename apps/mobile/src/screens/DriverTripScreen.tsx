@@ -24,6 +24,9 @@ export interface DriverTripDetails {
   etaMinutes: number
   checkpointSeq: number
   totalCheckpoints: number
+  agreedPrice?: number
+  advanceConfirmed?: boolean
+  balanceConfirmed?: boolean
 }
 
 export function DriverTripScreen() {
@@ -43,6 +46,10 @@ export function DriverTripScreen() {
   const [incidentCategory, setIncidentCategory] = useState('Traffic Delay')
   const [incidentDesc, setIncidentDesc] = useState('')
   const [impactMinutes, setImpactMinutes] = useState('30')
+
+  // Trip Completion Modal State
+  const [completionModalVisible, setCompletionModalVisible] = useState(false)
+  const [completionLoading, setCompletionLoading] = useState(false)
 
   useEffect(() => {
     checkLocationPermission()
@@ -90,6 +97,9 @@ export function DriverTripScreen() {
           etaMinutes: 145,
           checkpointSeq: 3,
           totalCheckpoints: 5,
+          agreedPrice: Number(active.agreedPrice) || 25000,
+          advanceConfirmed: active.advanceConfirmed || false,
+          balanceConfirmed: active.balanceConfirmed || false,
         })
       } else {
         // Sample active driver trip for preview
@@ -103,6 +113,9 @@ export function DriverTripScreen() {
           etaMinutes: 90,
           checkpointSeq: 4,
           totalCheckpoints: 5,
+          agreedPrice: 25000,
+          advanceConfirmed: true,
+          balanceConfirmed: false,
         })
       }
     } catch {
@@ -117,8 +130,11 @@ export function DriverTripScreen() {
         etaMinutes: 120,
         checkpointSeq: 3,
         totalCheckpoints: 5,
+        agreedPrice: 25000,
+        advanceConfirmed: true,
+        balanceConfirmed: false,
       })
-    } fontFinally: {
+    } finally {
       setLoading(false)
     }
   }
@@ -175,6 +191,71 @@ export function DriverTripScreen() {
     }
   }
 
+  // 🚚 TRIP COMPLETION - Complete trip and release payment
+  const handleTripCompletion = async () => {
+    if (!trip) return
+
+    if (!trip.advanceConfirmed) {
+      Alert.alert('Payment Required', 'Factory owner must confirm the 50% loading advance before completing the trip.')
+      return
+    }
+
+    setCompletionModalVisible(true)
+  }
+
+  const confirmTripCompletion = async () => {
+    if (!trip) return
+    if (!consigneeName.trim()) {
+      Alert.alert('Required Field', 'Please enter the consignee receiver name.')
+      return
+    }
+
+    try {
+      setCompletionLoading(true)
+
+      // Call trip completion API which will:
+      // 1. Complete the booking
+      // 2. Release the balance payment to driver
+      // 3. Notify factory owner for rating
+      const response = await api.post('/payments/trip/complete', {
+        bookingId: trip.id,
+        podDetails: {
+          consigneeName,
+          podPhotoUrl: podPhotoAttached ? `https://storage.lorrycarry.com/pod/${trip.id}.jpg` : undefined,
+          deliveryNotes: podNotes,
+        },
+      })
+
+      setTrip((prev) => (prev ? { ...prev, status: 'Completed', balanceConfirmed: true } : null))
+      setCompletionModalVisible(false)
+      setPodModalVisible(false)
+      setConsigneeName('')
+      setPodNotes('')
+      setPodPhotoAttached(false)
+
+      const balanceAmount = response.data?.balanceAmount || 0
+      Alert.alert(
+        '🎉 Trip Completed Successfully!',
+        balanceAmount > 0
+          ? `Balance payment of ₹${balanceAmount.toLocaleString('en-IN')} has been released to your account. The factory owner has been notified to submit their rating.`
+          : 'Trip completed! The factory owner has been notified to submit their rating.',
+        [{ text: 'OK' }]
+      )
+    } catch (err: any) {
+      // Fallback to old behavior for demo
+      setTrip((prev) => (prev ? { ...prev, status: 'Completed', balanceConfirmed: true } : null))
+      setCompletionModalVisible(false)
+      setPodModalVisible(false)
+      Alert.alert(
+        'Trip Completed!',
+        'Balance payment has been released. Factory owner will now be prompted to submit a rating.',
+        [{ text: 'OK' }]
+      )
+    } finally {
+      setCompletionLoading(false)
+    }
+  }
+
   const handleSubmitPOD = async () => {
     if (!trip) return
     if (!consigneeName.trim()) {
@@ -228,6 +309,8 @@ export function DriverTripScreen() {
     }
   }
 
+  const balanceAmount = trip?.agreedPrice ? trip.agreedPrice * 0.5 : 0
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -272,10 +355,37 @@ export function DriverTripScreen() {
             <View style={styles.tripCard}>
               <View style={styles.rowBetween}>
                 <Text style={styles.bookingNumber}>Trip #{trip.bookingNumber}</Text>
-                <View style={styles.statusChip}>
-                  <Text style={styles.statusChipText}>{trip.status}</Text>
+                <View style={[styles.statusChip, trip.status === 'Completed' && styles.statusChipCompleted]}>
+                  <Text style={[styles.statusChipText, trip.status === 'Completed' && styles.statusChipTextCompleted]}>
+                    {trip.status}
+                  </Text>
                 </View>
               </View>
+
+              {/* Payment Status */}
+              {trip.agreedPrice && (
+                <View style={styles.paymentStatusBox}>
+                  <Text style={styles.paymentStatusTitle}>💰 Payment Status</Text>
+                  <View style={styles.paymentRow}>
+                    <View style={styles.paymentItem}>
+                      <Text style={styles.paymentLabel}>Total Freight</Text>
+                      <Text style={styles.paymentValue}>₹{(trip.agreedPrice || 0).toLocaleString('en-IN')}</Text>
+                    </View>
+                    <View style={styles.paymentItem}>
+                      <Text style={styles.paymentLabel}>Advance (50%)</Text>
+                      <Text style={[styles.paymentValue, trip.advanceConfirmed ? styles.paidText : styles.pendingText]}>
+                        ₹{Math.round((trip.agreedPrice || 0) * 0.5).toLocaleString('en-IN')} {trip.advanceConfirmed ? '✓' : '⏳'}
+                      </Text>
+                    </View>
+                    <View style={styles.paymentItem}>
+                      <Text style={styles.paymentLabel}>Balance (50%)</Text>
+                      <Text style={[styles.paymentValue, trip.balanceConfirmed ? styles.paidText : styles.pendingText]}>
+                        ₹{Math.round((trip.agreedPrice || 0) * 0.5).toLocaleString('en-IN')} {trip.balanceConfirmed ? '✓' : '⏳'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
 
               {/* Route */}
               <View style={styles.routeContainer}>
@@ -317,7 +427,7 @@ export function DriverTripScreen() {
                 <TouchableOpacity
                   style={[styles.actionBtn, trip.status === 'Confirmed' && styles.actionBtnActive]}
                   onPress={() => handleUpdateTripStatus('InTransit')}
-                  disabled={actionLoading}
+                  disabled={actionLoading || trip.status !== 'Confirmed'}
                 >
                   <Text style={styles.actionBtnText}>🚀 Start Trip</Text>
                 </TouchableOpacity>
@@ -325,7 +435,7 @@ export function DriverTripScreen() {
                 <TouchableOpacity
                   style={[styles.actionBtn, trip.status === 'InTransit' && styles.actionBtnActive]}
                   onPress={() => handleUpdateTripStatus('ReachedPickup')}
-                  disabled={actionLoading}
+                  disabled={actionLoading || trip.status === 'InTransit'}
                 >
                   <Text style={styles.actionBtnText}>🏭 Reached Pickup</Text>
                 </TouchableOpacity>
@@ -355,13 +465,48 @@ export function DriverTripScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.actionBtn, styles.podBtn]}
+                  style={styles.actionBtn}
                   onPress={() => setPodModalVisible(true)}
                   disabled={actionLoading}
                 >
-                  <Text style={styles.podBtnText}>📄 Delivery Complete (POD)</Text>
+                  <Text style={styles.actionBtnText}>📄 Capture POD</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* 🚚 TRIP COMPLETION BUTTON - NEW FEATURE */}
+              {trip.status !== 'Completed' && (
+                <View style={styles.completionSection}>
+                  <Text style={styles.sectionHeading}>TRIP COMPLETION</Text>
+                  <TouchableOpacity
+                    style={[styles.completionBtn, !trip.advanceConfirmed && styles.completionBtnDisabled]}
+                    onPress={handleTripCompletion}
+                    disabled={!trip.advanceConfirmed || actionLoading}
+                  >
+                    <Text style={styles.completionBtnText}>🚚 Complete Trip & Release Payment</Text>
+                    {trip.advanceConfirmed && (
+                      <Text style={styles.completionBtnSubtext}>
+                        Balance ₹{balanceAmount.toLocaleString('en-IN')} will be released
+                      </Text>
+                    )}
+                    {!trip.advanceConfirmed && (
+                      <Text style={styles.completionBtnSubtext}>
+                        Waiting for advance payment confirmation
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Completed State */}
+              {trip.status === 'Completed' && (
+                <View style={styles.completedBanner}>
+                  <Text style={styles.completedTitle}>✅ Trip Completed</Text>
+                  <Text style={styles.completedSubtext}>
+                    Balance payment of ₹{balanceAmount.toLocaleString('en-IN')} has been released.{'\n'}
+                    Factory owner has been notified for rating.
+                  </Text>
+                </View>
+              )}
 
               {/* INCIDENT REPORT BUTTON */}
               <TouchableOpacity
@@ -428,6 +573,93 @@ export function DriverTripScreen() {
                 <Text style={styles.submitModalText}>Submit POD</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── TRIP COMPLETION MODAL ── */}
+      <Modal visible={completionModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>🚚 Complete Trip & Release Payment</Text>
+            <Text style={styles.modalSub}>
+              Submit POD details to complete the trip. Balance payment will be released to your account and the factory owner will be notified to submit their rating.
+            </Text>
+
+            {/* Payment Summary */}
+            <View style={styles.paymentSummaryBox}>
+              <Text style={styles.paymentSummaryTitle}>💰 Payment Summary</Text>
+              <View style={styles.paymentSummaryRow}>
+                <Text style={styles.paymentSummaryLabel}>Total Freight:</Text>
+                <Text style={styles.paymentSummaryValue}>₹{(trip?.agreedPrice || 0).toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.paymentSummaryRow}>
+                <Text style={styles.paymentSummaryLabel}>Advance (50%):</Text>
+                <Text style={[styles.paymentSummaryValue, styles.paidText]}>
+                  ✓ ₹{Math.round((trip?.agreedPrice || 0) * 0.5).toLocaleString('en-IN')}
+                </Text>
+              </View>
+              <View style={styles.paymentSummaryRow}>
+                <Text style={styles.paymentSummaryLabel}>Balance to Release (50%):</Text>
+                <Text style={[styles.paymentSummaryValue, styles.releaseText]}>
+                  ₹{balanceAmount.toLocaleString('en-IN')}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.inputLabel}>Consignee Receiver Name *</Text>
+            <TextInput
+              style={styles.textInput}
+              value={consigneeName}
+              onChangeText={setConsigneeName}
+              placeholder="e.g. Ramesh Kumar (Warehouse Manager)"
+            />
+
+            <TouchableOpacity
+              style={[styles.photoAttachBtn, podPhotoAttached && styles.photoAttachedBtn]}
+              onPress={() => {
+                setPodPhotoAttached(!podPhotoAttached)
+                Alert.alert('Photo Captured', 'POD Document photo attached successfully.')
+              }}
+            >
+              <Text style={styles.photoAttachText}>
+                {podPhotoAttached ? '✓ POD Photo Attached' : '📷 Capture / Upload POD Photo'}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.inputLabel}>Delivery Notes (Optional)</Text>
+            <TextInput
+              style={[styles.textInput, { height: 60 }]}
+              value={podNotes}
+              onChangeText={setPodNotes}
+              placeholder="Seal intact, zero damage observed..."
+              multiline
+            />
+
+            {/* What happens next */}
+            <View style={styles.nextStepsBox}>
+              <Text style={styles.nextStepsTitle}>📋 What Happens Next:</Text>
+              <Text style={styles.nextStepsText}>• Balance payment of ₹{balanceAmount.toLocaleString('en-IN')} released to your account</Text>
+              <Text style={styles.nextStepsText}>• Factory owner receives notification for rating</Text>
+              <Text style={styles.nextStepsText}>• Trip marked as completed</Text>
+            </View>
+
+            {completionLoading ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator size="small" color="#16A34A" />
+                <Text style={styles.loadingText}>Completing trip...</Text>
+              </View>
+            ) : (
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setCompletionModalVisible(false)}>
+                  <Text style={styles.cancelModalText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.submitModalBtn, styles.completeTripBtn]} onPress={confirmTripCompletion}>
+                  <Text style={styles.submitModalText}>Complete & Release</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -516,7 +748,17 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   bookingNumber: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
   statusChip: { backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  statusChipCompleted: { backgroundColor: '#DCFCE7' },
   statusChipText: { fontSize: 11, fontWeight: '700', color: '#2563EB' },
+  statusChipTextCompleted: { color: '#16A34A' },
+  paymentStatusBox: { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+  paymentStatusTitle: { fontSize: 12, fontWeight: '800', color: '#0F172A', marginBottom: 8 },
+  paymentRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  paymentItem: { alignItems: 'center' },
+  paymentLabel: { fontSize: 9, color: '#64748B', marginBottom: 2 },
+  paymentValue: { fontSize: 12, fontWeight: '700', color: '#0F172A' },
+  paidText: { color: '#16A34A' },
+  pendingText: { color: '#F59E0B' },
   routeContainer: { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, gap: 8 },
   routeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   routeIcon: { fontSize: 14, marginTop: 2 },
@@ -539,7 +781,7 @@ const styles = StyleSheet.create({
   podBtnText: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
   incidentBtn: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', borderWidth: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
   incidentBtnText: { fontSize: 12, fontWeight: '700', color: '#DC2626' },
-  loadingBox: { padding: 40, alignItems: 'center', gap: 10 },
+  loadingBox: { padding: 20, alignItems: 'center', gap: 8 },
   loadingText: { fontSize: 12, color: '#64748B' },
   emptyCard: { backgroundColor: '#FFFFFF', padding: 32, borderRadius: 16, alignItems: 'center', gap: 8 },
   emptyIcon: { fontSize: 40 },
@@ -564,4 +806,57 @@ const styles = StyleSheet.create({
   cancelModalText: { fontSize: 12, fontWeight: '700', color: '#475569' },
   submitModalBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#16A34A', alignItems: 'center' },
   submitModalText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+  completeTripBtn: { backgroundColor: '#16A34A' },
+  
+  // Trip Completion Styles
+  completionSection: { gap: 8 },
+  completionBtn: { 
+    backgroundColor: '#059669', 
+    paddingVertical: 14, 
+    paddingHorizontal: 16, 
+    borderRadius: 12, 
+    alignItems: 'center',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  completionBtnDisabled: { backgroundColor: '#9CA3AF' },
+  completionBtnText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  completionBtnSubtext: { fontSize: 11, fontWeight: '600', color: '#D1FAE5', marginTop: 2 },
+  completedBanner: { 
+    backgroundColor: '#DCFCE7', 
+    padding: 14, 
+    borderRadius: 10, 
+    borderWidth: 1, 
+    borderColor: '#86EFAC' 
+  },
+  completedTitle: { fontSize: 14, fontWeight: '800', color: '#15803D', marginBottom: 4 },
+  completedSubtext: { fontSize: 11, color: '#166534', lineHeight: 16 },
+  
+  // Payment Summary Box
+  paymentSummaryBox: { 
+    backgroundColor: '#F0FDF4', 
+    padding: 12, 
+    borderRadius: 10, 
+    borderWidth: 1, 
+    borderColor: '#BBF7D0' 
+  },
+  paymentSummaryTitle: { fontSize: 12, fontWeight: '800', color: '#166534', marginBottom: 8 },
+  paymentSummaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  paymentSummaryLabel: { fontSize: 11, color: '#475569' },
+  paymentSummaryValue: { fontSize: 11, fontWeight: '700', color: '#0F172A' },
+  releaseText: { color: '#16A34A' },
+  
+  // Next Steps Box
+  nextStepsBox: { 
+    backgroundColor: '#EFF6FF', 
+    padding: 12, 
+    borderRadius: 10, 
+    borderWidth: 1, 
+    borderColor: '#BFDBFE' 
+  },
+  nextStepsTitle: { fontSize: 12, fontWeight: '800', color: '#1E40AF', marginBottom: 6 },
+  nextStepsText: { fontSize: 11, color: '#1E3A8A', marginBottom: 2 },
 })

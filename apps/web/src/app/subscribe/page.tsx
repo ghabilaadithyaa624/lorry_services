@@ -8,6 +8,7 @@ import {
   LockClosedIcon,
 } from '@heroicons/react/24/outline'
 import { Navbar, Footer } from '@/components/layout'
+import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
 import { Button, Badge, GlassPanel, Spinner } from '@/components/ui'
 import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
 import { toast } from '@/lib/toast'
@@ -77,17 +78,21 @@ function SubscribeContent() {
   const [selectedPlan, setSelectedPlan] = useState('quarterly')
   const [loading, setLoading] = useState(false)
   const [hasSubscription, setHasSubscription] = useState<boolean | null>(null)
-  const [entitlement, setEntitlement] = useState<SubscriptionEntitlement | null>(null)
+  const [subscriptionStatus, setSubscriptionStatus] = useState<TrialStatus | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    getEntitlement()
-      .then((ent) => {
-        setEntitlement(ent)
-        setHasSubscription(ent.hasSubscription)
+    api
+      .get<TrialStatus>('/subscriptions/status')
+      .then((res) => {
+        setSubscriptionStatus(res.data)
+        setHasSubscription(res.data.hasSubscription)
       })
       .catch(() => setHasSubscription(false))
   }, [])
+
+  const isTrial = subscriptionStatus?.isTrial === true
+  const hasPaidSubscription = hasSubscription === true && !isTrial
 
   const handleSubscribe = async () => {
     setLoading(true)
@@ -144,8 +149,9 @@ function SubscribeContent() {
           </GlassPanel>
         )}
 
-        {/* Already Subscribed Banner */}
-        {hasSubscription === true && (
+        {/* The trial stays actionable; a paid pass simply confirms access. */}
+        {isTrial && <TrialAccessBanner status={subscriptionStatus} />}
+        {hasPaidSubscription && (
           <GlassPanel padding="lg" className="border-emerald-500/30 bg-emerald-950/40 font-sans">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -290,17 +296,17 @@ function SubscribeContent() {
             variant="primary"
             size="lg"
             loading={loading}
-            disabled={hasSubscription === true}
+            disabled={hasPaidSubscription}
             onClick={handleSubscribe}
             className="px-10 py-4 text-base font-bold mx-auto shadow-glow-primary font-mono"
           >
             {loading
               ? 'Initializing payment gateway...'
-              : hasSubscription === true
-                ? 'PASS ACTIVE'
-                : entitlement?.isTrialActive
-                  ? `⚡ UPGRADE NOW — ${formatINR(activePlan.price)}`
-                  : `💳 COMPLETE PAYMENT — ${formatINR(activePlan.price)}`}
+              : hasPaidSubscription
+                ? 'YOUR PASS IS ACTIVE'
+                : isTrial
+                  ? `UPGRADE TO ${activePlan.label.toUpperCase()} — ${formatINR(activePlan.price)}`
+                  : `COMPLETE PAYMENT — ${formatINR(activePlan.price)}`}
           </Button>
 
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-xs font-mono text-surface-400">

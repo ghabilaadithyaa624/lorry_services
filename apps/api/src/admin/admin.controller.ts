@@ -32,6 +32,14 @@ export class AdminController {
     return this.adminService.getDashboardStats(userId)
   }
 
+  @Get('analytics')
+  @ApiOperation({ summary: 'Dashboard analytics — trips, earnings, bookings & route efficiency heatmap' })
+  @ApiQuery({ name: 'range', required: false, description: 'Range in days: 30 (default), 90, 180 or 365' })
+  async getAnalytics(@CurrentUser('id') userId: string, @Query('range') range?: string) {
+    const parsed = Number(range)
+    return this.adminService.getAnalytics(userId, [30, 90, 180, 365].includes(parsed) ? parsed : 30)
+  }
+
   // ── Users ──────────────────────────────────────────────────────────────────
 
   @Get('users')

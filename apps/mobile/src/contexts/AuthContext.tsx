@@ -7,7 +7,7 @@ interface User {
   id: string
   phone: string
   name: string | null
-  role: 'load_owner' | 'truck_owner' | 'admin'
+  role: 'load_owner' | 'truck_owner' | 'driver' | 'admin'
 }
 
 interface AuthContextType {

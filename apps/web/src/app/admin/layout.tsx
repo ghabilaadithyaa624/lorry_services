@@ -10,6 +10,7 @@ import {
   CreditCardIcon,
   UsersIcon,
   CalendarDaysIcon,
+  ChartBarIcon,
   ShieldExclamationIcon,
   GlobeAsiaAustraliaIcon,
   ArrowRightOnRectangleIcon,
@@ -22,6 +23,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { authApi, adminApi, usersApi } from '@/lib/api'
 import { Badge, Spinner } from '@/components/ui'
+import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { cn, formatPhone } from '@/lib/utils'
 
 interface UserState {
@@ -36,6 +38,7 @@ const NAV_GROUPS = [
     title: 'OPERATIONS',
     items: [
       { name: 'Command Tower', href: '/admin/dashboard', icon: HomeIcon },
+      { name: 'Dashboard Analytics', href: '/admin/analytics', icon: ChartBarIcon },
       { name: 'KYC Queue', href: '/admin/kyc', icon: DocumentCheckIcon },
       { name: 'Listings & Fleet', href: '/admin/listings', icon: ClipboardDocumentListIcon },
       { name: 'Freight Bookings', href: '/admin/bookings', icon: CalendarDaysIcon },
@@ -362,6 +365,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="flex items-center gap-4 font-mono text-xs">
+            {/* Top-bar language selector — தமிழ் | हिन्दी | English */}
+            <LanguageToggle compact className="font-sans" />
+
             {/* Live IST Telematics Clock */}
             <LiveClock />
 

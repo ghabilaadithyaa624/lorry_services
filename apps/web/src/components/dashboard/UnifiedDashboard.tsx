@@ -21,8 +21,10 @@ import {
 import { api, usersApi, authApi, subscriptionsApi } from '@/lib/api'
 import { Footer } from '@/components/layout'
 import { AnalyticsSnapshot } from '@/components/dashboard/AnalyticsSnapshot'
+import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
+import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
-import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
+import { MatchesPanel } from '@/components/matching/MatchesPanel'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo } from '@/lib/utils'
 import type { SubscriptionEntitlement } from '@/lib/subscription'
@@ -31,7 +33,7 @@ interface UserState {
   id?: string
   phone?: string
   name?: string
-  role?: 'load_owner' | 'truck_owner' | 'admin'
+  role?: 'load_owner' | 'truck_owner' | 'driver' | 'admin'
 }
 
 interface LoadItem {
@@ -107,7 +109,7 @@ interface ActivityItem {
 }
 
 interface UnifiedDashboardProps {
-  roleOverride?: 'load_owner' | 'truck_owner'
+  roleOverride?: 'load_owner' | 'truck_owner' | 'driver'
 }
 
 export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
@@ -117,7 +119,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const [user, setUser] = useState<UserState | null>(null)
   const [loading, setLoading] = useState(true)
   const [hasSubscription, setHasSubscription] = useState(false)
-  const [entitlement, setEntitlement] = useState<SubscriptionEntitlement | null>(null)
+  const [subscriptionStatus, setSubscriptionStatus] = useState<TrialStatus | null>(null)
   const [kycComplete, setKycComplete] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -139,29 +141,34 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         setUser(parsed)
       }
     } catch {
-      // Ignore
+      // Ignore malformed local session data.
     }
-
-    loadDashboard()
-  }, [roleOverride])
+  }, [])
 
   const effectiveRole = roleOverride || user?.role || 'load_owner'
-  const isTruckOwner = effectiveRole === 'truck_owner'
+  const isTruckOwner = isVehicleSideRole(effectiveRole)
+  const isDriver = effectiveRole === 'driver'
+  const isTrial = subscriptionStatus?.isTrial === true
+
+  useEffect(() => {
+    loadDashboard()
+    // Reload when the persisted role arrives, avoiding a factory dashboard
+    // flash for driver/transporter accounts.
+  }, [roleOverride, user?.role])
 
   const loadDashboard = async () => {
     try {
       setLoading(true)
 
       const [subRes, docRes, activityRes] = await Promise.allSettled([
-        subscriptionsApi.getStatus(),
+        api.get<TrialStatus>('/subscriptions/status'),
         usersApi.getDocuments(),
         usersApi.getActivity(),
       ])
 
       if (subRes.status === 'fulfilled') {
-        const ent = subRes.value.data as SubscriptionEntitlement
-        setEntitlement(ent)
-        setHasSubscription(Boolean(ent.hasSubscription))
+        setSubscriptionStatus(subRes.value.data)
+        setHasSubscription(Boolean(subRes.value.data?.hasSubscription))
       }
 
       // Check KYC status
@@ -370,7 +377,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                   </div>
                   <span className="max-w-[120px] truncate">{user?.name || user?.phone || 'My Account'}</span>
                   <span className="px-2 py-0.5 rounded-md bg-surface-950 text-surface-400 text-[10px] font-mono border border-white/5">
-                    {isTruckOwner ? 'Fleet Owner' : 'Shipper'}
+                    {getRoleLabel(effectiveRole)}
                   </span>
                 </Link>
 
@@ -440,6 +447,8 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
       {/* ── Main Dashboard Workspace ── */}
       <main className="flex-1 py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
+        <TrialAccessBanner status={subscriptionStatus} />
+
         {/* ── 2. KYC Verification Status Banner (Only when incomplete) ── */}
         {!kycComplete && (
           <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-modal">
@@ -479,12 +488,12 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <span>Live Freight Network Online</span>
               </span>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary-500/10 text-primary-400 border border-primary-500/20 text-xs font-semibold font-mono">
-                {isTruckOwner ? 'Fleet Owner' : 'Manufacturer / Trader'}
+                {isDriver ? 'Driver workspace' : isTruckOwner ? 'Transporter workspace' : 'Factory owner workspace'}
               </span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Good morning, {user?.name || (isTruckOwner ? 'Fleet Transporter' : 'Cargo Shipper')}
+              Good morning, {user?.name || (isDriver ? 'Driver' : isTruckOwner ? 'Transporter' : 'Factory owner')}
             </h1>
             <p className="text-xs sm:text-sm text-surface-400">
               Direct marketplace operating command • Zero middleman brokerage
@@ -500,7 +509,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
                 >
                   <PlusCircle className="w-4 h-4" />
-                  <span>Register Truck</span>
+                  <span>{isDriver ? 'Register Vehicle' : 'Register Truck'}</span>
                 </Link>
                 <Link
                   href="/search?type=load"
@@ -573,7 +582,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                           : 'bg-primary-500/10 text-primary-400 border-primary-500/20'
                     )}
                   >
-                    {hasSubscription ? 'Pass Active' : entitlement?.isTrialActive ? 'Free Trial' : 'Upgrade Available'}
+                    {isTrial ? 'Trial active' : hasSubscription ? 'Pass Active' : 'Upgrade Available'}
                   </span>
                 </div>
 
@@ -591,7 +600,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
               href="/subscribe"
               className={cn(
                 'inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 shadow-card focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer',
-                hasSubscription
+                hasSubscription && !isTrial
                   ? 'bg-surface-900 hover:bg-surface-800 border border-white/10 text-white'
                   : 'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-glow-primary border border-primary-400/30'
               )}
@@ -699,6 +708,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             </>
           )}
         </div>
+
+        {/* ── 4b. Smart Matching Engine — Need Load ↔ Need Vehicle (tonnage/route/budget, ≤50km, WhatsApp trigger) ── */}
+        <MatchesPanel role={isTruckOwner ? 'truck_owner' : 'load_owner'} />
 
         {/* ── 5. My Trips Widget (Active & Completed Tabs) ── */}
         <div className="bg-panel rounded-2xl border border-white/10 shadow-modal p-5 sm:p-7 space-y-6">

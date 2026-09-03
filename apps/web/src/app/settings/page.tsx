@@ -20,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { DashboardLayout } from '@/components/layout'
 import { usersApi, authApi, type UserPreferences } from '@/lib/api'
+import { useI18n } from '@/lib/i18n'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import type { ThemePreference } from '@/lib/theme'
 import {
@@ -60,10 +61,12 @@ const SECTIONS: Array<{
   { id: 'danger', label: 'Danger zone', icon: ExclamationTriangleIcon, description: 'Irreversible actions' },
 ]
 
+// தமிழ், हिन्दी, English lead the list — these are the three languages with
+// full interface translation (top-bar selector + JSON locale coverage).
 const LANGUAGES = [
-  { value: 'en', label: 'English' },
-  { value: 'hi', label: 'हिन्दी (Hindi)' },
   { value: 'ta', label: 'தமிழ் (Tamil)' },
+  { value: 'hi', label: 'हिन्दी (Hindi)' },
+  { value: 'en', label: 'English' },
   { value: 'te', label: 'తెలుగు (Telugu)' },
   { value: 'kn', label: 'ಕನ್ನಡ (Kannada)' },
   { value: 'mr', label: 'मराठी (Marathi)' },
@@ -83,6 +86,7 @@ const BODY_TYPES = ['Open', 'Container', 'Trailer', 'Tipper', 'Tanker', 'Refrige
 export default function SettingsPage() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
+  const { t } = useI18n()
 
   const [section, setSection] = useState<SectionId>('account')
   const [profile, setProfile] = useState<any>(null)
@@ -291,11 +295,13 @@ export default function SettingsPage() {
                   <div>
                     <span className="block text-sm font-medium text-body mb-1.5">Role</span>
                     <Badge variant="neutral">
-                      {profile?.role === 'truck_owner'
-                        ? 'Truck owner'
-                        : profile?.role === 'admin'
-                          ? 'Administrator'
-                          : 'Load owner'}
+                      {profile?.role === 'driver'
+                        ? 'Driver'
+                        : profile?.role === 'truck_owner'
+                          ? 'Transporter'
+                          : profile?.role === 'admin'
+                            ? 'Administrator'
+                            : 'Factory owner'}
                     </Badge>
                   </div>
 
@@ -357,11 +363,10 @@ export default function SettingsPage() {
 
                 <Card>
                   <Card.Title as="h2" className="mb-1">
-                    Language & units
+                    {t('settings.language.title')}
                   </Card.Title>
                   <p className="text-sm text-muted mb-4">
-                    Language selection is stored on your account. Interface translation is being
-                    rolled out progressively.
+                    {t('settings.language.description')}
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">

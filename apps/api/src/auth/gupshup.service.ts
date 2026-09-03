@@ -75,11 +75,13 @@ export class GupshupService {
     phone: string, 
     templateName: string, 
     params: string[]
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; providerMsgId?: string }> {
     const appId = this.config.get<string>('GUPSHUP_APP_ID')
     const appToken = this.config.get<string>('GUPSHUP_APP_TOKEN')
+    const sender = this.config.get<string>('GUPSHUP_SENDER', '919876543210')
 
     if (!appId || !appToken) {
+      this.logger.warn('Gupshup notification skipped: credentials not configured')
       return { success: false, message: 'Gupshup not configured' }
     }
 
@@ -90,6 +92,7 @@ export class GupshupService {
         `${this.baseUrl}/template/msg`,
         {
           app: appId,
+          sender,
           phone: to,
           template: {
             name: templateName,
@@ -99,14 +102,21 @@ export class GupshupService {
         { headers: { 'apikey': appToken } }
       )
 
+      const providerMsgId =
+        response.data?.messageId ||
+        response.data?.messageID ||
+        response.data?.id ||
+        (typeof response.data === 'string' ? response.data : undefined)
+
       return {
         success: response.data.status === 'success',
-        message: 'Notification sent'
+        message: response.data.message || 'Notification sent',
+        providerMsgId: providerMsgId ? String(providerMsgId) : undefined,
       }
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        this.logger.error(`Gupshup notification failed: ${error.message}`)
-        return { success: false, message: 'Failed to send notification' }
+        this.logger.error(`Gupshup notification failed: ${error.message}`, error.response?.data)
+        return { success: false, message: error.response?.data?.message || 'Failed to send notification' }
       }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       this.logger.error(`Gupshup notification failed: ${errorMessage}`)

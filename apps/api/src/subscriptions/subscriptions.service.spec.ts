@@ -11,7 +11,7 @@ jest.mock('@lorrycarry/database', () => ({
   prisma: {
     user: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     payment: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
-    subscription: { create: jest.fn(), findFirst: jest.fn() },
+    subscription: { create: jest.fn(), findFirst: jest.fn(), updateMany: jest.fn() },
     $transaction: jest.fn((callback) => callback(prisma)),
   },
 }))
@@ -174,6 +174,26 @@ describe('SubscriptionsService (Entitlement + Trial)', () => {
           data: { trialConvertedAt: expect.any(Date) },
         }),
       )
+    })
+
+    it('should return the free-trial countdown for a new operator', async () => {
+      const now = new Date()
+      const expiresAt = new Date(now.getTime() + 89 * 24 * 60 * 60 * 1000)
+      // First query has no paid pass; the second finds the onboarding trial.
+      ;(prisma.subscription.findFirst as jest.Mock)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          plan: 'free_trial',
+          startedAt: now,
+          expiresAt,
+        })
+
+      const res = await service.getStatus('user-1')
+      expect(res.hasSubscription).toBe(true)
+      expect(res.isTrial).toBe(true)
+      expect(res.trialDaysTotal).toBe(90)
+      expect(res.trialDaysLeft).toBeGreaterThan(0)
+      expect(res.canUpgrade).toBe(true)
     })
   })
 

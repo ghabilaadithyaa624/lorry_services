@@ -63,7 +63,7 @@ export const authApi = {
   requestOtp: (phone: string, channel: 'whatsapp' | 'sms' = 'whatsapp') =>
     api.post('/auth/otp/request', { phone, channel }),
 
-  verifyOtp: (phone: string, otp: string, role?: 'load_owner' | 'truck_owner') =>
+  verifyOtp: (phone: string, otp: string, role?: 'load_owner' | 'truck_owner' | 'driver') =>
     api.post('/auth/otp/verify', { phone, otp, role }),
 
   refreshToken: (refreshToken: string) =>
@@ -73,6 +73,27 @@ export const authApi = {
     const refreshToken = storage.getString('refreshToken')
     return api.post('/auth/logout', { refreshToken })
   },
+}
+
+export interface NotificationItem {
+  id: string
+  category: 'BOOKING' | 'LOAD' | 'TRUCK' | 'PAYMENT' | 'KYC' | 'TRACKING' | 'SYSTEM'
+  title: string
+  message: string
+  timestamp: string
+  read: boolean
+  actionUrl?: string
+  channel?: string
+  providerStatus?: string
+}
+
+/** WhatsApp + in-app notification centre API. */
+export const notificationsApi = {
+  getNotifications: () => api.get<{ notifications: NotificationItem[]; unreadCount: number }>('/notifications'),
+  getUnreadCount: () => api.get<{ unreadCount: number }>('/notifications/unread-count'),
+  markRead: (notificationKey: string) =>
+    api.post('/notifications/read', { notificationKey }),
+  markAllRead: () => api.post('/notifications/read-all'),
 }
 
 export const setTokens = (accessToken: string, refreshToken: string) => {

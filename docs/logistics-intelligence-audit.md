@@ -57,6 +57,7 @@ Based on our inspection of `packages/database/prisma/schema.prisma`:
 | `/bookings/:id/confirm-advance` | `PATCH` | Load Owner | Confirms 50% loading advance release. |
 | `/bookings/:id/confirm-balance` | `PATCH` | Load Owner | Confirms 50% delivery balance release on POD receipt. |
 | `/admin/stats` | `GET` | Admin | Real database aggregates for total users, loads, trucks, bookings, revenue, and pending KYC. |
+| `/admin/analytics` | `GET` | Admin | Trip completion trend, earnings breakdown, active booking pipeline and route efficiency heatmap (`range` = 30/90/180/365 days). |
 | `/admin/documents/pending` | `GET` | Admin | Fetches list of unverified vehicle documents. |
 | `/admin/documents/:id/verify` | `PATCH` | Admin | Approves or rejects RC/Insurance documents. |
 

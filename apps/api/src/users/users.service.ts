@@ -42,6 +42,12 @@ export interface UserNotificationItem {
   timestamp: Date;
   read: boolean;
   actionUrl?: string;
+  /** Delivery channel recorded for the event (whatsapp | sms | push). */
+  channel?: string;
+  /** Outbound provider delivery state (sent | failed | skipped). */
+  providerStatus?: string;
+  /** When the outbound WhatsApp message was sent. */
+  deliveredAt?: Date;
 }
 
 @Injectable()
@@ -98,7 +104,7 @@ export class UsersService {
       missingSteps.push("Add your full name or company trading name");
     }
 
-    if (user.role === UserRole.truck_owner) {
+    if ((user.role === UserRole.truck_owner || user.role === UserRole.driver)) {
       if (user.trucks.length > 0) {
         completionScore += 20;
         const hasVerifiedDocs = user.trucks.some((t) =>
@@ -145,7 +151,7 @@ export class UsersService {
       | "Pending"
       | "Verified"
       | "Partially Verified" = "Not Registered";
-    if (user.role === UserRole.truck_owner) {
+    if ((user.role === UserRole.truck_owner || user.role === UserRole.driver)) {
       if (user.trucks.length === 0) {
         fleetVerificationStatus = "Not Registered";
       } else {
@@ -176,7 +182,7 @@ export class UsersService {
       verification: {
         phoneVerified: true, // Logged in via OTP
         fleetStatus:
-          user.role === UserRole.truck_owner
+          (user.role === UserRole.truck_owner || user.role === UserRole.driver)
             ? fleetVerificationStatus
             : undefined,
         isVerifiedTransporter: fleetVerificationStatus === "Verified",
@@ -195,7 +201,7 @@ export class UsersService {
         totalLoads: user._count.loads,
         totalTrucks: user._count.trucks,
         totalBookings:
-          user.role === UserRole.truck_owner
+          (user.role === UserRole.truck_owner || user.role === UserRole.driver)
             ? user._count.truckOwnerBookings
             : user._count.loadOwnerBookings,
         totalPayments: user._count.payments,
@@ -337,13 +343,13 @@ export class UsersService {
       id: `acc-create-${user.id}`,
       category: "ACCOUNT",
       title: "Account Registered",
-      description: `Registered with mobile ${user.phone} as ${user.role === "truck_owner" ? "Lorry Owner" : "Load Owner"}.`,
+      description: `Registered with mobile ${user.phone} as ${user.role === "driver" ? "Driver" : user.role === "truck_owner" ? "Transporter" : "Factory Owner"}.`,
       timestamp: user.createdAt,
       status: "Completed",
     });
 
     // Execute all independent queries concurrently
-    const isTruckOwner = user.role === UserRole.truck_owner;
+    const isTruckOwner = (user.role === UserRole.truck_owner || user.role === UserRole.driver);
     const [loads, trucks, bookings, payments] = await Promise.all([
       // 2. Loads (Only for load_owner or admin)
       user.role === UserRole.load_owner || user.role === UserRole.admin
@@ -355,7 +361,7 @@ export class UsersService {
         : Promise.resolve([]),
 
       // 3. Trucks & Documents (Only for truck_owner or admin)
-      user.role === UserRole.truck_owner || user.role === UserRole.admin
+      (user.role === UserRole.truck_owner || user.role === UserRole.driver) || user.role === UserRole.admin
         ? prisma.truck.findMany({
             where: { userId },
             include: { documents: true },
@@ -516,6 +522,10 @@ export class UsersService {
       take: 30,
     });
 
+    const validCategories = new Set<
+      UserNotificationItem["category"]
+    >(["BOOKING", "LOAD", "TRUCK", "PAYMENT", "KYC", "TRACKING", "SYSTEM"]);
+
     dbNotifications.forEach((n) => {
       let category: UserNotificationItem["category"] = "SYSTEM";
       if (n.template?.includes("checkpoint")) category = "TRACKING";
@@ -525,20 +535,39 @@ export class UsersService {
         category = "KYC";
       else if (n.template?.includes("booking")) category = "BOOKING";
 
+      // NotificationsService stores the friendly title/category/actionUrl in
+      // variables; fall back to template-based labels for legacy rows.
+      const meta = (n.variables ?? {}) as Record<string, unknown>;
+      if (typeof meta.category === "string" && validCategories.has(meta.category as UserNotificationItem["category"])) {
+        category = meta.category as UserNotificationItem["category"];
+      }
+
       items.push({
         id: n.id,
         category,
         title:
-          n.template?.replace(/_/g, " ").toUpperCase() || "System Notification",
+          typeof meta.title === "string" && meta.title.length > 0
+            ? meta.title
+            : n.template?.replace(/_/g, " ").toUpperCase() || "System Notification",
         message: n.content || "You have an account update.",
         timestamp: n.createdAt,
-        read: n.status === "Delivered" || n.status === "Sent",
+        // Read state is managed by NotificationReceipt below; delivery status
+        // only tells us whether WhatsApp reached the provider, not whether the
+        // user read the alert.
+        read: false,
+        actionUrl: typeof meta.actionUrl === "string" ? meta.actionUrl : undefined,
+        channel: n.channel,
+        providerStatus:
+          typeof meta.whatsappStatus === "string"
+            ? (meta.whatsappStatus as string)
+            : n.status,
+        deliveredAt: n.deliveredAt,
       });
     });
 
     // 2. Derive real operational notifications from active domain entities
     // Check pending KYC
-    if (user.role === UserRole.truck_owner) {
+    if ((user.role === UserRole.truck_owner || user.role === UserRole.driver)) {
       user.trucks.forEach((truck) => {
         if (truck.verificationStatus === "Pending") {
           items.push({
@@ -558,14 +587,14 @@ export class UsersService {
             message: `Truck ${truck.registrationNumber} is verified and visible in marketplace searches.`,
             timestamp: truck.verifiedAt || truck.updatedAt,
             read: true,
-            actionUrl: "/dashboard/truck-owner",
+            actionUrl: user.role === UserRole.driver ? "/dashboard/driver" : "/dashboard/truck-owner",
           });
         }
       });
     }
 
     // Check active bookings
-    const isTruckOwner = user.role === UserRole.truck_owner;
+    const isTruckOwner = (user.role === UserRole.truck_owner || user.role === UserRole.driver);
     const activeBookings = await prisma.booking.findMany({
       where: {
         ...(isTruckOwner ? { truckOwnerId: userId } : { loadOwnerId: userId }),

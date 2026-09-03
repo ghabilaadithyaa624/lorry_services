@@ -9,20 +9,23 @@ LorryCarry is a high-performance monorepo platform connecting load owners and tr
 - **Direct Load & Truck Matching**: Load owners post freight requirements and discover verified truck operators within customizable search radii using PostGIS spatial indexing.
 - **Zero Broker Commissions**: Transparent direct bookings with standard commercial terms (50% advance at loading, 50% balance upon delivery confirmation).
 - **5-Stage Trip Tracking**: Geofence checkpoint tracking with automated WhatsApp notifications at every leg of the journey.
+- **Verification & Compliance (Vahan + FASTag + E-Way Bill)**:
+  - **Vahan RC Validation**: Every registered truck is validated against the Vahan (mParivahan) database via a provider-agnostic API adapter — format-checked registration numbers, PII-masked owner/chassis data, response caching, and a clearly-labelled sandbox mode for local development.
+  - **Verified Transporter Badges**: Search results and marketplace cards render a "Vahan Verified" badge backed by the live validation timestamp, plus a "FASTag Ready" chip when the tag is active.
+  - **Compliance Checklist**: Truck- and trip-level checklists (`/compliance/trucks/:id`, `/compliance/bookings/:id`) covering RC status, insurance validity, fitness certificate, national permit, PUC, FASTag readiness and E-Way Bill lifecycle (12-digit format validation, expiry tracking).
+  - **Admin KYC Cross-Check**: The verification queue surfaces the Vahan snapshot (registration status, insurance/fitness validity) next to each pending document.
 - **Production Admin Dashboard**:
   - **Overview & KPI Analytics**: Real-time stats on users, trucks, loads, bookings, conversion rates, and revenue.
-  - **KYC Verification Queue**: RC / Insurance review with instant Verify/Reject actions, rejection notes, and explicit Vahan / Parivahan lookup state. Provider results never silently replace manual approval.
+  - **Dashboard Analytics**: Trip completion, earnings summary, active booking pipeline and a route efficiency heatmap (corridor × month) with CSV/PDF report export.
+  - **KYC Verification Queue**: Document verification pipeline (RC, Insurance) with instant Verify/Reject actions, modal confirmations, and rejection notes.
   - **Fleet & Listings Management**: Overview of active trucks and freight listings with direct truck verification controls.
   - **Booking Dispute Resolution**: Counterparty claims for payment, delay, documents, and cargo damage with investigation, decision notes, priority sorting, and recorded decision notes.
   - **Performance Analytics**: Time-scoped trip count, completed deliveries, settled revenue, freight value, transit duration, and checkpoint-based route efficiency by corridor.
   - **Subscription Management**: Track active, expired, and cancelled plan subscriptions with expiration alerts.
   - **User Directory**: Search and filter load owners, truck owners, and administrators with detailed operational metrics.
   - **Booking Lifecycle**: Monitor all bookings from pending quotation to in-transit and delivery completion.
-- **Subscription & Trial Flow**:
-  - **3-Month Free Trial**: Every account receives a one-time 90-day full access trial (granted at registration + lazily for existing users) with a live countdown timer on the dashboard.
-  - **Upgrade CTA After Expiry**: The dashboard replaces the countdown with a prominent upgrade call-to-action the moment the trial ends; the contact-reveal paywall also re-engages.
-  - **Multi-Provider Subscriptions**: `cashfree` (default), `razorpay`, or `stripe` — switch via `PAYMENT_PROVIDER` or per-checkout; webhooks + server-side verification activate passes idempotently (`₹999/month`, `₹2,499/quarter`, `₹7,999/year`).
-- **WhatsApp Notification Engine**: Instant booking confirmations, checkpoint updates, and OTP verification via Gupshup.
+- **Cashfree Paywall & Subscription Engine**: Secure billing (`₹999/month` and per-unlock credits) with webhook-driven auto-activation.
+- **WhatsApp Notification Engine**: Instant booking confirmations, dispatch updates, delivery-completion alerts, checkpoint updates, and OTP verification via Gupshup — with a persisted in-app notification centre and read/unread state on web and mobile.
 
 ---
 
@@ -102,10 +105,8 @@ cp .env.example .env
 Key environment variables:
 - `DATABASE_URL`: PostgreSQL connection string with PostGIS enabled
 - `JWT_SECRET` & `JWT_REFRESH_SECRET`: Secure cryptographic secrets
-- `PAYMENT_PROVIDER`: Default subscription gateway — `cashfree` | `razorpay` | `stripe`
-- `CASHFREE_APP_ID` & `CASHFREE_SECRET_KEY`: Cashfree sandbox or production credentials
-- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`: Razorpay credentials + webhook secret
-- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`: Stripe secret key + webhook signing secret
+- `CASHFREE_API_KEY` & `CASHFREE_SECRET_KEY`: Cashfree sandbox or production credentials
+- `VAHAN_API_KEY`: Vahan (mParivahan) RC validation provider key — see `.env.example` for sandbox/cache options
 - `PORT`: Backend port (default `3002`)
 - `CLIENT_URL`: Web client URL (`http://localhost:3010`)
 - `ADMIN_URL`: Admin portal URL (`http://localhost:3011`)
@@ -172,6 +173,16 @@ The Next.js Admin Portal is located at `/admin` (or `http://localhost:3010/admin
 | `/admin/analytics` | Time-scoped trip, revenue, and checkpoint-based route efficiency analytics |
 
 Admin API additions: `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`, `PATCH /admin/disputes/:id/resolve`, and `GET /admin/analytics?range=30`. Authenticated booking parties can raise a case through `POST /bookings/:id/disputes`.
+
+### Verification & Compliance API
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/v1/compliance/trucks/:id` | GET | Truck compliance checklist (RC, insurance, fitness, permit, PUC, FASTag) |
+| `/api/v1/compliance/trucks/:id/validate-rc` | POST | Live Vahan RC validation + snapshot persistence (rate-limited) |
+| `/api/v1/compliance/trucks/:id/fastag` | PATCH | Report FASTag status (`Active` / `LowBalance` / `Inactive`) |
+| `/api/v1/compliance/bookings/:id` | GET | Trip compliance checklist (adds E-Way Bill lifecycle) |
+| `/api/v1/compliance/bookings/:id/eway-bill` | POST | Attach/update the 12-digit E-Way Bill number + validity |
 
 ---
 

@@ -30,6 +30,7 @@ export function LoginScreen({ navigation }: LoginProps) {
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [loading, setLoading] = useState(false)
   const [channel, setChannel] = useState<'whatsapp' | 'sms'>('whatsapp')
+  const [isExistingUser, setIsExistingUser] = useState(false)
   const { login } = useAuth()
 
   const formatPhone = (input: string) => {
@@ -51,6 +52,7 @@ export function LoginScreen({ navigation }: LoginProps) {
       const res = await authApi.requestOtp(formattedPhone, channel)
       
       if (res.data.success) {
+        setIsExistingUser(Boolean(res.data.isExistingUser))
         setStep('otp')
         if (res.data.devOtp) {
           setOtp(res.data.devOtp)
@@ -74,18 +76,18 @@ export function LoginScreen({ navigation }: LoginProps) {
   const verifyOtp = async () => {
     const formattedPhone = formatPhone(phone)
     
+    // The request endpoint safely tells us whether a role is required. Keep the
+    // one-time code unconsumed until the selected role creates the account.
+    if (!isExistingUser) {
+      navigation.navigate('RoleSelect', { phone: formattedPhone, otp })
+      return
+    }
+
     setLoading(true)
     try {
       const res = await authApi.verifyOtp(formattedPhone, otp)
       const { accessToken, refreshToken, user } = res.data
 
-      if (user.isNewUser) {
-        // Navigate to role selection
-        navigation.navigate('RoleSelect', { phone: formattedPhone, otp })
-        return
-      }
-
-      // Existing user
       setTokens(accessToken, refreshToken)
       login(accessToken, refreshToken, user)
     } catch (err: unknown) {

@@ -143,7 +143,7 @@ export const authApi = {
   requestOtp: (phone: string, channel: 'whatsapp' | 'sms' = 'whatsapp') =>
     api.post('/auth/otp/request', { phone, channel }),
 
-  verifyOtp: (phone: string, otp: string, role?: 'load_owner' | 'truck_owner') =>
+  verifyOtp: (phone: string, otp: string, role?: 'load_owner' | 'truck_owner' | 'driver') =>
     api.post('/auth/otp/verify', { phone, otp, role }),
 
   refreshToken: (refreshToken: string) =>
@@ -200,6 +200,39 @@ export interface UserPreferences {
   profileVisible: boolean
 }
 
+export interface NotificationFeedItem {
+  id: string
+  category: 'BOOKING' | 'LOAD' | 'TRUCK' | 'PAYMENT' | 'KYC' | 'TRACKING' | 'SYSTEM'
+  title: string
+  message: string
+  timestamp: string
+  read: boolean
+  actionUrl?: string
+  channel?: string
+  providerStatus?: string
+  deliveredAt?: string
+}
+
+export interface NotificationFeed {
+  notifications: NotificationFeedItem[]
+  unreadCount: number
+}
+
+/**
+ * WhatsApp + in-app notification centre API.
+ *
+ * These are the canonical endpoints. `/users/notifications` remains as a
+ * compatibility alias for existing clients.
+ */
+export const notificationsApi = {
+  getNotifications: () => api.get<NotificationFeed>('/notifications'),
+  getUnreadCount: () =>
+    api.get<{ unreadCount: number }>('/notifications/unread-count'),
+  markRead: (notificationKey: string) =>
+    api.post('/notifications/read', { notificationKey }),
+  markAllRead: () => api.post('/notifications/read-all'),
+}
+
 // User Operations Center API
 export const usersApi = {
   getProfile: () => api.get('/users/me'),
@@ -227,6 +260,7 @@ export const usersApi = {
 // Admin Operations Command Center API
 export const adminApi = {
   getStats: () => api.get('/admin/stats'),
+  getAnalytics: (rangeDays = 30) => api.get(`/admin/analytics?range=${rangeDays}`),
   listUsers: (role?: string, page = 1, limit = 20) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) })
     if (role) params.set('role', role)
@@ -287,6 +321,160 @@ export const trucksApi = {
       },
     })
   },
+}
+
+// Matching Engine — Need Load ↔ Need Vehicle
+export type MatchStatus = 'Pending' | 'Booked' | 'Completed' | 'Cancelled'
+export interface MatchRecord {
+  id: string
+  loadId: string
+  truckId: string
+  loadOwnerId: string
+  truckOwnerId: string
+  status: MatchStatus
+  distanceKm?: number | string
+  matchScore?: number
+  tonnageCompatible?: boolean
+  routeCompatible?: boolean
+  budgetCompatible?: boolean
+  bookingId?: string | null
+  notifiedAt?: string | null
+  createdAt: string
+  updatedAt: string
+  load?: {
+    id: string
+    tonnageRequired: number | string
+    loadingAddress: string
+    unloadingAddress: string
+    truckType: string
+    maxPrice?: number | string | null
+    status: string
+    user?: { phone?: string; name?: string }
+  }
+  truck?: {
+    id: string
+    registrationNumber: string
+    bodyType: string
+    tonnageCapacity: number | string
+    verificationStatus: string
+    currentLat?: number | string | null
+    currentLng?: number | string | null
+    user?: { phone?: string; name?: string }
+  }
+  booking?: { id: string; status: string; agreedPrice?: number | string } | null
+  computedMatch?: {
+    score: number
+    rating: string
+    label: string
+    reasons: string[]
+    warnings: string[]
+    isCapacityFit: boolean
+    isBudgetFit: boolean
+    isProximityFit: boolean
+    distanceKm: number
+  }
+}
+
+export const matchesApi = {
+  /** Get matches visible to current user (both dashboards) — supports status & ≤50km proximity filter */
+  getMyMatches: (params?: { status?: MatchStatus; radius?: number; page?: number; limit?: number }) =>
+    api.get<{ data: MatchRecord[]; total: number; page: number; limit: number }>('/matches/my-matches', {
+      params: {
+        ...(params?.status ? { status: params.status } : {}),
+        ...(params?.radius ? { radius: String(params.radius) } : {}),
+        ...(params?.page ? { page: String(params.page) } : {}),
+        ...(params?.limit ? { limit: String(params.limit) } : {}),
+      },
+    }),
+
+  /** Find trucks matching a specific Need Load (tonnage/route/budget, ≤50km) */
+  getMatchesForLoad: (loadId: string, radius = 50) =>
+    api.get<Array<{ truck: any; match: any; distanceKm: number }>>(`/matches/load/${loadId}`, { params: { radius } }),
+
+  /** Find loads matching a specific Need Vehicle (tonnage/route/budget, ≤50km) */
+  getMatchesForTruck: (truckId: string, radius = 50) =>
+    api.get<Array<{ load: any; match: any; distanceKm: number }>>(`/matches/truck/${truckId}`, { params: { radius } }),
+
+  /** Trigger WhatsApp-backed evaluation for a load or truck */
+  evaluateForLoad: (loadId: string, radius = 50) => api.post(`/matches/evaluate/load/${loadId}`, null, { params: { radius } }),
+  evaluateForTruck: (truckId: string, radius = 50) => api.post(`/matches/evaluate/truck/${truckId}`, null, { params: { radius } }),
+  evaluate: (dto: { loadId?: string; truckId?: string; radiusKm?: number }) => api.post('/matches/evaluate', dto),
+
+  getOne: (id: string) => api.get<MatchRecord>(`/matches/${id}`),
+  updateStatus: (id: string, status: MatchStatus, bookingId?: string) =>
+    api.patch<MatchRecord>(`/matches/${id}/status`, { status, bookingId }),
+  delete: (id: string) => api.delete(`/matches/${id}`),
+  create: (loadId: string, truckId: string) => api.post<MatchRecord>('/matches', { loadId, truckId }),
+}
+
+/**
+ * Verification & Compliance API — Vahan RC validation, FASTag status and
+ * E-Way Bill lifecycle tracking.
+ */
+export type ComplianceItemStatus = 'compliant' | 'action_required' | 'pending' | 'expired'
+
+export interface ComplianceItem {
+  key: string
+  label: string
+  status: ComplianceItemStatus
+  detail: string
+  source: 'vahan_api' | 'sandbox' | 'booking' | 'manual' | 'document'
+  verifiedAt?: string
+  expiresAt?: string
+}
+
+export interface ComplianceChecklist {
+  scope: 'truck' | 'booking'
+  scopeId: string
+  registrationNumber?: string
+  overall: ComplianceItemStatus
+  items: ComplianceItem[]
+  checkedAt: string
+}
+
+export interface VahanValidationResult {
+  valid: boolean
+  found: boolean
+  registrationNumber: string
+  source: 'vahan_api' | 'sandbox' | 'unavailable'
+  checkedAt: string
+  error?: string
+  data?: Record<string, unknown>
+}
+
+export const complianceApi = {
+  /** Full compliance checklist for a truck (RC, insurance, fitness, PUC, permit, FASTag). */
+  getTruckChecklist: (truckId: string) =>
+    api.get<ComplianceChecklist>(`/compliance/trucks/${truckId}`),
+
+  /** Run a fresh Vahan RC validation and store the snapshot. */
+  validateTruckRc: (truckId: string) =>
+    api.post<{ validation: VahanValidationResult; checklist: ComplianceChecklist }>(
+      `/compliance/trucks/${truckId}/validate-rc`
+    ),
+
+  /** Report FASTag readiness for a truck. */
+  updateFastag: (truckId: string, status: 'Active' | 'LowBalance' | 'Inactive') =>
+    api.patch<{ checklist: ComplianceChecklist }>(`/compliance/trucks/${truckId}/fastag`, { status }),
+
+  /** Trip compliance checklist for a booking (adds E-Way Bill lifecycle). */
+  getBookingChecklist: (bookingId: string) =>
+    api.get<ComplianceChecklist>(`/compliance/bookings/${bookingId}`),
+
+  /** Attach / update the 12-digit E-Way Bill number on a booking. */
+  updateEwayBill: (bookingId: string, ewayBillNumber: string, validUpto?: string) =>
+    api.post<{
+      ewayBill: {
+        ewayBillNumber: string | null
+        ewayBillStatus: string
+        ewayBillValidUpto: string | null
+        ewayBillUpdatedAt: string | null
+      }
+      checklist: ComplianceChecklist
+    }>(`/compliance/bookings/${bookingId}/eway-bill`, {
+      ewayBillNumber,
+      validUpto: validUpto || undefined,
+    }),
 }
 
 /**

@@ -19,10 +19,13 @@ import {
   Menu,
   Bell,
 } from 'lucide-react'
-import { api, trucksApi, authApi } from '@/lib/api'
+import { api, trucksApi, authApi, matchesApi } from '@/lib/api'
 import { Footer } from '@/components/layout'
+import { MatchesPanel } from '@/components/matching/MatchesPanel'
+import { VerifiedBadge } from '@/components/VerifiedBadge'
+import { TruckCompliancePanel } from '@/components/compliance/TruckCompliancePanel'
 import { toast } from '@/lib/toast'
-import { cn, formatINR } from '@/lib/utils'
+import { cn, formatINR, formatPhone, whatsappLink } from '@/lib/utils'
 
 interface FleetTruck {
   id: string
@@ -34,6 +37,10 @@ interface FleetTruck {
   serviceableRadiusKm?: number
   verificationStatus: 'Verified' | 'Pending' | 'Rejected' | string
   status?: 'Available' | 'On Trip' | 'Under Verification' | 'Maintenance' | string
+  /** ISO timestamp of the last Vahan RC validation. */
+  vahanValidatedAt?: string | null
+  /** FASTag readiness: Unknown | Active | LowBalance | Inactive. */
+  fastagStatus?: string | null
   currentLat?: number
   currentLng?: number
   currentLocationName?: string
@@ -98,6 +105,9 @@ export default function MyFleetPage() {
   const [editCapacity, setEditCapacity] = useState('16')
   const [editRadius, setEditRadius] = useState('50')
   const [savingEdit, setSavingEdit] = useState(false)
+
+  // Per-truck smart matches (Need Load ↔ Need Vehicle, ≤50km, tonnage/budget)
+  const [expandedMatches, setExpandedMatches] = useState<Record<string, { loading: boolean; items: any[] }>>({})
 
   useEffect(() => {
     try {
@@ -253,6 +263,28 @@ export default function MyFleetPage() {
 
   const handleToggleDeactivate = (truck: FleetTruck) => {
     toast.info(`Status updated for vehicle ${truck.registrationNumber}`)
+  }
+
+  const toggleMatches = async (truckId: string) => {
+    if (expandedMatches[truckId]) {
+      setExpandedMatches((prev) => {
+        const copy = { ...prev }
+        delete copy[truckId]
+        return copy
+      })
+      return
+    }
+    setExpandedMatches((prev) => ({ ...prev, [truckId]: { loading: true, items: [] } }))
+    try {
+      const res = await matchesApi.getMatchesForTruck(truckId, 50)
+      const items = Array.isArray(res.data) ? res.data : []
+      setExpandedMatches((prev) => ({ ...prev, [truckId]: { loading: false, items } }))
+      if (items.length === 0) toast.info('No freight loads within 50 km matching this vehicle tonnage & route')
+      matchesApi.evaluateForTruck(truckId, 50).catch(() => null)
+    } catch (err: any) {
+      setExpandedMatches((prev) => ({ ...prev, [truckId]: { loading: false, items: [] } }))
+      toast.error(err?.response?.data?.message || 'Failed to fetch matched loads')
+    }
   }
 
   const handleLogout = async () => {
@@ -526,6 +558,9 @@ export default function MyFleetPage() {
           </div>
         </div>
 
+        {/* ── Smart Matches — both dashboards, Pending/Booked/Completed, ≤50km, WhatsApp ── */}
+        <MatchesPanel role="truck_owner" />
+
         {/* ── Search & Filter Controls Toolbar ── */}
         <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md">
@@ -654,10 +689,7 @@ export default function MyFleetPage() {
 
                           {/* Verification Badge */}
                           {isVerified ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>Vahan Verified</span>
-                            </span>
+                            <VerifiedBadge verified source="vahan" validatedAt={truck.vahanValidatedAt} variant="dark" />
                           ) : isRejected ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-950/60 text-rose-300 border border-rose-500/30 text-xs font-medium">
                               <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
@@ -742,14 +774,15 @@ export default function MyFleetPage() {
                         <Power className="w-4 h-4" />
                       </button>
 
-                      {/* Direct Match Loads Action */}
-                      <Link
-                        href="/search?type=load"
+                      {/* Match Loads (≤50km, tonnage/budget) with WhatsApp */}
+                      <button
+                        type="button"
+                        onClick={() => toggleMatches(truck.id)}
                         className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer border border-primary-400/30"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>Match Loads</span>
-                      </Link>
+                        <span>{expandedMatches[truck.id] ? 'Hide Loads' : 'Match Loads ≤50km'}</span>
+                      </button>
                     </div>
                   </div>
 
@@ -909,6 +942,9 @@ export default function MyFleetPage() {
                     </div>
                   )}
 
+                  {/* Verification & Compliance Panel (Vahan RC · FASTag · checklist) */}
+                  <TruckCompliancePanel truck={truck} onChanged={loadFleetData} />
+
                   {/* Compliance Summary Footer */}
                   <div className="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-3 text-surface-400">
@@ -923,16 +959,92 @@ export default function MyFleetPage() {
                       </span>
                       <span>•</span>
                       <span>Insurance: {isVerified ? 'Active Commercial Cover' : 'Pending Review'}</span>
+                      <span>•</span>
+                      <span>
+                        FASTag:{' '}
+                        {truck.fastagStatus === 'Active'
+                          ? 'Toll Ready'
+                          : truck.fastagStatus === 'LowBalance'
+                          ? 'Low Balance'
+                          : truck.fastagStatus === 'Inactive'
+                          ? 'Inactive'
+                          : 'Not Reported'}
+                      </span>
                     </div>
 
                     <Link
                       href="/search?type=load"
                       className="text-xs font-bold text-primary-400 hover:text-primary-300 inline-flex items-center gap-1"
                     >
-                      <span>Find Freight for this Lorry</span>
+                      <span>Marketplace</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>
+
+                  {/* Per-Vehicle Smart Matches (tonnage/route≤50km/budget, Pending/Booked/Completed, WhatsApp) */}
+                  {expandedMatches[truck.id] && (
+                    <div className="pt-4 mt-2 border-t border-white/10 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary-400" />
+                          <span>Matching Need Loads ≤50km</span>
+                          <span className="px-2 py-0.5 rounded-full bg-primary-500/15 text-primary-300 border border-primary-500/20 text-xs font-mono">
+                            {expandedMatches[truck.id].items.length} match{expandedMatches[truck.id].items.length === 1 ? '' : 'es'}
+                          </span>
+                        </h4>
+                        <span className="text-xs text-surface-400 font-mono">WhatsApp on Pending</span>
+                      </div>
+                      {expandedMatches[truck.id].loading ? (
+                        <div className="h-20 rounded-xl bg-surface-950/60 border border-white/5 animate-pulse" />
+                      ) : expandedMatches[truck.id].items.length === 0 ? (
+                        <div className="p-6 rounded-xl bg-surface-950/60 border border-white/5 text-center">
+                          <p className="text-sm font-semibold text-surface-300">No open freight within 50 km matching {truck.tonnageCapacity}T capacity & route</p>
+                          <p className="text-xs text-surface-400 mt-1">Matching checks load tonnage ≤ truck capacity, route proximity ≤50km, and budget.</p>
+                        </div>
+                      ) : (
+                        <ul className="space-y-2">
+                          {expandedMatches[truck.id].items.map((m: any) => {
+                            const load = m.load
+                            const match = m.match
+                            const dist = Number(m.distanceKm ?? match?.distanceKm ?? 0).toFixed(1)
+                            const score = match?.score ?? 70
+                            return (
+                              <li key={load.id} className="p-3.5 rounded-xl bg-surface-950/80 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-bold text-white text-sm truncate">{load.loadingAddress} → {load.unloadingAddress}</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30 text-xs font-mono font-bold">Pending</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-primary-500/15 text-primary-300 border border-primary-500/20 text-xs font-mono font-bold">{score}% match</span>
+                                    <span className="text-xs font-mono text-surface-400">{dist} km</span>
+                                  </div>
+                                  <p className="text-xs text-surface-400">
+                                    {load.tonnageRequired}T • {load.truckType} • {load.maxPrice ? formatINR(Number(load.maxPrice)) : 'Open budget'} • {match?.factors?.capacity?.detail ?? ''} • {match?.factors?.budget?.detail ?? ''}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                  {load.user?.phone ? (
+                                    <a
+                                      href={whatsappLink(load.user.phone, `Hi ${load.user.name ?? 'Shipper'}, your freight ${load.loadingAddress} → ${load.unloadingAddress} matches my lorry ${truck.registrationNumber} (${truck.tonnageCapacity}T). Distance ${dist}km, score ${score}%.`)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold transition-colors"
+                                    >
+                                      WhatsApp
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-surface-500">Contact locked</span>
+                                  )}
+                                  <Link href="/search?type=load" className="px-3 py-1.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-xs font-bold transition-colors">
+                                    Book
+                                  </Link>
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
