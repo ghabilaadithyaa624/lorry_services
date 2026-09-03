@@ -89,7 +89,7 @@ export class TrackingService {
     const progress = `${seq}/5`
 
     if (booking?.load?.user?.phone) {
-      // Notify load owner
+      // Notify factory owner
       await this.gupshup.sendNotification(
         booking.load.user.phone,
         'checkpoint_crossed',
@@ -132,7 +132,7 @@ export class TrackingService {
       const booking = await prisma.booking.findFirst({
         where: {
           id: bookingId,
-          OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
+          OR: [{ factoryOwnerId: userId }, { truckDriverId: userId }],
         },
       })
       if (!booking) {

@@ -31,7 +31,7 @@ interface UserState {
   id?: string
   phone?: string
   name?: string
-  role?: 'load_owner' | 'truck_owner' | 'admin'
+  role?: 'factory_owner' | 'truck_driver' | 'admin'
 }
 
 interface LoadItem {
@@ -107,7 +107,7 @@ interface ActivityItem {
 }
 
 interface UnifiedDashboardProps {
-  roleOverride?: 'load_owner' | 'truck_owner'
+  roleOverride?: 'factory_owner' | 'truck_driver'
 }
 
 export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
@@ -144,8 +144,8 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
     loadDashboard()
   }, [roleOverride])
 
-  const effectiveRole = roleOverride || user?.role || 'load_owner'
-  const isTruckOwner = effectiveRole === 'truck_owner'
+  const effectiveRole = roleOverride || user?.role || 'factory_owner'
+  const isTruckDriver = effectiveRole === 'truck_driver'
 
   const loadDashboard = async () => {
     try {
@@ -177,7 +177,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
       }
 
       // Load Role-Specific Data
-      if (isTruckOwner) {
+      if (isTruckDriver) {
         const [myTrucksRes, myBookingsRes] = await Promise.allSettled([
           api.get('/trucks/my-trucks'),
           api.get('/bookings/my-bookings'),
@@ -224,8 +224,8 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         setActivities([
           {
             id: 'act-1',
-            title: isTruckOwner ? 'Vehicle Telemetry Online' : 'Freight Consignment Verified',
-            description: isTruckOwner
+            title: isTruckDriver ? 'Vehicle Telemetry Online' : 'Freight Consignment Verified',
+            description: isTruckDriver
               ? 'GPS centerpoint and 50km corridor broadcast active for verified shippers.'
               : 'Direct factor-based match scoring activated for active loading points.',
             timestamp: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
@@ -286,10 +286,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
   // Telemetry Aggregates
   const activeLoadCount = loads.filter((l) => l.status === 'Open' || l.status === 'Matched').length
-  const inTransitCount = isTruckOwner
+  const inTransitCount = isTruckDriver
     ? trips.filter((t) => t.status === 'InTransit').length
     : loads.filter((l) => l.status === 'InTransit').length
-  const completedCount = isTruckOwner
+  const completedCount = isTruckDriver
     ? trips.filter((t) => t.status === 'Completed').length
     : loads.filter((l) => l.status === 'Completed').length
   const fleetSize = trucks.length
@@ -373,7 +373,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                   </div>
                   <span className="max-w-[120px] truncate">{user?.name || user?.phone || 'My Account'}</span>
                   <span className="px-2 py-0.5 rounded-md bg-surface-950 text-surface-400 text-[10px] font-mono border border-white/5">
-                    {isTruckOwner ? 'Fleet Owner' : 'Shipper'}
+                    {isTruckDriver ? 'Fleet Owner' : 'Shipper'}
                   </span>
                 </Link>
 
@@ -480,12 +480,12 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <span>Live Freight Network Online</span>
               </span>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary-500/10 text-primary-400 border border-primary-500/20 text-xs font-semibold font-mono">
-                {isTruckOwner ? 'Fleet Owner' : 'Manufacturer / Trader'}
+                {isTruckDriver ? 'Fleet Owner' : 'Manufacturer / Trader'}
               </span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Good morning, {user?.name || (isTruckOwner ? 'Fleet Transporter' : 'Cargo Shipper')}
+              Good morning, {user?.name || (isTruckDriver ? 'Fleet Transporter' : 'Cargo Shipper')}
             </h1>
             <p className="text-xs sm:text-sm text-surface-400">
               Direct marketplace operating command • Zero middleman brokerage
@@ -494,7 +494,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
           {/* Role-Dependent Primary Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            {isTruckOwner ? (
+            {isTruckDriver ? (
               <>
                 <Link
                   href="/need-vehicle"
@@ -603,7 +603,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
         {/* ── Dashboard Analytics (Prompt 6: charts + subscription reminder) ── */}
         <AnalyticsSnapshot
-          totalLoads={isTruckOwner ? fleetSize : loads.length}
+          totalLoads={isTruckDriver ? fleetSize : loads.length}
           trucksMatched={verifiedTruckCount || trucks.length}
           avgHireRate={averageHireRate}
           subscriptionActive={hasSubscription}
@@ -612,7 +612,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
         {/* ── Telemetry Stats Grid (Compact Telemetry Readouts) ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-          {isTruckOwner ? (
+          {isTruckDriver ? (
             <>
               <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
@@ -761,10 +761,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 </p>
                 <div className="pt-2">
                   <Link
-                    href={isTruckOwner ? '/search?type=load' : '/post-load'}
+                    href={isTruckDriver ? '/search?type=load' : '/post-load'}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 border border-primary-500/30 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none"
                   >
-                    <span>{isTruckOwner ? 'Find Freight Loads' : 'Post a Freight Load'}</span>
+                    <span>{isTruckDriver ? 'Find Freight Loads' : 'Post a Freight Load'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
@@ -1016,11 +1016,11 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary-400" />
                 <h3 className="text-base font-bold text-white">
-                  {isTruckOwner ? 'High-Yield Backhauls' : 'Nearby Matched Lorries'}
+                  {isTruckDriver ? 'High-Yield Backhauls' : 'Nearby Matched Lorries'}
                 </h3>
               </div>
               <Link
-                href={isTruckOwner ? '/search?type=load' : '/search?type=truck'}
+                href={isTruckDriver ? '/search?type=load' : '/search?type=truck'}
                 className="text-xs font-semibold text-primary-400 hover:text-primary-300 inline-flex items-center gap-1"
               >
                 <span>View all</span>

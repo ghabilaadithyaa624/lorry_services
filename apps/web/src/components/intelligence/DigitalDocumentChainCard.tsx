@@ -31,7 +31,7 @@ export interface DocumentLifecycleItem {
 interface DigitalDocumentChainCardProps {
   bookingId: string
   bookingNumber?: string
-  loadOwnerName?: string
+  factoryOwnerName?: string
   truckRegNumber?: string
   consigneeName?: string
   status?: string
@@ -46,7 +46,7 @@ interface DigitalDocumentChainCardProps {
 export function DigitalDocumentChainCard({
   bookingId,
   bookingNumber = 'LC-8492-MAA',
-  loadOwnerName = 'Cargo Owner',
+  factoryOwnerName = 'Cargo Owner',
   truckRegNumber = 'MH 12 QT 8492',
   consigneeName = 'Warehouse Manager',
   status = 'InTransit',
@@ -72,7 +72,7 @@ export function DigitalDocumentChainCard({
       status: 'COMPLETED',
       documentNumber: `LR-${bookingId.slice(0, 8).toUpperCase()}`,
       uploadedAt: new Date().toISOString(),
-      signedBy: loadOwnerName,
+      signedBy: factoryOwnerName,
       s3Key: `documents/${bookingId}/booking-advice.pdf`,
       preSignedUrl: `https://s3.ap-south-1.amazonaws.com/lorrycarry-kyc/documents/${bookingId}/booking-advice.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAEXAMPLE&X-Amz-Date=20260811T070000Z&X-Amz-Expires=3600&X-Amz-Signature=secured`,
     },

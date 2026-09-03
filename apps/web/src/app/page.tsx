@@ -242,7 +242,7 @@ export default function HomePage() {
     {
       question: 'Is there any broker commission or platform fee per trip?',
       answer:
-        'There is zero per-trip broker commission. LorryCarry is a direct marketplace — shippers and truck owners negotiate and settle freight charges directly between themselves.',
+        'There is zero per-trip broker commission. LorryCarry is a direct marketplace — shippers and truck drivers negotiate and settle freight charges directly between themselves.',
     },
   ]
 
@@ -918,7 +918,7 @@ export default function HomePage() {
 
                 <button
                   type="button"
-                  onClick={() => router.push('/login?redirect=/dashboard/truck-owner')}
+                  onClick={() => router.push('/login?redirect=/dashboard/truck-driver')}
                   className="font-bold px-8 py-4 text-xs sm:text-sm bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl shadow-2xs uppercase tracking-wider font-mono transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
                 >
                   REGISTER YOUR LORRY

@@ -27,7 +27,7 @@ export class TrucksController {
   constructor(private readonly trucksService: TrucksService) {}
 
   @Post()
-  @Roles(UserRole.truck_owner)
+  @Roles(UserRole.truck_driver)
   @ApiOperation({ summary: 'Register a new truck' })
   async create(
     @Body() dto: CreateTruckDto,
@@ -37,7 +37,7 @@ export class TrucksController {
   }
 
   @Post(':id/documents/:type')
-  @Roles(UserRole.truck_owner)
+  @Roles(UserRole.truck_driver)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload RC or Insurance document' })
@@ -52,7 +52,7 @@ export class TrucksController {
   }
 
   @Get('my-trucks')
-  @Roles(UserRole.truck_owner)
+  @Roles(UserRole.truck_driver)
   @ApiOperation({ summary: 'Get my registered trucks' })
   async findMyTrucks(@CurrentUser('id') userId: string) {
     return this.trucksService.findByUser(userId)
@@ -68,7 +68,7 @@ export class TrucksController {
   }
 
   @Patch(':id/location')
-  @Roles(UserRole.truck_owner)
+  @Roles(UserRole.truck_driver)
   @ApiOperation({ summary: 'Update truck current location' })
   async updateLocation(
     @Param('id') id: string,

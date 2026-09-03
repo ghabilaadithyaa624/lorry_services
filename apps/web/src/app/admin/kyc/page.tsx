@@ -293,7 +293,7 @@ export default function KycQueuePage() {
             <p className="text-surface-300 leading-relaxed">
               {confirm.action === 'Verified'
                 ? 'Are you sure you want to mark this document as VERIFIED? If all vehicle documents are verified, the truck status will update to Verified.'
-                : 'Are you sure you want to REJECT this document? The truck owner will be notified to upload a new document.'}
+                : 'Are you sure you want to REJECT this document? The truck driver will be notified to upload a new document.'}
             </p>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-white/10">

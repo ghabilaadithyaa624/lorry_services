@@ -371,7 +371,7 @@ export default function MyFleetPage() {
 
               <div className="flex items-center gap-3">
                 <Link
-                  href="/dashboard/truck-owner"
+                  href="/dashboard/truck-driver"
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 bg-surface-900/80 backdrop-blur-md text-xs font-semibold text-surface-200 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none shadow-card"
                 >
                   <div className="w-7 h-7 rounded-full bg-primary-500/20 text-primary-300 font-bold flex items-center justify-center text-xs border border-primary-500/30">
@@ -429,7 +429,7 @@ export default function MyFleetPage() {
 
             <div className="pt-3 border-t border-white/10 space-y-2">
               <Link
-                href="/dashboard/truck-owner"
+                href="/dashboard/truck-driver"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-3.5 py-2 text-sm font-semibold text-surface-200 hover:bg-white/5 rounded-xl"
               >

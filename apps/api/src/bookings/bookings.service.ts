@@ -25,20 +25,20 @@ export class BookingsService {
    * Create booking with commercial terms within an atomic database transaction
    * 1. Validates load status and ownership
    * 2. Validates truck availability & verification
-   * 3. Checks load owner active subscription
+   * 3. Checks factory owner active subscription
    * 4. Atomically transitions load to Matched
    * 5. Creates booking record
    * 6. Generates 5 highway tracking checkpoints
    */
   async create(
-    loadOwnerId: string,
+    factoryOwnerId: string,
     dto: CreateBookingDto
   ) {
     const booking = await prisma.$transaction(async (tx) => {
       // 1-3. Retrieve load, truck, and subscription concurrently to reduce database roundtrip latency inside transaction
       const [load, truck, subscription] = await Promise.all([
         tx.load.findFirst({
-          where: { id: dto.loadId, userId: loadOwnerId, status: LoadStatus.Open },
+          where: { id: dto.loadId, userId: factoryOwnerId, status: LoadStatus.Open },
           include: { user: true },
         }),
         tx.truck.findFirst({
@@ -51,7 +51,7 @@ export class BookingsService {
         }),
         tx.subscription.findFirst({
           where: {
-            userId: loadOwnerId,
+            userId: factoryOwnerId,
             status: SubscriptionStatus.active,
             expiresAt: { gt: new Date() },
           },
@@ -68,7 +68,7 @@ export class BookingsService {
         throw new NotFoundException('Truck not found, unverified, or currently assigned to another active trip')
       }
 
-      // Validate load owner subscription
+      // Validate factory owner subscription
       if (!subscription) {
         throw new ForbiddenException({
           code: 'SUBSCRIPTION_REQUIRED',
@@ -78,7 +78,7 @@ export class BookingsService {
 
       // 4. Atomically claim and transition load status to prevent concurrent double-booking
       const claimResult = await tx.load.updateMany({
-        where: { id: dto.loadId, userId: loadOwnerId, status: LoadStatus.Open },
+        where: { id: dto.loadId, userId: factoryOwnerId, status: LoadStatus.Open },
         data: { status: LoadStatus.Matched },
       })
 
@@ -91,8 +91,8 @@ export class BookingsService {
         data: {
           loadId: dto.loadId,
           truckId: dto.truckId,
-          loadOwnerId,
-          truckOwnerId: truck.userId,
+          factoryOwnerId,
+          truckDriverId: truck.userId,
           agreedPrice: dto.agreedPrice,
           ewayBillNumber: dto.ewayBillNumber,
           liabilityAccepted: dto.liabilityAccepted,
@@ -184,7 +184,7 @@ export class BookingsService {
    * Send booking confirmation WhatsApp messages
    */
   private async sendBookingNotifications(booking: any) {
-    // Notify truck owner
+    // Notify truck driver
     if (booking.truck?.user?.phone) {
       await this.gupshup.sendNotification(
         booking.truck.user.phone,
@@ -198,7 +198,7 @@ export class BookingsService {
       )
     }
 
-    // Notify load owner
+    // Notify factory owner
     if (booking.load?.user?.phone) {
       await this.gupshup.sendNotification(
         booking.load.user.phone,
@@ -225,7 +225,7 @@ export class BookingsService {
     const booking = await prisma.booking.findFirst({
       where: {
         id: bookingId,
-        OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
+        OR: [{ factoryOwnerId: userId }, { truckDriverId: userId }],
       },
     })
 
@@ -271,7 +271,7 @@ export class BookingsService {
     const booking = await prisma.booking.findFirst({
       where: {
         id: bookingId,
-        OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
+        OR: [{ factoryOwnerId: userId }, { truckDriverId: userId }],
       },
       include: {
         load: true,
@@ -298,10 +298,10 @@ export class BookingsService {
   /**
    * Get user's bookings
    */
-  async findByUser(userId: string, role: 'load_owner' | 'truck_owner') {
-    const where = role === 'load_owner' 
-      ? { loadOwnerId: userId }
-      : { truckOwnerId: userId }
+  async findByUser(userId: string, role: 'factory_owner' | 'truck_driver') {
+    const where = role === 'factory_owner' 
+      ? { factoryOwnerId: userId }
+      : { truckDriverId: userId }
 
     return prisma.booking.findMany({
       where,

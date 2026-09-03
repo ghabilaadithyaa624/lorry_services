@@ -105,7 +105,7 @@ export default function ControlTowerTrackingPage() {
   })
 
 
-  const isShipper = user?.role === 'load_owner' || !user?.role
+  const isShipper = user?.role === 'factory_owner' || !user?.role
 
   return (
     <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">

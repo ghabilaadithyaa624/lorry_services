@@ -291,11 +291,11 @@ export default function SettingsPage() {
                   <div>
                     <span className="block text-sm font-medium text-body mb-1.5">Role</span>
                     <Badge variant="neutral">
-                      {profile?.role === 'truck_owner'
-                        ? 'Truck owner'
+                      {profile?.role === 'truck_driver'
+                        ? 'Truck driver'
                         : profile?.role === 'admin'
                           ? 'Administrator'
-                          : 'Load owner'}
+                          : 'Factory owner'}
                     </Badge>
                   </div>
 

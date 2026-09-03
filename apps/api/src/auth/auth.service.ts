@@ -134,7 +134,7 @@ export class AuthService {
       if (role === UserRole.admin) {
         throw new UnauthorizedException('Admin role cannot be selected during public registration')
       }
-      if (!Object.values(UserRole).includes(role) || (role !== UserRole.load_owner && role !== UserRole.truck_owner)) {
+      if (!Object.values(UserRole).includes(role) || (role !== UserRole.factory_owner && role !== UserRole.truck_driver)) {
         throw new UnauthorizedException('Invalid registration role')
       }
     }

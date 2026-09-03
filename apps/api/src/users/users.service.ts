@@ -70,8 +70,8 @@ export class UsersService {
           select: {
             loads: true,
             trucks: true,
-            loadOwnerBookings: true,
-            truckOwnerBookings: true,
+            factoryOwnerBookings: true,
+            truckDriverBookings: true,
             payments: true,
           },
         },
@@ -98,7 +98,7 @@ export class UsersService {
       missingSteps.push("Add your full name or company trading name");
     }
 
-    if (user.role === UserRole.truck_owner) {
+    if (user.role === UserRole.truck_driver) {
       if (user.trucks.length > 0) {
         completionScore += 20;
         const hasVerifiedDocs = user.trucks.some((t) =>
@@ -121,7 +121,7 @@ export class UsersService {
       } else {
         missingSteps.push("Register your first truck or fleet vehicle");
       }
-    } else if (user.role === UserRole.load_owner) {
+    } else if (user.role === UserRole.factory_owner) {
       if (user._count.loads > 0) {
         completionScore += 20;
       } else {
@@ -139,13 +139,13 @@ export class UsersService {
 
     completionScore = Math.min(100, completionScore);
 
-    // Fleet verification state for truck owners
+    // Fleet verification state for truck drivers
     let fleetVerificationStatus:
       | "Not Registered"
       | "Pending"
       | "Verified"
       | "Partially Verified" = "Not Registered";
-    if (user.role === UserRole.truck_owner) {
+    if (user.role === UserRole.truck_driver) {
       if (user.trucks.length === 0) {
         fleetVerificationStatus = "Not Registered";
       } else {
@@ -176,7 +176,7 @@ export class UsersService {
       verification: {
         phoneVerified: true, // Logged in via OTP
         fleetStatus:
-          user.role === UserRole.truck_owner
+          user.role === UserRole.truck_driver
             ? fleetVerificationStatus
             : undefined,
         isVerifiedTransporter: fleetVerificationStatus === "Verified",
@@ -195,9 +195,9 @@ export class UsersService {
         totalLoads: user._count.loads,
         totalTrucks: user._count.trucks,
         totalBookings:
-          user.role === UserRole.truck_owner
-            ? user._count.truckOwnerBookings
-            : user._count.loadOwnerBookings,
+          user.role === UserRole.truck_driver
+            ? user._count.truckDriverBookings
+            : user._count.factoryOwnerBookings,
         totalPayments: user._count.payments,
       },
       trucks: user.trucks.map((t) => ({
@@ -337,16 +337,16 @@ export class UsersService {
       id: `acc-create-${user.id}`,
       category: "ACCOUNT",
       title: "Account Registered",
-      description: `Registered with mobile ${user.phone} as ${user.role === "truck_owner" ? "Lorry Owner" : "Load Owner"}.`,
+      description: `Registered with mobile ${user.phone} as ${user.role === "truck_driver" ? "Lorry Owner" : "Factory Owner"}.`,
       timestamp: user.createdAt,
       status: "Completed",
     });
 
     // Execute all independent queries concurrently
-    const isTruckOwner = user.role === UserRole.truck_owner;
+    const isTruckDriver = user.role === UserRole.truck_driver;
     const [loads, trucks, bookings, payments] = await Promise.all([
-      // 2. Loads (Only for load_owner or admin)
-      user.role === UserRole.load_owner || user.role === UserRole.admin
+      // 2. Loads (Only for factory_owner or admin)
+      user.role === UserRole.factory_owner || user.role === UserRole.admin
         ? prisma.load.findMany({
             where: { userId },
             orderBy: { createdAt: "desc" },
@@ -354,8 +354,8 @@ export class UsersService {
           })
         : Promise.resolve([]),
 
-      // 3. Trucks & Documents (Only for truck_owner or admin)
-      user.role === UserRole.truck_owner || user.role === UserRole.admin
+      // 3. Trucks & Documents (Only for truck_driver or admin)
+      user.role === UserRole.truck_driver || user.role === UserRole.admin
         ? prisma.truck.findMany({
             where: { userId },
             include: { documents: true },
@@ -364,11 +364,11 @@ export class UsersService {
           })
         : Promise.resolve([]),
 
-      // 4. Bookings (Filtered by truck owner or load owner ID)
+      // 4. Bookings (Filtered by truck driver or factory owner ID)
       prisma.booking.findMany({
-        where: isTruckOwner
-          ? { truckOwnerId: userId }
-          : { loadOwnerId: userId },
+        where: isTruckDriver
+          ? { truckDriverId: userId }
+          : { factoryOwnerId: userId },
         include: {
           load: {
             select: {
@@ -418,7 +418,7 @@ export class UsersService {
         description: `${truck.tonnageCapacity}T capacity, ${truck.bodyType} body. Status: ${truck.verificationStatus}`,
         timestamp: truck.createdAt,
         status: truck.verificationStatus,
-        actionUrl: `/dashboard/truck-owner`,
+        actionUrl: `/dashboard/truck-driver`,
         metadata: {
           registrationNumber: truck.registrationNumber,
           verificationStatus: truck.verificationStatus,
@@ -538,7 +538,7 @@ export class UsersService {
 
     // 2. Derive real operational notifications from active domain entities
     // Check pending KYC
-    if (user.role === UserRole.truck_owner) {
+    if (user.role === UserRole.truck_driver) {
       user.trucks.forEach((truck) => {
         if (truck.verificationStatus === "Pending") {
           items.push({
@@ -558,17 +558,17 @@ export class UsersService {
             message: `Truck ${truck.registrationNumber} is verified and visible in marketplace searches.`,
             timestamp: truck.verifiedAt || truck.updatedAt,
             read: true,
-            actionUrl: "/dashboard/truck-owner",
+            actionUrl: "/dashboard/truck-driver",
           });
         }
       });
     }
 
     // Check active bookings
-    const isTruckOwner = user.role === UserRole.truck_owner;
+    const isTruckDriver = user.role === UserRole.truck_driver;
     const activeBookings = await prisma.booking.findMany({
       where: {
-        ...(isTruckOwner ? { truckOwnerId: userId } : { loadOwnerId: userId }),
+        ...(isTruckDriver ? { truckDriverId: userId } : { factoryOwnerId: userId }),
         status: { in: ["Pending", "Confirmed", "InTransit"] },
       },
       include: {

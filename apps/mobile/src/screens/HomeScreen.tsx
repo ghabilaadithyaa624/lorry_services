@@ -23,7 +23,7 @@ export function HomeScreen() {
         {/* Role Badge */}
         <View style={styles.roleBadge}>
           <Text style={styles.roleText}>
-            {user?.role === 'load_owner' ? '👤 Load Owner' : '🚛 Truck Owner'}
+            {user?.role === 'factory_owner' ? '👤 Factory Owner' : '🚛 Truck Driver'}
           </Text>
         </View>
 
@@ -34,13 +34,13 @@ export function HomeScreen() {
             <TouchableOpacity style={styles.actionCard}>
               <Text style={styles.actionIcon}>🔍</Text>
               <Text style={styles.actionText}>
-                {user?.role === 'load_owner' ? 'Find Trucks' : 'Find Loads'}
+                {user?.role === 'factory_owner' ? 'Find Trucks' : 'Find Loads'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
               <Text style={styles.actionIcon}>➕</Text>
               <Text style={styles.actionText}>
-                {user?.role === 'load_owner' ? 'Post Load' : 'Register Truck'}
+                {user?.role === 'factory_owner' ? 'Post Load' : 'Register Truck'}
               </Text>
             </TouchableOpacity>
           </View>

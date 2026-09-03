@@ -118,8 +118,8 @@ describe('BookingsService', () => {
         id: 'booking-1001',
         loadId: 'load-1',
         truckId: 'truck-1',
-        loadOwnerId: 'owner-1',
-        truckOwnerId: 'transporter-1',
+        factoryOwnerId: 'owner-1',
+        truckDriverId: 'transporter-1',
         agreedPrice: 25000,
         status: BookingStatus.Confirmed,
         load: { user: { phone: '+919876543210', name: 'Shipper' }, loadingAddress: 'Pune', unloadingAddress: 'Bangalore' },
@@ -203,7 +203,7 @@ describe('BookingsService', () => {
       expect(gupshupService.sendNotification).not.toHaveBeenCalled()
     })
 
-    it('should throw ForbiddenException if load owner lacks active subscription', async () => {
+    it('should throw ForbiddenException if factory owner lacks active subscription', async () => {
       ;(prisma.load.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'load-1',
         userId: 'owner-1',

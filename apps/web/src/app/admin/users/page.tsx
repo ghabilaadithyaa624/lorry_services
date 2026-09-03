@@ -23,15 +23,15 @@ interface User {
   id: string
   phone: string
   name: string | null
-  role: 'load_owner' | 'truck_owner' | 'admin'
+  role: 'factory_owner' | 'truck_driver' | 'admin'
   createdAt: string
   updatedAt: string
   _count: { loads: number; trucks: number; subscriptions: number }
 }
 
 const ROLE_BADGE: Record<string, { variant: 'info' | 'success' | 'danger'; label: string }> = {
-  load_owner: { variant: 'info', label: 'Load Owner' },
-  truck_owner: { variant: 'success', label: 'Truck Owner' },
+  factory_owner: { variant: 'info', label: 'Factory Owner' },
+  truck_driver: { variant: 'success', label: 'Truck Driver' },
   admin: { variant: 'danger', label: 'Admin' },
 }
 
@@ -82,8 +82,8 @@ export default function UserOperationsPage() {
   })
 
   // Role distribution metrics
-  const loadOwnerCount = users.filter((u) => u.role === 'load_owner').length
-  const truckOwnerCount = users.filter((u) => u.role === 'truck_owner').length
+  const factoryOwnerCount = users.filter((u) => u.role === 'factory_owner').length
+  const truckDriverCount = users.filter((u) => u.role === 'truck_driver').length
   const adminCount = users.filter((u) => u.role === 'admin').length
 
   if (loading) {
@@ -152,14 +152,14 @@ export default function UserOperationsPage() {
         </div>
 
         <div className="p-5 rounded-[20px] bg-panel border border-white/10 shadow-card space-y-1">
-          <span className="text-[10px] font-black uppercase tracking-widest text-info-400 block">Load Owners</span>
-          <span className="text-2xl sm:text-3xl font-black text-info-300 block">{loadOwnerCount}</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-info-400 block">Factory Owners</span>
+          <span className="text-2xl sm:text-3xl font-black text-info-300 block">{factoryOwnerCount}</span>
           <span className="text-[11px] text-info-400/80 block">Cargo shippers (on page)</span>
         </div>
 
         <div className="p-5 rounded-[20px] bg-emerald-950/40 border border-emerald-500/30 shadow-card space-y-1">
-          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">Truck Owners</span>
-          <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">{truckOwnerCount}</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">Truck Drivers</span>
+          <span className="text-2xl sm:text-3xl font-black text-emerald-300 block">{truckDriverCount}</span>
           <span className="text-[11px] text-emerald-300/80 block">Transporters (on page)</span>
         </div>
 
@@ -189,8 +189,8 @@ export default function UserOperationsPage() {
           <FunnelIcon className="w-4 h-4 text-primary-400 shrink-0" />
           {[
             { id: '', label: 'All Roles' },
-            { id: 'load_owner', label: 'Load Owners' },
-            { id: 'truck_owner', label: 'Truck Owners' },
+            { id: 'factory_owner', label: 'Factory Owners' },
+            { id: 'truck_driver', label: 'Truck Drivers' },
             { id: 'admin', label: 'Admins' },
           ].map((r) => (
             <button

@@ -20,8 +20,8 @@ model User {
   loads              Load[]
   trucks             Truck[]
   subscriptions      Subscription[]
-  loadOwnerBookings  Booking[] @relation("LoadOwnerBookings")
-  truckOwnerBookings Booking[] @relation("TruckOwnerBookings")
+  factoryOwnerBookings  Booking[] @relation("FactoryOwnerBookings")
+  truckDriverBookings Booking[] @relation("TruckDriverBookings")
   payments           Payment[]
   notifications      Notification[]
   notificationReceipts NotificationReceipt[]
@@ -90,8 +90,8 @@ model NotificationReceipt {
 }
 
 enum UserRole {
-  load_owner
-  truck_owner
+  factory_owner
+  truck_driver
   admin
 }
 
@@ -102,7 +102,12 @@ model Subscription {
   plan      String // 'monthly_unlimited', 'pay_per_unlock', etc.
   status    SubscriptionStatus
   startedAt DateTime           @map("started_at")
+  /// Hard expiry timestamp — the paywall gate compares `now() > expiresAt`
+  /// to decide whether contact-reveal / booking creation stays unlocked.
   expiresAt DateTime           @map("expires_at")
+  /// Whether Cashfree should attempt an automatic renewal charge when this
+  /// subscription approaches `expiresAt`.
+  autoRenew Boolean            @default(false) @map("auto_renew")
   paymentId String?            @map("payment_id")
   createdAt DateTime           @default(now()) @map("created_at")
   
@@ -110,6 +115,7 @@ model Subscription {
   
   @@index([userId])
   @@index([status])
+  @@index([expiresAt])
   @@map("subscriptions")
 }
 
@@ -219,9 +225,16 @@ model Document {
   fileSize           Int?               @map("file_size")
   mimeType           String?            @map("mime_type")
   verificationStatus VerificationStatus @default(Pending) @map("verification_status")
+  /// Convenience flag mirroring verificationStatus === Verified, so callers
+  /// (e.g. the RC verification badge on Truck/Document lists) can filter
+  /// without re-deriving the enum comparison everywhere.
+  isVerified         Boolean            @default(false) @map("is_verified")
   verifiedBy         String?            @map("verified_by") // Admin user ID
   verificationNotes  String?            @map("verification_notes")
   verifiedAt         DateTime?          @map("verified_at")
+  /// RC fitness-certificate expiry / Insurance policy expiry date, whichever
+  /// applies to `type`. Used to proactively flag documents nearing expiry.
+  expiryDate         DateTime?          @map("expiry_date")
   createdAt          DateTime           @default(now()) @map("created_at")
   
   truck Truck @relation(fields: [truckId], references: [id], onDelete: Cascade)
@@ -229,6 +242,7 @@ model Document {
   @@index([truckId])
   @@index([type])
   @@index([verificationStatus])
+  @@index([expiryDate])
   @@map("documents")
 }
 
@@ -239,37 +253,53 @@ enum DocumentType {
 
 // Bookings with commercial terms
 model Booking {
-  id                  String          @id @default(uuid())
-  loadId              String          @map("load_id")
-  truckId             String          @map("truck_id")
-  loadOwnerId         String          @map("load_owner_id")
-  truckOwnerId        String          @map("truck_owner_id")
-  agreedPrice         Decimal         @map("agreed_price") @db.Decimal(12, 2)
-  advanceConfirmed    Boolean         @default(false) @map("advance_confirmed")
-  advanceConfirmedAt  DateTime?       @map("advance_confirmed_at")
-  balanceConfirmed    Boolean         @default(false) @map("balance_confirmed")
-  balanceConfirmedAt  DateTime?       @map("balance_confirmed_at")
-  ewayBillNumber      String?         @map("eway_bill_number")
-  liabilityAccepted   Boolean         @default(false) @map("liability_accepted")
-  liabilityAcceptedAt DateTime?       @map("liability_accepted_at")
-  status              BookingStatus   @default(Pending)
-  startedAt           DateTime?       @map("started_at")
-  completedAt         DateTime?       @map("completed_at")
-  createdAt           DateTime        @default(now()) @map("created_at")
-  updatedAt           DateTime        @updatedAt @map("updated_at")
+  id                  String              @id @default(uuid())
+  loadId              String              @map("load_id")
+  truckId             String              @map("truck_id")
+  factoryOwnerId      String              @map("load_owner_id")
+  truckDriverId       String              @map("truck_owner_id")
+  agreedPrice         Decimal             @map("agreed_price") @db.Decimal(12, 2)
+  advanceConfirmed    Boolean             @default(false) @map("advance_confirmed")
+  advanceConfirmedAt  DateTime?           @map("advance_confirmed_at")
+  balanceConfirmed    Boolean             @default(false) @map("balance_confirmed")
+  balanceConfirmedAt  DateTime?           @map("balance_confirmed_at")
+  ewayBillNumber      String?             @map("eway_bill_number")
+  liabilityAccepted   Boolean             @default(false) @map("liability_accepted")
+  liabilityAcceptedAt DateTime?           @map("liability_accepted_at")
+  status              BookingStatus       @default(Pending)
+  /// Rollup of the outbound WhatsApp confirmation trigger fired for this
+  /// booking (see `sendBookingNotifications`). Distinct from the granular,
+  /// per-recipient `Notification` rows: this is the fast/denormalized flag
+  /// the booking detail screen reads to show "WhatsApp sent ✓ / pending /
+  /// failed" without joining the Notification table.
+  whatsappTriggerStatus   WhatsappTriggerStatus @default(NotTriggered) @map("whatsapp_trigger_status")
+  whatsappTriggeredAt     DateTime?             @map("whatsapp_triggered_at")
+  startedAt           DateTime?           @map("started_at")
+  completedAt         DateTime?           @map("completed_at")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
   
   load        Load         @relation(fields: [loadId], references: [id])
   truck       Truck        @relation(fields: [truckId], references: [id])
-  loadOwner   User         @relation("LoadOwnerBookings", fields: [loadOwnerId], references: [id])
-  truckOwner  User         @relation("TruckOwnerBookings", fields: [truckOwnerId], references: [id])
+  factoryOwner   User         @relation("FactoryOwnerBookings", fields: [factoryOwnerId], references: [id])
+  truckDriver  User         @relation("TruckDriverBookings", fields: [truckDriverId], references: [id])
   checkpoints Checkpoint[]
   
   @@index([loadId])
   @@index([truckId])
   @@index([status])
-  @@index([loadOwnerId])
-  @@index([truckOwnerId])
+  @@index([factoryOwnerId])
+  @@index([truckDriverId])
+  @@index([whatsappTriggerStatus])
   @@map("bookings")
+}
+
+enum WhatsappTriggerStatus {
+  NotTriggered
+  Queued
+  Sent
+  Delivered
+  Failed
 }
 
 enum BookingStatus {

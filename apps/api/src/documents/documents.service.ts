@@ -39,7 +39,7 @@ export class DocumentsService {
       }
     } else if (entityType === 'BOOKING') {
       const booking = await prisma.booking.findUnique({ where: { id: entityId }, include: { load: true } });
-      if (!booking || (booking.load.userId !== userId && booking.truckOwnerId !== userId)) {
+      if (!booking || (booking.load.userId !== userId && booking.truckDriverId !== userId)) {
         throw new UnauthorizedException('Booking not found or does not belong to user.');
       }
     } else {

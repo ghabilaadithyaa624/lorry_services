@@ -17,7 +17,7 @@ export interface AnalyticsSnapshotProps {
  * Dashboard Analytics (Prompt 6).
  *
  * A dependency-free analytics widget using CSS/SVG bar + donut charts so the
- * shipper/truck-owner dashboard surfaces the key operating metrics and a
+ * shipper/truck-driver dashboard surfaces the key operating metrics and a
  * subscription-expiry reminder without pulling in a charting runtime.
  */
 export function AnalyticsSnapshot({

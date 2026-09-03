@@ -1,6 +1,6 @@
 # 🚚 LorryCarry - Direct Truck & Freight Load Marketplace
 
-LorryCarry is a high-performance monorepo platform connecting load owners and truck transporters directly across India with zero broker commissions. Built with **NestJS**, **Next.js 15 (App Router)**, **PostgreSQL (PostGIS)**, **Redis**, **Cashfree Payments**, **Gupshup WhatsApp API / MSG91**, and **MapmyIndia / Mappls**.
+LorryCarry is a high-performance monorepo platform connecting factory owners and truck transporters directly across India with zero broker commissions. Built with **NestJS**, **Next.js 15 (App Router)**, **PostgreSQL (PostGIS)**, **Redis**, **Cashfree Payments**, **Gupshup WhatsApp API / MSG91**, and **MapmyIndia / Mappls**.
 
 ---
 
@@ -14,7 +14,7 @@ LorryCarry is a high-performance monorepo platform connecting load owners and tr
   - **KYC Verification Queue**: Document verification pipeline (RC, Insurance) with instant Verify/Reject actions, modal confirmations, and rejection notes.
   - **Fleet & Listings Management**: Overview of active trucks and freight listings with direct truck verification controls.
   - **Subscription Management**: Track active, expired, and cancelled plan subscriptions with expiration alerts.
-  - **User Directory**: Search and filter load owners, truck owners, and administrators with detailed operational metrics.
+  - **User Directory**: Search and filter factory owners, truck drivers, and administrators with detailed operational metrics.
   - **Booking Lifecycle**: Monitor all bookings from pending quotation to in-transit and delivery completion.
 - **Cashfree Paywall & Subscription Engine**: Secure billing (`₹999/month` and per-unlock credits) with webhook-driven auto-activation.
 - **WhatsApp Notification Engine**: Instant booking confirmations, checkpoint updates, and OTP verification via Gupshup.
@@ -148,7 +148,7 @@ The Next.js Admin Portal is located at `/admin` (or `http://localhost:3010/admin
 | `/admin/kyc` | Pending KYC documents queue with modal approval/rejection and note submission |
 | `/admin/listings` | Marketplace load/truck summaries, pending fleet verification, top contributors |
 | `/admin/subscriptions` | Subscription directory with active/expired statuses and pagination |
-| `/admin/users` | User management with role filtering (`load_owner`, `truck_owner`, `admin`) |
+| `/admin/users` | User management with role filtering (`factory_owner`, `truck_driver`, `admin`) |
 | `/admin/bookings` | End-to-end booking records with route addresses, pricing, and lifecycle tracking |
 
 ---

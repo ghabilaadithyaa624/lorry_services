@@ -180,8 +180,8 @@ export class AdminService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          loadOwner: { select: { name: true, phone: true } },
-          truckOwner: { select: { name: true, phone: true } },
+          factoryOwner: { select: { name: true, phone: true } },
+          truckDriver: { select: { name: true, phone: true } },
           load: { select: { loadingAddress: true, unloadingAddress: true } },
           truck: { select: { registrationNumber: true } },
         },

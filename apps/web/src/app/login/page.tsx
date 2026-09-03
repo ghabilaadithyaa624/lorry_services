@@ -17,7 +17,7 @@ import { Button, Card, Spinner } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
-type PublicRole = 'load_owner' | 'truck_owner'
+type PublicRole = 'factory_owner' | 'truck_driver'
 
 function LoginForm() {
   const router = useRouter()
@@ -28,13 +28,13 @@ function LoginForm() {
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [selectedRole, setSelectedRole] = useState<PublicRole | null>(() => {
-    if (initialRoleParam === 'truck_owner') return 'truck_owner'
-    if (initialRoleParam === 'load_owner') return 'load_owner'
+    if (initialRoleParam === 'truck_driver') return 'truck_driver'
+    if (initialRoleParam === 'factory_owner') return 'factory_owner'
     if (typeof window !== 'undefined') {
       const saved = sessionStorage.getItem('selectedRole')
-      if (saved === 'truck_owner' || saved === 'load_owner') return saved
+      if (saved === 'truck_driver' || saved === 'factory_owner') return saved
     }
-    return 'load_owner'
+    return 'factory_owner'
   })
 
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
@@ -139,7 +139,7 @@ function LoginForm() {
       setAuthCookies(accessToken, user.role)
       toast.success(
         user.isNewUser
-          ? `Welcome to LorryCarry as ${user.role === 'truck_owner' ? 'Truck Owner' : 'Load Owner'}!`
+          ? `Welcome to LorryCarry as ${user.role === 'truck_driver' ? 'Truck Driver' : 'Factory Owner'}!`
           : 'Successfully logged in!'
       )
 
@@ -150,7 +150,7 @@ function LoginForm() {
             router.push(redirect)
           } else {
             // Non-admin attempting to access /admin -> route to appropriate user dashboard
-            const fallback = user.role === 'truck_owner' ? '/dashboard/truck-owner' : '/dashboard/load-owner'
+            const fallback = user.role === 'truck_driver' ? '/dashboard/truck-driver' : '/dashboard/factory-owner'
             router.push(fallback)
           }
         } else {
@@ -158,10 +158,10 @@ function LoginForm() {
         }
       } else if (user.role === 'admin') {
         router.push('/admin')
-      } else if (user.role === 'truck_owner') {
-        router.push('/dashboard/truck-owner')
+      } else if (user.role === 'truck_driver') {
+        router.push('/dashboard/truck-driver')
       } else {
-        router.push('/dashboard/load-owner')
+        router.push('/dashboard/factory-owner')
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Invalid or expired OTP. Please try again.'
@@ -261,15 +261,15 @@ function LoginForm() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="I am registering as">
-                    {/* Load Owner Card */}
+                    {/* Factory Owner Card */}
                     <button
                       type="button"
                       role="radio"
-                      aria-checked={selectedRole === 'load_owner'}
-                      onClick={() => handleSelectRole('load_owner')}
+                      aria-checked={selectedRole === 'factory_owner'}
+                      onClick={() => handleSelectRole('factory_owner')}
                       className={cn(
                         'p-3.5 rounded-xl border-2 text-left transition-all relative flex flex-col justify-between cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary-500/40',
-                        selectedRole === 'load_owner'
+                        selectedRole === 'factory_owner'
                           ? 'border-primary-500 bg-primary-50/80 dark:bg-primary-950/40 shadow-xs ring-1 ring-primary-500/30'
                           : 'border-hairline bg-sunken hover:border-hairline-strong'
                       )}
@@ -278,7 +278,7 @@ function LoginForm() {
                         <div
                           className={cn(
                             'w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors',
-                            selectedRole === 'load_owner'
+                            selectedRole === 'factory_owner'
                               ? 'bg-primary-500 text-white shadow-xs'
                               : 'bg-sunken text-muted group-hover:text-primary-500'
                           )}
@@ -288,9 +288,9 @@ function LoginForm() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-sm text-ink">
-                              Load Owner
+                              Factory Owner
                             </span>
-                            {selectedRole === 'load_owner' && (
+                            {selectedRole === 'factory_owner' && (
                               <CheckCircleIcon className="w-4 h-4 text-primary-500 shrink-0" />
                             )}
                           </div>
@@ -301,15 +301,15 @@ function LoginForm() {
                       </div>
                     </button>
 
-                    {/* Truck Owner Card */}
+                    {/* Truck Driver Card */}
                     <button
                       type="button"
                       role="radio"
-                      aria-checked={selectedRole === 'truck_owner'}
-                      onClick={() => handleSelectRole('truck_owner')}
+                      aria-checked={selectedRole === 'truck_driver'}
+                      onClick={() => handleSelectRole('truck_driver')}
                       className={cn(
                         'p-3.5 rounded-xl border-2 text-left transition-all relative flex flex-col justify-between cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary-500/40',
-                        selectedRole === 'truck_owner'
+                        selectedRole === 'truck_driver'
                           ? 'border-primary-500 bg-primary-50/80 dark:bg-primary-950/40 shadow-xs ring-1 ring-primary-500/30'
                           : 'border-hairline bg-sunken hover:border-hairline-strong'
                       )}
@@ -318,7 +318,7 @@ function LoginForm() {
                         <div
                           className={cn(
                             'w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors',
-                            selectedRole === 'truck_owner'
+                            selectedRole === 'truck_driver'
                               ? 'bg-primary-500 text-white shadow-xs'
                               : 'bg-sunken text-muted group-hover:text-primary-500'
                           )}
@@ -328,9 +328,9 @@ function LoginForm() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-sm text-ink">
-                              Truck Owner
+                              Truck Driver
                             </span>
-                            {selectedRole === 'truck_owner' && (
+                            {selectedRole === 'truck_driver' && (
                               <CheckCircleIcon className="w-4 h-4 text-primary-500 shrink-0" />
                             )}
                           </div>
@@ -406,15 +406,15 @@ function LoginForm() {
                     <div className="flex items-center gap-2">
                       <span className="text-subtle">Account Type:</span>
                       <span className="font-bold text-ink flex items-center gap-1.5">
-                        {selectedRole === 'truck_owner' ? (
+                        {selectedRole === 'truck_driver' ? (
                           <>
                             <TruckIcon className="w-3.5 h-3.5 text-primary-500 shrink-0 inline" />
-                            Truck Owner
+                            Truck Driver
                           </>
-                        ) : selectedRole === 'load_owner' ? (
+                        ) : selectedRole === 'factory_owner' ? (
                           <>
                             <ArchiveBoxIcon className="w-3.5 h-3.5 text-primary-500 shrink-0 inline" />
-                            Load Owner
+                            Factory Owner
                           </>
                         ) : (
                           <span className="text-danger-500 font-semibold">Select Role</span>
@@ -437,21 +437,21 @@ function LoginForm() {
                       <button
                         type="button"
                         role="radio"
-                        aria-checked={selectedRole === 'load_owner'}
+                        aria-checked={selectedRole === 'factory_owner'}
                         onClick={() => {
-                          handleSelectRole('load_owner')
+                          handleSelectRole('factory_owner')
                           setShowRolePickerInOtp(false)
                         }}
                         className={cn(
                           'p-2.5 rounded-lg border text-left transition-all',
-                          selectedRole === 'load_owner'
+                          selectedRole === 'factory_owner'
                             ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/40 font-bold text-primary-700 dark:text-primary-300 shadow-2xs'
                             : 'border-hairline bg-sunken text-body'
                         )}
                       >
                         <div className="flex items-center gap-1.5 font-bold text-xs">
                           <ArchiveBoxIcon className="w-3.5 h-3.5" />
-                          <span>Load Owner</span>
+                          <span>Factory Owner</span>
                         </div>
                         <div className="text-[10px] text-subtle mt-0.5">
                           Post freight loads
@@ -461,21 +461,21 @@ function LoginForm() {
                       <button
                         type="button"
                         role="radio"
-                        aria-checked={selectedRole === 'truck_owner'}
+                        aria-checked={selectedRole === 'truck_driver'}
                         onClick={() => {
-                          handleSelectRole('truck_owner')
+                          handleSelectRole('truck_driver')
                           setShowRolePickerInOtp(false)
                         }}
                         className={cn(
                           'p-2.5 rounded-lg border text-left transition-all',
-                          selectedRole === 'truck_owner'
+                          selectedRole === 'truck_driver'
                             ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/40 font-bold text-primary-700 dark:text-primary-300 shadow-2xs'
                             : 'border-hairline bg-sunken text-body'
                         )}
                       >
                         <div className="flex items-center gap-1.5 font-bold text-xs">
                           <TruckIcon className="w-3.5 h-3.5" />
-                          <span>Truck Owner</span>
+                          <span>Truck Driver</span>
                         </div>
                         <div className="text-[10px] text-subtle mt-0.5">
                           Register trucks

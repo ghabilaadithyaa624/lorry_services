@@ -17,7 +17,7 @@ interface UserState {
   id?: string
   phone?: string
   name?: string
-  role?: 'load_owner' | 'truck_owner' | 'admin'
+  role?: 'factory_owner' | 'truck_driver' | 'admin'
 }
 
 /**
@@ -47,26 +47,26 @@ export function MobileBottomNav() {
   // Only render for signed-in users; anonymous visitors use the Navbar.
   if (!user) return null
 
-  const isTruckOwner = user.role === 'truck_owner'
+  const isTruckDriver = user.role === 'truck_driver'
 
   const items = [
     {
       name: 'Home',
-      href: isTruckOwner ? '/dashboard/truck-owner' : '/dashboard/load-owner',
+      href: isTruckDriver ? '/dashboard/truck-driver' : '/dashboard/factory-owner',
       icon: HomeIcon,
       active: pathname.startsWith('/dashboard'),
     },
     {
       name: 'Search',
-      href: isTruckOwner ? '/search?type=load' : '/search?type=truck',
+      href: isTruckDriver ? '/search?type=load' : '/search?type=truck',
       icon: MagnifyingGlassIcon,
       active: pathname.startsWith('/search'),
     },
     {
-      name: isTruckOwner ? 'Fleet' : 'Loads',
-      href: isTruckOwner ? '/my-trucks' : '/my-loads',
-      icon: isTruckOwner ? TruckIcon : ClipboardDocumentListIcon,
-      active: pathname.startsWith(isTruckOwner ? '/my-trucks' : '/my-loads'),
+      name: isTruckDriver ? 'Fleet' : 'Loads',
+      href: isTruckDriver ? '/my-trucks' : '/my-loads',
+      icon: isTruckDriver ? TruckIcon : ClipboardDocumentListIcon,
+      active: pathname.startsWith(isTruckDriver ? '/my-trucks' : '/my-loads'),
     },
     {
       name: 'Bookings',

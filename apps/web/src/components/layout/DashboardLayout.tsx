@@ -98,11 +98,11 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     setSidebarOpen(false)
   }, [pathname])
 
-  const isTruckOwner = user?.role === 'truck_owner'
+  const isTruckDriver = user?.role === 'truck_driver'
   const isAdmin = user?.role === 'admin'
 
-  const loadOwnerNav: NavItem[] = [
-    { name: 'Overview', href: '/dashboard/load-owner', icon: HomeIcon },
+  const factoryOwnerNav: NavItem[] = [
+    { name: 'Overview', href: '/dashboard/factory-owner', icon: HomeIcon },
     { name: 'Find trucks', href: '/search?type=truck', icon: MagnifyingGlassIcon },
     { name: 'Post freight', href: '/post-load', icon: PlusCircleIcon },
     { name: 'My loads', href: '/my-loads', icon: ClipboardDocumentListIcon },
@@ -116,8 +116,8 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
   ]
 
-  const truckOwnerNav: NavItem[] = [
-    { name: 'Overview', href: '/dashboard/truck-owner', icon: HomeIcon },
+  const truckDriverNav: NavItem[] = [
+    { name: 'Overview', href: '/dashboard/truck-driver', icon: HomeIcon },
     { name: 'Find loads', href: '/search?type=load', icon: MagnifyingGlassIcon },
     { name: 'My fleet', href: '/my-trucks', icon: TruckIcon },
     { name: 'Bookings', href: '/bookings', icon: BriefcaseIcon },
@@ -141,14 +141,14 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: 'Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
   ]
 
-  const navItems = isAdmin ? adminNav : isTruckOwner ? truckOwnerNav : loadOwnerNav
+  const navItems = isAdmin ? adminNav : isTruckDriver ? truckDriverNav : factoryOwnerNav
 
-  const roleLabel = isTruckOwner ? 'Truck owner' : isAdmin ? 'Administrator' : 'Load owner'
+  const roleLabel = isTruckDriver ? 'Truck driver' : isAdmin ? 'Administrator' : 'Factory owner'
 
   /** Exact match for section roots, prefix match for nested routes. */
   const isActiveRoute = (href: string) => {
     const path = href.split('?')[0]
-    const roots = ['/admin/dashboard', '/dashboard/load-owner', '/dashboard/truck-owner']
+    const roots = ['/admin/dashboard', '/dashboard/factory-owner', '/dashboard/truck-driver']
     if (roots.includes(path)) return pathname === path
     return pathname === path || pathname.startsWith(`${path}/`)
   }

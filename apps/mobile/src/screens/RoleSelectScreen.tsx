@@ -25,7 +25,7 @@ interface RoleSelectProps {
 
 export function RoleSelectScreen({ route, navigation }: RoleSelectProps) {
   const { phone, otp } = route.params
-  const [selectedRole, setSelectedRole] = useState<'load_owner' | 'truck_owner' | null>(null)
+  const [selectedRole, setSelectedRole] = useState<'factory_owner' | 'truck_driver' | null>(null)
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
 
@@ -60,13 +60,13 @@ export function RoleSelectScreen({ route, navigation }: RoleSelectProps) {
           Select your role (can't be changed later)
         </Text>
 
-        {/* Load Owner Option */}
+        {/* Factory Owner Option */}
         <TouchableOpacity
           style={[
             styles.card,
-            selectedRole === 'load_owner' && styles.cardActive,
+            selectedRole === 'factory_owner' && styles.cardActive,
           ]}
-          onPress={() => setSelectedRole('load_owner')}
+          onPress={() => setSelectedRole('factory_owner')}
           activeOpacity={0.8}
         >
           <Text style={styles.icon}>📦</Text>
@@ -76,13 +76,13 @@ export function RoleSelectScreen({ route, navigation }: RoleSelectProps) {
           </Text>
         </TouchableOpacity>
 
-        {/* Truck Owner Option */}
+        {/* Truck Driver Option */}
         <TouchableOpacity
           style={[
             styles.card,
-            selectedRole === 'truck_owner' && styles.cardActive,
+            selectedRole === 'truck_driver' && styles.cardActive,
           ]}
-          onPress={() => setSelectedRole('truck_owner')}
+          onPress={() => setSelectedRole('truck_driver')}
           activeOpacity={0.8}
         >
           <Text style={styles.icon}>🚛</Text>

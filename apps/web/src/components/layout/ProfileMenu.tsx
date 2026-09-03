@@ -31,7 +31,7 @@ export interface ProfileMenuUser {
   id?: string
   phone?: string
   name?: string
-  role?: 'load_owner' | 'truck_owner' | 'admin'
+  role?: 'factory_owner' | 'truck_driver' | 'admin'
 }
 
 interface ProfileMenuProps {
@@ -44,8 +44,8 @@ interface ProfileMenuProps {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  load_owner: 'Load owner',
-  truck_owner: 'Truck owner',
+  factory_owner: 'Factory owner',
+  truck_driver: 'Truck driver',
   admin: 'Administrator',
 }
 
@@ -75,7 +75,7 @@ export function ProfileMenu({
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const isTruckOwner = user.role === 'truck_owner'
+  const isTruckDriver = user.role === 'truck_driver'
   const isAdmin = user.role === 'admin'
 
   const displayName = user.name?.trim() || (user.phone ? formatPhone(user.phone) : 'My account')
@@ -195,7 +195,7 @@ export function ProfileMenu({
       ]
     : [
         { name: 'Profile', href: '/profile', icon: UserCircleIcon },
-        isTruckOwner
+        isTruckDriver
           ? { name: 'My trucks', href: '/my-trucks', icon: TruckIcon }
           : { name: 'My loads', href: '/my-loads', icon: ClipboardDocumentListIcon },
         { name: 'Bookings', href: '/bookings', icon: BriefcaseIcon },
@@ -268,8 +268,8 @@ export function ProfileMenu({
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 mt-3">
-              <Badge variant={isAdmin ? 'danger' : isTruckOwner ? 'info' : 'primary'} size="sm">
-                {ROLE_LABEL[user.role || 'load_owner']}
+              <Badge variant={isAdmin ? 'danger' : isTruckDriver ? 'info' : 'primary'} size="sm">
+                {ROLE_LABEL[user.role || 'factory_owner']}
               </Badge>
 
               {verified && (

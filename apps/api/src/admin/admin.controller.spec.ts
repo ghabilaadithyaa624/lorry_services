@@ -69,9 +69,9 @@ describe('AdminController', () => {
       adminService.listUsers.mockResolvedValue(mockResult as any)
       const pagination: PaginationDto = { page: 2, limit: 10 }
 
-      const result = await controller.listUsers(mockUserId, UserRole.load_owner, pagination)
+      const result = await controller.listUsers(mockUserId, UserRole.factory_owner, pagination)
       expect(result).toEqual(mockResult)
-      expect(adminService.listUsers).toHaveBeenCalledWith(mockUserId, UserRole.load_owner, 2, 10)
+      expect(adminService.listUsers).toHaveBeenCalledWith(mockUserId, UserRole.factory_owner, 2, 10)
     })
   })
 

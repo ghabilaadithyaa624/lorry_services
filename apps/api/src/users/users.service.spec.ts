@@ -42,8 +42,8 @@ jest.mock('@lorrycarry/database', () => {
   return {
     prisma: mockPrisma,
     UserRole: {
-      truck_owner: 'truck_owner',
-      load_owner: 'load_owner',
+      truck_driver: 'truck_driver',
+      factory_owner: 'factory_owner',
       admin: 'admin',
     },
     SubscriptionStatus: {
@@ -100,12 +100,12 @@ describe('UsersService', () => {
       await expect(service.getProfile('non-existent')).rejects.toThrow(NotFoundException)
     })
 
-    it('should calculate complete score for a verified truck owner', async () => {
+    it('should calculate complete score for a verified truck driver', async () => {
       const mockUser = {
         id: 'u-1',
         phone: '1234567890',
         name: 'John Doe',
-        role: UserRole.truck_owner,
+        role: UserRole.truck_driver,
         createdAt: new Date(),
         updatedAt: new Date(),
         trucks: [
@@ -132,8 +132,8 @@ describe('UsersService', () => {
         _count: {
           loads: 0,
           trucks: 1,
-          loadOwnerBookings: 0,
-          truckOwnerBookings: 5,
+          factoryOwnerBookings: 0,
+          truckDriverBookings: 5,
           payments: 1,
         },
       }
@@ -146,12 +146,12 @@ describe('UsersService', () => {
       expect(profile.verification.isVerifiedTransporter).toBe(true)
     })
 
-    it('should calculate statistics and scores correctly for load_owner', async () => {
+    it('should calculate statistics and scores correctly for factory_owner', async () => {
       const mockUser = {
         id: 'u-2',
         phone: '9876543210',
         name: 'Jane Smith',
-        role: UserRole.load_owner,
+        role: UserRole.factory_owner,
         createdAt: new Date(),
         updatedAt: new Date(),
         trucks: [],
@@ -159,8 +159,8 @@ describe('UsersService', () => {
         _count: {
           loads: 3,
           trucks: 0,
-          loadOwnerBookings: 2,
-          truckOwnerBookings: 0,
+          factoryOwnerBookings: 2,
+          truckDriverBookings: 0,
           payments: 0,
         },
       }
@@ -180,7 +180,7 @@ describe('UsersService', () => {
         id: 'u-1',
         phone: '1234567890',
         name: 'New Name',
-        role: UserRole.truck_owner,
+        role: UserRole.truck_driver,
         updatedAt: new Date(),
       }
       ;(prisma.user.update as jest.Mock).mockResolvedValueOnce(mockUser)
@@ -314,7 +314,7 @@ describe('UsersService', () => {
         id: 'u-1',
         phone: '1234567890',
         name: 'John Doe',
-        role: UserRole.truck_owner,
+        role: UserRole.truck_driver,
         createdAt: new Date('2025-01-01T00:00:00Z'),
       }
       ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(mockUser)
@@ -392,7 +392,7 @@ describe('UsersService', () => {
     it('should derive operations notifications and sort correctly', async () => {
       const mockUser = {
         id: 'u-1',
-        role: UserRole.truck_owner,
+        role: UserRole.truck_driver,
         trucks: [
           {
             id: 't-1',
@@ -470,7 +470,7 @@ describe('UsersService', () => {
     it('reflects stored receipts as read and lowers the unread count', async () => {
       ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
         id: 'u-1',
-        role: UserRole.truck_owner,
+        role: UserRole.truck_driver,
         trucks: [
           {
             id: 't-1',
@@ -499,7 +499,7 @@ describe('UsersService', () => {
     it('marks every unread notification in the feed as read', async () => {
       ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
         id: 'u-1',
-        role: UserRole.truck_owner,
+        role: UserRole.truck_driver,
         trucks: [
           {
             id: 't-1',

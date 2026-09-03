@@ -176,7 +176,7 @@ export function KycQueue() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-surface-800/80 border-b border-surface-700/60 text-[10px] font-bold uppercase tracking-wider text-surface-400">
-                  <th className="text-left px-6 py-3.5">Truck Owner</th>
+                  <th className="text-left px-6 py-3.5">Truck Driver</th>
                   <th className="text-left px-6 py-3.5">Vehicle</th>
                   <th className="text-left px-6 py-3.5">Document</th>
                   <th className="text-left px-6 py-3.5">Document No.</th>

@@ -396,7 +396,7 @@ export default function BookingDetailPage() {
         <DigitalDocumentChainCard
           bookingId={booking.id}
           bookingNumber={booking.id.slice(0, 8).toUpperCase()}
-          loadOwnerName={booking.load?.user?.name || 'Cargo Owner'}
+          factoryOwnerName={booking.load?.user?.name || 'Cargo Owner'}
           truckRegNumber={booking.truck?.registrationNumber || 'MH 12 QT 8492'}
           status={booking.status}
           advanceConfirmed={Boolean(booking.advanceConfirmed)}

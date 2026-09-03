@@ -15,7 +15,7 @@ import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
 function RoleSelectForm() {
-  const [selectedRole, setSelectedRole] = useState<'load_owner' | 'truck_owner' | null>(null)
+  const [selectedRole, setSelectedRole] = useState<'factory_owner' | 'truck_driver' | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
@@ -46,23 +46,23 @@ function RoleSelectForm() {
       localStorage.setItem('user', JSON.stringify(user))
 
       setAuthCookies(accessToken, user.role)
-      toast.success(`Account created as ${user.role === 'truck_owner' ? 'Truck Owner' : 'Load Owner'}!`)
+      toast.success(`Account created as ${user.role === 'truck_driver' ? 'Truck Driver' : 'Factory Owner'}!`)
 
       if (redirect && redirect !== '/') {
         if (redirect.startsWith('/admin')) {
           if (user.role === 'admin') {
             router.push(redirect)
           } else {
-            const fallback = user.role === 'truck_owner' ? '/dashboard/truck-owner' : '/dashboard/load-owner'
+            const fallback = user.role === 'truck_driver' ? '/dashboard/truck-driver' : '/dashboard/factory-owner'
             router.push(fallback)
           }
         } else {
           router.push(redirect)
         }
-      } else if (user.role === 'load_owner') {
-        router.push('/dashboard/load-owner')
+      } else if (user.role === 'factory_owner') {
+        router.push('/dashboard/factory-owner')
       } else {
-        router.push('/dashboard/truck-owner')
+        router.push('/dashboard/truck-driver')
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to complete registration. Please try again.'
@@ -107,13 +107,13 @@ function RoleSelectForm() {
 
         {/* Role Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Load Owner Option */}
+          {/* Factory Owner Option */}
           <button
             type="button"
-            onClick={() => setSelectedRole('load_owner')}
+            onClick={() => setSelectedRole('factory_owner')}
             className={cn(
               'p-6 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between space-y-4 cursor-pointer',
-              selectedRole === 'load_owner'
+              selectedRole === 'factory_owner'
                 ? 'border-primary-500 bg-primary-50/70 dark:bg-primary-950/30 shadow-card'
                 : 'border-hairline bg-sunken hover:border-primary-300 dark:hover:border-primary-800'
             )}
@@ -123,7 +123,7 @@ function RoleSelectForm() {
                 <div className="w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-primary-600 dark:text-primary-400 flex items-center justify-center">
                   <ArchiveBoxIcon className="w-6 h-6 stroke-[2]" />
                 </div>
-                {selectedRole === 'load_owner' && (
+                {selectedRole === 'factory_owner' && (
                   <Badge variant="primary" size="sm">
                     Selected
                   </Badge>
@@ -132,7 +132,7 @@ function RoleSelectForm() {
 
               <div>
                 <h3 className="font-bold text-base text-ink">
-                  I Need Trucks (Load Owner)
+                  I Need Trucks (Factory Owner)
                 </h3>
                 <p className="text-xs text-subtle mt-1 leading-relaxed">
                   For manufacturers, traders, and logistics companies who have goods to transport.
@@ -156,13 +156,13 @@ function RoleSelectForm() {
             </div>
           </button>
 
-          {/* Truck Owner Option */}
+          {/* Truck Driver Option */}
           <button
             type="button"
-            onClick={() => setSelectedRole('truck_owner')}
+            onClick={() => setSelectedRole('truck_driver')}
             className={cn(
               'p-6 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between space-y-4 cursor-pointer',
-              selectedRole === 'truck_owner'
+              selectedRole === 'truck_driver'
                 ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/30 shadow-card'
                 : 'border-hairline bg-sunken hover:border-blue-300 dark:hover:border-blue-800'
             )}
@@ -172,7 +172,7 @@ function RoleSelectForm() {
                 <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                   <TruckIcon className="w-6 h-6 stroke-[2]" />
                 </div>
-                {selectedRole === 'truck_owner' && (
+                {selectedRole === 'truck_driver' && (
                   <Badge variant="info" size="sm">
                     Selected
                   </Badge>
@@ -181,7 +181,7 @@ function RoleSelectForm() {
 
               <div>
                 <h3 className="font-bold text-base text-ink">
-                  I Have Trucks (Truck Owner)
+                  I Have Trucks (Truck Driver)
                 </h3>
                 <p className="text-xs text-subtle mt-1 leading-relaxed">
                   For individual truck drivers, fleet owners, and transport contractors.
@@ -218,7 +218,7 @@ function RoleSelectForm() {
             rightIcon={<ArrowRightIcon className="w-5 h-5" />}
           >
             {selectedRole
-              ? `Continue as ${selectedRole === 'truck_owner' ? 'Truck Owner' : 'Load Owner'}`
+              ? `Continue as ${selectedRole === 'truck_driver' ? 'Truck Driver' : 'Factory Owner'}`
               : 'Select an account type to proceed'}
           </Button>
         </div>
