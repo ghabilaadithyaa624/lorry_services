@@ -56,7 +56,7 @@ export class SearchService {
       LIMIT 50
     `
     
-    const trucks = await prisma.$queryRaw<any[]>(query)
+    const trucks = await (prisma.$queryRaw as any)(query)
     return trucks
   }
 
@@ -118,7 +118,7 @@ export class SearchService {
       LIMIT 50
     `
     
-    const loads = await prisma.$queryRaw<any[]>(query)
+    const loads = await (prisma.$queryRaw as any)(query)
     return loads
   }
 

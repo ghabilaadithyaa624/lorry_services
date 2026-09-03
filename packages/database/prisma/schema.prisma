@@ -147,6 +147,7 @@ model Load {
   
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   bookings Booking[]
+  matches  Match[]
   
   @@index([userId])
   @@index([status])
@@ -193,6 +194,7 @@ model Truck {
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents Document[]
   bookings  Booking[]
+  matches   Match[]
   
   @@index([userId])
   @@index([verificationStatus])
@@ -263,6 +265,7 @@ model Booking {
   loadOwner   User         @relation("LoadOwnerBookings", fields: [loadOwnerId], references: [id])
   truckOwner  User         @relation("TruckOwnerBookings", fields: [truckOwnerId], references: [id])
   checkpoints Checkpoint[]
+  matches     Match[]
   
   @@index([loadId])
   @@index([truckId])
@@ -380,4 +383,45 @@ enum NotificationStatus {
   Sent
   Delivered
   Failed
+}
+
+// Matching Engine — Need Load ↔ Need Vehicle pairing
+enum MatchStatus {
+  Pending   // Initial algorithmic match, awaiting booking
+  Booked    // Load+Truck have a confirmed booking
+  Completed // Trip completed / POD confirmed
+  Cancelled
+}
+
+model Match {
+  id               String      @id @default(uuid())
+  loadId           String      @map("load_id")
+  truckId          String      @map("truck_id")
+  loadOwnerId      String      @map("load_owner_id")
+  truckOwnerId     String      @map("truck_owner_id")
+  bookingId        String?     @map("booking_id")
+  status           MatchStatus @default(Pending)
+  // Derived compatibility signals
+  distanceKm       Decimal?    @map("distance_km") @db.Decimal(10, 2)
+  matchScore       Int?        @map("match_score")
+  tonnageCompatible Boolean    @default(false) @map("tonnage_compatible")
+  routeCompatible   Boolean    @default(false) @map("route_compatible")
+  budgetCompatible  Boolean    @default(false) @map("budget_compatible")
+  // WhatsApp trigger tracking
+  notifiedAt       DateTime?   @map("notified_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  load    Load     @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  truck   Truck    @relation(fields: [truckId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@unique([loadId, truckId])
+  @@index([loadId])
+  @@index([truckId])
+  @@index([loadOwnerId])
+  @@index([truckOwnerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("matches")
 }
