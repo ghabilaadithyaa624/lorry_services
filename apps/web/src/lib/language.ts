@@ -13,7 +13,7 @@
  * by the settings centre and notification templates.
  */
 
-export type UiLanguage = 'en' | 'ta'
+export type UiLanguage = 'en' | 'ta' | 'hi'
 
 export const LANGUAGE_STORAGE_KEY = 'lc-language'
 export const LANGUAGE_CHANGE_EVENT = 'lc-language-change'
@@ -26,18 +26,28 @@ export interface UiLanguageOption {
   shortLabel: string
   /** English name, used for accessible annotations. */
   name: string
+  /** Document text direction — Hindi is rendered right-to-left. */
+  direction: 'ltr' | 'rtl'
+}
+
+/** Text direction per supported UI language. */
+export const LANGUAGE_DIRECTIONS: Record<UiLanguage, 'ltr' | 'rtl'> = {
+  en: 'ltr',
+  ta: 'ltr',
+  hi: 'rtl',
 }
 
 /**
- * Toggle order follows the product spec: தமிழ் first, English second.
+ * Toggle order follows the product spec: தமிழ் first, then हिन्दी, then English.
  */
 export const UI_LANGUAGES: UiLanguageOption[] = [
-  { value: 'ta', label: 'தமிழ்', shortLabel: 'தமிழ்', name: 'Tamil' },
-  { value: 'en', label: 'English', shortLabel: 'EN', name: 'English' },
+  { value: 'ta', label: 'தமிழ்', shortLabel: 'தமிழ்', name: 'Tamil', direction: 'ltr' },
+  { value: 'hi', label: 'हिन्दी', shortLabel: 'हिं', name: 'Hindi', direction: 'rtl' },
+  { value: 'en', label: 'English', shortLabel: 'EN', name: 'English', direction: 'ltr' },
 ]
 
 export function isUiLanguage(value: unknown): value is UiLanguage {
-  return value === 'en' || value === 'ta'
+  return value === 'en' || value === 'ta' || value === 'hi'
 }
 
 /**
@@ -56,12 +66,14 @@ export function readStoredLanguage(): UiLanguage {
 }
 
 /**
- * Apply the language to <html lang="…"> so assistive technology, hyphenation
- * and font selection match the chosen interface language.
+ * Apply the language and its text direction to <html lang="…"> and <html dir>
+ * so assistive technology, hyphenation, font selection and RTL layout match the
+ * chosen interface language.
  */
 export function applyLanguage(language: UiLanguage): void {
   if (typeof document === 'undefined') return
   document.documentElement.lang = language
+  document.documentElement.dir = LANGUAGE_DIRECTIONS[language] || 'ltr'
 }
 
 /**

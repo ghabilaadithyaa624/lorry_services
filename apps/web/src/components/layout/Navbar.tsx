@@ -18,6 +18,7 @@ import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { LanguageToggle } from './LanguageToggle'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 /**
  * Navbar — LorryCarry global header.
@@ -34,16 +35,16 @@ import { cn } from '@/lib/utils'
  */
 
 interface MainTab {
-  name: string
+  i18nKey: string
   href: string
   icon: React.ComponentType<{ className?: string }>
 }
 
 const MAIN_TABS: MainTab[] = [
-  { name: 'Find Trucks', href: '/search?type=truck', icon: Truck },
-  { name: 'Find Loads', href: '/search?type=load', icon: PackageSearch },
-  { name: 'Pricing & Plans', href: '/subscribe', icon: CreditCard },
-  { name: 'Control Tower', href: '/tracking', icon: RadioTower },
+  { i18nKey: 'nav.findTrucks', href: '/search?type=truck', icon: Truck },
+  { i18nKey: 'nav.findLoads', href: '/search?type=load', icon: PackageSearch },
+  { i18nKey: 'nav.pricing', href: '/subscribe', icon: CreditCard },
+  { i18nKey: 'nav.controlTower', href: '/tracking', icon: RadioTower },
 ]
 
 /** Route-aware active state for the four primary tabs. */
@@ -69,6 +70,7 @@ interface MainTabLinksProps {
 }
 
 function MainTabLinks({ pathname, searchType, variant, onNavigate }: MainTabLinksProps) {
+  const { t } = useI18n()
   return (
     <>
       {MAIN_TABS.map((tab) => {
@@ -77,7 +79,7 @@ function MainTabLinks({ pathname, searchType, variant, onNavigate }: MainTabLink
         if (variant === 'drawer') {
           return (
             <Link
-              key={tab.name}
+              key={tab.i18nKey}
               href={tab.href}
               onClick={onNavigate}
               aria-current={active ? 'page' : undefined}
@@ -90,13 +92,13 @@ function MainTabLinks({ pathname, searchType, variant, onNavigate }: MainTabLink
               )}
             >
               <Icon className="w-[18px] h-[18px] shrink-0" aria-hidden="true" />
-              <span>{tab.name}</span>
+              <span>{t(tab.i18nKey)}</span>
             </Link>
           )
         }
         return (
           <Link
-            key={tab.name}
+            key={tab.i18nKey}
             href={tab.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
@@ -108,7 +110,7 @@ function MainTabLinks({ pathname, searchType, variant, onNavigate }: MainTabLink
             )}
           >
             <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-            <span>{tab.name}</span>
+            <span>{t(tab.i18nKey)}</span>
           </Link>
         )
       })}
@@ -154,6 +156,7 @@ function TabLinks(props: { variant: 'desktop' | 'drawer'; onNavigate?: () => voi
 
 export function Navbar() {
   const pathname = usePathname()
+  const { t } = useI18n()
   const [user, setUser] = useState<ProfileMenuUser | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -289,9 +292,7 @@ export function Navbar() {
                 size="sm"
                 leftIcon={<PlusCircle className="w-4 h-4" />}
                 className="hidden sm:inline-flex bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
-              >
-                Post Freight
-              </Button>
+              >{t('nav.postFreight')}</Button>
               {/* Icon-only CTA keeps the action one tap away on phones */}
               <Link
                 href={postFreightHref}
@@ -316,9 +317,7 @@ export function Navbar() {
                   variant="ghost"
                   size="sm"
                   className="hidden sm:inline-flex"
-                >
-                  Sign in
-                </Button>
+                >{t('nav.signIn')}</Button>
               )}
 
               {/* Mobile / tablet menu toggle */}
@@ -352,7 +351,7 @@ export function Navbar() {
 
             {/* Full-size language control inside the drawer */}
             <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-sunken/60 border border-hairline">
-              <span className="text-sm font-medium text-body">Language / மொழி</span>
+              <span className="text-sm font-medium text-body">{t('nav.language')}</span>
               <LanguageToggle />
             </div>
 
@@ -367,22 +366,18 @@ export function Navbar() {
                     fullWidth
                     leftIcon={<PlusCircle className="w-4 h-4" />}
                     className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
-                  >
-                    Post Freight
-                  </Button>
+                  >{t('nav.postFreight')}</Button>
                   <Link
                     href="/profile"
                     onClick={() => setMobileMenuOpen(false)}
                     className="block px-3.5 py-3 rounded-xl text-sm font-medium text-body hover:text-ink hover:bg-wash transition-colors min-h-[44px]"
-                  >
-                    Profile & account
-                  </Link>
+                  >{t('nav.profileAccount')}</Link>
                   <Link
                     href="/notifications"
                     onClick={() => setMobileMenuOpen(false)}
                     className="block px-3.5 py-3 rounded-xl text-sm font-medium text-body hover:text-ink hover:bg-wash transition-colors min-h-[44px]"
                   >
-                    Notifications
+                    {t('nav.notifications')}
                     {unreadCount > 0 && (
                       <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-primary-500 text-white text-[11px] font-bold">
                         {unreadCount > 9 ? '9+' : unreadCount}
@@ -393,15 +388,11 @@ export function Navbar() {
                     href="/settings"
                     onClick={() => setMobileMenuOpen(false)}
                     className="block px-3.5 py-3 rounded-xl text-sm font-medium text-body hover:text-ink hover:bg-wash transition-colors min-h-[44px]"
-                  >
-                    Settings
-                  </Link>
+                  >{t('nav.settings')}</Link>
                 </>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
-                  <Button as={Link} href="/login" variant="secondary" size="md" fullWidth>
-                    Sign in
-                  </Button>
+                  <Button as={Link} href="/login" variant="secondary" size="md" fullWidth>{t('nav.signIn')}</Button>
                   <Button
                     as={Link}
                     href={postFreightHref}
@@ -410,9 +401,7 @@ export function Navbar() {
                     fullWidth
                     leftIcon={<PlusCircle className="w-4 h-4" />}
                     className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
-                  >
-                    Post Freight
-                  </Button>
+                  >{t('nav.postFreight')}</Button>
                 </div>
               )}
             </div>

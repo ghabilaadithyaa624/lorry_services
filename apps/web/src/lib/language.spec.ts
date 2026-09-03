@@ -5,13 +5,15 @@ import {
   applyLanguage,
   persistLanguage,
   LANGUAGE_STORAGE_KEY,
+  LANGUAGE_DIRECTIONS,
 } from './language'
 
-describe('Language System (header toggle: தமிழ் | English)', () => {
-  it('orders the toggle தமிழ் first, English second, per the navigation spec', () => {
-    expect(UI_LANGUAGES.map((l) => l.value)).toEqual(['ta', 'en'])
+describe('Language System (header toggle: தமிழ் | हिन्दी | English)', () => {
+  it('orders the toggle தமிழ், हिन्दी, English per the product spec', () => {
+    expect(UI_LANGUAGES.map((l) => l.value)).toEqual(['ta', 'hi', 'en'])
     expect(UI_LANGUAGES[0].label).toBe('தமிழ்')
-    expect(UI_LANGUAGES[1].label).toBe('English')
+    expect(UI_LANGUAGES[1].label).toBe('हिन्दी')
+    expect(UI_LANGUAGES[2].label).toBe('English')
   })
 
   it('provides short labels for the compact mobile breakpoint', () => {
@@ -21,14 +23,21 @@ describe('Language System (header toggle: தமிழ் | English)', () => {
     }
   })
 
+  it('maps Hindi to RTL and the other languages to LTR', () => {
+    expect(LANGUAGE_DIRECTIONS.hi).toBe('rtl')
+    expect(LANGUAGE_DIRECTIONS.ta).toBe('ltr')
+    expect(LANGUAGE_DIRECTIONS.en).toBe('ltr')
+  })
+
   it('validates supported UI language codes', () => {
     expect(isUiLanguage('en')).toBe(true)
     expect(isUiLanguage('ta')).toBe(true)
-    expect(isUiLanguage('hi')).toBe(false)
+    expect(isUiLanguage('hi')).toBe(true)
     expect(isUiLanguage('')).toBe(false)
     expect(isUiLanguage(undefined)).toBe(false)
     expect(isUiLanguage(null)).toBe(false)
     expect(isUiLanguage(42)).toBe(false)
+    expect(isUiLanguage('fr')).toBe(false)
   })
 
   it('falls back to English when no window/storage is available (SSR)', () => {
@@ -67,7 +76,7 @@ describe('Language System (header toggle: தமிழ் | English)', () => {
           this.detail = init?.detail
         }
       }
-      ;(global as any).document = { documentElement: { lang: 'en' } }
+      ;(global as any).document = { documentElement: { lang: 'en', dir: 'ltr' } }
     })
 
     afterEach(() => {
@@ -79,14 +88,17 @@ describe('Language System (header toggle: தமிழ் | English)', () => {
     it('reads a persisted preference and rejects unknown values', () => {
       store[LANGUAGE_STORAGE_KEY] = 'ta'
       expect(readStoredLanguage()).toBe('ta')
+      store[LANGUAGE_STORAGE_KEY] = 'hi'
+      expect(readStoredLanguage()).toBe('hi')
       store[LANGUAGE_STORAGE_KEY] = 'fr'
       expect(readStoredLanguage()).toBe('en')
     })
 
-    it('persists, applies <html lang>, and broadcasts the change', () => {
-      persistLanguage('ta')
-      expect(store[LANGUAGE_STORAGE_KEY]).toBe('ta')
-      expect((global as any).document.documentElement.lang).toBe('ta')
+    it('persists, applies <html lang> and <html dir>, and broadcasts the change', () => {
+      persistLanguage('hi')
+      expect(store[LANGUAGE_STORAGE_KEY]).toBe('hi')
+      expect((global as any).document.documentElement.lang).toBe('hi')
+      expect((global as any).document.documentElement.dir).toBe('rtl')
       expect(dispatched).toContain('lc-language-change')
     })
   })

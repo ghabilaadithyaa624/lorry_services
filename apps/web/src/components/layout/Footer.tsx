@@ -12,8 +12,10 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import { whatsappLink, cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 export function Footer() {
+  const { t } = useI18n()
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
 
   const toggleSection = (section: string) => {
@@ -23,6 +25,7 @@ export function Footer() {
   const footerGroups = [
     {
       title: 'PLATFORM',
+      i18nKey: 'footer.platform',
       links: [
         { label: 'Live Matching Engine', href: '/#live-network' },
         { label: '50km Proximity Engine', href: '/#live-network' },
@@ -33,6 +36,7 @@ export function Footer() {
     },
     {
       title: 'SOLUTIONS',
+      i18nKey: 'footer.solutions',
       links: [
         { label: 'For Shippers & Cargo Owners', href: '/search?type=truck' },
         { label: 'For Fleet Owners & Drivers', href: '/search?type=load' },
@@ -43,6 +47,7 @@ export function Footer() {
     },
     {
       title: 'CORRIDORS',
+      i18nKey: 'footer.corridors',
       links: [
         { label: 'Delhi NCR ➔ JNPT Mumbai', href: '/search?type=truck&location=Delhi' },
         { label: 'Chennai ➔ Bengaluru ICD', href: '/search?type=truck&location=Chennai' },
@@ -53,6 +58,7 @@ export function Footer() {
     },
     {
       title: 'RESOURCES',
+      i18nKey: 'footer.resources',
       links: [
         { label: 'Freight Rate Benchmarks', href: '/subscribe' },
         { label: 'FASTag Toll Checkpoints', href: '/tracking' },
@@ -63,6 +69,7 @@ export function Footer() {
     },
     {
       title: 'COMPANY',
+      i18nKey: 'footer.company',
       links: [
         { label: 'About LorryCarry', href: '/' },
         { label: 'Direct Freight Charter', href: '/#comparison' },
@@ -73,6 +80,7 @@ export function Footer() {
     },
     {
       title: 'SUPPORT',
+      i18nKey: 'footer.support',
       links: [
         { label: '24/7 Freight Helpline', href: 'tel:+918072025106' },
         { label: 'WhatsApp Dispatch Desk', href: whatsappLink('918072025106', 'Hi LorryCarry Support, I need assistance.') },
@@ -82,10 +90,11 @@ export function Footer() {
     },
     {
       title: 'LEGAL',
+      i18nKey: 'footer.legal',
       links: [
-        { label: 'Terms of Service', href: '/' },
+        { label: 'Terms of Service', href: '/terms' },
         { label: 'Carrier Liability Policy', href: '/' },
-        { label: 'Privacy & Data Security', href: '/' },
+        { label: 'Privacy & Data Security', href: '/privacy' },
         { label: 'Zero-Brokerage Guarantee', href: '/#comparison' },
       ],
     },
@@ -150,7 +159,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-xs sm:text-sm text-surface-400 leading-relaxed font-sans">
-              India&apos;s Direct Freight Operating Network. Connecting shippers directly with Vahan-verified lorry owners across India&apos;s major highway corridors.
+              {t('footer.tagline')}
             </p>
           </div>
 
@@ -170,7 +179,7 @@ export function Footer() {
               className="px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-bold flex items-center gap-2 transition-all shadow-card focus-visible:ring-2 focus-visible:ring-emerald-500 focus:outline-none"
             >
               <MessageSquare className="w-4 h-4 text-emerald-400" />
-              <span>WhatsApp Helpline</span>
+              <span>{t('footer.whatsappHelpline')}</span>
             </a>
           </div>
         </div>
@@ -178,9 +187,9 @@ export function Footer() {
         {/* Desktop 7-Column Footer Links Grid */}
         <div className="hidden md:grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-8 pt-10">
           {footerGroups.map((group) => (
-            <div key={group.title} className="space-y-3">
+            <div key={group.i18nKey} className="space-y-3">
               <h5 className="text-[11px] font-mono font-bold text-white uppercase tracking-wider">
-                {group.title}
+                {t(group.i18nKey)}
               </h5>
               <ul className="space-y-2 text-xs">
                 {group.links.map((link) => (
@@ -203,13 +212,13 @@ export function Footer() {
           {footerGroups.map((group) => {
             const isOpen = !!openSections[group.title]
             return (
-              <div key={group.title} className="border-b border-white/10 pb-3">
+              <div key={group.i18nKey} className="border-b border-white/10 pb-3">
                 <button
                   type="button"
                   onClick={() => toggleSection(group.title)}
                   className="w-full flex items-center justify-between py-1 text-xs font-mono font-bold text-white uppercase tracking-wider text-left"
                 >
-                  <span>{group.title}</span>
+                  <span>{t(group.i18nKey)}</span>
                   <ChevronDown
                     className={cn(
                       'w-4 h-4 text-surface-400 transition-transform duration-200',

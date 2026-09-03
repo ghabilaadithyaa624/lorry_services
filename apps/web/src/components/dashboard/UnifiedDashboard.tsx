@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { api, usersApi, authApi } from '@/lib/api'
 import { Footer } from '@/components/layout'
+import { AnalyticsSnapshot } from '@/components/dashboard/AnalyticsSnapshot'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo } from '@/lib/utils'
@@ -291,6 +292,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
     : loads.filter((l) => l.status === 'Completed').length
   const fleetSize = trucks.length
   const verifiedTruckCount = trucks.filter((t) => t.verificationStatus === 'Verified').length
+  const averageHireRate =
+    trips.length > 0
+      ? Math.round(trips.reduce((sum, trip) => sum + (trip.agreedPrice || 0), 0) / trips.length)
+      : 48000
 
   return (
     <div className="min-h-screen bg-canvas text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
@@ -578,6 +583,15 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             </Link>
           </div>
         </div>
+
+        {/* ── Dashboard Analytics (Prompt 6: charts + subscription reminder) ── */}
+        <AnalyticsSnapshot
+          totalLoads={isTruckOwner ? fleetSize : loads.length}
+          trucksMatched={verifiedTruckCount || trucks.length}
+          avgHireRate={averageHireRate}
+          subscriptionActive={hasSubscription}
+          className="space-y-4"
+        />
 
         {/* ── Telemetry Stats Grid (Compact Telemetry Readouts) ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">

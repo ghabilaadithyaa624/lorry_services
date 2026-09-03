@@ -31,9 +31,12 @@ export interface Truck {
   preferredDestinations?: string[]
   updatedAt?: string
   registrationNumber?: string | null
+  /** Optional commercial rate per tonne in INR, shown in the search engine card. */
+  ratePerTon?: number
   owner?: {
     id: string
     name?: string
+    companyName?: string | null
     phone: string
   }
 }
@@ -143,6 +146,9 @@ export function TruckCard({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs text-surface-400 font-medium">
+                {truck.owner?.companyName && (
+                  <span className="font-semibold text-surface-200">{truck.owner.companyName}</span>
+                )}
                 <span className="font-semibold text-surface-200">
                   {truck.bodyType} Body Truck
                 </span>
@@ -193,10 +199,10 @@ export function TruckCard({
 
           <div className="bg-surface-950/80 rounded-xl p-3 border border-white/5">
             <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
-              RATE BENCHMARK
+              RATE PER TON
             </div>
             <div className="text-sm sm:text-base font-bold text-emerald-400 font-mono mt-0.5">
-              ₹42.00/T-km
+              ₹{(truck.ratePerTon ?? 42.0).toFixed(2)}/T
             </div>
           </div>
 
@@ -231,6 +237,13 @@ export function TruckCard({
         <div className="pt-4 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {contactData?.owner ? (
             <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={`tel:${contactData.owner.phone}`}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-colors"
+              >
+                <Phone className="w-4 h-4 text-emerald-400" />
+                <span>{contactData.owner.name ? `Call ${contactData.owner.name}` : 'Call Now'}</span>
+              </a>
               <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-950/60 text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
                 <Phone className="w-4 h-4 text-emerald-400" />
                 <span>{formatPhone(contactData.owner.phone)}</span>
