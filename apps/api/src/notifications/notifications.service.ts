@@ -150,7 +150,7 @@ export class NotificationsService {
       }
     }
 
-    const preference = (user.preference ?? null) as unknown as Record<string, boolean> | null
+    const preference = user.preference as unknown as Record<string, boolean> | null
     const optInKey = payload.optInKey ?? 'notifyWhatsapp'
     const optedIn = preference?.[optInKey] !== false
 

@@ -21,8 +21,8 @@ jest.mock('@lorrycarry/database', () => {
   return {
     prisma: mockPrisma,
     UserRole: {
-      truck_owner: 'truck_owner',
-      load_owner: 'load_owner',
+      truck_driver: 'truck_driver',
+      factory_owner: 'factory_owner',
       admin: 'admin',
     },
     VerificationStatus: {
@@ -74,7 +74,7 @@ describe('AdminService', () => {
     })
 
     it('should throw ForbiddenException if user is not admin', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.truck_owner })
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.truck_driver })
 
       await expect(service.getDashboardStats('admin-id')).rejects.toThrow(
         new ForbiddenException('Admin access required'),
@@ -284,13 +284,13 @@ describe('AdminService', () => {
       (prisma.user.findMany as jest.Mock).mockResolvedValue([{ id: 1 }])
       ;(prisma.user.count as jest.Mock).mockResolvedValue(15)
 
-      const result = await service.listUsers('admin-id', UserRole.truck_owner, 1, 10)
+      const result = await service.listUsers('admin-id', UserRole.truck_driver, 1, 10)
 
       expect(prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: { role: UserRole.truck_owner },
+        where: { role: UserRole.truck_driver },
         skip: 0,
       }))
-      expect(prisma.user.count).toHaveBeenCalledWith({ where: { role: UserRole.truck_owner } })
+      expect(prisma.user.count).toHaveBeenCalledWith({ where: { role: UserRole.truck_driver } })
 
       expect(result.pages).toBe(2)
     })

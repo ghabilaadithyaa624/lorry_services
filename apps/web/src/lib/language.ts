@@ -1,7 +1,7 @@
 /**
  * LorryCarry UI Language System
  *
- * Single source of truth for the header language toggle (தமிழ் | English).
+ * Single source of truth for the header language toggle (தமிழ் | हिन्दी | English).
  *
  * The preference is persisted locally so the choice is instant and survives
  * reloads without a backend round-trip. When the operator is signed in, the

@@ -14,7 +14,7 @@ export interface OperationalTask {
 }
 
 export function deriveOperationalTasks(params: {
-  userRole: 'load_owner' | 'truck_owner' | 'admin'
+  userRole: 'factory_owner' | 'truck_driver' | 'admin'
   loads?: Array<{ id: string; status: string; tonnageRequired: number; loadingAddress: string }>
   trucks?: Array<{ id: string; registrationNumber: string; verificationStatus: string; documents?: any[] }>
   bookings?: Array<{ id: string; status: string; advanceConfirmed: boolean; balanceConfirmed: boolean; agreedPrice: number }>
@@ -35,8 +35,8 @@ export function deriveOperationalTasks(params: {
     })
   }
 
-  // 2. Truck Owner Compliance Tasks
-  if (params.userRole === 'truck_owner' && params.trucks) {
+  // 2. Truck Driver Compliance Tasks
+  if (params.userRole === 'truck_driver' && params.trucks) {
     params.trucks.forEach((truck) => {
       if (truck.verificationStatus === 'Pending') {
         tasks.push({
@@ -45,15 +45,15 @@ export function deriveOperationalTasks(params: {
           description: 'Upload your clear RC copy and Insurance certificate to activate direct marketplace matching.',
           category: 'COMPLIANCE',
           urgency: 'HIGH',
-          actionUrl: `/dashboard/truck-owner`,
+          actionUrl: `/dashboard/truck-driver`,
           actionLabel: 'Upload Documents',
         })
       }
     })
   }
 
-  // 3. Load Owner Booking & Dispatch Tasks
-  if (params.userRole === 'load_owner' && params.bookings) {
+  // 3. Factory Owner Booking & Dispatch Tasks
+  if (params.userRole === 'factory_owner' && params.bookings) {
     params.bookings.forEach((booking) => {
       if (!booking.advanceConfirmed && booking.status !== 'Cancelled') {
         tasks.push({
@@ -70,7 +70,7 @@ export function deriveOperationalTasks(params: {
   }
 
   // 4. Open Unmatched Loads Reminder
-  if (params.userRole === 'load_owner' && params.loads) {
+  if (params.userRole === 'factory_owner' && params.loads) {
     const openLoads = params.loads.filter(l => l.status === 'Open')
     if (openLoads.length > 0) {
       tasks.push({

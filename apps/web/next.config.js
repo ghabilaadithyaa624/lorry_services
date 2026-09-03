@@ -21,7 +21,6 @@ const nextConfig = {
       '@headlessui/react',
       'date-fns',
     ],
-    optimizeCss: true,
   },
   async rewrites() {
     return [
@@ -105,6 +104,15 @@ const nextConfig = {
         ],
       },
     ]
+  },
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      html2canvas: false,
+      dompurify: false,
+      canvg: false,
+    }
+    return config
   },
 }
 

@@ -92,7 +92,7 @@ export default function SubscriptionPage() {
             Transporter Pass & Access Control
           </h1>
           <p className="text-xs sm:text-sm text-surface-400 max-w-xl mx-auto">
-            Direct freight intelligence without broker friction. Connect directly with verified truck owners and shippers across national corridors.
+            Direct freight intelligence without broker friction. Connect directly with verified truck drivers and shippers across national corridors.
           </p>
         </div>
 
@@ -185,7 +185,7 @@ export default function SubscriptionPage() {
             <div className="space-y-6">
               <div>
                 <h3 className="text-xl font-bold text-white font-sans">Pro Unlimited</h3>
-                <p className="text-xs font-mono text-surface-400 mt-1">For active load owners & fleet operators</p>
+                <p className="text-xs font-mono text-surface-400 mt-1">For active factory owners & fleet operators</p>
               </div>
 
               <div className="flex items-baseline font-mono">

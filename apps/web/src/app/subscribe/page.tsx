@@ -189,7 +189,7 @@ function SubscribeContent() {
             Direct Freight Intelligence Passes
           </h1>
           <p className="text-xs sm:text-sm text-surface-400 max-w-lg mx-auto">
-            Direct freight intelligence without broker friction. Connect directly with verified truck owners and shippers.
+            Direct freight intelligence without broker friction. Connect directly with verified truck drivers and shippers.
           </p>
         </div>
 

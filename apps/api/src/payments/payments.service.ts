@@ -336,7 +336,13 @@ export class PaymentsService {
   /**
    * Handle payment webhook from provider
    */
-  async handleWebhook(provider: 'razorpay' | 'cashfree', payload: any) {
+  async handleWebhook(providerOrPayload: 'razorpay' | 'cashfree' | any, maybePayload?: any): Promise<{ success: boolean; message: string; userId?: string }> {
+    let provider: 'razorpay' | 'cashfree' = 'cashfree'
+    let payload = providerOrPayload
+    if (typeof providerOrPayload === 'string' && (providerOrPayload === 'razorpay' || providerOrPayload === 'cashfree')) {
+      provider = providerOrPayload
+      payload = maybePayload
+    }
     if (provider === 'razorpay') {
       return this.handleRazorpayWebhook(payload)
     } else {

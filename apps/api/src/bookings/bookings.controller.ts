@@ -25,7 +25,7 @@ export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
   @Post()
-  @Roles(UserRole.load_owner)
+  @Roles(UserRole.factory_owner)
   @ApiOperation({ summary: 'Create booking (requires subscription)' })
   async create(
     @Body() dto: CreateBookingDto,
@@ -48,7 +48,7 @@ export class BookingsController {
   ) {
     return this.bookingsService.findByUser(
       userId,
-      role === UserRole.load_owner ? 'load_owner' : 'truck_owner'
+      role === UserRole.load_owner || (role as any) === 'factory_owner' ? 'load_owner' : 'truck_owner'
     )
   }
 

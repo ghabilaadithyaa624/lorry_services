@@ -21,6 +21,8 @@ import {
 import { api, usersApi, authApi, subscriptionsApi } from '@/lib/api'
 import { Footer } from '@/components/layout'
 import { AnalyticsSnapshot } from '@/components/dashboard/AnalyticsSnapshot'
+import { DashboardSummaryCards } from '@/components/dashboard/DashboardSummaryCards'
+import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
 import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
@@ -33,7 +35,7 @@ interface UserState {
   id?: string
   phone?: string
   name?: string
-  role?: 'load_owner' | 'truck_owner' | 'driver' | 'admin'
+  role?: 'load_owner' | 'truck_owner' | 'driver' | 'admin' | 'factory_owner' | 'truck_driver'
 }
 
 interface LoadItem {
@@ -109,7 +111,7 @@ interface ActivityItem {
 }
 
 interface UnifiedDashboardProps {
-  roleOverride?: 'load_owner' | 'truck_owner' | 'driver'
+  roleOverride?: 'load_owner' | 'truck_owner' | 'driver' | 'factory_owner' | 'truck_driver'
 }
 
 export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
@@ -146,7 +148,8 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   }, [])
 
   const effectiveRole = roleOverride || user?.role || 'load_owner'
-  const isTruckOwner = isVehicleSideRole(effectiveRole)
+  const isTruckOwner = isVehicleSideRole(effectiveRole) || effectiveRole === 'truck_driver'
+  const isTruckDriver = isTruckOwner
   const isDriver = effectiveRole === 'driver'
   const isTrial = subscriptionStatus?.isTrial === true
 
@@ -234,8 +237,8 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         setActivities([
           {
             id: 'act-1',
-            title: isTruckOwner ? 'Vehicle Telemetry Online' : 'Freight Consignment Verified',
-            description: isTruckOwner
+            title: isTruckDriver ? 'Vehicle Telemetry Online' : 'Freight Consignment Verified',
+            description: isTruckDriver
               ? 'GPS centerpoint and 50km corridor broadcast active for verified shippers.'
               : 'Direct factor-based match scoring activated for active loading points.',
             timestamp: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
@@ -296,10 +299,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
   // Telemetry Aggregates
   const activeLoadCount = loads.filter((l) => l.status === 'Open' || l.status === 'Matched').length
-  const inTransitCount = isTruckOwner
+  const inTransitCount = isTruckDriver
     ? trips.filter((t) => t.status === 'InTransit').length
     : loads.filter((l) => l.status === 'InTransit').length
-  const completedCount = isTruckOwner
+  const completedCount = isTruckDriver
     ? trips.filter((t) => t.status === 'Completed').length
     : loads.filter((l) => l.status === 'Completed').length
   const fleetSize = trucks.length
@@ -308,6 +311,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
     trips.length > 0
       ? Math.round(trips.reduce((sum, trip) => sum + (trip.agreedPrice || 0), 0) / trips.length)
       : 48000
+  const earnings = trips
+    .filter((trip) => trip.status === 'Completed')
+    .reduce((sum, trip) => sum + Number(trip.agreedPrice || 0), 0)
 
   return (
     <div className="min-h-screen bg-canvas text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
@@ -355,6 +361,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
             {/* Right Actions & User Profile */}
             <div className="hidden sm:flex items-center gap-3">
+              {/* Tamil / Hindi / English language switcher */}
+              <LanguageToggle />
+
               {/* Notification Bell */}
               <Link
                 href="/notifications"
@@ -393,6 +402,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
             {/* Mobile Menu Toggle */}
             <div className="flex md:hidden items-center gap-2">
+              <LanguageToggle compact />
               <button
                 type="button"
                 className="p-2 text-surface-400 hover:text-white hover:bg-white/5 rounded-xl focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none border border-white/5"
@@ -505,7 +515,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             {isTruckOwner ? (
               <>
                 <Link
-                  href="/my-trucks"
+                  href="/need-vehicle"
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
                 >
                   <PlusCircle className="w-4 h-4" />
@@ -522,7 +532,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             ) : (
               <>
                 <Link
-                  href="/post-load"
+                  href="/need-load"
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
                 >
                   <PlusCircle className="w-4 h-4" />
@@ -539,6 +549,14 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             )}
           </div>
         </div>
+
+        {/* ── 3. Requested overview cards: bookings, completed trips, earnings ── */}
+        <DashboardSummaryCards
+          activeBookings={activeTrips.length}
+          completedTrips={completedTrips.filter((trip) => trip.status === 'Completed').length}
+          earnings={earnings}
+          loading={loading}
+        />
 
         {/* ── 3. Subscription Status & Upsell Card ── */}
         <div className="bg-panel rounded-2xl border border-white/10 p-5 sm:p-6 shadow-modal hover:border-primary-500/30 transition-all">
@@ -613,7 +631,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
         {/* ── Dashboard Analytics (Prompt 6: charts + subscription reminder) ── */}
         <AnalyticsSnapshot
-          totalLoads={isTruckOwner ? fleetSize : loads.length}
+          totalLoads={isTruckDriver ? fleetSize : loads.length}
           trucksMatched={verifiedTruckCount || trucks.length}
           avgHireRate={averageHireRate}
           subscriptionActive={entitlement?.hasPremiumAccess ?? hasSubscription}
@@ -622,7 +640,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
         {/* ── Telemetry Stats Grid (Compact Telemetry Readouts) ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-          {isTruckOwner ? (
+          {isTruckDriver ? (
             <>
               <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
@@ -774,10 +792,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 </p>
                 <div className="pt-2">
                   <Link
-                    href={isTruckOwner ? '/search?type=load' : '/post-load'}
+                    href={isTruckDriver ? '/search?type=load' : '/post-load'}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 border border-primary-500/30 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none"
                   >
-                    <span>{isTruckOwner ? 'Find Freight Loads' : 'Post a Freight Load'}</span>
+                    <span>{isTruckDriver ? 'Find Freight Loads' : 'Post a Freight Load'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
@@ -1029,11 +1047,11 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary-400" />
                 <h3 className="text-base font-bold text-white">
-                  {isTruckOwner ? 'High-Yield Backhauls' : 'Nearby Matched Lorries'}
+                  {isTruckDriver ? 'High-Yield Backhauls' : 'Nearby Matched Lorries'}
                 </h3>
               </div>
               <Link
-                href={isTruckOwner ? '/search?type=load' : '/search?type=truck'}
+                href={isTruckDriver ? '/search?type=load' : '/search?type=truck'}
                 className="text-xs font-semibold text-primary-400 hover:text-primary-300 inline-flex items-center gap-1"
               >
                 <span>View all</span>

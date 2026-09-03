@@ -3,6 +3,6 @@
 import React from 'react'
 import { UnifiedDashboard } from '@/components/dashboard/UnifiedDashboard'
 
-export default function TruckOwnerDashboardPage() {
-  return <UnifiedDashboard roleOverride="truck_owner" />
+export default function FactoryOwnerDashboardPage() {
+  return <UnifiedDashboard roleOverride="factory_owner" />
 }

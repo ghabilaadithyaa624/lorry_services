@@ -19,8 +19,8 @@ interface Booking {
   id: string
   loadId: string
   truckId: string
-  loadOwnerId: string
-  truckOwnerId: string
+  factoryOwnerId: string
+  truckDriverId: string
   agreedPrice: number | string
   advanceConfirmed: boolean
   balanceConfirmed: boolean
@@ -31,8 +31,8 @@ interface Booking {
   completedAt: string | null
   createdAt: string
   updatedAt: string
-  loadOwner: { name: string | null; phone: string }
-  truckOwner: { name: string | null; phone: string }
+  factoryOwner: { name: string | null; phone: string }
+  truckDriver: { name: string | null; phone: string }
   load: { loadingAddress: string; unloadingAddress: string }
   truck: { registrationNumber: string }
 }
@@ -184,7 +184,7 @@ export default function FreightBookingsPage() {
                   <th className="text-left py-3 px-4 font-bold">Booking ID</th>
                   <th className="text-left py-3 px-4 font-bold">Corridor Route</th>
                   <th className="text-left py-3 px-4 font-bold">Vehicle</th>
-                  <th className="text-left py-3 px-4 font-bold">Load Owner</th>
+                  <th className="text-left py-3 px-4 font-bold">Factory Owner</th>
                   <th className="text-left py-3 px-4 font-bold">Transporter</th>
                   <th className="text-right py-3 px-4 font-bold">Agreed Price</th>
                   <th className="text-center py-3 px-4 font-bold">Lifecycle Status</th>
@@ -220,13 +220,13 @@ export default function FreightBookingsPage() {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <p className="font-bold text-white">{b.loadOwner.name || 'Shipper'}</p>
-                        <p className="text-[11px] text-surface-400">{formatPhone(b.loadOwner.phone)}</p>
+                        <p className="font-bold text-white">{b.factoryOwner.name || 'Shipper'}</p>
+                        <p className="text-[11px] text-surface-400">{formatPhone(b.factoryOwner.phone)}</p>
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <p className="font-bold text-white">{b.truckOwner.name || 'Transporter'}</p>
-                        <p className="text-[11px] text-surface-400">{formatPhone(b.truckOwner.phone)}</p>
+                        <p className="font-bold text-white">{b.truckDriver.name || 'Transporter'}</p>
+                        <p className="text-[11px] text-surface-400">{formatPhone(b.truckDriver.phone)}</p>
                       </td>
 
                       <td className="py-3.5 px-4 text-right font-black text-emerald-400">

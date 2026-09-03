@@ -514,7 +514,16 @@ export class AdminService {
       prisma.booking.count(),
     ])
 
-    return { bookings, total, page, pages: Math.ceil(total / limit) }
+    return {
+      bookings: bookings.map((b: any) => ({
+        ...b,
+        factoryOwner: b.loadOwner,
+        truckDriver: b.truckOwner,
+      })),
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+    }
   }
 
   // ── Vahan / Parivahan verification ────────────────────────────────────────

@@ -10,8 +10,8 @@ import type { NextRequest } from 'next/server'
 
 const PUBLIC_EXACT_PATHS = ['/']
 const PUBLIC_PREFIXES = ['/login', '/role-select', '/search', '/subscribe', '/subscription', '/api']
-const LOAD_OWNER_PATHS = ['/dashboard/load-owner', '/post-load', '/my-loads']
-const TRUCK_OWNER_PATHS = ['/dashboard/truck-owner', '/register-truck', '/my-trucks']
+const LOAD_OWNER_PATHS = ['/dashboard/load-owner', '/post-load', '/need-load', '/my-loads']
+const TRUCK_OWNER_PATHS = ['/dashboard/truck-owner', '/register-truck', '/need-vehicle', '/my-trucks']
 const DRIVER_PATHS = ['/dashboard/driver']
 
 const dashboardForRole = (role?: string) =>
@@ -19,7 +19,7 @@ const dashboardForRole = (role?: string) =>
     ? '/admin'
     : role === 'driver'
       ? '/dashboard/driver'
-      : role === 'truck_owner'
+      : role === 'truck_owner' || role === 'truck_driver'
         ? '/dashboard/truck-owner'
         : '/dashboard/load-owner'
 
@@ -81,13 +81,13 @@ export async function middleware(request: NextRequest) {
 
   // Role-based access control
   if (LOAD_OWNER_PATHS.some(path => pathname.startsWith(path))) {
-    if (userRole !== 'load_owner') {
+    if (userRole !== 'load_owner' && userRole !== 'factory_owner') {
       return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
     }
   }
 
   if (TRUCK_OWNER_PATHS.some(path => pathname.startsWith(path))) {
-    if (userRole !== 'truck_owner' && userRole !== 'driver') {
+    if (userRole !== 'truck_owner' && userRole !== 'driver' && userRole !== 'truck_driver') {
       return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
     }
   }

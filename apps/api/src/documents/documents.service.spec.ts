@@ -36,7 +36,7 @@ describe('DocumentsService', () => {
     jest.clearAllMocks();
   });
 
-  it('should generate pre-signed URL for valid truck owner', async () => {
+  it('should generate pre-signed URL for valid truck driver', async () => {
     (prisma.truck.findUnique as jest.Mock).mockResolvedValue({ id: 't1', userId: 'u1' });
     const result = await service.generateUploadUrl('u1', 't1', 'TRUCK', 'RC', 'application/pdf');
     expect(result).toHaveProperty('uploadUrl');
@@ -55,9 +55,9 @@ describe('DocumentsService', () => {
       .rejects.toThrow(UnauthorizedException);
   });
 
-  it('should authorize booking load owner', async () => {
+  it('should authorize booking factory owner', async () => {
     (prisma.booking.findUnique as jest.Mock).mockResolvedValue({
-      id: 'b1', load: { userId: 'u1' }, truckOwnerId: 'u2',
+      id: 'b1', load: { userId: 'u1' }, truckDriverId: 'u2',
     });
     const result = await service.generateUploadUrl('u1', 'b1', 'BOOKING', 'POD', 'image/png');
     expect(result.uploadUrl).toBe('https://mocked-signed-url');

@@ -12,7 +12,6 @@ import {
 } from '@heroicons/react/24/outline'
 import { api } from '@/lib/api'
 import { format } from 'date-fns'
-import { MMKV } from 'react-native-mmkv'
 import { Navbar, Footer } from '@/components/layout'
 import { Badge, Button, Spinner } from '@/components/ui'
 import { assessShipmentIntelligence } from '@/lib/intelligence'
@@ -23,8 +22,6 @@ import { toast } from '@/lib/toast'
 import { cn, formatINR, whatsappLink } from '@/lib/utils'
 import { PaymentSplitCard } from '@/components/PaymentSplitCard'
 import { RatingModal } from '@/components/RatingModal'
-
-const storage = new MMKV()
 
 export default function BookingDetailPage() {
   const params = useParams()
@@ -48,7 +45,7 @@ export default function BookingDetailPage() {
 
   const loadCurrentUser = () => {
     try {
-      const userStr = storage.getString('user')
+      const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null
       if (userStr) {
         const user = JSON.parse(userStr)
         setCurrentUserId(user.id || '')
@@ -448,7 +445,7 @@ export default function BookingDetailPage() {
         <DigitalDocumentChainCard
           bookingId={booking.id}
           bookingNumber={booking.id.slice(0, 8).toUpperCase()}
-          loadOwnerName={booking.load?.user?.name || 'Cargo Owner'}
+          factoryOwnerName={booking.load?.user?.name || 'Cargo Owner'}
           truckRegNumber={booking.truck?.registrationNumber || 'MH 12 QT 8492'}
           status={booking.status}
           advanceConfirmed={Boolean(booking.advanceConfirmed)}

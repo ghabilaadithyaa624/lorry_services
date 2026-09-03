@@ -312,7 +312,7 @@ function MyLoadsContent() {
           </GlassPanel>
         ) : filteredLoads.length === 0 ? (
           <OperationalEmptyState
-            role="load_owner"
+            role="factory_owner"
             title="No freight posted"
             description="Publish your cargo tonnage and warehouse coordinates to activate direct 50 km proximity matching with verified transporters."
             actionLabel="Post your first load"

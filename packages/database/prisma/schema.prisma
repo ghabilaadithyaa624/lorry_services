@@ -23,14 +23,17 @@ model User {
   trialEndsAt      DateTime? @map("trial_ends_at")
   trialConvertedAt DateTime? @map("trial_converted_at") // set when user upgrades to a paid plan
   
-  loads              Load[]
-  trucks             Truck[]
-  subscriptions      Subscription[]
-  loadOwnerBookings  Booking[] @relation("LoadOwnerBookings")
-  truckOwnerBookings Booking[] @relation("TruckOwnerBookings")
-  payments           Payment[]
-  notifications      Notification[]
+  loads                Load[]
+  trucks               Truck[]
+  subscriptions        Subscription[]
+  loadOwnerBookings    Booking[] @relation("LoadOwnerBookings")
+  truckOwnerBookings   Booking[] @relation("TruckOwnerBookings")
+  payments             Payment[]
+  notifications        Notification[]
   notificationReceipts NotificationReceipt[]
+  preference           UserPreference?
+  givenRatings         Rating[] @relation("RaterRatings")
+  receivedRatings      Rating[] @relation("RatedRatings")
   disputesRaised     BookingDispute[] @relation("DisputesRaised")
   disputesResolved   BookingDispute[] @relation("DisputesResolved")
   preference         UserPreference?
@@ -107,11 +110,26 @@ enum UserRole {
   truck_owner
   /// Individual drivers who work from the vehicle-side workspace.
   driver
+  factory_owner
+  truck_driver
   admin
 }
 
 // Subscription paywall
 model Subscription {
+  id        String             @id @default(uuid())
+  userId    String             @map("user_id")
+  plan      String // 'monthly_unlimited', 'pay_per_unlock', etc.
+  status    SubscriptionStatus
+  startedAt DateTime           @map("started_at")
+  /// Hard expiry timestamp — the paywall gate compares `now() > expiresAt`
+  /// to decide whether contact-reveal / booking creation stays unlocked.
+  expiresAt DateTime           @map("expires_at")
+  /// Whether Cashfree should attempt an automatic renewal charge when this
+  /// subscription approaches `expiresAt`.
+  autoRenew Boolean            @default(false) @map("auto_renew")
+  paymentId String?            @map("payment_id")
+  createdAt DateTime           @default(now()) @map("created_at")
   id              String             @id @default(uuid())
   userId          String             @map("user_id")
   plan            String // 'monthly_unlimited', 'pay_per_unlock', etc.
@@ -279,9 +297,16 @@ model Document {
   fileSize           Int?               @map("file_size")
   mimeType           String?            @map("mime_type")
   verificationStatus VerificationStatus @default(Pending) @map("verification_status")
+  /// Convenience flag mirroring verificationStatus === Verified, so callers
+  /// (e.g. the RC verification badge on Truck/Document lists) can filter
+  /// without re-deriving the enum comparison everywhere.
+  isVerified         Boolean            @default(false) @map("is_verified")
   verifiedBy         String?            @map("verified_by") // Admin user ID
   verificationNotes  String?            @map("verification_notes")
   verifiedAt         DateTime?          @map("verified_at")
+  /// RC fitness-certificate expiry / Insurance policy expiry date, whichever
+  /// applies to `type`. Used to proactively flag documents nearing expiry.
+  expiryDate         DateTime?          @map("expiry_date")
   createdAt          DateTime           @default(now()) @map("created_at")
   
   truck Truck @relation(fields: [truckId], references: [id], onDelete: Cascade)
@@ -289,6 +314,7 @@ model Document {
   @@index([truckId])
   @@index([type])
   @@index([verificationStatus])
+  @@index([expiryDate])
   @@map("documents")
 }
 
@@ -337,7 +363,16 @@ model Booking {
   @@index([ewayBillStatus])
   @@index([loadOwnerId])
   @@index([truckOwnerId])
+  @@index([whatsappTriggerStatus])
   @@map("bookings")
+}
+
+enum WhatsappTriggerStatus {
+  NotTriggered
+  Queued
+  Sent
+  Delivered
+  Failed
 }
 
 enum BookingStatus {
