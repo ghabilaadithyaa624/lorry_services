@@ -9,7 +9,7 @@ import {
   Truck,
   Calendar,
 } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, adminApi } from '../lib/api'
 import { formatPhone, cn } from '../lib/utils'
 
 interface PendingDocument {
@@ -26,6 +26,8 @@ interface PendingDocument {
     id: string
     registrationNumber: string
     bodyType: string
+    vahanStatus?: string
+    vahanLastCheckedAt?: string | null
     user: { name: string | null; phone: string }
   }
 }
@@ -42,6 +44,8 @@ export function KycQueue() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [confirmModal, setConfirmModal] = useState<ConfirmAction | null>(null)
   const [rejectionNotes, setRejectionNotes] = useState('')
+  const [vahanLoading, setVahanLoading] = useState<string | null>(null)
+  const [vahanStatus, setVahanStatus] = useState<Record<string, string>>({})
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
 
   const fetchDocuments = useCallback(async () => {
@@ -87,6 +91,22 @@ export function KycQueue() {
       setActionLoading(null)
       setConfirmModal(null)
       setRejectionNotes('')
+    }
+  }
+
+  const handleVahanCheck = async (truckId: string, registrationNumber: string) => {
+    setVahanLoading(truckId)
+    try {
+      const result = (await adminApi.checkVahan(truckId)).data
+      setVahanStatus((current) => ({ ...current, [truckId]: result.status }))
+      setStatusMessage({
+        text: result.success ? `${registrationNumber} matched the Vahan provider response.` : result.message,
+        type: result.success ? 'success' : 'error',
+      })
+    } catch (err: any) {
+      setStatusMessage({ text: err?.response?.data?.message || 'Vahan lookup failed', type: 'error' })
+    } finally {
+      setVahanLoading(null)
     }
   }
 
@@ -200,13 +220,27 @@ export function KycQueue() {
                     </td>
 
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Truck className="w-4 h-4 text-surface-400" />
+                      <div className="flex items-start gap-2">
+                        <Truck className="w-4 h-4 text-surface-400 mt-0.5" />
                         <div>
                           <p className="font-bold text-white font-mono text-xs">{doc.truck.registrationNumber}</p>
                           <span className="badge bg-surface-700 text-surface-300 text-[10px]">
                             {doc.truck.bodyType}
                           </span>
+                          {(() => {
+                            const currentStatus = vahanStatus[doc.truck.id] || doc.truck.vahanStatus || 'NotChecked'
+                            const checking = vahanLoading === doc.truck.id
+                            return (
+                              <div className="mt-1.5">
+                                <span className={cn('badge text-[9px] border', currentStatus === 'Verified' ? 'bg-success-500/15 text-success-400 border-success-500/30' : currentStatus === 'Mismatch' || currentStatus === 'Error' ? 'bg-danger-500/15 text-danger-400 border-danger-500/30' : 'bg-warning-500/15 text-warning-400 border-warning-500/30')}>
+                                  {checking ? 'VAHAN CHECKING...' : `VAHAN ${currentStatus.toUpperCase()}`}
+                                </span>
+                                <button type="button" onClick={() => handleVahanCheck(doc.truck.id, doc.truck.registrationNumber)} disabled={vahanLoading !== null} className="block text-[10px] text-primary-400 hover:text-primary-300 mt-1 disabled:opacity-40">
+                                  {checking ? 'Checking...' : currentStatus === 'NotChecked' ? 'Run Vahan check' : 'Run again'}
+                                </button>
+                              </div>
+                            )
+                          })()}
                         </div>
                       </div>
                     </td>

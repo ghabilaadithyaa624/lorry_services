@@ -18,6 +18,7 @@ import {
   TruckIcon,
   MagnifyingGlassIcon,
   CommandLineIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline'
 import { authApi, adminApi, usersApi } from '@/lib/api'
 import { Badge, Spinner } from '@/components/ui'
@@ -38,12 +39,14 @@ const NAV_GROUPS = [
       { name: 'KYC Queue', href: '/admin/kyc', icon: DocumentCheckIcon },
       { name: 'Listings & Fleet', href: '/admin/listings', icon: ClipboardDocumentListIcon },
       { name: 'Freight Bookings', href: '/admin/bookings', icon: CalendarDaysIcon },
+      { name: 'Dispute Resolution', href: '/admin/disputes', icon: ShieldExclamationIcon },
     ],
   },
   {
     title: 'COMMERCE & INTELLIGENCE',
     items: [
       { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCardIcon },
+      { name: 'Performance Analytics', href: '/admin/analytics', icon: ChartBarIcon },
       { name: 'National Intelligence', href: '/admin/intelligence', icon: GlobeAsiaAustraliaIcon },
     ],
   },

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import {
   BanknotesIcon,
   ArrowPathIcon,
@@ -298,6 +299,25 @@ export default function AdminDashboardPage() {
             <p className="text-surface-400 text-[11px]">Active vehicles operating across national routes.</p>
           </div>
         </div>
+      </div>
+
+      {/* ── OPERATIONS WORKSPACES ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-sans">
+        <Link href="/admin/kyc" className="p-5 rounded-[20px] bg-panel border border-white/10 hover:border-primary-500/40 transition-colors group">
+          <div className="flex items-center justify-between"><span className="text-[10px] font-mono font-black uppercase tracking-widest text-primary-400">Identity & compliance</span><span className="text-primary-400 group-hover:translate-x-1 transition-transform">→</span></div>
+          <h2 className="text-sm font-bold text-white mt-2">RC + Vahan verification</h2>
+          <p className="text-[11px] text-surface-400 mt-1">Review documents and run a government registration lookup before approving fleet access.</p>
+        </Link>
+        <Link href="/admin/disputes" className="p-5 rounded-[20px] bg-panel border border-white/10 hover:border-danger-500/40 transition-colors group">
+          <div className="flex items-center justify-between"><span className="text-[10px] font-mono font-black uppercase tracking-widest text-danger-300">Trust operations</span><span className="text-danger-300 group-hover:translate-x-1 transition-transform">→</span></div>
+          <h2 className="text-sm font-bold text-white mt-2">Resolve booking disputes</h2>
+          <p className="text-[11px] text-surface-400 mt-1">Triage counterparty claims, inspect route context, and record a decision note.</p>
+        </Link>
+        <Link href="/admin/analytics" className="p-5 rounded-[20px] bg-panel border border-white/10 hover:border-sky-500/40 transition-colors group">
+          <div className="flex items-center justify-between"><span className="text-[10px] font-mono font-black uppercase tracking-widest text-sky-300">Performance</span><span className="text-sky-300 group-hover:translate-x-1 transition-transform">→</span></div>
+          <h2 className="text-sm font-bold text-white mt-2">Trip & route analytics</h2>
+          <p className="text-[11px] text-surface-400 mt-1">Compare trip count, settled revenue, and checkpoint efficiency by corridor.</p>
+        </Link>
       </div>
 
       {/* ── RECENT SETTLED PAYMENTS TABLE ── */}

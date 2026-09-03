@@ -11,8 +11,10 @@ LorryCarry is a high-performance monorepo platform connecting load owners and tr
 - **5-Stage Trip Tracking**: Geofence checkpoint tracking with automated WhatsApp notifications at every leg of the journey.
 - **Production Admin Dashboard**:
   - **Overview & KPI Analytics**: Real-time stats on users, trucks, loads, bookings, conversion rates, and revenue.
-  - **KYC Verification Queue**: Document verification pipeline (RC, Insurance) with instant Verify/Reject actions, modal confirmations, and rejection notes.
+  - **KYC Verification Queue**: RC / Insurance review with instant Verify/Reject actions, rejection notes, and explicit Vahan / Parivahan lookup state. Provider results never silently replace manual approval.
   - **Fleet & Listings Management**: Overview of active trucks and freight listings with direct truck verification controls.
+  - **Booking Dispute Resolution**: Counterparty claims for payment, delay, documents, and cargo damage with investigation, decision notes, priority sorting, and recorded decision notes.
+  - **Performance Analytics**: Time-scoped trip count, completed deliveries, settled revenue, freight value, transit duration, and checkpoint-based route efficiency by corridor.
   - **Subscription Management**: Track active, expired, and cancelled plan subscriptions with expiration alerts.
   - **User Directory**: Search and filter load owners, truck owners, and administrators with detailed operational metrics.
   - **Booking Lifecycle**: Monitor all bookings from pending quotation to in-transit and delivery completion.
@@ -150,6 +152,10 @@ The Next.js Admin Portal is located at `/admin` (or `http://localhost:3010/admin
 | `/admin/subscriptions` | Subscription directory with active/expired statuses and pagination |
 | `/admin/users` | User management with role filtering (`load_owner`, `truck_owner`, `admin`) |
 | `/admin/bookings` | End-to-end booking records with route addresses, pricing, and lifecycle tracking |
+| `/admin/disputes` | Priority-sorted booking dispute queue with investigation and resolution actions |
+| `/admin/analytics` | Time-scoped trip, revenue, and checkpoint-based route efficiency analytics |
+
+Admin API additions: `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`, `PATCH /admin/disputes/:id/resolve`, and `GET /admin/analytics?range=30`. Authenticated booking parties can raise a case through `POST /bookings/:id/disputes`.
 
 ---
 

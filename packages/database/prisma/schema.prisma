@@ -25,6 +25,8 @@ model User {
   payments           Payment[]
   notifications      Notification[]
   notificationReceipts NotificationReceipt[]
+  disputesRaised     BookingDispute[] @relation("DisputesRaised")
+  disputesResolved   BookingDispute[] @relation("DisputesResolved")
   preference         UserPreference?
   
   @@index([phone])
@@ -187,6 +189,10 @@ model Truck {
   preferredDestinations Json?            @map("preferred_destinations") // Array of city names
   verificationStatus  VerificationStatus @default(Pending) @map("verification_status")
   verifiedAt          DateTime?          @map("verified_at")
+  vahanStatus         VahanCheckStatus   @default(NotChecked) @map("vahan_status")
+  vahanLastCheckedAt  DateTime?          @map("vahan_last_checked_at")
+  vahanVerifiedAt     DateTime?          @map("vahan_verified_at")
+  vahanResponse       Json?              @map("vahan_response")
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
   
@@ -205,6 +211,18 @@ enum VerificationStatus {
   Pending
   Verified
   Rejected
+}
+
+/// Result of the external Parivahan / Vahan registration lookup.
+/// `Unavailable` is explicit when provider credentials are not configured;
+/// it must never be presented as a successful government verification.
+enum VahanCheckStatus {
+  NotChecked
+  Pending
+  Verified
+  Mismatch
+  Unavailable
+  Error
 }
 
 // KYC documents (RC, Insurance)
@@ -263,6 +281,7 @@ model Booking {
   loadOwner   User         @relation("LoadOwnerBookings", fields: [loadOwnerId], references: [id])
   truckOwner  User         @relation("TruckOwnerBookings", fields: [truckOwnerId], references: [id])
   checkpoints Checkpoint[]
+  disputes    BookingDispute[]
   
   @@index([loadId])
   @@index([truckId])
@@ -278,6 +297,55 @@ enum BookingStatus {
   InTransit @map("In-transit")
   Completed
   Cancelled
+}
+
+/// A counterparty-reported booking issue that can be investigated and resolved
+/// by an administrator. Disputes are additive so existing bookings remain valid.
+model BookingDispute {
+  id           String          @id @default(uuid())
+  bookingId    String          @map("booking_id")
+  raisedById   String          @map("raised_by_id")
+  category     DisputeCategory  @default(Other)
+  priority     DisputePriority  @default(Medium)
+  status       DisputeStatus    @default(Open)
+  description  String
+  resolution   String?
+  resolvedById String?          @map("resolved_by_id")
+  resolvedAt   DateTime?        @map("resolved_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  raisedBy   User    @relation("DisputesRaised", fields: [raisedById], references: [id])
+  resolvedBy User?   @relation("DisputesResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([raisedById])
+  @@index([status])
+  @@index([priority])
+  @@map("booking_disputes")
+}
+
+enum DisputeCategory {
+  Payment
+  CargoDamage @map("Cargo_Damage")
+  Delay
+  Document
+  Other
+}
+
+enum DisputePriority {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum DisputeStatus {
+  Open
+  Investigating
+  Resolved
+  Rejected
 }
 
 // Checkpoint-based tracking (NOT live GPS)

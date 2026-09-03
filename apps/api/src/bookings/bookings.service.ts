@@ -4,8 +4,10 @@ import {
   prisma, 
   Prisma,
   BookingStatus, 
-  LoadStatus, 
-  SubscriptionStatus 
+  LoadStatus,
+  SubscriptionStatus,
+  DisputeCategory,
+  DisputePriority,
 } from '@lorrycarry/database'
 import { GupshupService } from '../auth/gupshup.service'
 
@@ -261,6 +263,47 @@ export class BookingsService {
     return prisma.booking.update({
       where: { id: bookingId },
       data,
+    })
+  }
+
+  /**
+   * Allow either booking counterparty to create a structured dispute for the
+   * admin resolution queue. The admin is deliberately not a party here.
+   */
+  async createDispute(
+    bookingId: string,
+    userId: string,
+    dto: {
+      category?: 'Payment' | 'CargoDamage' | 'Delay' | 'Document' | 'Other'
+      priority?: 'Low' | 'Medium' | 'High' | 'Critical'
+      description: string
+    },
+  ) {
+    const booking = await prisma.booking.findFirst({
+      where: {
+        id: bookingId,
+        OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
+      },
+      select: { id: true },
+    })
+    if (!booking) throw new NotFoundException('Booking not found')
+
+    const category = {
+      Payment: DisputeCategory.Payment,
+      CargoDamage: DisputeCategory.CargoDamage,
+      Delay: DisputeCategory.Delay,
+      Document: DisputeCategory.Document,
+      Other: DisputeCategory.Other,
+    }[dto.category || 'Other']
+
+    return prisma.bookingDispute.create({
+      data: {
+        bookingId,
+        raisedById: userId,
+        category,
+        priority: (dto.priority || 'Medium') as DisputePriority,
+        description: dto.description.trim(),
+      },
     })
   }
 

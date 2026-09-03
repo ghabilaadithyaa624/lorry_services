@@ -1,6 +1,8 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'
+// Use the same-origin rewrite by default so browser requests work behind a
+// preview/proxy host. Direct API origins remain configurable for deployments.
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1'
 
 // Create axios instance
 export const api = axios.create({
@@ -235,10 +237,20 @@ export const adminApi = {
     api.patch(`/admin/documents/${documentId}/verify`, { status, notes }),
   verifyTruck: (truckId: string, status: 'Verified' | 'Rejected') =>
     api.patch(`/admin/trucks/${truckId}/verify`, { status }),
+  checkVahan: (truckId: string) =>
+    api.post(`/admin/trucks/${truckId}/vahan-check`),
   listSubscriptions: (page = 1, limit = 20) =>
     api.get(`/admin/subscriptions?page=${page}&limit=${limit}`),
   listBookings: (page = 1, limit = 20) =>
     api.get(`/admin/bookings?page=${page}&limit=${limit}`),
+  listDisputes: (status?: string, page = 1, limit = 20) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+    if (status) params.set('status', status)
+    return api.get(`/admin/disputes?${params.toString()}`)
+  },
+  resolveDispute: (disputeId: string, status: 'Investigating' | 'Resolved' | 'Rejected', resolution?: string) =>
+    api.patch(`/admin/disputes/${disputeId}/resolve`, { status, resolution }),
+  getAnalytics: (range = 30) => api.get(`/admin/analytics?range=${range}`),
 }
 
 // Trucks & Documents API

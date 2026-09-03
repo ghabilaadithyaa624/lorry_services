@@ -7,6 +7,8 @@ import {
   CreditCard, 
   Users,
   CalendarDays,
+  ShieldAlert,
+  BarChart3,
   LogOut,
   Menu,
   X
@@ -28,6 +30,8 @@ const navItems = [
   { path: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
   { path: '/users', label: 'Users', icon: Users },
   { path: '/bookings', label: 'Bookings', icon: CalendarDays },
+  { path: '/disputes', label: 'Dispute Resolution', icon: ShieldAlert },
+  { path: '/analytics', label: 'Performance Analytics', icon: BarChart3 },
 ]
 
 export function Layout({ children }: { children: React.ReactNode }) {
