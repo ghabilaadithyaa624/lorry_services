@@ -25,7 +25,7 @@ import {
   UsersIcon,
   GlobeAsiaAustraliaIcon,
 } from '@heroicons/react/24/outline'
-import { usersApi } from '@/lib/api'
+import { notificationsApi, usersApi } from '@/lib/api'
 import { Avatar } from '@/components/ui'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { AIFreightAssistantDrawer } from '@/components/intelligence'
@@ -74,7 +74,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
   const loadSignals = useCallback(async () => {
     try {
       const [notifications, profile] = await Promise.allSettled([
-        usersApi.getNotifications(),
+        notificationsApi.getUnreadCount(),
         usersApi.getProfile(),
       ])
       if (notifications.status === 'fulfilled') {
@@ -91,6 +91,8 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
 
   useEffect(() => {
     loadSignals()
+    const interval = setInterval(loadSignals, 30_000)
+    return () => clearInterval(interval)
   }, [loadSignals])
 
   // Close the mobile drawer on navigation.

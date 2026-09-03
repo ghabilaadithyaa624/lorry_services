@@ -198,6 +198,39 @@ export interface UserPreferences {
   profileVisible: boolean
 }
 
+export interface NotificationFeedItem {
+  id: string
+  category: 'BOOKING' | 'LOAD' | 'TRUCK' | 'PAYMENT' | 'KYC' | 'TRACKING' | 'SYSTEM'
+  title: string
+  message: string
+  timestamp: string
+  read: boolean
+  actionUrl?: string
+  channel?: string
+  providerStatus?: string
+  deliveredAt?: string
+}
+
+export interface NotificationFeed {
+  notifications: NotificationFeedItem[]
+  unreadCount: number
+}
+
+/**
+ * WhatsApp + in-app notification centre API.
+ *
+ * These are the canonical endpoints. `/users/notifications` remains as a
+ * compatibility alias for existing clients.
+ */
+export const notificationsApi = {
+  getNotifications: () => api.get<NotificationFeed>('/notifications'),
+  getUnreadCount: () =>
+    api.get<{ unreadCount: number }>('/notifications/unread-count'),
+  markRead: (notificationKey: string) =>
+    api.post('/notifications/read', { notificationKey }),
+  markAllRead: () => api.post('/notifications/read-all'),
+}
+
 // User Operations Center API
 export const usersApi = {
   getProfile: () => api.get('/users/me'),

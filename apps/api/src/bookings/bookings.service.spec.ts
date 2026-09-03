@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common'
 import { BookingsService } from './bookings.service'
-import { GupshupService } from '../auth/gupshup.service'
+import { NotificationsService } from '../notifications/notifications.service'
 import { prisma, BookingStatus, LoadStatus, SubscriptionStatus } from '@lorrycarry/database'
 import { performance } from 'perf_hooks'
 
@@ -59,7 +59,7 @@ jest.mock('@lorrycarry/database', () => {
 
 describe('BookingsService', () => {
   let service: BookingsService
-  let gupshupService: jest.Mocked<GupshupService>
+  let notificationsService: jest.Mocked<NotificationsService>
 
   beforeEach(async () => {
     jest.clearAllMocks()
@@ -68,16 +68,19 @@ describe('BookingsService', () => {
       providers: [
         BookingsService,
         {
-          provide: GupshupService,
+          provide: NotificationsService,
           useValue: {
-            sendNotification: jest.fn().mockResolvedValue({ success: true }),
+            sendBookingConfirmed: jest.fn().mockResolvedValue(null),
+            sendDispatchUpdate: jest.fn().mockResolvedValue(null),
+            sendDeliveryCompleted: jest.fn().mockResolvedValue(null),
+            sendCheckpointCrossed: jest.fn().mockResolvedValue(null),
           },
         },
       ],
     }).compile()
 
     service = module.get<BookingsService>(BookingsService)
-    gupshupService = module.get(GupshupService)
+    notificationsService = module.get(NotificationsService)
   })
 
   describe('Create Booking', () => {
@@ -146,7 +149,7 @@ describe('BookingsService', () => {
         ]),
       })
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(1)
-      expect(gupshupService.sendNotification).toHaveBeenCalledTimes(2)
+      expect(notificationsService.sendBookingConfirmed).toHaveBeenCalledTimes(1)
     })
 
     it('should throw ConflictException if load has already been matched / claimed', async () => {
@@ -200,7 +203,7 @@ describe('BookingsService', () => {
       ;(prisma.checkpoint.createMany as jest.Mock).mockRejectedValueOnce(new Error('DB transaction error'))
 
       await expect(service.create('owner-1', mockDto)).rejects.toThrow('DB transaction error')
-      expect(gupshupService.sendNotification).not.toHaveBeenCalled()
+      expect(notificationsService.sendBookingConfirmed).not.toHaveBeenCalled()
     })
 
     it('should throw ForbiddenException if load owner lacks active subscription', async () => {
@@ -244,6 +247,74 @@ describe('BookingsService', () => {
     it('should throw NotFoundException when unauthorized user attempts status update', async () => {
       ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(null)
       await expect(service.updateStatus('booking-1001', 'unauthorized-user', BookingStatus.InTransit)).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('Dispatch notifications', () => {
+    it('should send a dispatch update when a booking enters In-transit', async () => {
+      const booking = {
+        id: 'booking-1001',
+        loadId: 'load-1',
+        loadOwnerId: 'owner-1',
+        truckOwnerId: 'transporter-1',
+        agreedPrice: 25000,
+        status: 'Confirmed',
+        load: {
+          loadingAddress: 'Pune',
+          unloadingAddress: 'Bangalore',
+          user: { phone: '+919876543210', name: 'Shipper' },
+        },
+        truck: {
+          registrationNumber: 'KA01AB1234',
+          user: { phone: '+919876543211', name: 'Transporter' },
+        },
+      }
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(booking)
+      ;(prisma.booking.update as jest.Mock).mockResolvedValueOnce({
+        ...booking,
+        status: BookingStatus.InTransit,
+        startedAt: new Date(),
+      })
+
+      await service.updateStatus('booking-1001', 'owner-1', BookingStatus.InTransit)
+
+      expect(notificationsService.sendDispatchUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'booking-1001', status: 'In-transit' }),
+        'InTransit',
+      )
+    })
+
+    it('should send a delivery-completed alert when a booking is completed', async () => {
+      const booking = {
+        id: 'booking-1001',
+        loadId: 'load-1',
+        loadOwnerId: 'owner-1',
+        truckOwnerId: 'transporter-1',
+        agreedPrice: 25000,
+        status: 'Confirmed',
+        load: {
+          loadingAddress: 'Pune',
+          unloadingAddress: 'Bangalore',
+          user: { phone: '+919876543210', name: 'Shipper' },
+        },
+        truck: {
+          registrationNumber: 'KA01AB1234',
+          user: { phone: '+919876543211', name: 'Transporter' },
+        },
+      }
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(booking)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({})
+      ;(prisma.booking.update as jest.Mock).mockResolvedValueOnce({
+        ...booking,
+        status: BookingStatus.Completed,
+        completedAt: new Date(),
+      })
+
+      await service.updateStatus('booking-1001', 'owner-1', BookingStatus.Completed)
+
+      expect(notificationsService.sendDeliveryCompleted).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'booking-1001' }),
+      )
     })
   })
 

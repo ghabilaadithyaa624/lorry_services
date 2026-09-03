@@ -14,6 +14,7 @@ import { WebhooksModule } from './webhooks/webhooks.module'
 import { AdminModule } from './admin/admin.module'
 import { TrackingModule } from './tracking/tracking.module'
 import { DocumentsModule } from './documents/documents.module'
+import { NotificationsModule } from './notifications/notifications.module'
 import { MatchingModule } from './matching/matching.module'
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard'
 import { CommonModule } from './common/common.module'
@@ -43,6 +44,7 @@ import { RedisModule } from './common/redis/redis.module'
     AdminModule,
     TrackingModule,
     DocumentsModule,
+    NotificationsModule,
     MatchingModule,
   ],
   providers: [

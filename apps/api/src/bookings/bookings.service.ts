@@ -7,7 +7,7 @@ import {
   LoadStatus, 
   SubscriptionStatus 
 } from '@lorrycarry/database'
-import { GupshupService } from '../auth/gupshup.service'
+import { NotificationsService } from '../notifications/notifications.service'
 import { MatchingService } from '../matching/matching.service'
 
 export interface CreateBookingDto {
@@ -21,7 +21,7 @@ export interface CreateBookingDto {
 @Injectable()
 export class BookingsService {
   constructor(
-    private gupshup: GupshupService,
+    private readonly notifications: NotificationsService,
     @Optional() private matchingService?: MatchingService,
   ) {}
 
@@ -130,8 +130,8 @@ export class BookingsService {
       return createdBooking
     })
 
-    // Send WhatsApp notifications asynchronously outside the transaction
-    await this.sendBookingNotifications(booking)
+    // Send booking confirmation + in-app alerts outside the transaction
+    await this.notifications.sendBookingConfirmed(booking)
 
     // Transition matching engine status: Pending → Booked (WhatsApp already triggered on match, now book)
     try {
@@ -192,39 +192,6 @@ export class BookingsService {
   }
 
   /**
-   * Send booking confirmation WhatsApp messages
-   */
-  private async sendBookingNotifications(booking: any) {
-    // Notify truck owner
-    if (booking.truck?.user?.phone) {
-      await this.gupshup.sendNotification(
-        booking.truck.user.phone,
-        'booking_confirmed_driver',
-        [
-          booking.load?.loadingAddress || 'Loading Point',
-          booking.load?.unloadingAddress || 'Unloading Point',
-          booking.agreedPrice.toString(),
-          booking.id.slice(0, 8),
-        ]
-      )
-    }
-
-    // Notify load owner
-    if (booking.load?.user?.phone) {
-      await this.gupshup.sendNotification(
-        booking.load.user.phone,
-        'booking_confirmed_shipper',
-        [
-          booking.truck?.registrationNumber || 'Truck',
-          booking.truck?.user?.name || 'Transporter',
-          booking.agreedPrice.toString(),
-          booking.id.slice(0, 8),
-        ]
-      )
-    }
-  }
-
-  /**
    * Update booking status (advance paid, in transit, etc.)
    */
   async updateStatus(
@@ -237,6 +204,14 @@ export class BookingsService {
       where: {
         id: bookingId,
         OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
+      },
+      include: {
+        load: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+        truck: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
       },
     })
 
@@ -272,22 +247,34 @@ export class BookingsService {
     const updated = await prisma.booking.update({
       where: { id: bookingId },
       data,
+      include: {
+        load: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+        truck: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+      },
     })
 
-    // Matching engine: Booked → Completed
-    if (status === BookingStatus.Completed) {
-      try {
-        await this.matchingService?.handleBookingCompleted(updated)
-      } catch {
-        // ignore
-      }
-    } else if (status === BookingStatus.InTransit) {
-      // InTransit is still Booked in match terms, ensure match is Booked
+    // WhatsApp + in-app dispatch alerts on meaningful status transitions,
+    // alongside matching-engine state transitions.
+    if (status === BookingStatus.InTransit) {
+      await this.notifications.sendDispatchUpdate(updated, 'InTransit')
       try {
         await this.matchingService?.handleBookingCreated(updated)
       } catch {
         // ignore
       }
+    } else if (status === BookingStatus.Completed) {
+      await this.notifications.sendDeliveryCompleted(updated)
+      try {
+        await this.matchingService?.handleBookingCompleted(updated)
+      } catch {
+        // ignore
+      }
+    } else if (status === BookingStatus.Cancelled) {
+      await this.notifications.sendDispatchUpdate(updated, 'Cancelled')
     }
 
     return updated
