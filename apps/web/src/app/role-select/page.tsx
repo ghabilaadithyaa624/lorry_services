@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { authApi, setAuthCookies } from '@/lib/api'
 import { Button, Badge, Spinner } from '@/components/ui'
+import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -77,6 +78,11 @@ function RoleSelectForm() {
 
   return (
     <div className="min-h-screen bg-canvas text-surface-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
+      {/* Top-bar language selector — accessible before sign-in */}
+      <div className="absolute top-4 inset-x-0 flex justify-center sm:justify-end sm:pe-6 lg:pe-8 z-10">
+        <LanguageToggle />
+      </div>
+
       <div className="sm:mx-auto sm:w-full sm:max-w-xl relative z-10 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">

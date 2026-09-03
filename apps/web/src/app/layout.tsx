@@ -4,6 +4,7 @@ import { ToastProvider } from '@/components/ui'
 import { MobileBottomNav } from '@/components/layout'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
+import { LANGUAGE_INIT_SCRIPT } from '@/lib/language'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
 export const metadata: Metadata = {
@@ -34,10 +35,16 @@ export default function RootLayout({
           flash of the wrong theme. Must stay inline and synchronous.
         */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {/*
+          Applies the persisted UI language's `lang`/`dir` attributes and the
+          Tamil font-scaling class before first paint — mirrors the theme
+          script above so switching to தமிழ் never flashes undersized glyphs.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: LANGUAGE_INIT_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
       </head>

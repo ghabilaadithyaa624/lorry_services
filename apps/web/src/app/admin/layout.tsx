@@ -21,6 +21,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { authApi, adminApi, usersApi } from '@/lib/api'
 import { Badge, Spinner } from '@/components/ui'
+import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { cn, formatPhone } from '@/lib/utils'
 
 interface UserState {
@@ -359,6 +360,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="flex items-center gap-4 font-mono text-xs">
+            {/* Top-bar language selector — தமிழ் | हिन्दी | English */}
+            <LanguageToggle compact className="font-sans" />
+
             {/* Live IST Telematics Clock */}
             <LiveClock />
 
