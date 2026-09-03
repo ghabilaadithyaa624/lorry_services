@@ -84,6 +84,14 @@ export const MESSAGES: Record<string, MessageCatalog> = {
     hi: 'भारत का डायरेक्ट फ्रेट ऑपरेटिंग नेटवर्क। वाहन-सत्यापित लॉरी मालिकों को भारत के प्रमुख राजमार्ग गलियारों में सीधे शिपर्स से जोड़ता है।',
   },
   'footer.whatsappHelpline': { en: 'WhatsApp Helpline', ta: 'WhatsApp உதவி எண்', hi: 'WhatsApp हेल्पलाइन' },
+  'footer.whatsappTooltip': {
+    en: 'Chat with LorryCarry Support on WhatsApp',
+    ta: 'LorryCarry ஆதரவுடன் WhatsApp-இல் அரட்டையடிக்கவும்',
+    hi: 'WhatsApp पर LorryCarry सहायता से चैट करें',
+  },
+  'footer.quickPostLoad': { en: 'Post Load', ta: 'சரக்கு அனுப்புக', hi: 'लोड पोस्ट करें' },
+  'footer.quickFindTruck': { en: 'Find Truck', ta: 'சரக்கு வண்டி தேடு', hi: 'ट्रक खोजें' },
+  'footer.quickContactSupport': { en: 'Contact Support', ta: 'ஆதரவைத் தொடர்பு கொள்ள', hi: 'सहायता से संपर्क करें' },
   'footer.termsOfService': { en: 'Terms of Service', ta: 'சேவை விதிமுறைகள்', hi: 'सेवा की शर्तें' },
   'footer.privacyPolicy': { en: 'Privacy & Data Security', ta: 'தனியுரிமை & தரவு பாதுகாப்பு', hi: 'गोपनीयता और डेटा सुरक्षा' },
 }
