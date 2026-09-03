@@ -5,6 +5,7 @@ import { ToastProvider } from '@/components/ui'
 import { MobileBottomNav } from '@/components/layout'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
+import { LANGUAGE_INIT_SCRIPT } from '@/lib/language'
 import Script from 'next/script'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { StructuredData } from '@/components/seo/StructuredData'
@@ -159,6 +160,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* Theme must apply before first paint — inline synchronous script (critical) */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+
+        {/*
+          Applies the persisted UI language's `lang`/`dir` attributes and the
+          Tamil font-scaling class before first paint — mirrors the theme
+          script above so switching to தமிழ் never flashes undersized glyphs.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: LANGUAGE_INIT_SCRIPT }} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
 
         {/* Resource hints for performance — preconnect & dns-prefetch reduce DNS/TCP handshake latency */}
         <link rel="preconnect" href={process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'} />

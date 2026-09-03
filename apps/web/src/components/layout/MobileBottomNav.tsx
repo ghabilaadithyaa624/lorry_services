@@ -12,6 +12,7 @@ import {
   UserIcon,
 } from '@heroicons/react/24/outline'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 import { getDashboardForRole, isVehicleSideRole } from '@/lib/roles'
 
 interface UserState {
@@ -29,6 +30,7 @@ interface UserState {
  */
 export function MobileBottomNav() {
   const pathname = usePathname()
+  const { t } = useI18n()
   const [user, setUser] = useState<UserState | null>(null)
 
   useEffect(() => {
@@ -52,31 +54,31 @@ export function MobileBottomNav() {
 
   const items = [
     {
-      name: 'Home',
+      name: t('mobileNav.home'),
       href: getDashboardForRole(user.role),
       icon: HomeIcon,
       active: pathname.startsWith('/dashboard'),
     },
     {
-      name: 'Search',
+      name: t('mobileNav.search'),
       href: isTruckOwner ? '/search?type=load' : '/search?type=truck',
       icon: MagnifyingGlassIcon,
       active: pathname.startsWith('/search'),
     },
     {
-      name: isTruckOwner ? 'Fleet' : 'Loads',
+      name: isTruckOwner ? t('mobileNav.fleet') : t('mobileNav.loads'),
       href: isTruckOwner ? '/my-trucks' : '/my-loads',
       icon: isTruckOwner ? TruckIcon : ClipboardDocumentListIcon,
       active: pathname.startsWith(isTruckOwner ? '/my-trucks' : '/my-loads'),
     },
     {
-      name: 'Bookings',
+      name: t('dash.bookings'),
       href: '/bookings',
       icon: BriefcaseIcon,
       active: pathname.startsWith('/booking'),
     },
     {
-      name: 'Profile',
+      name: t('common.profile'),
       href: '/profile',
       icon: UserIcon,
       active: pathname === '/profile',

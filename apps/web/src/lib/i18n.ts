@@ -1,6 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import en from '@/locales/en.json'
+import ta from '@/locales/ta.json'
+import hi from '@/locales/hi.json'
 import {
   LANGUAGE_CHANGE_EVENT,
   UiLanguage,
@@ -21,6 +24,12 @@ type MessageCatalog = Partial<Record<UiLanguage, string>>
  * A future migration can move this catalogue into i18next resource files; the
  * `t(key)` contract used by the UI pages stays the same.
  */
+/**
+ * JSON-driven catalog (branch): `src/locales/{en,ta,hi}.json` — covers
+ * `common.*`, `dash.*`, `mobileNav.*`, `settings.*` surface strings.
+ */
+const CATALOGS: Record<UiLanguage, Record<string, string>> = { en, ta, hi }
+
 export const MESSAGES: Record<string, MessageCatalog> = {
   // ── Prompt 2: Hero Section & Messaging ──
   'hero.headline': {
@@ -345,9 +354,16 @@ export const MESSAGES: Record<string, MessageCatalog> = {
 
 /** Resolve a key for a language. Falls back to English, then the key itself. */
 export function translate(key: string, language?: UiLanguage): string {
-  const catalog = MESSAGES[key]
   const lang = language || readStoredLanguage()
-  return catalog?.[lang] || catalog?.en || key
+  // JSON catalogs take precedence; the inline MESSAGES catalogue is retained
+  // for keys added by merged mainline work (e.g. `pf.*` quick-post modal).
+  return (
+    CATALOGS[lang]?.[key] ||
+    CATALOGS.en[key] ||
+    MESSAGES[key]?.[lang] ||
+    MESSAGES[key]?.en ||
+    key
+  )
 }
 
 export interface I18nApi {

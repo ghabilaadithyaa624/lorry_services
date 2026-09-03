@@ -24,6 +24,7 @@ import {
   REGISTRATION_ROLES,
   type PublicRegistrationRole,
 } from '@/lib/roles'
+import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -173,6 +174,10 @@ function LoginForm() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-canvas px-4 py-6 sm:px-6 sm:py-10">
+      {/* Top-bar language selector — accessible before sign-in */}
+      <div className="absolute top-4 inset-x-0 flex justify-center sm:justify-end sm:pe-6 lg:pe-8 z-10">
+        <LanguageToggle />
+      </div>
       <div className="pointer-events-none absolute left-1/2 top-[-12rem] h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-primary-500/10 blur-3xl" />
       <div className="pointer-events-none absolute bottom-[-14rem] right-[-5rem] h-80 w-80 rounded-full bg-amber-400/10 blur-3xl" />
 

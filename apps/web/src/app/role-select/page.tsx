@@ -13,6 +13,7 @@ import {
   Truck,
 } from 'lucide-react'
 import { REGISTRATION_ROLES, type PublicRegistrationRole } from '@/lib/roles'
+import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { cn } from '@/lib/utils'
 
 const ROLE_ICONS = {
@@ -34,6 +35,10 @@ export default function RoleSelectPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-canvas px-4 py-6 sm:px-6 sm:py-10">
+      {/* Top-bar language selector — accessible before sign-in */}
+      <div className="absolute top-4 inset-x-0 flex justify-center sm:justify-end sm:pe-6 lg:pe-8 z-10">
+        <LanguageToggle />
+      </div>
       <div className="pointer-events-none absolute left-[5%] top-[-7rem] h-72 w-72 rounded-full bg-primary-500/15 blur-3xl" />
       <div className="pointer-events-none absolute bottom-[-9rem] right-[5%] h-80 w-80 rounded-full bg-amber-400/15 blur-3xl" />
 
