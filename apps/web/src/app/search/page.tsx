@@ -31,6 +31,11 @@ import {
 } from '@/lib/intelligence'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, formatPhone, whatsappLink } from '@/lib/utils'
+import { StructuredData } from '@/components/seo/StructuredData'
+import {
+  getSearchResultsItemListStructuredData,
+  getBreadcrumbStructuredData,
+} from '@/lib/seo/structuredData'
 
 interface TruckResult {
   id: string
@@ -407,8 +412,36 @@ function SearchPageContent() {
     targetLoadTonnage
   )
 
+  // Structured data for SEO: ItemList of current results + Breadcrumbs
+  const breadcrumbLd = getBreadcrumbStructuredData([
+    { name: 'Home', url: '/' },
+    { name: mode === 'trucks' ? 'Find Trucks' : 'Find Loads', url: `/search?type=${mode === 'trucks' ? 'truck' : 'load'}` },
+  ])
+
+  const itemListLd =
+    sortedResults.length > 0
+      ? getSearchResultsItemListStructuredData(
+          mode === 'trucks' ? 'truck' : 'load',
+          sortedResults.slice(0, 10).map((item: any) => ({
+            id: item.id,
+            title:
+              mode === 'trucks'
+                ? `${item.bodyType || 'Open'} Truck ${item.tonnageCapacity || ''}T — ${item.distanceKm?.toFixed(1) || ''}km away`
+                : `${item.loadingAddress} → ${item.unloadingAddress} — ${item.tonnageRequired}T`,
+            description:
+              mode === 'trucks'
+                ? `Vahan ${item.verificationStatus} ${item.bodyType} truck, ${item.tonnageCapacity}T capacity, within 50km`
+                : `Freight load: ${item.tonnageRequired}T ${item.truckType}, India logistics cargo dispatch`,
+            url: `/search?type=${mode === 'trucks' ? 'truck' : 'load'}`,
+          }))
+        )
+      : null
+
   return (
     <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+      {/* JSON-LD structured data for search marketplace */}
+      <StructuredData data={breadcrumbLd} id="search-breadcrumb-ld" />
+      {itemListLd && <StructuredData data={itemListLd} id="search-itemlist-ld" />}
       {/* ── 1. Fixed Top Navigation (shared redesigned header) ── */}
       <Navbar />
 
