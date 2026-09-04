@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { StackNavigationProp } from '@react-navigation/stack'
 import { AuthStackParamList } from '../navigation/types'
-import { authApi, setTokens } from '../services/api'
+import { authApi } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
 
@@ -88,7 +88,8 @@ export function LoginScreen({ navigation }: LoginProps) {
       const res = await authApi.verifyOtp(formattedPhone, otp)
       const { accessToken, refreshToken, user } = res.data
 
-      setTokens(accessToken, refreshToken)
+      // AuthContext.login persists the tokens + user itself, so no separate
+      // setTokens call is needed here.
       login(accessToken, refreshToken, user)
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {

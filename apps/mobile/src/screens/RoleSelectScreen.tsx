@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { RouteProp } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import { AuthStackParamList } from '../navigation/types'
-import { authApi, setTokens } from '../services/api'
+import { authApi } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
 
@@ -55,7 +55,7 @@ export function RoleSelectScreen({ route }: RoleSelectProps) {
     try {
       const res = await authApi.verifyOtp(phone, otp, selectedRole)
       const { accessToken, refreshToken, user } = res.data
-      setTokens(accessToken, refreshToken)
+      // AuthContext.login persists the tokens + user itself.
       login(accessToken, refreshToken, user)
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
