@@ -1,0 +1,17 @@
+/**
+ * TypeScript config used by ts-jest only.
+ *
+ * The build config (`tsconfig.json`) deliberately restricts `types` to `node`
+ * and excludes `*.spec.ts`, so the published `dist/` never carries test types
+ * or test files. Jest still needs the `describe` / `it` / `expect` globals, so
+ * this config re-adds `@types/jest` and includes the specs.
+ */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "jest"],
+    "noEmit": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -25,6 +25,10 @@
     },
     "lint": {
       "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
     }
   }
 }

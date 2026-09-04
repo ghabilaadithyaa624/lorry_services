@@ -68,6 +68,34 @@ lorry-services/
 
 ---
 
+## 🧠 Shared Intelligence Layer (`@lorrycarry/shared`)
+
+All deterministic logistics maths lives in **one** place — [`packages/shared/src/intelligence/`](packages/shared/src/intelligence) — so the API, web, admin and mobile surfaces can never disagree on a number.
+
+| Module | Exports |
+| :--- | :--- |
+| `geo.ts` | `calculateGeoDistance` (Haversine) |
+| `pricingEngine.ts` | `estimateFreightRate`, `normalizeTruckType` |
+| `matchingEngine.ts` | `calculateMatchScore`, `evaluateBackhaulOpportunities`, `evaluateBudgetFit`, `sortMarketplaceItems`, `rateMatchScore` |
+| `returnLoadEngine.ts` | Backhaul / return-load ranking |
+| `shipmentIntelligence.ts` | `assessShipmentIntelligence`, `summarizeActiveShipmentsControlTower` |
+| `actionCenterEngine.ts` | `deriveOperationalTasks`, `summarizeOperationalTasks` |
+
+**Purity rules** (enforced by review): no DOM/`window`, React, Next.js, Prisma or Node-only APIs; deterministic for a given input; presentation concerns (Tailwind classes, icons) stay in the consuming app, which receives neutral tokens such as `tone` / `badgeVariant` instead.
+
+**Consumers.** `apps/api/src/matching/matching.service.ts` calls `calculateMatchScore` / `calculateGeoDistance` directly and keeps only its Prisma queries, PostGIS radius filtering, persistence and WhatsApp dispatch. The web modules under `apps/web/src/lib/intelligence/` are thin re-export shims plus browser-only adapters (REST payload mapping, Tailwind tone → class), so existing `@/lib/intelligence` imports keep working.
+
+**Budget compatibility.** `calculateMatchScore` scores **Capacity 35 + BodyType 25 + Proximity 20 + Verification 15 + Corridor 5 = 100**. The budget check is an *optional gate* (`MatchScoringOptions.budget`), not a score component:
+
+- **API passes `budget: true`** — it is the system of record for the persisted `matches.budget_compatible` column and for the WhatsApp alerts sent to transporters, so a match must be commercially viable before it is stored or broadcast.
+- **Clients default to the ungated score** — a shipper still sees physically compatible trucks when their stated budget is below benchmark, rather than an empty result set. Clients can opt into the same gate by passing `budget: true`.
+
+Both paths run the identical scoring function, so the gate changes *which* matches surface, never *how* they are scored.
+
+Run the suite with `npm test` (Turborepo) or `npm --prefix packages/shared test` — **163 tests** covering scoring weights, budget gating, pricing economics, backhaul ranking, shipment risk and action-center derivation.
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer | Technologies |
