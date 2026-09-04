@@ -93,7 +93,15 @@ export function normalizeTruckType(value: string | null | undefined): PricingTru
 export function estimateFreightRate(input: PricingInput): FreightEstimate {
   let distanceKm = input.distanceKm || 0
 
-  if (!distanceKm && input.loadingLat && input.loadingLng && input.unloadingLat && input.unloadingLng) {
+  // Coordinates may legitimately be zero (for example, a point on the equator
+  // or prime meridian), so use null/undefined checks rather than truthiness.
+  if (
+    !distanceKm &&
+    input.loadingLat != null &&
+    input.loadingLng != null &&
+    input.unloadingLat != null &&
+    input.unloadingLng != null
+  ) {
     distanceKm = calculateGeoDistance(
       input.loadingLat,
       input.loadingLng,
