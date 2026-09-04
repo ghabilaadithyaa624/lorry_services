@@ -526,15 +526,14 @@ export default function BookingDetailPage() {
         {/* ── VERIFICATION & COMPLIANCE (Vahan RC · Insurance · E-Way Bill · FASTag) ── */}
         <BookingComplianceCard bookingId={booking.id} viewerRole={viewerRole} />
 
-        {/* ── DIGITAL FREIGHT DOCUMENT CHAIN ── */}
+        {/* ── DIGITAL FREIGHT DOCUMENT CHAIN (real booking document API) ── */}
         <DigitalDocumentChainCard
           bookingId={booking.id}
           bookingNumber={booking.id.slice(0, 8).toUpperCase()}
-          factoryOwnerName={booking.load?.user?.name || 'Cargo Owner'}
-          truckRegNumber={booking.truck?.registrationNumber || 'MH 12 QT 8492'}
-          status={booking.status}
-          advanceConfirmed={Boolean(booking.advanceConfirmed)}
-          balanceConfirmed={Boolean(booking.balanceConfirmed)}
+          factoryOwnerName={booking.load?.user?.name}
+          truckRegNumber={booking.truck?.registrationNumber}
+          ewayBillNumber={booking.ewayBillNumber || undefined}
+          viewerRole={viewerRole}
           onRefresh={loadBooking}
         />
 

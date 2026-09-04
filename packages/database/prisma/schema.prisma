@@ -36,6 +36,8 @@ model User {
   receivedRatings      Rating[] @relation("RatedRatings")
   disputesRaised     BookingDispute[] @relation("DisputesRaised")
   disputesResolved   BookingDispute[] @relation("DisputesResolved")
+  bookingDocumentsUploaded BookingDocument[] @relation("BookingDocumentsUploaded")
+  bookingDocumentsVerified BookingDocument[] @relation("BookingDocumentsVerified")
   
   @@index([phone])
   @@index([role])
@@ -348,11 +350,12 @@ model Booking {
   truck       Truck        @relation(fields: [truckId], references: [id])
   loadOwner   User         @relation("LoadOwnerBookings", fields: [loadOwnerId], references: [id])
   truckOwner  User         @relation("TruckOwnerBookings", fields: [truckOwnerId], references: [id])
-  checkpoints Checkpoint[]
-  matches     Match[]
-  payments    Payment[]
-  ratings     Rating[]
-  disputes    BookingDispute[]
+  checkpoints      Checkpoint[]
+  matches          Match[]
+  payments         Payment[]
+  ratings          Rating[]
+  disputes         BookingDispute[]
+  bookingDocuments BookingDocument[]
   
   @@index([loadId])
   @@index([truckId])
@@ -427,6 +430,68 @@ enum DisputeStatus {
   Investigating
   Resolved
   Rejected
+}
+
+// ── Booking Digital Document Chain ─────────────────────────────────────────
+/// Stage of a booking's 7-stage freight document chain. Stages are additive
+/// and shared by both counterparties (factory owner & truck driver).
+enum BookingDocumentStage {
+  /// Booking advice / lorry receipt & freight contract
+  BOOKING
+  /// E-Way Bill (GSTN) — Part-A/B assignment for the trip
+  EWAY_BILL
+  /// Loading slip & weighment / payload inspection report
+  LOADING
+  /// National transit checkpoint pass / corridor crossing log
+  TRANSIT
+  /// Arrival gate pass & unloading slip at the destination
+  DELIVERY
+  /// Proof of Delivery — consignee sign-off & photo evidence
+  POD
+  /// Balance payment receipt & commercial tax invoice
+  BALANCE
+}
+
+/// A file attached to a booking within its digital document chain.
+///
+/// Files live in private object storage (AWS S3 / MinIO); only the object key
+/// is persisted here. Uploads and downloads flow through short-lived,
+/// server-issued pre-signed URLs, so storage credentials never reach clients.
+/// Multiple documents per stage are allowed (e.g. several loading slips);
+/// verification is performed by an admin, mirroring truck KYC documents.
+model BookingDocument {
+  id                 String             @id @default(uuid())
+  bookingId          String             @map("booking_id")
+  stage              BookingDocumentStage
+  /// Reference number captured at upload time (LR no., EWB-12-digit, invoice
+  /// no., …). Never auto-fabricated by the server.
+  docNumber          String?            @map("doc_number")
+  s3Key              String             @map("s3_key")
+  originalFilename   String?            @map("original_filename")
+  mimeType           String?            @map("mime_type")
+  fileSize           Int?               @map("file_size")
+  /// Person who signed / owns the document (e.g. consignee for the POD).
+  signedBy           String?            @map("signed_by")
+  uploadedById       String             @map("uploaded_by_id")
+  verificationStatus VerificationStatus @default(Pending) @map("verification_status")
+  verifiedById       String?            @map("verified_by_id")
+  verificationNotes  String?            @map("verification_notes")
+  verifiedAt         DateTime?          @map("verified_at")
+  /// Server-side timestamp of the confirmed upload.
+  uploadedAt         DateTime           @default(now()) @map("uploaded_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation("BookingDocumentsUploaded", fields: [uploadedById], references: [id])
+  verifiedBy User?   @relation("BookingDocumentsVerified", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([bookingId, stage])
+  @@index([stage])
+  @@index([uploadedById])
+  @@index([verificationStatus])
+  @@map("booking_documents")
 }
 
 // Checkpoint-based tracking (NOT live GPS)

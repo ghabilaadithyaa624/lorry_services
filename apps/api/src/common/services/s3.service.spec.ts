@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { ConfigService } from '@nestjs/config'
 import { S3Service } from './s3.service'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { PutObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn(),
@@ -312,6 +312,73 @@ describe('S3Service', () => {
 
       const result = await testService.uploadFile(mockFileBuffer, mimeType, folder, userId)
       expect(result.url).toContain('https://s3.amazonaws.com/test-fallback-bucket/')
+    })
+  })
+
+  describe('generatePresignedPutUrl', () => {
+    it('should return a pre-signed PUT url for the given key and content type', async () => {
+      const mockSignedUrl = 'https://mocked-put-url'
+      const mockGetSignedUrl = getSignedUrl as jest.Mock
+      mockGetSignedUrl.mockResolvedValueOnce(mockSignedUrl)
+
+      const result = await service.generatePresignedPutUrl(
+        'booking-documents/b1/POD/uuid.jpg',
+        'image/jpeg',
+        300
+      )
+
+      expect(result).toBe(mockSignedUrl)
+      expect(mockGetSignedUrl).toHaveBeenCalledWith(
+        service['s3Client'],
+        expect.any(PutObjectCommand),
+        { expiresIn: 300 }
+      )
+      const command = mockGetSignedUrl.mock.calls[0][1]
+      expect(command.input).toMatchObject({
+        Bucket: 'test-bucket',
+        Key: 'booking-documents/b1/POD/uuid.jpg',
+        ContentType: 'image/jpeg',
+      })
+    })
+
+    it('should default to a 5 minute expiry', async () => {
+      const mockGetSignedUrl = getSignedUrl as jest.Mock
+      mockGetSignedUrl.mockResolvedValueOnce('https://mocked-put-url')
+
+      await service.generatePresignedPutUrl('some/key.pdf', 'application/pdf')
+
+      expect(mockGetSignedUrl).toHaveBeenCalledWith(service['s3Client'], expect.any(PutObjectCommand), {
+        expiresIn: 300,
+      })
+    })
+  })
+
+  describe('objectExists', () => {
+    it('should return true when the object exists', async () => {
+      s3SendSpy.mockResolvedValueOnce({})
+
+      const result = await service.objectExists('booking-documents/b1/POD/uuid.jpg')
+
+      expect(result).toBe(true)
+      expect(s3SendSpy).toHaveBeenCalledTimes(1)
+      expect(s3SendSpy.mock.calls[0][0]).toBeInstanceOf(HeadObjectCommand)
+    })
+
+    it('should return false when the object does not exist (404)', async () => {
+      const notFoundError = new Error('Not Found')
+      notFoundError.name = 'NotFound'
+      notFoundError['$metadata'] = { httpStatusCode: 404 }
+      s3SendSpy.mockRejectedValueOnce(notFoundError)
+
+      const result = await service.objectExists('missing/key.pdf')
+
+      expect(result).toBe(false)
+    })
+
+    it('should surface storage errors other than not-found', async () => {
+      s3SendSpy.mockRejectedValueOnce(new Error('AWS connection timeout'))
+
+      await expect(service.objectExists('some/key.pdf')).rejects.toThrow('AWS connection timeout')
     })
   })
 })

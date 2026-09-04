@@ -19,7 +19,6 @@ import {
   TelemetryMetric,
   Skeleton,
 } from '@/components/ui'
-import { DigitalDocumentChainCard } from '@/components/intelligence'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -325,19 +324,28 @@ export default function DocumentsPage() {
         </GlassPanel>
 
         {/* ── DIGITAL FREIGHT DOCUMENT CHAIN ── */}
-        <DigitalDocumentChainCard
-          bookingId="b-freight-active-8492"
-          bookingNumber="LC-8492-MAA"
-          factoryOwnerName="Shipper Enterprise Depot"
-          truckRegNumber={trucks[0]?.registrationNumber || 'MH 12 QT 8492'}
-          consigneeName="Depot Receiving Manager"
-          status="InTransit"
-          ewayBillNumber="EWB-2940-1928-3910"
-          advanceConfirmed={true}
-          balanceConfirmed={false}
-          podSubmittedAt={new Date().toISOString()}
-          onRefresh={fetchData}
-        />
+        <GlassPanel>
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-2xl bg-primary-500/10 text-primary-400 flex items-center justify-center shrink-0">
+              <DocumentTextIcon className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-base font-bold text-white">Digital Freight Document Chain</h2>
+              <p className="text-xs text-surface-300">
+                Booking-level chain documents (booking advice → e-way bill → loading slip → transit
+                pass → gate pass → POD → balance receipt) live on each booking&apos;s detail page.
+                Open an active booking to upload, download or preview its freight documents.
+              </p>
+              <Link
+                href="/bookings"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-primary-400 hover:text-primary-300 transition-colors pt-1"
+              >
+                View my bookings
+                <span aria-hidden="true">→</span>
+              </Link>
+            </div>
+          </div>
+        </GlassPanel>
 
         {/* Modal: Upload Document */}
         <Modal
