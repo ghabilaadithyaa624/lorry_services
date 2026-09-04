@@ -114,6 +114,22 @@ The platform operates on a normalized **Factory Owner ↔ Truck Driver** model:
 - `/dashboard/truck-owner` → 307 Redirect to `/dashboard/truck-driver`
 - `/dashboard/driver` → 307 Redirect to `/dashboard/truck-driver`
 
+### Public vs Protected Web Routes
+
+Route visibility is defined **once** in [`apps/web/src/lib/publicRoutes.ts`](apps/web/src/lib/publicRoutes.ts) and enforced by
+[`apps/web/src/middleware.ts`](apps/web/src/middleware.ts). `robots.ts` and `sitemap.ts` read the same table so crawlers are
+never pointed at a URL that answers with a login redirect.
+
+| Visibility | Routes |
+| :--- | :--- |
+| **Public** (no session required) | `/`, `/login`, `/role-select`, `/search` (+ `/search/trucks`, `/search/loads`), `/privacy`, `/terms`, `/security`, `/help`, `/subscribe`, `/subscription`, `/api/*`, `/images/*`, `/_next/*`, `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest`, `/favicon.ico`, `/icon.png`, `/apple-icon.png` |
+| **Protected** (307 → `/login?redirect=<path>`) | `/dashboard/*`, `/admin/*`, `/my-loads`, `/my-trucks`, `/bookings`, `/booking/*`, `/documents`, `/notifications`, `/settings`, `/profile` |
+| **Default-deny** | Every other path (`/tracking`, `/analytics`, `/post-load`, …) requires a session unless it is added to the public allowlist |
+
+Prefix matching is segment-aware: `/terms` and `/terms/archive` are public, `/terms-of-service` is not.
+
+Covered by `publicRoutes.spec.ts`, `middleware.spec.ts` and `seo.spec.ts` (`npm --prefix apps/web test`).
+
 ---
 
 ## 🛡️ Admin Portal Routes
