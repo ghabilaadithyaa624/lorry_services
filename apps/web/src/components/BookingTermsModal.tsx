@@ -68,12 +68,15 @@ export function BookingTermsModal({
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60  animate-fadeIn">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-fadeIn cursor-pointer"
+      onClick={onClose}
+    >
       <div 
         role="dialog"
         aria-modal="true"
         aria-labelledby="booking-terms-title"
-        className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transform transition-all"
+        className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transform transition-all cursor-default"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -202,7 +205,11 @@ export function BookingTermsModal({
           </div>
 
           {error && (
-            <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300">
+            <div
+              role="alert"
+              aria-live="polite"
+              className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300"
+            >
               {error}
             </div>
           )}
