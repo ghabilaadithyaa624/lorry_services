@@ -1,19 +1,16 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { prisma } from '@lorrycarry/database'
-import axios from 'axios'
-
-const PLAN_CONFIG = {
-  monthly:   { price: 999,  durationDays: 30,  label: 'Monthly Unlimited' },
-  quarterly: { price: 2499, durationDays: 90,  label: 'Quarterly Unlimited' },
-  annual:    { price: 7999, durationDays: 365, label: 'Annual Unlimited' },
-} as const
-
-/** The no-cost entitlement created atomically during first-time registration. */
-export const FREE_TRIAL_PLAN = 'free_trial'
-export const FREE_TRIAL_DURATION_DAYS = 90
-
-type PlanId = keyof typeof PLAN_CONFIG
+import {
+  SUBSCRIPTION_PLANS,
+  TRIAL_DURATION_DAYS,
+  SubscriptionPlanId,
+  SubscriptionEntitlement,
+} from '@lorrycarry/shared'
+import { CashfreeGateway } from './providers/cashfree.gateway'
+import { RazorpayGateway } from './providers/razorpay.gateway'
+import { StripeGateway } from './providers/stripe.gateway'
+import { PaymentGateway, ProviderId } from './providers/payment-gateway.interface'
 
 @Injectable()
 export class SubscriptionsService {
@@ -304,18 +301,6 @@ export class SubscriptionsService {
         data: { status: 'Success', providerTxnId: txnId || null, paidAt: now },
       })
 
-      // A paid pass supersedes the onboarding trial. Keeping this explicit
-      // prevents the longer trial expiry from masking a paid plan in account UI.
-      await tx.subscription.updateMany({
-        where: {
-          userId: payment.userId,
-          plan: FREE_TRIAL_PLAN,
-          status: 'active',
-        },
-        data: { status: 'cancelled' },
-      })
-
-      // Create active subscription within transaction
       await tx.subscription.create({
         data: {
           userId: payment.userId,
@@ -349,52 +334,19 @@ export class SubscriptionsService {
     })
   }
 
-  /**
-   * Get the current entitlement, including an actionable free-trial countdown.
-   *
-   * A paid pass is deliberately preferred if it overlaps a trial (for example,
-   * when a new operator upgrades early). `hasSubscription` remains the single
-   * boolean used by the marketplace's existing access checks.
-   */
-  async getStatus(userId: string) {
-    const now = new Date()
-    const activeWhere = { userId, status: 'active' as const, expiresAt: { gt: now } }
+  // ─────────────────────────────────────────────────────────────────────────
+  // Gateway accessors for the controller (webhooks)
+  // ─────────────────────────────────────────────────────────────────────────
 
-    const paidSubscription = await prisma.subscription.findFirst({
-      where: { ...activeWhere, plan: { not: FREE_TRIAL_PLAN } },
-      orderBy: { expiresAt: 'desc' },
-    })
-    const subscription = paidSubscription ?? await prisma.subscription.findFirst({
-      where: activeWhere,
-      orderBy: { expiresAt: 'desc' },
-    })
+  getCashfreeGateway() {
+    return this.cashfree
+  }
 
-    const isTrial = subscription?.plan === FREE_TRIAL_PLAN
-    const millisecondsPerDay = 24 * 60 * 60 * 1000
-    const trialDaysLeft = isTrial && subscription
-      ? Math.max(0, Math.ceil((subscription.expiresAt.getTime() - now.getTime()) / millisecondsPerDay))
-      : null
-    const trialDaysUsed = isTrial && subscription
-      ? Math.min(
-          FREE_TRIAL_DURATION_DAYS,
-          Math.max(0, Math.floor((now.getTime() - subscription.startedAt.getTime()) / millisecondsPerDay)),
-        )
-      : null
-    const trialProgressPercent = isTrial && trialDaysLeft !== null
-      ? Math.max(0, Math.min(100, Math.round((trialDaysLeft / FREE_TRIAL_DURATION_DAYS) * 100)))
-      : null
+  getRazorpayGateway() {
+    return this.razorpay
+  }
 
-    return {
-      hasSubscription: !!subscription,
-      plan: subscription?.plan ?? null,
-      startedAt: subscription?.startedAt ?? null,
-      expiresAt: subscription?.expiresAt ?? null,
-      isTrial,
-      trialDaysTotal: isTrial ? FREE_TRIAL_DURATION_DAYS : null,
-      trialDaysLeft,
-      trialDaysUsed,
-      trialProgressPercent,
-      canUpgrade: isTrial,
-    }
+  getStripeGateway() {
+    return this.stripe
   }
 }

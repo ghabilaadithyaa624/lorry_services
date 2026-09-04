@@ -36,9 +36,6 @@ model User {
   receivedRatings      Rating[] @relation("RatedRatings")
   disputesRaised     BookingDispute[] @relation("DisputesRaised")
   disputesResolved   BookingDispute[] @relation("DisputesResolved")
-  preference         UserPreference?
-  givenRatings       Rating[] @relation("RaterRatings")
-  receivedRatings    Rating[] @relation("RatedRatings")
   
   @@index([phone])
   @@index([role])
@@ -117,25 +114,17 @@ enum UserRole {
 
 // Subscription paywall
 model Subscription {
-  id        String             @id @default(uuid())
-  userId    String             @map("user_id")
-  plan      String // 'monthly_unlimited', 'pay_per_unlock', etc.
-  status    SubscriptionStatus
-  startedAt DateTime           @map("started_at")
-  /// Hard expiry timestamp — the paywall gate compares `now() > expiresAt`
-  /// to decide whether contact-reveal / booking creation stays unlocked.
-  expiresAt DateTime           @map("expires_at")
-  /// Whether Cashfree should attempt an automatic renewal charge when this
-  /// subscription approaches `expiresAt`.
-  autoRenew Boolean            @default(false) @map("auto_renew")
-  paymentId String?            @map("payment_id")
-  createdAt DateTime           @default(now()) @map("created_at")
   id              String             @id @default(uuid())
   userId          String             @map("user_id")
   plan            String // 'monthly_unlimited', 'pay_per_unlock', etc.
   status          SubscriptionStatus
   startedAt       DateTime           @map("started_at")
+  /// Hard expiry timestamp — the paywall gate compares `now() > expiresAt`
+  /// to decide whether contact-reveal / booking creation stays unlocked.
   expiresAt       DateTime           @map("expires_at")
+  /// Whether Cashfree should attempt an automatic renewal charge when this
+  /// subscription approaches `expiresAt`.
+  autoRenew       Boolean            @default(false) @map("auto_renew")
   paymentId       String?            @map("payment_id")
   provider        String             @default("cashfree") // 'cashfree' | 'razorpay' | 'stripe'
   providerOrderId String?            @map("provider_order_id") // Gateway order/session id
@@ -246,6 +235,10 @@ model Truck {
   /// Last successful RC validation snapshot from the Vahan (mParivahan) API.
   vahanDetails        Json?              @map("vahan_details")
   vahanValidatedAt    DateTime?          @map("vahan_validated_at")
+  vahanStatus         VahanCheckStatus   @default(NotChecked) @map("vahan_status")
+  vahanLastCheckedAt  DateTime?          @map("vahan_last_checked_at")
+  vahanVerifiedAt     DateTime?          @map("vahan_verified_at")
+  vahanResponse       Json?              @map("vahan_response")
   /// FASTag toll-readiness (Active / LowBalance / Inactive / Unknown).
   fastagStatus        FastagStatus       @default(Unknown) @map("fastag_status")
   fastagUpdatedAt     DateTime?          @map("fastag_updated_at")
@@ -347,6 +340,8 @@ model Booking {
   completedAt         DateTime?       @map("completed_at")
   createdAt           DateTime        @default(now()) @map("created_at")
   updatedAt           DateTime        @updatedAt @map("updated_at")
+  whatsappTriggerStatus WhatsappTriggerStatus @default(NotTriggered) @map("whatsapp_trigger_status")
+  whatsappTriggeredAt   DateTime?             @map("whatsapp_triggered_at")
   
   load        Load         @relation(fields: [loadId], references: [id])
   truck       Truck        @relation(fields: [truckId], references: [id])
@@ -356,6 +351,7 @@ model Booking {
   matches     Match[]
   payments    Payment[]
   ratings     Rating[]
+  disputes    BookingDispute[]
   
   @@index([loadId])
   @@index([truckId])

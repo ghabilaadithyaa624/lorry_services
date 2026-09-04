@@ -139,15 +139,4 @@ export class AdminController {
   ) {
     return this.adminService.resolveDispute(userId, disputeId, dto.status, dto.resolution)
   }
-
-  // ── Analytics ──────────────────────────────────────────────────────────────
-
-  @Get('analytics')
-  @ApiOperation({ summary: 'Trip, revenue and route-efficiency analytics' })
-  async getAnalytics(
-    @CurrentUser('id') userId: string,
-    @Query('range') range?: string,
-  ) {
-    return this.adminService.getAnalytics(userId, range)
-  }
 }

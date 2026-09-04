@@ -1,5 +1,14 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common'
-import { prisma, VerificationStatus, UserRole, BookingStatus, PaymentPurpose, PaymentStatus } from '@lorrycarry/database'
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common'
+import {
+  prisma,
+  VerificationStatus,
+  UserRole,
+  BookingStatus,
+  PaymentPurpose,
+  PaymentStatus,
+  DisputeStatus,
+  VahanCheckStatus,
+} from '@lorrycarry/database'
 
 @Injectable()
 export class AdminService {
@@ -369,6 +378,24 @@ export class AdminService {
           })),
         })),
       },
+      summary: {
+        totalTrips: totalCompleted + inTransit + cancelled,
+        completedTrips: completedCount,
+        inTransitTrips: inTransit,
+        cancelledTrips: cancelled,
+        revenue: round(Number(platformRevenueAggregate._sum.amount) || 0),
+        bookingValue: round(Number(completedAggregate._sum.agreedPrice) || 0),
+        averageRevenuePerTrip: round(Number(completedAggregate._avg.agreedPrice) || 0),
+        routeEfficiencyPercent: averageEfficiency,
+        routeEfficiencyBasis: 'Completed trips and checkpoints on-time rate',
+        averageTransitHours: durations.length ? round(durationSample, 1) : null,
+        openDisputes: 0,
+      },
+      trend: monthKeys.map((key, index) => ({
+        label: monthLabels[index],
+        trips: monthlyTrips[index],
+        revenue: round(monthlyEarnings[index]),
+      })),
     }
   }
 
@@ -728,133 +755,6 @@ export class AdminService {
       },
       include: { resolvedBy: { select: { name: true } } },
     })
-  }
-
-  // ── Trip / revenue / route analytics ──────────────────────────────────────
-
-  async getAnalytics(adminId: string, range = '30') {
-    await this.assertAdmin(adminId)
-    const allowedRange = ['7', '30', '90', '365'].includes(range) ? Number(range) : 30
-    const since = new Date(Date.now() - allowedRange * 24 * 60 * 60 * 1000)
-
-    const [bookings, payments, openDisputes] = await prisma.$transaction([
-      prisma.booking.findMany({
-        where: { createdAt: { gte: since } },
-        select: {
-          id: true,
-          status: true,
-          agreedPrice: true,
-          createdAt: true,
-          startedAt: true,
-          completedAt: true,
-          load: {
-            select: {
-              loadingAddress: true,
-              unloadingAddress: true,
-              loadingLat: true,
-              loadingLng: true,
-              unloadingLat: true,
-              unloadingLng: true,
-            },
-          },
-          checkpoints: { select: { crossedAt: true } },
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-      prisma.payment.findMany({
-        where: { status: 'Success', paidAt: { gte: since } },
-        select: { amount: true, paidAt: true },
-        orderBy: { paidAt: 'asc' },
-      }),
-      prisma.bookingDispute.count({ where: { status: { in: [DisputeStatus.Open, DisputeStatus.Investigating] } } }),
-    ])
-
-    const completedTrips = bookings.filter((b) => b.status === 'Completed').length
-    const inTransitTrips = bookings.filter((b) => b.status === 'In-transit').length
-    const cancelledTrips = bookings.filter((b) => b.status === 'Cancelled').length
-    const revenue = payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
-    const bookingValue = bookings.reduce((sum, booking) => sum + Number(booking.agreedPrice), 0)
-
-    let checkpointTotal = 0
-    let checkpointCrossed = 0
-    let transitHoursTotal = 0
-    let transitSamples = 0
-    for (const booking of bookings) {
-      checkpointTotal += booking.checkpoints.length
-      checkpointCrossed += booking.checkpoints.filter((checkpoint) => checkpoint.crossedAt).length
-      if (booking.startedAt && booking.completedAt) {
-        transitHoursTotal += (booking.completedAt.getTime() - booking.startedAt.getTime()) / 3_600_000
-        transitSamples += 1
-      }
-    }
-
-    const routeMap = new Map<string, {
-      origin: string
-      destination: string
-      trips: number
-      completed: number
-      value: number
-      checkpoints: number
-      crossed: number
-    }>()
-    const city = (address: string) => address.split(',')[0]?.trim() || 'Unknown'
-    for (const booking of bookings) {
-      const origin = city(booking.load.loadingAddress)
-      const destination = city(booking.load.unloadingAddress)
-      const key = `${origin}→${destination}`
-      const current = routeMap.get(key) || { origin, destination, trips: 0, completed: 0, value: 0, checkpoints: 0, crossed: 0 }
-      current.trips += 1
-      current.completed += booking.status === 'Completed' ? 1 : 0
-      current.value += Number(booking.agreedPrice)
-      current.checkpoints += booking.checkpoints.length
-      current.crossed += booking.checkpoints.filter((checkpoint) => checkpoint.crossedAt).length
-      routeMap.set(key, current)
-    }
-
-    const routeEfficiency = checkpointTotal > 0
-      ? Math.round((checkpointCrossed / checkpointTotal) * 100)
-      : (bookings.length ? Math.round((completedTrips / bookings.length) * 100) : 0)
-
-    const bucketCount = allowedRange <= 30 ? 7 : 6
-    const bucketIntervalDays = allowedRange / bucketCount
-    const buckets = Array.from({ length: bucketCount }, (_, index) => {
-      const daysAgo = (bucketCount - 1 - index) * bucketIntervalDays
-      const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000)
-      return { label: date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }), trips: 0, revenue: 0 }
-    })
-    for (const booking of bookings) {
-      const position = Math.min(buckets.length - 1, Math.max(0, Math.floor(((booking.createdAt.getTime() - since.getTime()) / Math.max(1, Date.now() - since.getTime())) * buckets.length)))
-      buckets[position].trips += 1
-      buckets[position].revenue += Number(booking.agreedPrice)
-    }
-
-    return {
-      rangeDays: allowedRange,
-      generatedAt: new Date(),
-      summary: {
-        totalTrips: bookings.length,
-        completedTrips,
-        inTransitTrips,
-        cancelledTrips,
-        revenue,
-        bookingValue,
-        averageRevenuePerTrip: bookings.length ? Math.round(bookingValue / bookings.length) : 0,
-        routeEfficiencyPercent: routeEfficiency,
-        routeEfficiencyBasis: checkpointTotal > 0 ? 'Crossed checkpoints / scheduled checkpoints' : 'Completed trips / trips in period',
-        averageTransitHours: transitSamples ? Math.round((transitHoursTotal / transitSamples) * 10) / 10 : null,
-        openDisputes,
-      },
-      trend: buckets,
-      routes: Array.from(routeMap.values())
-        .sort((a, b) => b.trips - a.trips)
-        .slice(0, 8)
-        .map((route) => ({
-          ...route,
-          efficiencyPercent: route.checkpoints
-            ? Math.round((route.crossed / route.checkpoints) * 100)
-            : Math.round((route.completed / route.trips) * 100),
-        })),
-    }
   }
 }
 

@@ -123,6 +123,8 @@ describe('AdminService', () => {
         totalBookings: 40,
         pendingDocuments: 5,
         activeSubscriptions: 15,
+        activeTrials: 10,
+        expiredTrials: 10,
         totalRevenue: 500,
         recentPayments: [{ id: 1 }],
       })
