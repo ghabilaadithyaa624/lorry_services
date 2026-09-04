@@ -57,6 +57,11 @@ describe('ActionCenterCard', () => {
     const element = ActionCenterCard({ tasks: [], showWhenEmpty: true })
     expect(element).not.toBeNull()
     expect(element?.props.className).toContain('bg-panel')
+
+    // The positive empty state reads "No urgent actions" rather than hiding the panel.
+    const body = element?.props.children[1]
+    const title = body.props.children[1]
+    expect(title.props.children).toBe('No urgent actions')
   })
 
   it('caps the visible list and reports the overflow count', () => {
