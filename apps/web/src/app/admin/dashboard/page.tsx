@@ -151,7 +151,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ── OPERATIONAL ACTION CENTER (real moderation queues) ── */}
-      <ActionCenterCard tasks={actionCenterTasks} />
+      <ActionCenterCard tasks={actionCenterTasks} showWhenEmpty />
 
       {/* ── 7 PRIMARY REQUIRED KPI CARDS ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 font-mono">

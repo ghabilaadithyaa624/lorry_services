@@ -579,7 +579,12 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         <TrialCountdownBanner entitlement={entitlement} />
 
         {/* ── 2c. Operational Action Center — real pending work, no samples ── */}
-        <ActionCenterCard tasks={actionCenterTasks} loading={loading} maxVisible={6} />
+        <ActionCenterCard
+          tasks={actionCenterTasks}
+          loading={loading}
+          maxVisible={6}
+          showWhenEmpty
+        />
 
         {/* ── 4. Quick Actions Header & Role Greeting ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">

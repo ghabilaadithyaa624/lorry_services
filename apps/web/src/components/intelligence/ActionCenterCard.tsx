@@ -66,9 +66,10 @@ export function ActionCenterCard({
           <h3 className="text-xs font-mono font-bold text-ink uppercase tracking-widest">
             Operational Action Center
           </h3>
+          <p className="text-sm font-bold text-ink">No urgent actions</p>
           <p className="text-[11px] text-surface-300 leading-relaxed">
-            No pending compliance, payment or dispatch actions. Your documents, trips and
-            subscription are all clear.
+            Compliance, payments and dispatch are all clear — your documents, trips and
+            subscription are in good standing. New actions will surface here automatically.
           </p>
         </div>
       </div>
