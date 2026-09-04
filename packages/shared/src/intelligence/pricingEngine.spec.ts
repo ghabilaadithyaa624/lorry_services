@@ -59,6 +59,21 @@ describe('Pricing Engine — estimateFreightRate', () => {
     expect(estimate.confidence).toBe('BENCHMARK')
   })
 
+  it('should calculate a route when a valid coordinate is zero', () => {
+    const estimate = estimateFreightRate({
+      tonnage: 10,
+      truckType: 'Open',
+      loadingLat: 0,
+      loadingLng: 0,
+      unloadingLat: 1,
+      unloadingLng: 1,
+    })
+
+    expect(estimate.distanceKm).toBeGreaterThan(100)
+    expect(estimate.distanceKm).toBeLessThan(200)
+    expect(estimate.confidence).toBe('MEDIUM')
+  })
+
   it('should use default fallback distance of 350 when distance is missing and some or all coordinates are missing', () => {
     // 1. Completely missing coordinates and no distance
     const estimateNoCoords = estimateFreightRate({

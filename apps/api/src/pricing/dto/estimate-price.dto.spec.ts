@@ -53,13 +53,20 @@ describe('EstimatePriceDto Validation', () => {
     expect(errorsZero.some((e) => e.property === 'tonnage')).toBe(true)
   })
 
-  it('should fail when truckType is missing or not a string', async () => {
+  it('should fail when truckType is missing or outside the supported enum', async () => {
     const dto = plainToInstance(EstimatePriceDto, {
       tonnage: 10,
     })
     const errors = await validate(dto)
     expect(errors.length).toBeGreaterThan(0)
     expect(errors.some((e) => e.property === 'truckType')).toBe(true)
+
+    const invalidType = plainToInstance(EstimatePriceDto, {
+      tonnage: 10,
+      truckType: 'Flatbed',
+    })
+    const invalidErrors = await validate(invalidType)
+    expect(invalidErrors.some((e) => e.property === 'truckType')).toBe(true)
   })
 
   it('should fail when coordinates are out of valid range', async () => {

@@ -1,6 +1,13 @@
-import { IsString, IsNumber, IsOptional, IsPositive, Min, Max, IsNotEmpty } from 'class-validator'
+import { IsEnum, IsNumber, IsOptional, IsPositive, Min, Max, IsNotEmpty } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
+
+/** Canonical vehicle body types supported by the pricing model. */
+export enum PricingTruckType {
+  Open = 'Open',
+  Container = 'Container',
+  OpenBody = 'OpenBody',
+}
 
 export class EstimatePriceDto {
   @ApiProperty({
@@ -17,10 +24,12 @@ export class EstimatePriceDto {
   @ApiProperty({
     example: 'Open',
     description: 'Truck / body configuration type (Open, Container, OpenBody)',
-    enum: ['Open', 'Container', 'OpenBody', 'Open body'],
+    enum: PricingTruckType,
   })
   @IsNotEmpty()
-  @IsString()
+  @IsEnum(PricingTruckType, {
+    message: 'truckType must be one of: Open, Container, OpenBody',
+  })
   truckType: string
 
   @ApiPropertyOptional({
