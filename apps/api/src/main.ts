@@ -35,11 +35,21 @@ async function bootstrap() {
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   }))
 
-  // Enable CORS with fallbacks
+  // Enable CORS with fallbacks and dynamic Vercel/Render preview origin support
   const allowedOrigins = getAllowedOrigins(configService)
 
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true)
+      if (allowedOrigins.includes(origin)) return callback(null, true)
+      try {
+        const parsed = new URL(origin)
+        if (parsed.hostname.endsWith('.vercel.app') || parsed.hostname.endsWith('.onrender.com')) {
+          return callback(null, true)
+        }
+      } catch {}
+      return callback(null, false)
+    },
     credentials: true,
   })
   

@@ -92,13 +92,16 @@ export class AuthService {
     // Log for monitoring
     this.logger.log(`OTP ${result.success ? 'sent' : 'failed'} via ${usedChannel} to ${phone}`)
 
+    const isDev = this.config.get('NODE_ENV') !== 'production'
+    const isTestPhone = phone === '+918072025106' || this.config.get('ALLOW_TEST_OTP') === 'true'
+
     return {
       success: result.success,
       message: result.message,
       channel: usedChannel,
       isExistingUser,
-      // Dev mode: return static mock OTP '123456' for testing (never expose the actual dynamic OTP)
-      ...(this.config.get('NODE_ENV') !== 'production' && { devOtp: '123456' }),
+      // Dev mode or test phone: return static mock OTP '123456' for free testing
+      ...((isDev || isTestPhone) && { devOtp: '123456' }),
     }
   }
 
@@ -156,9 +159,10 @@ export class AuthService {
 
     // Verify OTP
     let verification: { valid: boolean; message: string }
-    const isDevMode = this.config.get('NODE_ENV') !== 'production'
-    if (isDevMode && inputOtp === '123456') {
-      verification = { valid: true, message: 'OTP verified successfully (Dev Mode)' }
+    const isDev = this.config.get('NODE_ENV') !== 'production'
+    const isTestPhone = phone === '+918072025106' || this.config.get('ALLOW_TEST_OTP') === 'true'
+    if ((isDev || isTestPhone) && inputOtp === '123456') {
+      verification = { valid: true, message: 'OTP verified successfully (Dev/Test Mode)' }
       await this.otpStorage.deleteOtp(phone)
     } else {
       verification = await this.otpStorage.verifyOtp(phone, inputOtp)
