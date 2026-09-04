@@ -1,14 +1,14 @@
 # LorryCarry — Database Schema Design
 
-**Scope:** Normalized relational schema for Users, Vehicles (Trucks), Loads, Bookings, Payments, and
-Notifications, with the commercial relationship chain **FactoryOwner → Booking → TruckDriver**, explicit
-RC (Registration Certificate) verification tracking, WhatsApp notification trigger status, and
-subscription expiry management.
+**Scope:** Normalized relational schema for Users, Vehicles (Trucks), Loads, Bookings, Document Chains, Disputes,
+Matches, Ratings, Payments, Preferences, and Notifications, with the commercial relationship chain
+**FactoryOwner → Booking → TruckDriver**, explicit RC verification snapshots, FASTag toll-readiness,
+WhatsApp notification trigger status, and subscription expiry/trial management.
 
-**Engine:** PostgreSQL 15 + PostGIS 3.4, modeled with Prisma ORM 5.
-**Source of truth:** [`packages/database/prisma/schema.prisma`](../packages/database/prisma/schema.prisma)
-**Migrations:** [`packages/database/prisma/migrations/`](../packages/database/prisma/migrations/)
-**ERD:** [`database-schema-erd.png`](./database-schema-erd.png)
+**Engine:** PostgreSQL 15 + PostGIS 3.4, modeled with Prisma ORM 5.  
+**Source of truth:** [`packages/database/prisma/schema.prisma`](../packages/database/prisma/schema.prisma)  
+**Migrations:** [`packages/database/prisma/migrations/`](../packages/database/prisma/migrations/)  
+**ERD:** [`database-schema-erd.png`](./database-schema-erd.png)  
 
 ---
 
@@ -16,32 +16,23 @@ subscription expiry management.
 
 ![LorryCarry Database Schema ERD](./database-schema-erd.png)
 
-Fields highlighted in green were added by the
-[`20260903000000_rename_roles_and_add_rc_whatsapp_subscription_fields`](../packages/database/prisma/migrations/20260903000000_rename_roles_and_add_rc_whatsapp_subscription_fields/migration.sql)
-migration described in §5.
-
 ---
 
 ## 2. Role Model: FactoryOwner → Booking → TruckDriver
 
-LorryCarry is a two-sided marketplace. The `UserRole` enum defines the two transacting roles plus an
-operator role:
+LorryCarry is a two-sided freight marketplace. The `UserRole` enum defines the two transacting business personas plus a platform operator role:
 
 ```prisma
 enum UserRole {
-  factory_owner   // posts freight Loads (cargo owners / shippers / traders / factories)
-  truck_driver    // owns/drives Trucks and fulfils Loads (owner-operator model)
-  admin           // KYC verification, dispute resolution, platform oversight
+  factory_owner   // Cargo owners / shippers / traders / factories posting freight loads
+  truck_driver    // Truck owner-operators / transporters fulfilling freight loads
+  admin           // Platform operators (KYC verification, dispute resolution, oversight)
 }
 ```
 
-> **Terminology note:** the platform uses an **owner-operator** model — the account that registers a
-> truck is the same account that drives/dispatches it, so `truck_driver` doubles as "truck owner." If a
-> future requirement needs a fleet operator to manage *hired* drivers who don't hold their own login,
-> introduce a separate `Driver` entity (id, name, licenseNumber, phone, `truckId` FK) linked 1\:N from
-> `Truck`, without touching the `User`/`UserRole` model.
+> **Owner-Operator Model:** The account registering a vehicle is the account that dispatches/drives it (`truck_driver`). Legacy role strings (`load_owner`, `truck_owner`, `driver`) are normalized transparently at the application boundary to `factory_owner` or `truck_driver`.
 
-**Relationship chain**
+### Relationship Chain & Prisma Relation Mapping
 
 ```
 User(role=factory_owner) ──┐
@@ -50,365 +41,404 @@ Truck ──────────────────────┘     
 Load ────────────────────────────────┘
 ```
 
-A `Booking` is the join entity that binds a `Load` (posted by a `factory_owner`) to a `Truck` (owned by a
-`truck_driver`), while *also* directly foreign-keying both `User` rows for fast authorization checks
-(`WHERE factoryOwnerId = :userId OR truckDriverId = :userId`) without having to traverse through `Load`
-or `Truck`.
+A `Booking` is the commercial contract entity binding a `Load` (posted by a `factory_owner`) to a `Truck` (owned by a `truck_driver`). In the underlying PostgreSQL database, foreign keys use `load_owner_id` and `truck_owner_id` columns. In the Prisma schema, the models map these via `@relation("LoadOwnerBookings")` and `@relation("TruckOwnerBookings")`:
 
 ```prisma
-model Booking {
-  loadId          String
-  truckId         String
-  factoryOwnerId  String   @map("load_owner_id")   // FK -> users.id
-  truckDriverId   String   @map("truck_owner_id")  // FK -> users.id
+model User {
+  id                 String    @id @default(uuid())
+  role               UserRole
+  loads              Load[]
+  trucks             Truck[]
+  loadOwnerBookings  Booking[] @relation("LoadOwnerBookings")
+  truckOwnerBookings Booking[] @relation("TruckOwnerBookings")
+  // ...
+}
 
-  load        Load  @relation(fields: [loadId], references: [id])
-  truck       Truck @relation(fields: [truckId], references: [id])
-  factoryOwner User @relation("FactoryOwnerBookings", fields: [factoryOwnerId], references: [id])
-  truckDriver  User @relation("TruckDriverBookings",  fields: [truckDriverId],  references: [id])
+model Booking {
+  id                  String          @id @default(uuid())
+  loadId              String          @map("load_id")
+  truckId             String          @map("truck_id")
+  loadOwnerId         String          @map("load_owner_id")
+  truckOwnerId        String          @map("truck_owner_id")
+  agreedPrice         Decimal         @map("agreed_price") @db.Decimal(12, 2)
+  advanceConfirmed    Boolean         @default(false) @map("advance_confirmed")
+  balanceConfirmed    Boolean         @default(false) @map("balance_confirmed")
+  status              BookingStatus   @default(Pending)
+
+  load        Load         @relation(fields: [loadId], references: [id])
+  truck       Truck        @relation(fields: [truckId], references: [id])
+  loadOwner   User         @relation("LoadOwnerBookings", fields: [loadOwnerId], references: [id])
+  truckOwner  User         @relation("TruckOwnerBookings", fields: [truckOwnerId], references: [id])
+  // ...
 }
 ```
 
-Both `factoryOwnerId` and `truckDriverId` are indexed independently so a user's booking history query
-(as either party) hits an index regardless of role.
+Both `load_owner_id` and `truck_owner_id` are indexed independently for sub-millisecond query performance when querying user booking histories.
 
 ---
 
 ## 3. Table-by-Table Reference
 
 ### 3.1 `users` — Users
-Root identity table for OTP-based (WhatsApp/SMS) phone login. One row per account, one `role`.
+Root identity table for OTP-based (WhatsApp/SMS) phone authentication. One row per account.
 
-| Column | Type | Notes |
+| Column | Type | Description / Notes |
 |---|---|---|
-| `id` | uuid PK | |
+| `id` | uuid PK | Canonical user ID |
 | `phone` | text, **unique** | E.164 phone number; the OTP login identity |
-| `name` | text, nullable | |
+| `name` | text, nullable | Display name |
 | `role` | enum `UserRole` | `factory_owner` \| `truck_driver` \| `admin` |
-| `created_at` / `updated_at` | timestamp | |
+| `trial_started_at` | timestamp, nullable | Timestamp when 90-day free trial began |
+| `trial_ends_at` | timestamp, nullable | Hard expiry of 90-day free trial |
+| `trial_converted_at` | timestamp, nullable | Timestamp when upgraded to a paid plan |
+| `created_at` / `updated_at` | timestamp | Audit timestamps |
 
-Indexes: `phone`, `role`.
+Indexes: `phone`, `role`, `trial_ends_at`.
 
-Related 1:1/1\:N tables: `user_preferences` (1:1, notification opt-ins, search defaults),
-`notification_receipts` (1\:N, read-state for the in-app notification feed).
+### 3.2 `user_preferences` — User Application Preferences
+Per-user customization for theme, units, search defaults, and notification channel opt-ins.
 
-### 3.2 `trucks` — Vehicles
-A vehicle registered by a `truck_driver`.
-
-| Column | Type | Notes |
+| Column | Type | Description / Notes |
 |---|---|---|
-| `id` | uuid PK | |
-| `user_id` | uuid FK → `users.id` | owning/driving account |
-| `registration_number` | text, **unique** | vehicle RC plate number |
-| `body_type` | enum `TruckType` | `Open` \| `Container` \| `Open body` |
-| `length_ft` / `height_ft` / `tonnage_capacity` | int / int / decimal(10,2) | |
-| `current_lat` / `current_lng` / `current_location` | decimal / decimal / `geography(Point,4326)` | PostGIS point kept in sync with lat/lng for radius search |
-| `serviceable_radius_km` | int, default 50 | |
-| `preferred_destinations` | json | array of city names, used for return-load matching |
-| `verification_status` | enum `VerificationStatus` | `Pending` \| `Verified` \| `Rejected` — **fleet-level** KYC gate |
-| `verified_at` | timestamp, nullable | |
+| `id` | uuid PK | Preference record ID |
+| `user_id` | uuid FK → `users.id`, **unique** | Owning user (`1:1`) |
+| `theme` | text, default `'system'` | `'light'` \| `'dark'` \| `'system'` |
+| `language` | text, default `'en'` | Interface language code (`en`, `hi`, `ta`, etc.) |
+| `currency` | text, default `'INR'` | Preferred display currency |
+| `distance_unit` | text, default `'km'` | `'km'` \| `'mi'` |
+| `notify_whatsapp` | boolean, default `true` | WhatsApp channel opt-in |
+| `notify_sms` | boolean, default `true` | SMS channel opt-in |
+| `notify_push` | boolean, default `true` | Mobile push opt-in |
+| `notify_checkpoints` | boolean, default `true` | Checkpoint crossing alert opt-in |
+| `default_radius_km` | int, default `50` | Default discovery radius in km |
+| `preferred_body_type`| text, nullable | Default vehicle filter |
+| `auto_detect_location` | boolean, default `true` | GPS auto-detection flag |
+| `profile_visible` | boolean, default `true` | Marketplace profile visibility |
 
-Indexes: `user_id`, `verification_status`, `body_type`, `tonnage_capacity`.
+### 3.3 `notification_receipts` — Notification Read Receipts
+Tracks read states for in-app notifications and dynamically derived operational banners.
 
-### 3.3 `documents` — RC / Insurance Verification (KYC)
-One row per uploaded KYC document (Registration Certificate or Insurance policy), scoped to a `Truck`.
-This is where **document-level** RC verification lives, distinct from the truck's aggregate
-`verification_status`.
-
-| Column | Type | Notes |
+| Column | Type | Description / Notes |
 |---|---|---|
-| `id` | uuid PK | |
-| `truck_id` | uuid FK → `trucks.id`, `ON DELETE CASCADE` | |
+| `id` | uuid PK | Receipt ID |
+| `user_id` | uuid FK → `users.id` | Recipient user |
+| `notification_key` | text | Stable identifier (`<uuid>` or derived `notif-kyc-pending-<truckId>`) |
+| `read_at` | timestamp, default `now()` | Read timestamp |
+
+Indexes / Constraints: `@@unique([user_id, notification_key])`, `user_id`.
+
+### 3.4 `trucks` — Vehicle Fleet
+Vehicles registered by `truck_driver` accounts, including PostGIS spatial positioning and Vahan/FASTag compliance.
+
+| Column | Type | Description / Notes |
+|---|---|---|
+| `id` | uuid PK | Truck ID |
+| `user_id` | uuid FK → `users.id` | Transporter / driver account |
+| `registration_number`| text, **unique** | Vehicle RC plate number (e.g. `MH12AB1234`) |
+| `body_type` | enum `TruckType` | `Open` \| `Container` \| `OpenBody` |
+| `length_ft` / `height_ft` | int / int | Vehicle dimensions |
+| `tonnage_capacity` | decimal(10,2) | Maximum payload capacity in metric tons |
+| `current_lat` / `current_lng` | decimal(10,8) / decimal(11,8) | Current GPS coordinates |
+| `current_location` | `geography(Point,4326)` | PostGIS spatial point for radius search |
+| `serviceable_radius_km` | int, default `50` | Discovery radius in km |
+| `preferred_destinations` | json, nullable | Array of preferred destination cities for backhaul matching |
+| `verification_status` | enum `VerificationStatus` | `Pending` \| `Verified` \| `Rejected` (Fleet-level KYC status) |
+| `verified_at` | timestamp, nullable | Admin verification timestamp |
+| `vahan_status` | enum `VahanCheckStatus` | `NotChecked` \| `Pending` \| `Verified` \| `Mismatch` \| `Unavailable` \| `Error` |
+| `vahan_details` | json, nullable | PII-safe normalized Vahan RC snapshot |
+| `vahan_response` | json, nullable | Raw external provider response payload |
+| `vahan_validated_at` | timestamp, nullable | Timestamp of successful RC validation |
+| `vahan_last_checked_at` | timestamp, nullable | Timestamp of last Vahan lookup attempt |
+| `vahan_verified_at` | timestamp, nullable | Timestamp of Vahan verified confirmation |
+| `fastag_status` | enum `FastagStatus` | `Unknown` \| `Active` \| `LowBalance` \| `Inactive` |
+| `fastag_updated_at` | timestamp, nullable | Timestamp when FASTag status was last updated |
+| `created_at` / `updated_at` | timestamp | Audit timestamps |
+
+Indexes: `user_id`, `verification_status`, `vahan_validated_at`, `fastag_status`, `body_type`, `tonnage_capacity`.
+
+### 3.5 `documents` — Vehicle KYC Documents (RC & Insurance)
+Document-level KYC verification records scoped to a `Truck`.
+
+| Column | Type | Description / Notes |
+|---|---|---|
+| `id` | uuid PK | Document record ID |
+| `truck_id` | uuid FK → `trucks.id`, `ON DELETE CASCADE` | Associated vehicle |
 | `type` | enum `DocumentType` | `RC` \| `Insurance` |
-| `doc_number` | text, nullable | RC registration number / insurance policy number |
-| `s3_url` / `s3_key` | text | private S3/MinIO object storing the scanned document |
-| `original_filename` / `file_size` / `mime_type` | text / int / text | upload metadata |
-| `verification_status` | enum `VerificationStatus` | `Pending` \| `Verified` \| `Rejected` — set by admin review |
-| **`is_verified`** ★ | boolean, default `false` | denormalized `verification_status === 'Verified'` flag for cheap filtering/badges, kept in lockstep by the verification endpoint |
-| `verified_by` | text, nullable | admin user id who actioned it |
-| `verification_notes` | text, nullable | rejection reason / reviewer note |
-| `verified_at` | timestamp, nullable | |
-| **`expiry_date`** ★ | timestamp, nullable | RC fitness-certificate expiry or insurance policy expiry, whichever `type` applies to |
+| `doc_number` | text, nullable | Registration number or Insurance policy number |
+| `s3_url` / `s3_key` | text | S3/MinIO storage path |
+| `original_filename` / `file_size` / `mime_type` | text / int / text | Upload metadata |
+| `verification_status`| enum `VerificationStatus` | `Pending` \| `Verified` \| `Rejected` |
+| `is_verified` | boolean, default `false` | Denormalized helper flag for quick badge queries |
+| `verified_by` | text, nullable | Admin user ID who verified the document |
+| `verification_notes` | text, nullable | Rejection reason or approval notes |
+| `verified_at` | timestamp, nullable | Timestamp of verification action |
+| `expiry_date` | timestamp, nullable | Fitness certificate expiry or Insurance expiry |
+| `created_at` | timestamp | Upload timestamp |
 
-Indexes: `truck_id`, `type`, `verification_status`, **`expiry_date`** ★ (for the "documents expiring
-soon" admin/ops query).
+Indexes: `truck_id`, `type`, `verification_status`, `expiry_date`.
 
-> **RC verification flow:** `truck_driver` uploads → `documents.verification_status = Pending` →
-> `POST /admin/documents/:id/verify` sets `verification_status`, `is_verified`, `verified_by`,
-> `verified_at` → once *all* of a truck's required documents are `Verified`, the API promotes
-> `trucks.verification_status` to `Verified` as well.
+### 3.6 `loads` — Freight Postings
+Freight requirements posted by `factory_owner` accounts with PostGIS spatial coordinates.
 
-### 3.4 `loads` — Freight Postings
-A freight requirement posted by a `factory_owner`.
-
-| Column | Type | Notes |
+| Column | Type | Description / Notes |
 |---|---|---|
-| `id` | uuid PK | |
-| `user_id` | uuid FK → `users.id` | posting factory owner |
-| `tonnage_required` | decimal(10,2) | |
-| `loading_address` / `loading_pin` / `loading_lat` / `loading_lng` / `loading_point` | text / text / decimal / decimal / `geography(Point,4326)` | pickup location + PostGIS point |
-| `unloading_address` / `unloading_pin` / `unloading_lat` / `unloading_lng` / `unloading_point` | (mirror of loading columns) | drop location |
-| `truck_type` | enum `TruckType` | required body type |
-| `min_length_ft` / `min_height_ft` | int, nullable | |
-| `urgent` | boolean, default `false` | |
-| `max_price` | decimal(12,2), nullable | shipper's budget ceiling |
-| `expected_delivery_at` | timestamp, nullable | |
-| `advance_payable` | decimal(12,2), nullable | proposed 50% advance amount |
-| `status` | enum `LoadStatus` | `Open` \| `Matched` \| `In-transit` \| `Completed` \| `Cancelled` |
+| `id` | uuid PK | Load ID |
+| `user_id` | uuid FK → `users.id` | Posting factory owner |
+| `tonnage_required` | decimal(10,2) | Required freight weight in metric tons |
+| `loading_address` / `loading_pin` | text / text | Pickup location and postal PIN code |
+| `loading_lat` / `loading_lng` | decimal(10,8) / decimal(11,8) | Pickup GPS coordinates |
+| `loading_point` | `geography(Point,4326)` | PostGIS pickup point for spatial queries |
+| `unloading_address` / `unloading_pin` | text / text | Delivery location and postal PIN code |
+| `unloading_lat` / `unloading_lng` | decimal(10,8) / decimal(11,8) | Delivery GPS coordinates |
+| `unloading_point` | `geography(Point,4326)` | PostGIS delivery point |
+| `truck_type` | enum `TruckType` | Required vehicle configuration (`Open`, `Container`, `OpenBody`) |
+| `min_length_ft` / `min_height_ft` | int, nullable | Dimension requirements |
+| `urgent` | boolean, default `false` | Urgency flag for prioritized matching |
+| `max_price` | decimal(12,2), nullable | Shipper's ceiling budget in INR |
+| `expected_delivery_at` | timestamp, nullable | Requested delivery deadline |
+| `advance_payable` | decimal(12,2), nullable | Proposed 50% loading advance amount |
+| `status` | enum `LoadStatus` | `Open` \| `Matched` \| `InTransit` \| `Completed` \| `Cancelled` |
+| `created_at` / `updated_at` | timestamp | Audit timestamps |
 
-Indexes: `user_id`, `status`, `truck_type`, `urgent`, `created_at`, plus GiST spatial indexes on
-`loading_point` / `unloading_point` (created via raw SQL in the migration for PostGIS radius search).
+Indexes: `user_id`, `status`, `truck_type`, `urgent`, `created_at`, plus spatial GiST indexes on `loading_point` and `unloading_point`.
 
-### 3.5 `bookings` — Commercial Bookings (FactoryOwner → Booking → TruckDriver)
-The core transactional join entity: one `Load` fulfilled by one `Truck`, with commercial terms.
+### 3.7 `bookings` — Commercial Bookings
+Core commercial contract binding a `Load` and a `Truck` with 50/50 payment milestone terms.
 
-| Column | Type | Notes |
+| Column | Type | Description / Notes |
 |---|---|---|
-| `id` | uuid PK | |
-| `load_id` | uuid FK → `loads.id` | |
-| `truck_id` | uuid FK → `trucks.id` | |
-| `load_owner_id` (Prisma field `factoryOwnerId`) | uuid FK → `users.id` | the factory owner party |
-| `truck_owner_id` (Prisma field `truckDriverId`) | uuid FK → `users.id` | the truck driver party |
-| `agreed_price` | decimal(12,2) | |
-| `advance_confirmed` / `advance_confirmed_at` | boolean / timestamp | 50% advance-at-loading milestone |
-| `balance_confirmed` / `balance_confirmed_at` | boolean / timestamp | 50% balance-at-delivery milestone |
-| `eway_bill_number` | text, nullable | compliance |
-| `liability_accepted` / `liability_accepted_at` | boolean / timestamp | terms acceptance |
-| `status` | enum `BookingStatus` | `Pending` \| `Confirmed` \| `In-transit` \| `Completed` \| `Cancelled` |
-| **`whatsapp_trigger_status`** ★ | enum `WhatsappTriggerStatus`, default `NotTriggered` | `NotTriggered` \| `Queued` \| `Sent` \| `Delivered` \| `Failed` — rollup of the outbound booking-confirmation WhatsApp trigger (see §4) |
-| **`whatsapp_triggered_at`** ★ | timestamp, nullable | when the trigger last fired |
-| `started_at` / `completed_at` | timestamp, nullable | |
+| `id` | uuid PK | Booking ID |
+| `load_id` | uuid FK → `loads.id` | Associated load requirement |
+| `truck_id` | uuid FK → `trucks.id` | Fulfilling vehicle |
+| `load_owner_id` | uuid FK → `users.id` | Factory owner party (Prisma field: `loadOwnerId`) |
+| `truck_owner_id` | uuid FK → `users.id` | Transporter party (Prisma field: `truckOwnerId`) |
+| `agreed_price` | decimal(12,2) | Total agreed freight amount in INR |
+| `advance_confirmed` | boolean, default `false` | 50% loading advance milestone confirmed |
+| `advance_confirmed_at` | timestamp, nullable | Timestamp of advance confirmation |
+| `balance_confirmed` | boolean, default `false` | 50% delivery balance milestone confirmed |
+| `balance_confirmed_at` | timestamp, nullable | Timestamp of balance confirmation |
+| `eway_bill_number` | text, nullable | 12-digit GSTN E-Way Bill reference |
+| `eway_bill_status` | enum `EwayBillStatus` | `Pending` \| `Active` \| `Expired` \| `Invalid` |
+| `eway_bill_valid_upto` | timestamp, nullable | E-Way Bill expiry timestamp |
+| `eway_bill_updated_at` | timestamp, nullable | E-Way Bill last update timestamp |
+| `liability_accepted` | boolean, default `false` | Terms & transit liability agreement flag |
+| `liability_accepted_at` | timestamp, nullable | Terms acceptance timestamp |
+| `status` | enum `BookingStatus` | `Pending` \| `Confirmed` \| `InTransit` \| `Completed` \| `Cancelled` |
+| `started_at` / `completed_at` | timestamp, nullable | Trip lifecycle timestamps |
+| `whatsapp_trigger_status` | enum `WhatsappTriggerStatus` | `NotTriggered` \| `Queued` \| `Sent` \| `Delivered` \| `Failed` |
+| `whatsapp_triggered_at` | timestamp, nullable | Timestamp when booking confirmation message was sent |
+| `created_at` / `updated_at` | timestamp | Audit timestamps |
 
-Indexes: `load_id`, `truck_id`, `status`, `factory_owner_id` (Prisma: `factoryOwnerId`),
-`truck_owner_id` (Prisma: `truckDriverId`), **`whatsapp_trigger_status`** ★.
+Indexes: `load_id`, `truck_id`, `status`, `eway_bill_status`, `load_owner_id`, `truck_owner_id`, `whatsapp_trigger_status`.
 
-Relations: `checkpoints` (1\:N, the 5-stage tracking trail).
+### 3.8 `booking_documents` — 7-Stage Digital Document Chain
+Per-trip freight document chain stored in private S3/MinIO storage with pre-signed URLs.
 
-### 3.6 `checkpoints` — 5-Stage Trip Tracking
-Geofenced waypoints for a booking's journey (not live GPS — checkpoint-crossing based).
-
-| Column | Type | Notes |
+| Column | Type | Description / Notes |
 |---|---|---|
-| `id` | uuid PK | |
-| `booking_id` | uuid FK → `bookings.id`, `ON DELETE CASCADE` | |
-| `seq` | int | 1–5, unique per booking (`@@unique([bookingId, seq])`) |
-| `name` | text | e.g. "Pune", "Satara", "Belagavi" |
-| `lat` / `lng` / `location` | decimal / decimal / `geography(Point,4326)` | geofence center |
-| `radius_m` | int | geofence radius, default 2000m (500m at load/unload points) |
-| `crossed_at` | timestamp, nullable | |
-| `crossed_by` | text, nullable | device/user id that reported the crossing |
-| `eta_minutes` | int, nullable | calculated ETA at creation |
-| `notified_at` | timestamp, nullable | when the WhatsApp/push checkpoint alert was sent |
-
-### 3.7 `payments` — Payments
-Every money movement — subscription purchases and booking advance/balance — as one ledger row.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `user_id` | uuid FK → `users.id` | payer |
-| `amount` | decimal(12,2) | |
-| `currency` | text, default `INR` | |
-| `purpose` | enum `PaymentPurpose` | `subscription` \| `booking_advance` \| `booking_balance` |
-| `status` | enum `PaymentStatus` | `Pending` \| `Success` \| `Failed` \| `Refunded` |
-| `provider` | text, default `cashfree` | |
-| `provider_order_id` / `provider_txn_id` | text, nullable | Cashfree order/transaction refs |
-| `payment_method` | text, nullable | UPI / CARD / etc. |
-| `paid_at` | timestamp, nullable | |
-| `failure_reason` | text, nullable | |
-| `metadata` | json, nullable | |
-
-### 3.8 `subscriptions` — Subscription / Paywall
-Gates transporter contact-reveal and other paid features. **Expiry-driven**, not seat-driven.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `user_id` | uuid FK → `users.id` | |
-| `plan` | text | e.g. `monthly_unlimited`, `pay_per_unlock` |
-| `status` | enum `SubscriptionStatus` | `active` \| `expired` \| `cancelled` |
-| `started_at` | timestamp | |
-| **`expires_at`** | timestamp | **the subscription-expiry gate** — the paywall middleware checks `now() < expiresAt` (in addition to `status === 'active'`) before unlocking contact reveal / booking creation |
-| **`auto_renew`** ★ | boolean, default `false` | whether Cashfree should attempt an automatic renewal charge as `expiresAt` approaches |
-| `payment_id` | text, nullable | linked `payments.id` |
-
-Indexes: `user_id`, `status`, **`expires_at`** ★ (for the "subscriptions expiring in N days" reminder job
-and admin dashboard).
-
-### 3.9 `notifications` — Outbound Message Log
-Per-recipient log of every WhatsApp/SMS/push message actually sent (granular — one row per message).
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `user_id` | uuid FK → `users.id` | |
-| `channel` | enum `NotificationChannel` | `whatsapp` \| `sms` \| `push` |
-| `template` | text | template name/code, e.g. `booking_confirmed_driver` |
-| `variables` | json, nullable | template variables |
-| `recipient` | text | phone number or device token |
-| `content` | text, nullable | rendered content actually sent |
-| `status` | enum `NotificationStatus` | `Pending` \| `Sent` \| `Delivered` \| `Failed` |
-| `provider` | text, default `gupshup` | or `msg91` |
-| `provider_msg_id` | text, nullable | |
-| `delivered_at` / `failed_at` / `failure_reason` | timestamp / timestamp / text | |
-
-Related: `notification_receipts` (per-user read state — covers both persisted `Notification` rows and
-notifications derived at request time, e.g. "KYC pending" banners, via an opaque `notification_key`).
-
-### 3.10 `booking_documents` — Booking Freight Document Chain
-
-One row per file attached to a **booking** at one of the seven chain stages
-(`BOOKING`, `EWAY_BILL`, `LOADING`, `TRANSIT`, `DELIVERY`, `POD`, `BALANCE`). Distinct from the
-truck-scoped KYC `documents` table: this chain is a per-trip audit trail shared by both
-counterparties (factory owner & truck driver), with admin verify/reject mirroring KYC semantics.
-Files are stored in private S3/MinIO; only the object key is persisted, and every read/download
-goes through a fresh server-issued pre-signed URL.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `booking_id` | uuid FK → `bookings.id`, `ON DELETE CASCADE` | chain dies with the booking |
-| `stage` | enum `BookingDocumentStage` | `BOOKING` \\| `EWAY_BILL` \\| `LOADING` \\| `TRANSIT` \\| `DELIVERY` \\| `POD` \\| `BALANCE` |
-| `doc_number` | text, nullable | LR/EWB/POD reference entered by uploader — never auto-fabricated |
-| `s3_key` | text | private object key (`booking-documents/<booking_id>/<STAGE>/<uuid>.<ext>`) |
-| `original_filename` / `file_size` / `mime_type` | text / int / text, nullable | upload metadata |
-| `signed_by` | text, nullable | sign-off authority (e.g. consignee for POD) |
-| `uploaded_by_id` | uuid FK → `users.id` | the booking counterparty who uploaded |
-| `verification_status` | enum `VerificationStatus` | `Pending` \\| `Verified` \\| `Rejected` — set by admin review |
-| `verified_by_id` / `verification_notes` / `verified_at` | uuid FK / text / timestamp, nullable | admin action trail |
-| `uploaded_at` / `created_at` / `updated_at` | timestamps | `uploaded_at` = confirmed upload time |
+| `id` | uuid PK | Trip document ID |
+| `booking_id` | uuid FK → `bookings.id`, `ON DELETE CASCADE` | Associated booking |
+| `stage` | enum `BookingDocumentStage` | `BOOKING` \| `EWAY_BILL` \| `LOADING` \| `TRANSIT` \| `DELIVERY` \| `POD` \| `BALANCE` |
+| `doc_number` | text, nullable | LR no., EWB 12-digit number, Invoice number, etc. |
+| `s3_key` | text | S3 object key (`booking-documents/<bookingId>/<stage>/<uuid>.<ext>`) |
+| `original_filename` / `mime_type` / `file_size` | text / text / int | Upload metadata |
+| `signed_by` | text, nullable | Consignee or supervisor sign-off name |
+| `uploaded_by_id` | uuid FK → `users.id` | Booking counterparty who uploaded |
+| `verification_status`| enum `VerificationStatus` | `Pending` \| `Verified` \| `Rejected` |
+| `verified_by_id` | uuid FK → `users.id`, nullable | Admin reviewer |
+| `verification_notes` | text, nullable | Rejection or approval notes |
+| `verified_at` | timestamp, nullable | Verification timestamp |
+| `uploaded_at` / `created_at` / `updated_at` | timestamp | Lifecycle timestamps |
 
 Indexes: `booking_id`, `(booking_id, stage)`, `stage`, `uploaded_by_id`, `verification_status`.
-Multiple rows per stage are allowed (e.g. several loading slips); the chain UI groups by stage.
 
----
+### 3.9 `booking_disputes` — Commercial & Transit Disputes
+Counterparty claims raised against active or completed trips with admin investigation notes.
 
-## 4. WhatsApp Trigger Status — Design Rationale
-
-There are two levels of "did the WhatsApp message go out" tracking, intentionally kept separate:
-
-1. **`notifications` table** — the granular, per-recipient audit log. Every individual WhatsApp/SMS/push
-   send (OTP, booking confirmation, checkpoint alert, KYC status) gets its own row here with full
-   provider metadata (`provider_msg_id`, `delivered_at`, `failure_reason`, …). This is the system of
-   record for compliance/debugging.
-2. **`bookings.whatsapp_trigger_status` / `whatsapp_triggered_at`** ★ — a denormalized rollup on the
-   `Booking` itself, updated when `sendBookingNotifications()` fires the paired
-   `booking_confirmed_driver` / `booking_confirmed_shipper` messages. This lets the booking detail screen
-   show a single "WhatsApp sent ✓ / pending / failed" indicator without joining `notifications` and
-   aggregating two rows (one per party) every time the booking is rendered.
-
-```prisma
-enum WhatsappTriggerStatus {
-  NotTriggered
-  Queued
-  Sent
-  Delivered
-  Failed
-}
-```
-
-State machine: `NotTriggered → Queued → Sent → Delivered` (happy path), or `→ Failed` if the Gupshup API
-call errors — in which case the booking action-center surfaces a retry action.
-
----
-
-## 5. Migration: Role Rename + New Fields
-
-File: [`packages/database/prisma/migrations/20260903000000_rename_roles_and_add_rc_whatsapp_subscription_fields/migration.sql`](../packages/database/prisma/migrations/20260903000000_rename_roles_and_add_rc_whatsapp_subscription_fields/migration.sql)
-
-| Change | Mechanism | Backward compatible? |
+| Column | Type | Description / Notes |
 |---|---|---|
-| `UserRole` enum: `load_owner` → `factory_owner`, `truck_owner` → `truck_driver` | `ALTER TYPE ... RENAME VALUE` (metadata-only, no row rewrite) | ✅ every existing `users.role` value keeps pointing at the same logical role |
-| `documents.is_verified`, `documents.expiry_date` | `ALTER TABLE ... ADD COLUMN` with default/nullable | ✅ additive; `is_verified` backfilled from existing `verification_status = 'Verified'` rows |
-| `subscriptions.auto_renew` | `ALTER TABLE ... ADD COLUMN ... DEFAULT false` | ✅ additive |
-| `bookings.whatsapp_trigger_status`, `bookings.whatsapp_triggered_at` | new enum + `ALTER TABLE ... ADD COLUMN` | ✅ additive |
-| New indexes: `documents.expiry_date`, `subscriptions.expires_at`, `bookings.whatsapp_trigger_status` | `CREATE INDEX` | ✅ no lock beyond a standard index build |
+| `id` | uuid PK | Dispute ID |
+| `booking_id` | uuid FK → `bookings.id`, `ON DELETE CASCADE` | Associated booking |
+| `raised_by_id` | uuid FK → `users.id` | User raising the dispute |
+| `category` | enum `DisputeCategory` | `Payment` \| `CargoDamage` \| `Delay` \| `Document` \| `Other` |
+| `priority` | enum `DisputePriority` | `Low` \| `Medium` \| `High` \| `Critical` |
+| `status` | enum `DisputeStatus` | `Open` \| `Investigating` \| `Resolved` \| `Rejected` |
+| `description` | text | Detailed claim description |
+| `resolution` | text, nullable | Admin resolution summary / decision |
+| `resolved_by_id` | uuid FK → `users.id`, nullable | Admin user resolving the dispute |
+| `resolved_at` | timestamp, nullable | Resolution timestamp |
+| `created_at` / `updated_at` | timestamp | Audit timestamps |
 
-`bookings.load_owner_id` / `bookings.truck_owner_id` **column names are unchanged** — only the Prisma
-model field names became `factoryOwnerId` / `truckDriverId` (via `@map`), so no data migration or FK
-rebuild was needed for that rename.
+Indexes: `booking_id`, `raised_by_id`, `status`, `priority`.
 
-Application code across `apps/api`, `apps/web`, `apps/admin`, and `apps/mobile` was updated in the same
-change to use the new role names and dashboard routes (`/dashboard/factory-owner`,
-`/dashboard/truck-driver`) end-to-end.
+### 3.10 `checkpoints` — 5-Stage Trip Checkpoints
+Sequential geofenced waypoints along the transit route (`seq: 1..5`).
 
-### 5.1 Follow-up: dropping the legacy enum values
-
-File: [`packages/database/prisma/migrations/20260904000000_canonicalize_user_roles/migration.sql`](../packages/database/prisma/migrations/20260904000000_canonicalize_user_roles/migration.sql)
-
-The rename above left a short-lived `driver` value in the enum (added by
-`20260903000000_add_driver_role_and_trial_subscription`) for an individual-driver persona. The
-owner-operator model makes that persona identical to `truck_driver`, so the follow-up migration
-canonicalizes the enum to exactly `factory_owner | truck_driver | admin`.
-
-| Change | Mechanism | Backward compatible? |
+| Column | Type | Description / Notes |
 |---|---|---|
-| `users.role = 'driver'` → `'truck_driver'` | `UPDATE` **before** the value is dropped | ✅ no row is left pointing at a removed value |
-| Drop `driver` (and any surviving `load_owner` / `truck_owner`) from `UserRole` | Postgres has no `DROP VALUE`: create `UserRole_new`, cast the column via `TEXT` with a `CASE` remap, `DROP TYPE`, `RENAME` | ✅ the `CASE` remap makes the migration safe even on a database that skipped the rename migration |
+| `id` | uuid PK | Checkpoint ID |
+| `booking_id` | uuid FK → `bookings.id`, `ON DELETE CASCADE` | Associated booking |
+| `seq` | int | Waypoint order (`1` to `5`) |
+| `name` | text | Waypoint city name (e.g. `Pune`, `Satara`, `Belagavi`) |
+| `lat` / `lng` | decimal(10,8) / decimal(11,8) | Geofence coordinates |
+| `location` | `geography(Point,4326)` | PostGIS spatial point |
+| `radius_m` | int, default `2000` | Geofence detection radius in meters |
+| `crossed_at` | timestamp, nullable | Timestamp when waypoint was crossed |
+| `crossed_by` | text, nullable | Device or user ID reporting crossing |
+| `eta_minutes` | int, nullable | Estimated transit duration to waypoint |
+| `notified_at` | timestamp, nullable | Timestamp when crossing notification was dispatched |
+| `created_at` | timestamp | Creation timestamp |
 
-Role labels still in flight — cached cookies, unexpired JWTs, older mobile bundles — keep working:
-every entry point normalizes them before use.
+Indexes / Constraints: `@@unique([booking_id, seq])`, `booking_id`, `crossed_at`.
 
-| Layer | Normalizer |
-|---|---|
-| API | `apps/api/src/common/utils/roles.util.ts` (`normalizeRole`), applied in `RolesGuard`, `AuthService.verifyOtp`, `VerifyOtpDto`, and `AdminService.listUsers` |
-| Web | `apps/web/src/lib/roles.ts` (`normalizeRole`, `getDashboardForRole`), applied in `middleware.ts` and the dashboard components |
-| Mobile | `apps/mobile/src/lib/roles.ts` |
-| Shared | `packages/shared/src/types` (`normalizeUserRole`, `LEGACY_ROLE_MAP`) |
+### 3.11 `matches` — Matching Engine Persistent Pairs
+Stores algorithmically generated match pairings between open freight loads and vehicles.
 
-Legacy dashboard routes remain mounted as pure redirects: `/dashboard/load-owner` →
-`/dashboard/factory-owner`, and `/dashboard/truck-owner` and `/dashboard/driver` →
-`/dashboard/truck-driver`.
+| Column | Type | Description / Notes |
+|---|---|---|
+| `id` | uuid PK | Match ID |
+| `load_id` | uuid FK → `loads.id`, `ON DELETE CASCADE` | Matched load |
+| `truck_id` | uuid FK → `trucks.id`, `ON DELETE CASCADE` | Matched vehicle |
+| `load_owner_id` | uuid | Factory owner ID |
+| `truck_owner_id` | uuid | Transporter ID |
+| `booking_id` | uuid FK → `bookings.id`, nullable | Associated booking if converted |
+| `status` | enum `MatchStatus` | `Pending` \| `Booked` \| `Completed` \| `Cancelled` |
+| `distance_km` | decimal(10,2), nullable | Distance between vehicle and pickup |
+| `match_score` | int, nullable | 0–100 compatibility score |
+| `tonnage_compatible` | boolean, default `false` | Payload capacity flag |
+| `route_compatible` | boolean, default `false` | Distance/route compatibility flag |
+| `budget_compatible` | boolean, default `false` | Budget alignment flag |
+| `notified_at` | timestamp, nullable | WhatsApp match trigger timestamp |
+| `created_at` / `updated_at` | timestamp | Audit timestamps |
+
+Indexes / Constraints: `@@unique([load_id, truck_id])`, `load_id`, `truck_id`, `load_owner_id`, `truck_owner_id`, `status`, `created_at`.
+
+### 3.12 `ratings` — Counterparty Ratings & Reviews
+Post-trip feedback between factory owners and truck drivers.
+
+| Column | Type | Description / Notes |
+|---|---|---|
+| `id` | uuid PK | Rating ID |
+| `booking_id` | uuid FK → `bookings.id`, `ON DELETE CASCADE` | Completed booking |
+| `rater_id` | uuid FK → `users.id` | Rating submitter |
+| `rated_user_id` | uuid FK → `users.id` | Subject of rating |
+| `rating` | int | 1 to 5 star score |
+| `review` | text, nullable | Written feedback |
+| `category` | enum `RatingCategory` | `driver_service` \| `factory_payment` \| `overall` |
+| `created_at` / `updated_at` | timestamp | Audit timestamps |
+
+Indexes / Constraints: `@@unique([booking_id, rater_id])`, `rater_id`, `rated_user_id`.
+
+### 3.13 `payments` — Ledger & Financial Transactions
+Complete ledger for subscription purchases and booking advance/balance payments.
+
+| Column | Type | Description / Notes |
+|---|---|---|
+| `id` | uuid PK | Payment ledger ID |
+| `user_id` | uuid FK → `users.id`, `ON DELETE CASCADE` | Payer user |
+| `booking_id` | uuid FK → `bookings.id`, nullable | Associated booking |
+| `amount` | decimal(12,2) | Transaction amount in INR |
+| `currency` | text, default `'INR'` | Currency code |
+| `purpose` | enum `PaymentPurpose` | `subscription` \| `booking_advance` \| `booking_balance` |
+| `status` | enum `PaymentStatus` | `Pending` \| `Success` \| `Failed` \| `Refunded` |
+| `provider` | text, default `'cashfree'` | Gateway (`cashfree`, `razorpay`, `stripe`) |
+| `provider_order_id` / `provider_txn_id` | text, nullable | Gateway order / transaction identifiers |
+| `payment_method` | text, nullable | Payment instrument (`UPI`, `CARD`, `NETBANKING`) |
+| `paid_at` | timestamp, nullable | Gateway settlement timestamp |
+| `failure_reason` | text, nullable | Error message on failed charge |
+| `metadata` | json, nullable | Gateway raw response payload |
+| `created_at` / `updated_at` | timestamp | Audit timestamps |
+
+Indexes: `user_id`, `booking_id`, `status`, `provider_txn_id`.
+
+### 3.14 `subscriptions` — Paywall Subscriptions
+Subscription records controlling transporter contact reveal and booking initiation privileges.
+
+| Column | Type | Description / Notes |
+|---|---|---|
+| `id` | uuid PK | Subscription ID |
+| `user_id` | uuid FK → `users.id`, `ON DELETE CASCADE` | Subscribed user |
+| `plan` | text | Plan identifier (`monthly_unlimited`, `pay_per_unlock`, etc.) |
+| `status` | enum `SubscriptionStatus` | `active` \| `expired` \| `cancelled` |
+| `started_at` | timestamp | Subscription start timestamp |
+| `expires_at` | timestamp | Hard expiry timestamp (`now() < expiresAt` gate) |
+| `auto_renew` | boolean, default `false` | Gateway auto-debit renewal flag |
+| `payment_id` | text, nullable | Linked payment ledger record |
+| `provider` | text, default `'cashfree'` | Payment gateway |
+| `provider_order_id` | text, nullable | Gateway order / subscription reference |
+| `created_at` | timestamp | Creation timestamp |
+
+Indexes: `user_id`, `status`, `provider_order_id`.
+
+### 3.15 `notifications` — Outbound Communication Log
+Granular log of every outbound WhatsApp, SMS, and push notification dispatched.
+
+| Column | Type | Description / Notes |
+|---|---|---|
+| `id` | uuid PK | Notification log ID |
+| `user_id` | uuid FK → `users.id`, `ON DELETE CASCADE` | Recipient user |
+| `channel` | enum `NotificationChannel` | `whatsapp` \| `sms` \| `push` |
+| `template` | text | Template identifier (`booking_confirmed_driver`, `otp`, etc.) |
+| `variables` | json, nullable | Template interpolation variables |
+| `recipient` | text | Phone number or device push token |
+| `content` | text, nullable | Rendered message text |
+| `status` | enum `NotificationStatus` | `Pending` \| `Sent` \| `Delivered` \| `Failed` |
+| `provider` | text, default `'gupshup'` | Delivery provider (`gupshup`, `msg91`) |
+| `provider_msg_id` | text, nullable | Provider message reference ID |
+| `delivered_at` / `failed_at` | timestamp, nullable | Gateway delivery receipts |
+| `failure_reason` | text, nullable | Provider error message |
+| `created_at` / `updated_at` | timestamp | Audit timestamps |
+
+Indexes: `user_id`, `status`, `channel`.
 
 ---
 
-## 6. Normalization Notes
+## 4. Matching & Pricing Architecture
 
-The schema is in **3NF**:
+### 4.1 Persistent Matching Engine (`matches` table)
+Matching is executed either on-demand (via search and dashboard feeds) or persisted into the `matches` table via `POST /api/v1/matches/evaluate`. The shared `matchingEngine.ts` algorithm scores load-truck pairs (0–100) using:
+- **Tonnage capacity**: `truck.tonnageCapacity >= load.tonnageRequired`
+- **Body configuration**: Exact or compatible body type
+- **Proximity radius**: Distance between truck coordinates and pickup location (≤50 km)
+- **KYC verification status**: Boost for verified vehicles
+- **Preferred corridors**: Boost when pickup/destination aligns with truck preferences
 
-- Every non-key column depends on the whole primary key, not a part of it (all PKs are single-column
-  UUIDs, so partial-dependency violations are structurally impossible).
-- No transitive dependencies: e.g. `documents.verification_status` describes the *document*, not the
-  `truck` it belongs to — the truck's own aggregate `verification_status` is a separately maintained
-  column on `trucks`, not derived by a query-time join that would otherwise justify storing it twice.
-- Repeating groups are extracted into child tables: `checkpoints` (1\:N per booking) instead of five
-  `checkpoint_N_lat` columns on `bookings`; `documents` (1\:N per truck) instead of `rc_url`/`insurance_url`
-  columns on `trucks`.
-- The two deliberate denormalizations — `documents.is_verified` and `bookings.whatsapp_trigger_status`
-  — are documented, narrow, single-purpose read-optimizations kept in sync by the write path that owns
-  them (never written to independently), not uncontrolled duplication.
+### 4.2 Backhaul & Return-Load Discovery (`returnLoadEngine.ts`)
+Return load discovery does not require a separate database table; it computes backhaul opportunities on-the-fly via `GET /api/v1/matches/truck/:truckId/return-loads`. It resolves the drop-off hub (query override → latest booking destination → truck GPS → preferred corridor), queries open loads in the vicinity (PostGIS `ST_DWithin` ≤300 km), and ranks them using:
+$$\text{Rank Score} = \text{Match}(55) + \text{Deadhead}(15) + \text{Payload}(12) + \text{Body}(6) + \text{Rate}(7) + \text{Corridor}(5)$$
+
+### 4.3 Deterministic Freight Rate Estimator (`pricingEngine.ts`)
+The freight pricing engine is a pure, stateless mathematical service residing in `packages/shared/src/intelligence/pricingEngine.ts` and exposed via `POST /api/v1/pricing/estimate`. It calculates indicative rates based on ton-km benchmarks across truck configurations without storing static rate tables.
 
 ---
 
-## 7. Key Relationships Summary
+## 5. Key Foreign Key Relationships & Cascade Actions
 
-| Relationship | Cardinality | FK column | Cascade |
+| Parent Table | Child Table | FK Column | Cascade Action |
 |---|---|---|---|
-| User (factory_owner) → Load | 1\:N | `loads.user_id` | `ON DELETE CASCADE` |
-| User (truck_driver) → Truck | 1\:N | `trucks.user_id` | `ON DELETE CASCADE` |
-| Truck → Document | 1\:N | `documents.truck_id` | `ON DELETE CASCADE` |
-| Load → Booking | 1\:N | `bookings.load_id` | `ON DELETE RESTRICT` |
-| Truck → Booking | 1\:N | `bookings.truck_id` | `ON DELETE RESTRICT` |
-| **User (factory_owner) → Booking** | **1\:N** | `bookings.load_owner_id` | `ON DELETE RESTRICT` |
-| **User (truck_driver) → Booking** | **1\:N** | `bookings.truck_owner_id` | `ON DELETE RESTRICT` |
-| Booking → Checkpoint | 1\:N | `checkpoints.booking_id` | `ON DELETE CASCADE` |
-| Booking → BookingDocument | 1\:N | `booking_documents.booking_id` | `ON DELETE CASCADE` |
-| User → BookingDocument (uploader / verifier) | 1\:N | `booking_documents.uploaded_by_id` / `verified_by_id` | `RESTRICT` / `SET NULL` |
-| User → Subscription | 1\:N | `subscriptions.user_id` | `ON DELETE CASCADE` |
-| User → Payment | 1\:N | `payments.user_id` | `ON DELETE CASCADE` |
-| User → Notification | 1\:N | `notifications.user_id` | `ON DELETE CASCADE` |
-| User → UserPreference | **1:1** | `user_preferences.user_id` (unique) | `ON DELETE CASCADE` |
+| `users` | `loads` | `loads.user_id` | `ON DELETE CASCADE` |
+| `users` | `trucks` | `trucks.user_id` | `ON DELETE CASCADE` |
+| `users` | `subscriptions` | `subscriptions.user_id` | `ON DELETE CASCADE` |
+| `users` | `payments` | `payments.user_id` | `ON DELETE CASCADE` |
+| `users` | `notifications` | `notifications.user_id` | `ON DELETE CASCADE` |
+| `users` | `user_preferences` | `user_preferences.user_id` | `ON DELETE CASCADE` |
+| `users` | `notification_receipts` | `notification_receipts.user_id` | `ON DELETE CASCADE` |
+| `users` | `bookings` (load owner) | `bookings.load_owner_id` | `ON DELETE RESTRICT` |
+| `users` | `bookings` (transporter) | `bookings.truck_owner_id` | `ON DELETE RESTRICT` |
+| `users` | `booking_disputes` (raiser) | `booking_disputes.raised_by_id` | `ON DELETE RESTRICT` |
+| `users` | `booking_disputes` (resolver)| `booking_disputes.resolved_by_id` | `ON DELETE SET NULL` |
+| `users` | `booking_documents` (uploader)| `booking_documents.uploaded_by_id` | `ON DELETE RESTRICT` |
+| `users` | `booking_documents` (verifier)| `booking_documents.verified_by_id` | `ON DELETE SET NULL` |
+| `trucks` | `documents` | `documents.truck_id` | `ON DELETE CASCADE` |
+| `trucks` | `bookings` | `bookings.truck_id` | `ON DELETE RESTRICT` |
+| `trucks` | `matches` | `matches.truck_id` | `ON DELETE CASCADE` |
+| `loads` | `bookings` | `bookings.load_id` | `ON DELETE RESTRICT` |
+| `loads` | `matches` | `matches.load_id` | `ON DELETE CASCADE` |
+| `bookings` | `checkpoints` | `checkpoints.booking_id` | `ON DELETE CASCADE` |
+| `bookings` | `booking_documents` | `booking_documents.booking_id` | `ON DELETE CASCADE` |
+| `bookings` | `booking_disputes` | `booking_disputes.booking_id` | `ON DELETE CASCADE` |
+| `bookings` | `payments` | `payments.booking_id` | `ON DELETE SET NULL` |
+| `bookings` | `ratings` | `ratings.booking_id` | `ON DELETE CASCADE` |
+| `bookings` | `matches` | `matches.booking_id` | `ON DELETE SET NULL` |
 
-Bookings intentionally use `RESTRICT` (not `CASCADE`) on `load_id`/`truck_id`/party FKs — a `Load`,
-`Truck`, or `User` with existing bookings cannot be hard-deleted, preserving financial/audit history.
-
----
-
-## 8. Regenerating the ERD
-
-The diagram is generated offline with Pillow (no external network/binary dependency) from
-[`scripts/render_erd.py`](../scripts/render_erd.py):
-
-```bash
-python3 scripts/render_erd.py   # writes docs/database-schema-erd.png
-```
+Financial and audit entities (`bookings`, `payments`, `booking_documents`, `booking_disputes`) use `RESTRICT` or `SET NULL` on critical user/load/truck references to preserve irreversible commercial transaction trails.

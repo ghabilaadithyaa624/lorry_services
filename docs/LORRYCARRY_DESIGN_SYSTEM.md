@@ -50,6 +50,12 @@ The **LorryCarry Kinetic Command** visual language is a deep navy/black cinemati
 | `surface-900` | `#0F172A` | `bg-surface-900` | **Glass Card Fill (80-90% opacity)** |
 | `surface-950` | `#020617` | `bg-surface-950` | **Input Fields & Deep Card Wells (80% opacity)** |
 
+### Semantic Dual-Theme Tokens (CSS Variables)
+To enable multi-theme flexibility across components, semantic CSS tokens are mapped in `apps/web/src/app/globals.css`:
+- **Surfaces**: `bg-canvas`, `bg-panel`, `bg-sunken`, `bg-overlay`, `bg-elevated`
+- **Text**: `text-ink` (primary headings), `text-body` (body text), `text-muted` (secondary), `text-subtle` (tertiary)
+- **Borders & Washes**: `border-hairline`, `border-hairline-strong`, `bg-wash`
+
 ### Semantic Accent Colors
 - **Success (Emerald)**: `#22C55E` (`emerald-500`), `#16A34A` (`emerald-600`), `#15803D` (`emerald-700`), `#022C22` (`emerald-950`).
 - **Danger (Red)**: `#EF4444` (`danger-500` / `red-500`), `#DC2626` (`danger-600`), `#B91C1C` (`danger-700`), `#450A0A` (`danger-950`).
@@ -96,7 +102,7 @@ bg-gradient-to-r from-primary-400 via-primary-500 to-amber-400 bg-clip-text text
 ## 4. Typography & Monospace Telemetry
 
 ### Font Families
-- **Sans-serif (Copy & Headings)**: `Inter`, `system-ui`, `-apple-system`, `sans-serif`
+- **Sans-serif (Copy & Headings)**: `Inter`, `Plus Jakarta Sans`, `Noto Sans Tamil`, `Noto Sans Devanagari`, `system-ui`, `-apple-system`, `sans-serif`
 - **Monospace (Telemetry & Numbers)**: `Geist Mono`, `JetBrains Mono`, `monospace`
 
 ### Font Scale & Tracking Rules
