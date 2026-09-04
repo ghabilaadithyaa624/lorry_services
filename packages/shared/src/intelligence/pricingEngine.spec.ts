@@ -1,4 +1,5 @@
-import { calculateGeoDistance, estimateFreightRate } from './pricingEngine'
+import { calculateGeoDistance } from './geo'
+import { estimateFreightRate } from './pricingEngine'
 
 describe('Pricing Engine — calculateGeoDistance', () => {
   it('should return 0 when starting and ending locations are identical', () => {
