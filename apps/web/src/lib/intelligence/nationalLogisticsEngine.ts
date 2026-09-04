@@ -36,20 +36,37 @@ export interface NationalLogisticsSummary {
     totalCompletedBookings: number
     totalGrossPaymentVolumeINR: number
     kycApprovalRatePercent: number
+    totalUsers?: number
     openLoads?: number
     inTransitLoads?: number
     completedLoads?: number
     vahanVerifiedTrucksCount?: number
     fastagActiveTrucksCount?: number
+    fastagLowBalanceTrucksCount?: number
+    fastagInactiveTrucksCount?: number
+    fastagUnknownTrucksCount?: number
     totalBookings?: number
     inTransitBookings?: number
+    subscriptionPaymentVolumeINR?: number
     documentComplianceRatePercent?: number
     vahanVerificationRatePercent?: number
+    totalSubscriptionsCount?: number
     activeSubscriptionsCount?: number
     activeTrialsCount?: number
     totalDisputesCount?: number
     openDisputesCount?: number
+    investigatingDisputesCount?: number
+    rejectedDisputesCount?: number
     resolvedDisputesCount?: number
+    totalDocumentsCount?: number
+    pendingDocumentsCount?: number
+    rejectedDocumentsCount?: number
+    verifiedDocumentsCount?: number
+    ewayBillActiveCount?: number
+    ewayBillExpiredCount?: number
+    ewayBillInvalidCount?: number
+    ewayBillPendingCount?: number
+    ewayBillCoverageRatePercent?: number
   }
   estimatedMetrics: {
     nationalAvgRatePerTonKmINR: number

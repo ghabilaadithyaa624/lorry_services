@@ -182,7 +182,7 @@ The Next.js Admin Portal (`http://localhost:3010/admin`) and Vite Admin SPA (`ht
 | `/admin/bookings` | `/bookings` | Comprehensive commercial booking records with route details, pricing, and lifecycle state |
 | `/admin/disputes` | `/disputes` | Dispute queue sorted by priority (`Critical` → `Low`) with investigation and resolution tools |
 | `/admin/analytics` | `/analytics` | Time-scoped trip completion trends, revenue breakdown, and corridor efficiency heatmaps |
-| `/admin/intelligence` | — | Empirical National Freight Intelligence Console with Real, Estimated, and Predictive metrics |
+| `/admin/intelligence` | — | National Freight Intelligence Console driven by real DB aggregates (users, loads, trucks, bookings, payments, subscriptions, disputes, KYC, Vahan/FASTag/E-Way Bill) with Real, Estimated, and Predictive transparency labels |
 | `/admin/risk` | — | Operational risk monitor for in-transit shipments and compliance gaps |
 
 ---
@@ -360,7 +360,7 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/admin/stats` | Admin | Real-time platform aggregates (users, trucks, loads, bookings, revenue) |
 | `GET` | `/api/v1/admin/analytics` | Admin | Time-scoped trip completion trend, revenue, and corridor heatmap (`range=30/90/180/365`) |
-| `GET` | `/api/v1/admin/intelligence` | Admin | National Logistics Intelligence console metrics (Real, Estimated, Predictive) |
+| `GET` | `/api/v1/admin/intelligence` | Admin | National Logistics Intelligence console backed by real DB aggregates and classified as Real / Estimated / Predictive |
 | `GET` | `/api/v1/admin/users` | Admin | Filtered user directory with operational statistics |
 | `GET` | `/api/v1/admin/documents/pending` | Admin | Pending vehicle KYC documents queue |
 | `PATCH` | `/api/v1/admin/documents/:id/verify` | Admin | Verify or reject KYC document with reviewer notes |
@@ -371,6 +371,8 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 | `GET` | `/api/v1/admin/bookings` | Admin | List all marketplace bookings with full lifecycle details |
 | `GET` | `/api/v1/admin/disputes` | Admin | Priority-sorted dispute queue |
 | `PATCH` | `/api/v1/admin/disputes/:id/resolve` | Admin | Resolve or reject counterparty dispute with decision notes |
+
+`GET /api/v1/admin/intelligence` returns a real, DB-backed national logistics summary. `realMetrics` is computed directly from the platform tables: `users`, `loads`, `trucks`, `bookings`, `payments`, `subscriptions`, `bookingDisputes`, `documents`, and the compliance fields on `trucks` (`vahanStatus`, `fastagStatus`) and `bookings` (`ewayBillStatus`). `estimatedMetrics` stays benchmark/derived (national ₹/ton-km, on-time rate, empty-run savings, dispute resolution) and `predictiveMetrics` stays projected (monthly volume, demand-to-supply index, empty-run reduction potential). Every corridor card follows the strict **minimum 2 matching records** rule and returns `INSUFFICIENT_DATA` below that threshold.
 
 ### 17. External Webhooks (`/api/v1/webhooks`)
 | Method | Endpoint | Access | Description |

@@ -70,6 +70,23 @@ jest.mock('@lorrycarry/database', () => {
       Unavailable: 'Unavailable',
       Error: 'Error',
     },
+    SubscriptionStatus: {
+      active: 'active',
+      expired: 'expired',
+      cancelled: 'cancelled',
+    },
+    FastagStatus: {
+      Unknown: 'Unknown',
+      Active: 'Active',
+      LowBalance: 'LowBalance',
+      Inactive: 'Inactive',
+    },
+    EwayBillStatus: {
+      Pending: 'Pending',
+      Active: 'Active',
+      Expired: 'Expired',
+      Invalid: 'Invalid',
+    },
   }
 })
 
@@ -555,6 +572,7 @@ describe('AdminService', () => {
           agreedPrice: 44000,
           startedAt: new Date(now - 20 * 3600 * 1000),
           completedAt: new Date(now - 5 * 3600 * 1000),
+          ewayBillStatus: 'Active',
           load: {
             loadingAddress: 'Guindy, Chennai, Tamil Nadu',
             unloadingAddress: 'Peenya, Bengaluru, Karnataka',
@@ -569,6 +587,7 @@ describe('AdminService', () => {
           agreedPrice: 40000,
           startedAt: new Date(now - 15 * 3600 * 1000),
           completedAt: new Date(now - 2 * 3600 * 1000),
+          ewayBillStatus: 'Expired',
           load: {
             loadingAddress: 'Chennai Port, Chennai',
             unloadingAddress: 'Whitefield, Bengaluru',
@@ -604,12 +623,18 @@ describe('AdminService', () => {
         mockLoads,
         mockTrucks,
         mockBookings,
+        42, // totalUsers
+        2,  // pendingDocuments
+        2,  // rejectedDocuments
+        1,  // investigatingDisputes
+        1,  // rejectedDisputes
       ])
 
       const result = await service.getIntelligence('admin-id')
 
       expect(result).toBeDefined()
       expect(result.realMetrics).toEqual({
+        totalUsers: 42,
         totalPlatformLoads: 20,
         openLoads: 8,
         inTransitLoads: 4,
@@ -618,18 +643,34 @@ describe('AdminService', () => {
         verifiedTrucksCount: 8,
         vahanVerifiedTrucksCount: 7,
         fastagActiveTrucksCount: 6,
+        fastagLowBalanceTrucksCount: 0,
+        fastagInactiveTrucksCount: 0,
+        fastagUnknownTrucksCount: 0,
         totalCompletedBookings: 10,
         totalBookings: 15,
         inTransitBookings: 3,
         totalGrossPaymentVolumeINR: 500000,
+        subscriptionPaymentVolumeINR: 60000,
         kycApprovalRatePercent: 80,
         documentComplianceRatePercent: 80,
         vahanVerificationRatePercent: 70,
+        totalSubscriptionsCount: 12,
         activeSubscriptionsCount: 8,
         activeTrialsCount: 4,
         totalDisputesCount: 5,
         openDisputesCount: 1,
+        investigatingDisputesCount: 1,
+        rejectedDisputesCount: 1,
         resolvedDisputesCount: 4,
+        totalDocumentsCount: 20,
+        pendingDocumentsCount: 2,
+        rejectedDocumentsCount: 2,
+        verifiedDocumentsCount: 16,
+        ewayBillActiveCount: 1,
+        ewayBillExpiredCount: 1,
+        ewayBillInvalidCount: 0,
+        ewayBillPendingCount: 0,
+        ewayBillCoverageRatePercent: 100,
       })
 
       expect(result.estimatedMetrics.nationalAvgRatePerTonKmINR).toBe(3.95)
@@ -681,16 +722,27 @@ describe('AdminService', () => {
         [],
         [],
         [],
+        0, // totalUsers
+        0, // pendingDocuments
+        0, // rejectedDocuments
+        0, // investigatingDisputes
+        0, // rejectedDisputes
       ])
 
       const result = await service.getIntelligence('admin-id')
 
       expect(result.realMetrics.totalPlatformLoads).toBe(0)
       expect(result.realMetrics.totalPlatformTrucks).toBe(0)
+      expect(result.realMetrics.totalUsers).toBe(0)
       expect(result.realMetrics.kycApprovalRatePercent).toBe(0)
       expect(result.realMetrics.vahanVerificationRatePercent).toBe(0)
       expect(result.realMetrics.documentComplianceRatePercent).toBe(0)
       expect(result.realMetrics.totalGrossPaymentVolumeINR).toBe(0)
+      expect(result.realMetrics.subscriptionPaymentVolumeINR).toBe(0)
+      expect(result.realMetrics.ewayBillCoverageRatePercent).toBe(0)
+      expect(result.realMetrics.fastagLowBalanceTrucksCount).toBe(0)
+      expect(result.realMetrics.fastagInactiveTrucksCount).toBe(0)
+      expect(result.realMetrics.fastagUnknownTrucksCount).toBe(0)
       expect(result.predictiveMetrics.demandSupplyRatio).toBe(1.0)
       expect(result.corridors.every((c) => c.dataStatus === 'INSUFFICIENT_DATA')).toBe(true)
     })

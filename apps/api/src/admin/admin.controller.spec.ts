@@ -99,20 +99,42 @@ describe('AdminController', () => {
   describe('getIntelligence', () => {
     it('should return national logistics intelligence summary', async () => {
       const mockIntelligence = {
+        generatedAt: '2026-09-04T00:00:00.000Z',
         realMetrics: {
+          totalUsers: 42,
           totalPlatformLoads: 10,
           totalPlatformTrucks: 8,
           verifiedTrucksCount: 6,
+          vahanVerifiedTrucksCount: 5,
+          fastagActiveTrucksCount: 7,
           totalCompletedBookings: 12,
           totalGrossPaymentVolumeINR: 250000,
+          subscriptionPaymentVolumeINR: 30000,
           kycApprovalRatePercent: 75,
+          documentComplianceRatePercent: 82,
+          vahanVerificationRatePercent: 62.5,
+          totalSubscriptionsCount: 10,
+          activeSubscriptionsCount: 10,
+          openDisputesCount: 2,
+          resolvedDisputesCount: 1,
+          pendingDocumentsCount: 3,
+          verifiedDocumentsCount: 20,
+          ewayBillActiveCount: 8,
+          ewayBillExpiredCount: 1,
+          ewayBillPendingCount: 2,
+          ewayBillCoverageRatePercent: 81.8,
         },
         estimatedMetrics: {
           nationalAvgRatePerTonKmINR: 3.95,
           avgTransitOnTimeRatePercent: 94.2,
+          avgTransitHours: 11.5,
+          estimatedEmptyKmSavedTotal: 3840,
+          disputeResolutionRatePercent: 33.3,
         },
         predictiveMetrics: {
           projectedMonthlyVolumeTons: 720,
+          demandSupplyRatio: 1.25,
+          emptyRunReductionPotentialKm: 320,
         },
         corridors: [],
       }
