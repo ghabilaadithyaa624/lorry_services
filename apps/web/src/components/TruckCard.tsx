@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Sparkles,
   ArrowRight,
+  ShieldCheck,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { calculateMatchScore, MatchResult } from '@/lib/intelligence/matchingEngine'
@@ -239,13 +240,6 @@ export function TruckCard({
         <div className="pt-4 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {contactData?.owner ? (
             <div className="flex flex-wrap items-center gap-3">
-              <a
-                href={`tel:${contactData.owner.phone}`}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-colors"
-              >
-                <Phone className="w-4 h-4 text-emerald-400" />
-                <span>{contactData.owner.name ? `Call ${contactData.owner.name}` : 'Call Now'}</span>
-              </a>
               <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-950/60 text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
                 <Phone className="w-4 h-4 text-emerald-400" aria-hidden="true" />
                 <span>{formatPhone(contactData.owner.phone)}</span>
@@ -293,7 +287,7 @@ export function TruckCard({
               <button
                 type="button"
                 onClick={() => onBook(truck)}
-                aria-label={`Book Lorry - ${truck.registrationNumber || 'truck'}`}
+                aria-label={`Book lorry ${truck.registrationNumber || truck.bodyType}`}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer border border-primary-400/30"
               >
                 <span>Book Lorry</span>

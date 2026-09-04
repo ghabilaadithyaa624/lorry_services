@@ -19,7 +19,6 @@ import {
   TruckIcon,
   MagnifyingGlassIcon,
   CommandLineIcon,
-  ChartBarIcon,
 } from '@heroicons/react/24/outline'
 import { authApi, adminApi, usersApi } from '@/lib/api'
 import { Badge, Spinner } from '@/components/ui'

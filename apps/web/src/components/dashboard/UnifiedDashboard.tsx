@@ -18,18 +18,19 @@ import {
   X,
   Menu,
 } from 'lucide-react'
-import { api, usersApi, authApi, subscriptionsApi } from '@/lib/api'
+import { api, usersApi, authApi } from '@/lib/api'
 import { Footer } from '@/components/layout'
 import { AnalyticsSnapshot } from '@/components/dashboard/AnalyticsSnapshot'
 import { DashboardSummaryCards } from '@/components/dashboard/DashboardSummaryCards'
 import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
+import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
 import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo } from '@/lib/utils'
-import type { SubscriptionEntitlement } from '@/lib/subscription'
+import { getEntitlement, type SubscriptionEntitlement } from '@/lib/subscription'
 
 interface UserState {
   id?: string
@@ -122,6 +123,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const [loading, setLoading] = useState(true)
   const [hasSubscription, setHasSubscription] = useState(false)
   const [subscriptionStatus, setSubscriptionStatus] = useState<TrialStatus | null>(null)
+  const [entitlement, setEntitlement] = useState<SubscriptionEntitlement | null>(null)
   const [kycComplete, setKycComplete] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -163,8 +165,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
     try {
       setLoading(true)
 
-      const [subRes, docRes, activityRes] = await Promise.allSettled([
+      const [subRes, entRes, docRes, activityRes] = await Promise.allSettled([
         api.get<TrialStatus>('/subscriptions/status'),
+        getEntitlement(),
         usersApi.getDocuments(),
         usersApi.getActivity(),
       ])
@@ -172,6 +175,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
       if (subRes.status === 'fulfilled') {
         setSubscriptionStatus(subRes.value.data)
         setHasSubscription(Boolean(subRes.value.data?.hasSubscription))
+      }
+
+      if (entRes.status === 'fulfilled') {
+        setEntitlement(entRes.value)
       }
 
       // Check KYC status

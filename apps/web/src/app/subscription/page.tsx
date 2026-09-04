@@ -5,7 +5,7 @@ import {
   CheckCircleIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
-import { usersApi } from '@/lib/api'
+import { usersApi, api } from '@/lib/api'
 import { Navbar, Footer } from '@/components/layout'
 import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
 import { Button, Badge, GlassPanel, StatusDot, Skeleton } from '@/components/ui'

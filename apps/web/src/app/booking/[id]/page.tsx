@@ -35,6 +35,11 @@ export default function BookingDetailPage() {
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [viewerRole, setViewerRole] = useState<string | undefined>(undefined)
+  const [disputeOpen, setDisputeOpen] = useState(false)
+  const [disputeCategory, setDisputeCategory] = useState('Payment')
+  const [disputePriority, setDisputePriority] = useState('Medium')
+  const [disputeDescription, setDisputeDescription] = useState('')
+  const [disputeLoading, setDisputeLoading] = useState(false)
 
   useEffect(() => {
     if (id) {

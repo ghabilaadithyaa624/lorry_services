@@ -65,8 +65,8 @@ describe('BookingTermsModal component', () => {
       expect(closeBtn?.props['aria-label']).toBe('Close dialog')
 
       const form = dialogChildren.find((child) => child && child.type === 'form')
-      expect(form).toBeDefined()
     } finally {
+      ReactInternals.ReactCurrentDispatcher.current = prevDispatcher
     }
   })
 

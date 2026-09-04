@@ -29,6 +29,8 @@ interface PendingDoc {
     id: string
     registrationNumber: string
     bodyType: string
+    vahanStatus?: string | null
+    vahanLastCheckedAt?: string | null
     /** Vahan RC cross-check snapshot (present when the RC has been validated). */
     vahanValidatedAt: string | null
     vahanDetails: {

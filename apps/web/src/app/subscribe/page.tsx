@@ -12,6 +12,7 @@ import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/Tria
 import { Button, Badge, GlassPanel, Spinner } from '@/components/ui'
 import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
 import { toast } from '@/lib/toast'
+import { api } from '@/lib/api'
 import { cn, formatINR } from '@/lib/utils'
 import {
   getEntitlement,
@@ -79,16 +80,32 @@ function SubscribeContent() {
   const [loading, setLoading] = useState(false)
   const [hasSubscription, setHasSubscription] = useState<boolean | null>(null)
   const [subscriptionStatus, setSubscriptionStatus] = useState<TrialStatus | null>(null)
+  const [entitlement, setEntitlement] = useState<SubscriptionEntitlement | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api
-      .get<TrialStatus>('/subscriptions/status')
-      .then((res) => {
-        setSubscriptionStatus(res.data)
-        setHasSubscription(res.data.hasSubscription)
+    getEntitlement()
+      .then((ent) => {
+        setEntitlement(ent)
+        setSubscriptionStatus({
+          hasSubscription: ent.hasSubscription,
+          plan: ent.plan,
+          isTrial: ent.status === 'trial',
+          trialDaysTotal: ent.trialDurationDays,
+          trialDaysLeft: ent.trialDaysRemaining,
+          expiresAt: ent.expiresAt || ent.trialEndsAt,
+        })
+        setHasSubscription(ent.hasSubscription)
       })
-      .catch(() => setHasSubscription(false))
+      .catch(() => {
+        api
+          .get<TrialStatus>('/subscriptions/status')
+          .then((res) => {
+            setSubscriptionStatus(res.data)
+            setHasSubscription(res.data.hasSubscription)
+          })
+          .catch(() => setHasSubscription(false))
+      })
   }, [])
 
   const isTrial = subscriptionStatus?.isTrial === true
