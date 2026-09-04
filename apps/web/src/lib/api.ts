@@ -305,6 +305,37 @@ export const subscriptionsApi = {
   callback: (orderId: string) => api.get(`/subscriptions/callback/${orderId}`),
 }
 
+/**
+ * Booking commercial terms API.
+ * Payment milestones use dedicated confirm-advance / confirm-balance
+ * endpoints rather than PATCH /bookings/:id/status.
+ */
+export const bookingsApi = {
+  getMyBookings: () => api.get('/bookings/my-bookings'),
+  getOne: (id: string) => api.get(`/bookings/${id}`),
+  create: (data: {
+    loadId: string
+    truckId: string
+    agreedPrice: number
+    ewayBillNumber?: string
+    liabilityAccepted?: boolean
+  }) => api.post('/bookings', data),
+  /** Factory owner confirms 50% loading advance release. */
+  confirmAdvance: (id: string) => api.patch(`/bookings/${id}/confirm-advance`),
+  /** Factory owner confirms 50% delivery balance release on POD receipt. */
+  confirmBalance: (id: string) => api.patch(`/bookings/${id}/confirm-balance`),
+  /** Lifecycle status only — do not use this to confirm advance/balance. */
+  updateStatus: (
+    id: string,
+    status: string,
+    extra?: { advanceConfirmed?: boolean; balanceConfirmed?: boolean },
+  ) => api.patch(`/bookings/${id}/status`, { status, ...extra }),
+  createDispute: (
+    id: string,
+    data: { category?: string; priority?: string; description: string },
+  ) => api.post(`/bookings/${id}/disputes`, data),
+}
+
 // Trucks & Documents API
 export const trucksApi = {
   getMyTrucks: () => api.get('/trucks/my-trucks'),

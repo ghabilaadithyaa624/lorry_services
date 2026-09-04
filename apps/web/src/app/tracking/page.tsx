@@ -15,7 +15,7 @@ import {
   Info,
   ShieldCheck,
 } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, bookingsApi } from '@/lib/api'
 import { Footer, Navbar } from '@/components/layout'
 import {
   assessShipmentIntelligence,
@@ -70,7 +70,7 @@ export default function ControlTowerTrackingPage() {
   const handleConfirmAdvance = async (bookingId: string) => {
     try {
       setActionLoading(`advance-${bookingId}`)
-      await api.patch(`/bookings/${bookingId}/confirm-advance`)
+      await bookingsApi.confirmAdvance(bookingId)
       toast.success('50% Loading advance confirmed!')
       fetchActiveBookings()
     } catch (err: any) {
@@ -83,7 +83,7 @@ export default function ControlTowerTrackingPage() {
   const handleConfirmBalance = async (bookingId: string) => {
     try {
       setActionLoading(`balance-${bookingId}`)
-      await api.patch(`/bookings/${bookingId}/confirm-balance`)
+      await bookingsApi.confirmBalance(bookingId)
       toast.success('Delivery balance confirmed!')
       fetchActiveBookings()
     } catch (err: any) {
@@ -515,7 +515,7 @@ export default function ControlTowerTrackingPage() {
                             </div>
                           </div>
 
-                          {action.actionType === 'CONFIRM_ADVANCE' && (
+                          {action.actionType === 'CONFIRM_ADVANCE' && isShipper && (
                             <button
                               type="button"
                               disabled={actionLoading === `advance-${booking.id}`}
@@ -526,7 +526,7 @@ export default function ControlTowerTrackingPage() {
                             </button>
                           )}
 
-                          {action.actionType === 'CONFIRM_BALANCE' && (
+                          {action.actionType === 'CONFIRM_BALANCE' && isShipper && (
                             <button
                               type="button"
                               disabled={actionLoading === `balance-${booking.id}`}

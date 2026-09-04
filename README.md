@@ -184,6 +184,18 @@ Admin API additions: `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`
 | `/api/v1/compliance/bookings/:id` | GET | Trip compliance checklist (adds E-Way Bill lifecycle) |
 | `/api/v1/compliance/bookings/:id/eway-bill` | POST | Attach/update the 12-digit E-Way Bill number + validity |
 
+### Booking API
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/v1/bookings` | POST | Create a commercial booking (factory owner, requires subscription) |
+| `/api/v1/bookings/my-bookings` | GET | List bookings for the authenticated party |
+| `/api/v1/bookings/:id` | GET | Booking details, 5-stage checkpoints, and payment flags |
+| `/api/v1/bookings/:id/status` | PATCH | Update booking lifecycle status (`Confirmed` / `InTransit` / `Completed` / `Cancelled`) |
+| `/api/v1/bookings/:id/confirm-advance` | PATCH | Factory owner confirms 50% loading advance release |
+| `/api/v1/bookings/:id/confirm-balance` | PATCH | Factory owner confirms 50% delivery balance release on POD receipt |
+| `/api/v1/bookings/:id/disputes` | POST | Raise a counterparty dispute |
+
 ---
 
 ## 📜 Available NPM Scripts
