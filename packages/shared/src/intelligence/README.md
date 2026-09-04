@@ -11,6 +11,7 @@ import {
   calculateMatchScore,
   sortMarketplaceItems,
   evaluateBackhaulOpportunities,
+  rankReturnLoadOpportunities,
   assessShipmentIntelligence,
   summarizeActiveShipmentsControlTower,
   deriveOperationalTasks,
@@ -22,6 +23,7 @@ import {
 | `geo.ts` | `calculateGeoDistance` (Haversine × 1.3 road factor) |
 | `pricingEngine.ts` | `estimateFreightRate`, `normalizeTruckType`, pricing types |
 | `matchingEngine.ts` | `calculateMatchScore`, `sortMarketplaceItems`, `evaluateBackhaulOpportunities`, `evaluateBudgetFit`, `rateMatchScore`, matching types |
+| `returnLoadEngine.ts` | `rankReturnLoadOpportunities`, `scoreReturnLoadOpportunity`, `RETURN_LOAD_RANK_WEIGHTS`, return-load types |
 | `shipmentIntelligence.ts` | `assessShipmentIntelligence`, `summarizeActiveShipmentsControlTower` |
 | `actionCenterEngine.ts` | `deriveOperationalTasks` |
 
@@ -71,6 +73,29 @@ marketplace still see physically compatible trucks ranked on the pure
 100-point score even when their stated budget is below benchmark. Any client
 that wants server parity can pass `{ budget: true }` — the caching key includes
 the options, so both variants can coexist.
+
+## Return-load ranking
+
+`evaluateBackhaulOpportunities` (matchingEngine) answers *which* open loads can
+become a return haul for a lorry; `rankReturnLoadOpportunities`
+(returnLoadEngine) answers *in which order* a driver should see them, on its own
+deterministic 100-point scale:
+
+| Factor | Weight | Meaning |
+| --- | ---: | --- |
+| `matchScore` | 55 | The shared 100-point truck↔load compatibility score |
+| `pickupProximity` | 15 | Deadhead km from the drop-off hub to the return pickup, normalised over the discovery radius |
+| `payload` | 12 | Return tonnage as a share of the lorry's capacity (0 when it does not fit) |
+| `bodyType` | 6 | Exact body match > compatible open configuration > mismatch |
+| `rate` | 7 | Offered freight vs the `estimateFreightRate` benchmark (0 when the budget gate fails) |
+| `corridor` | 5 | Load delivers into a declared preferred corridor |
+
+Ordering is stable: `rankScore` desc → shorter deadhead → higher match score →
+`loadId`. The API serves this through
+`GET /matches/truck/:truckId/return-loads`
+(`apps/api/src/matching/return-loads.service.ts`), and the web dashboard,
+booking detail page and AI assistant consume that endpoint rather than
+recomputing locally.
 
 ## Adding a new rule
 

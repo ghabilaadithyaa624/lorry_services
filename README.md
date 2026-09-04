@@ -7,6 +7,7 @@ LorryCarry is a high-performance monorepo platform connecting factory owners and
 ## 🌟 Key Features
 
 - **Direct Load & Truck Matching**: Load owners post freight requirements and discover verified truck operators within customizable search radii using PostGIS spatial indexing.
+- **Return Load (Backhaul) Intelligence**: Truck drivers discover ranked return freight around their drop-off hub via `GET /matches/truck/:truckId/return-loads` — scored on deadhead distance, payload utilisation, body type, rate vs benchmark and preferred corridor, with shipper contacts paywalled.
 - **Zero Broker Commissions**: Transparent direct bookings with standard commercial terms (50% advance at loading, 50% balance upon delivery confirmation).
 - **5-Stage Trip Tracking**: Geofence checkpoint tracking with automated WhatsApp notifications at every leg of the journey.
 - **Verification & Compliance (Vahan + FASTag + E-Way Bill)**:
@@ -195,6 +196,52 @@ Admin API additions: `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`
 | `/api/v1/bookings/:id/confirm-advance` | PATCH | Factory owner confirms 50% loading advance release |
 | `/api/v1/bookings/:id/confirm-balance` | PATCH | Factory owner confirms 50% delivery balance release on POD receipt |
 | `/api/v1/bookings/:id/disputes` | POST | Raise a counterparty dispute |
+
+### Matching & Return Load Intelligence API
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/v1/matches/my-matches` | GET | Matches for the authenticated party (status + ≤50 km proximity filters) |
+| `/api/v1/matches/load/:loadId` | GET | Verified trucks matching a freight posting (≤50 km) |
+| `/api/v1/matches/truck/:truckId` | GET | Open loads matching a vehicle (≤50 km) |
+| `/api/v1/matches/truck/:truckId/return-loads` | GET | **Return-load (backhaul) discovery for truck drivers** — ranked open loads near the drop-off hub |
+
+#### Return loads (`GET /api/v1/matches/truck/:truckId/return-loads`)
+
+Turns empty-run intelligence into a first-class product API instead of
+client-side logic. The service resolves the hub the lorry runs empty from, in
+priority order:
+
+1. `destinationLat` + `destinationLng` query override,
+2. the unloading point of the most recent `Completed` / `InTransit` / `Confirmed` booking for that truck,
+3. the truck's last known GPS position (`currentLat` / `currentLng`),
+4. the first declared `preferredDestinations` corridor (text search, no coordinates).
+
+It then queries **open** loads whose pickup lies within the radius (PostGIS
+`ST_DWithin`, with a Haversine fallback), whose tonnage fits the lorry and which
+are **not** posted by the operator themselves, and ranks them with the shared
+return-load engine (`@lorrycarry/shared` → `evaluateBackhaulOpportunities` +
+`rankReturnLoadOpportunities`): match score 55 · pickup deadhead 15 · payload
+utilisation 12 · body type 6 · rate vs benchmark 7 · preferred corridor 5.
+
+**Query parameters**
+
+- `radius` *(number, optional)*: discovery radius in km — default `150`, max `300`
+- `limit` *(number, optional)*: ranked opportunities returned — default `10`, max `50`
+- `minScore` *(number, optional)*: drop opportunities below this composite rank score (0-100)
+- `destinationLat` / `destinationLng` *(number, optional)*: override the drop-off hub
+
+**Response highlights**
+
+- `anchor`: resolved drop-off hub (`lat`, `lng`, `label`, `source`, originating `bookingId`)
+- `opportunities[]`: `rank`, `rankScore`, `rankFactors[]` (explainable breakdown), `matchResult`,
+  `pickupDistanceFromDestinationKm`, `potentialEmptyRunReductionKm`, `estimatedFreight`,
+  `benchmarkFreight`, `payloadUtilizationPct`, `bodyTypeExact`, `budgetFit`, `preferredCorridor`
+- `contact`: shipper name/phone are **masked** (`locked: true`) unless the caller holds an active
+  subscription or an in-flight free trial, matching the marketplace paywall
+
+Consumed by the truck-driver dashboard (`High-Yield Backhauls`), the booking
+detail return-load section, and the AI Freight Assistant.
 
 ### Freight Rate Estimation & Logistics Intelligence API
 

@@ -14,5 +14,6 @@
 export * from './geo'
 export * from './pricingEngine'
 export * from './matchingEngine'
+export * from './returnLoadEngine'
 export * from './shipmentIntelligence'
 export * from './actionCenterEngine'

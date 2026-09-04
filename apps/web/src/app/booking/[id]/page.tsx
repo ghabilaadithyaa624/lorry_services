@@ -10,7 +10,7 @@ import {
   ArrowPathIcon,
   CurrencyRupeeIcon,
 } from '@heroicons/react/24/outline'
-import { api, bookingsApi } from '@/lib/api'
+import { api, bookingsApi, matchesApi } from '@/lib/api'
 import { format } from 'date-fns'
 import { Navbar, Footer } from '@/components/layout'
 import { Badge, Button, Spinner } from '@/components/ui'
@@ -32,6 +32,13 @@ export default function BookingDetailPage() {
   const [error, setError] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [backhaulOpps, setBackhaulOpps] = useState<BackhaulOpportunity[]>([])
+  const [returnLoadMeta, setReturnLoadMeta] = useState<{
+    hubLabel: string
+    radiusKm: number
+    contactUnlocked: boolean
+    candidatesEvaluated: number
+    source: 'api' | 'client'
+  } | null>(null)
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [viewerRole, setViewerRole] = useState<string | undefined>(undefined)
@@ -83,36 +90,77 @@ export default function BookingDetailPage() {
         }
       }
 
-      // Discover potential return loads from destination hub
-      try {
-        const destLat = bk.unloadingLat || bk.load?.unloadingLat || 12.9716
-        const destLng = bk.unloadingLng || bk.load?.unloadingLng || 77.5946
-        const loadsRes = await api.get(`/search/loads?lat=${destLat}&lng=${destLng}&radius=150`)
-        const openLoads = loadsRes.data || []
-        
-        const mockTruck = {
-          id: bk.truck?.id || 'truck-active',
-          bodyType: bk.truck?.truckType || bk.truck?.bodyType || 'Open',
-          currentLat: destLat,
-          currentLng: destLng,
-          tonnageCapacity: Number(bk.truck?.capacityTons) || 16,
-          verificationStatus: 'Verified',
-          preferredDestinations: [bk.loadingAddress || 'Origin'],
-        }
-
-        const opps = evaluateBackhaulOpportunities(
-          mockTruck,
-          openLoads,
-          { lat: destLat, lng: destLng, label: bk.unloadingAddress || 'Destination' }
-        )
-        setBackhaulOpps(opps)
-      } catch (err) {
-        console.warn('Could not fetch return loads:', err)
-      }
+      // Discover potential return loads from the destination hub.
+      // Preferred path: the backend return-load product API (real truck record,
+      // ranked server side, contacts paywalled). Falls back to the client-side
+      // engine when the booking has no truck attached or the call fails.
+      await loadReturnLoads(bk)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load booking details')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadReturnLoads = async (bk: any) => {
+    const truckId = bk.truck?.id || bk.truckId
+    const destLat = Number(bk.unloadingLat || bk.load?.unloadingLat) || undefined
+    const destLng = Number(bk.unloadingLng || bk.load?.unloadingLng) || undefined
+
+    if (truckId) {
+      try {
+        const res = await matchesApi.getReturnLoads(truckId, {
+          radius: 150,
+          limit: 6,
+          ...(destLat !== undefined && destLng !== undefined
+            ? { destinationLat: destLat, destinationLng: destLng }
+            : {}),
+        })
+        setBackhaulOpps(res.data.opportunities as unknown as BackhaulOpportunity[])
+        setReturnLoadMeta({
+          hubLabel: res.data.anchor?.label || bk.unloadingAddress || 'Destination',
+          radiusKm: res.data.radiusKm,
+          contactUnlocked: res.data.contactUnlocked,
+          candidatesEvaluated: res.data.candidatesEvaluated,
+          source: 'api',
+        })
+        return
+      } catch (err) {
+        console.warn('Return-load API unavailable, falling back to client engine:', err)
+      }
+    }
+
+    try {
+      const fallbackLat = destLat ?? 12.9716
+      const fallbackLng = destLng ?? 77.5946
+      const loadsRes = await api.get(`/search/loads?lat=${fallbackLat}&lng=${fallbackLng}&radius=150`)
+      const openLoads = loadsRes.data || []
+
+      const hubTruck = {
+        id: truckId || 'truck-active',
+        bodyType: bk.truck?.bodyType || bk.truck?.truckType || 'Open',
+        currentLat: fallbackLat,
+        currentLng: fallbackLng,
+        tonnageCapacity: Number(bk.truck?.tonnageCapacity ?? bk.truck?.capacityTons) || 16,
+        verificationStatus: bk.truck?.verificationStatus || 'Verified',
+        preferredDestinations: [bk.loadingAddress || bk.load?.loadingAddress || 'Origin'],
+      }
+
+      const opps = evaluateBackhaulOpportunities(hubTruck, openLoads, {
+        lat: fallbackLat,
+        lng: fallbackLng,
+        label: bk.unloadingAddress || bk.load?.unloadingAddress || 'Destination',
+      })
+      setBackhaulOpps(opps)
+      setReturnLoadMeta({
+        hubLabel: bk.unloadingAddress || bk.load?.unloadingAddress || 'Destination',
+        radiusKm: 150,
+        contactUnlocked: false,
+        candidatesEvaluated: openLoads.length,
+        source: 'client',
+      })
+    } catch (err) {
+      console.warn('Could not fetch return loads:', err)
     }
   }
 
@@ -468,8 +516,18 @@ export default function BookingDetailPage() {
                 </h2>
               </div>
               <p className="text-xs text-surface-400 mt-1">
-                Capture return freight originating near {booking.unloadingAddress || 'destination terminal'} to eliminate empty deadhead runs.
+                Capture return freight originating near {returnLoadMeta?.hubLabel || booking.unloadingAddress || 'destination terminal'} to eliminate empty deadhead runs.
               </p>
+              {returnLoadMeta && (
+                <p className="text-[11px] font-mono text-surface-500 mt-1">
+                  {returnLoadMeta.source === 'api'
+                    ? `Ranked by the return-load engine · ${returnLoadMeta.candidatesEvaluated} open load(s) scanned within ${returnLoadMeta.radiusKm} km`
+                    : `Local estimate · ${returnLoadMeta.candidatesEvaluated} open load(s) scanned within ${returnLoadMeta.radiusKm} km`}
+                  {returnLoadMeta.source === 'api' && !returnLoadMeta.contactUnlocked
+                    ? ' · shipper contacts locked until you subscribe'
+                    : ''}
+                </p>
+              )}
             </div>
 
             <Button

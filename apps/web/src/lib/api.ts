@@ -406,6 +406,98 @@ export interface MatchRecord {
   }
 }
 
+/**
+ * Return-load (backhaul) intelligence — `GET /matches/truck/:truckId/return-loads`.
+ * The API resolves the drop-off hub, queries the open load board around it, and
+ * ranks the candidates with the shared return-load engine.
+ */
+export type ReturnLoadAnchorSource =
+  | 'query_override'
+  | 'booking_destination'
+  | 'truck_current_location'
+  | 'preferred_destination'
+  | 'unresolved'
+
+export interface ReturnLoadAnchor {
+  lat: number | null
+  lng: number | null
+  label: string
+  source: ReturnLoadAnchorSource
+  bookingId?: string
+  bookingStatus?: string
+  droppedAt?: string | null
+  detail: string
+}
+
+export interface ReturnLoadRankFactor {
+  key: 'matchScore' | 'pickupProximity' | 'payload' | 'bodyType' | 'rate' | 'corridor'
+  label: string
+  score: number
+  maxScore: number
+  value: string
+  detail: string
+}
+
+export interface ReturnLoadContact {
+  locked: boolean
+  name: string | null
+  phone: string | null
+  message?: string
+}
+
+export interface ReturnLoadOpportunity {
+  loadId: string
+  rank: number
+  rankScore: number
+  rankFactors: ReturnLoadRankFactor[]
+  matchScore: number
+  matchRating: string
+  /** Full explainable match breakdown — feeds `MatchScoreBadge` / `ReturnLoadOpportunityCard`. */
+  matchResult: any
+  routeLabel: string
+  loadingAddress: string
+  unloadingAddress: string
+  tonnageRequired: number
+  truckType: string
+  estimatedFreight: number
+  benchmarkFreight: number
+  rateVsBenchmark: number
+  pickupDistanceFromDestinationKm: number
+  potentialEmptyRunReductionKm: number
+  payloadUtilizationPct: number
+  payloadCompatible: boolean
+  bodyTypeCompatible: boolean
+  bodyTypeExact: boolean
+  budgetFit: boolean
+  preferredCorridor: boolean
+  urgent: boolean
+  postedAt: string | null
+  isReturnLoad: true
+  contact: ReturnLoadContact
+  disclaimer: string
+}
+
+export interface ReturnLoadsResponse {
+  truck: {
+    id: string
+    registrationNumber: string | null
+    bodyType: string
+    tonnageCapacity: number
+    verificationStatus: string | null
+    currentLat: number | null
+    currentLng: number | null
+    preferredDestinations: string[]
+  }
+  anchor: ReturnLoadAnchor
+  radiusKm: number
+  candidatesEvaluated: number
+  totalRanked: number
+  contactUnlocked: boolean
+  generatedAt: string
+  disclaimer: string
+  opportunities: ReturnLoadOpportunity[]
+}
+
 export const matchesApi = {
   /** Get matches visible to current user (both dashboards) — supports status & ≤50km proximity filter */
   getMyMatches: (params?: { status?: MatchStatus; radius?: number; page?: number; limit?: number }) =>
@@ -425,6 +517,33 @@ export const matchesApi = {
   /** Find loads matching a specific Need Vehicle (tonnage/route/budget, ≤50km) */
   getMatchesForTruck: (truckId: string, radius = 50) =>
     api.get<Array<{ load: any; match: any; distanceKm: number }>>(`/matches/truck/${truckId}`, { params: { radius } }),
+
+  /**
+   * Return-load (backhaul) opportunities for a truck, ranked by deadhead
+   * distance from the drop-off hub, match score, payload utilisation, body
+   * type, rate vs benchmark and preferred corridor. Shipper contacts stay
+   * masked unless the caller has an active subscription or free trial.
+   */
+  getReturnLoads: (
+    truckId: string,
+    params?: {
+      radius?: number
+      limit?: number
+      minScore?: number
+      destinationLat?: number
+      destinationLng?: number
+    },
+  ) =>
+    api.get<ReturnLoadsResponse>(`/matches/truck/${truckId}/return-loads`, {
+      params: {
+        ...(params?.radius ? { radius: params.radius } : {}),
+        ...(params?.limit ? { limit: params.limit } : {}),
+        ...(params?.minScore !== undefined ? { minScore: params.minScore } : {}),
+        ...(params?.destinationLat !== undefined && params?.destinationLng !== undefined
+          ? { destinationLat: params.destinationLat, destinationLng: params.destinationLng }
+          : {}),
+      },
+    }),
 
   /** Trigger WhatsApp-backed evaluation for a load or truck */
   evaluateForLoad: (loadId: string, radius = 50) => api.post(`/matches/evaluate/load/${loadId}`, null, { params: { radius } }),
