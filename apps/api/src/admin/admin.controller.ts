@@ -101,6 +101,12 @@ export class AdminController {
     return this.adminService.verifyTruck(userId, truckId, dto.status)
   }
 
+  @Get('trucks')
+  @ApiOperation({ summary: 'List all trucks for admin risk and compliance review' })
+  async listTrucks(@CurrentUser('id') userId: string) {
+    return this.adminService.listTrucks(userId)
+  }
+
   // ── Subscriptions ──────────────────────────────────────────────────────────
 
   @Get('subscriptions')

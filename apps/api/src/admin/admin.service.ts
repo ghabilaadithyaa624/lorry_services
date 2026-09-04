@@ -505,6 +505,17 @@ export class AdminService {
     })
   }
 
+  async listTrucks(adminId: string) {
+    await this.assertAdmin(adminId)
+    return prisma.truck.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, name: true, phone: true } },
+        documents: true,
+      },
+    })
+  }
+
   // ── Subscriptions ────────────────────────────────────────────────────────
 
   async listSubscriptions(adminId: string, page = 1, limit = 20) {

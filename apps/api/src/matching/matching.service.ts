@@ -586,7 +586,7 @@ export class MatchingService {
     const anyPrisma: any = prisma as any
 
     // Use prisma.match if available, else fallback to raw
-    let where: any = {
+    const where: any = {
       OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
     }
     if (opts.status) where.status = opts.status

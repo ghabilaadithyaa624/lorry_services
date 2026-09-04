@@ -5,9 +5,8 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "nest start",
-    "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint": "node -e \"process.env.ESLINT_USE_FLAT_CONFIG='false'; require(require('path').resolve(require.resolve('eslint'), '../../bin/eslint.js'))\" \"{src,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch"
   },

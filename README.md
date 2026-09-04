@@ -178,6 +178,7 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 | `GET` | `/api/v1/trucks/my-trucks` | Truck Driver | List registered trucks with KYC document verification status |
 | `GET` | `/api/v1/trucks/:id` | Authenticated | Retrieve truck details, specifications, and compliance checklist |
 | `POST` | `/api/v1/trucks/:id/documents/:type`| Truck Driver | Upload RC or Insurance document record for a truck |
+| `POST` | `/api/v1/documents/generate-upload-url` | Authenticated | Generate a pre-signed S3 upload URL for direct vehicle/KYC document upload |
 | `PATCH` | `/api/v1/trucks/:id/location` | Truck Driver | Update current vehicle GPS latitude/longitude and PostGIS point |
 
 ### 5. Geospatial Search & Contact Reveal (`/api/v1/search`)
@@ -282,7 +283,7 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 | `POST` | `/api/v1/subscriptions/webhook/razorpay` | Public (Signed) | Process Razorpay subscription webhook events (HMAC verified) |
 | `POST` | `/api/v1/subscriptions/webhook/stripe` | Public (Signed) | Process Stripe subscription webhook events (SDK verified) |
 | `GET` | `/api/v1/subscriptions/callback/:orderId` | Public | Payment gateway return redirect callback |
-| `GET` | `/api/v1/subscriptions/verify/:orderId` | Authenticated | Verify subscription order completion |
+| `GET` | `/api/v1/subscriptions/verify/:orderId` | Public / Authenticated | Verify subscription order completion |
 
 ### 14. Ratings & Feedback (`/api/v1/ratings`)
 | Method | Endpoint | Access | Description |
@@ -311,6 +312,7 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 | `PATCH` | `/api/v1/admin/documents/:id/verify` | Admin | Verify or reject KYC document with reviewer notes |
 | `POST` | `/api/v1/admin/trucks/:id/vahan-check` | Admin | Trigger manual Vahan RC check for a truck |
 | `PATCH` | `/api/v1/admin/trucks/:id/verify` | Admin | Manually update truck aggregate verification status |
+| `GET` | `/api/v1/admin/trucks` | Admin | List all registered trucks for admin compliance & risk evaluation |
 | `GET` | `/api/v1/admin/subscriptions` | Admin | List all active/expired user subscriptions |
 | `GET` | `/api/v1/admin/bookings` | Admin | List all marketplace bookings with full lifecycle details |
 | `GET` | `/api/v1/admin/disputes` | Admin | Priority-sorted dispute queue |

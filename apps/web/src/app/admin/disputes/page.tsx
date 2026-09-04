@@ -227,8 +227,8 @@ export default function AdminDisputesPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <PartyCard label="Shipper / load owner" name={selected.booking.loadOwner.name} phone={selected.booking.loadOwner.phone} />
-                <PartyCard label="Transporter / truck owner" name={selected.booking.truckOwner.name} phone={selected.booking.truckOwner.phone} />
+                <PartyCard label="Shipper / Factory owner" name={selected.booking.loadOwner.name} phone={selected.booking.loadOwner.phone} />
+                <PartyCard label="Transporter / Truck driver" name={selected.booking.truckOwner.name} phone={selected.booking.truckOwner.phone} />
               </div>
 
               <div className="p-4 rounded-2xl bg-danger-950/30 border border-danger-500/20"><div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-danger-300 mb-2"><ChatBubbleLeftRightIcon className="w-4 h-4" /> Claim submitted by {selected.raisedBy.name || formatPhone(selected.raisedBy.phone)}</div><p className="text-sm text-white leading-relaxed">{selected.description}</p></div>

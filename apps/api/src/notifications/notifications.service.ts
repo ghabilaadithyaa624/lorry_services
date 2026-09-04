@@ -254,7 +254,7 @@ export class NotificationsService {
           shortId,
         ],
         actionUrl: `/booking/${booking.id}`,
-        metadata: { bookingId: booking.id, party: 'truck_owner' },
+        metadata: { bookingId: booking.id, party: 'truck_driver' },
       }),
       this.send({
         userId: booking.loadOwnerId,
@@ -270,7 +270,7 @@ export class NotificationsService {
           shortId,
         ],
         actionUrl: `/booking/${booking.id}`,
-        metadata: { bookingId: booking.id, party: 'load_owner' },
+        metadata: { bookingId: booking.id, party: 'factory_owner' },
       }),
     ])
   }
@@ -302,7 +302,7 @@ export class NotificationsService {
           booking.truck.registrationNumber || 'Vehicle',
         ],
         actionUrl: `/booking/${booking.id}`,
-        metadata: { bookingId: booking.id, status, party: 'truck_owner' },
+        metadata: { bookingId: booking.id, status, party: 'truck_driver' },
       }),
       this.send({
         userId: booking.loadOwnerId,
@@ -319,7 +319,7 @@ export class NotificationsService {
           booking.load.unloadingAddress || 'Unloading Point',
         ],
         actionUrl: `/booking/${booking.id}`,
-        metadata: { bookingId: booking.id, status, party: 'load_owner' },
+        metadata: { bookingId: booking.id, status, party: 'factory_owner' },
       }),
     ])
   }
@@ -345,7 +345,7 @@ export class NotificationsService {
           booking.truck.registrationNumber || 'Vehicle',
         ],
         actionUrl: `/booking/${booking.id}`,
-        metadata: { bookingId: booking.id, status: 'Completed', party: 'truck_owner' },
+        metadata: { bookingId: booking.id, status: 'Completed', party: 'truck_driver' },
       }),
       this.send({
         userId: booking.loadOwnerId,
@@ -361,7 +361,7 @@ export class NotificationsService {
           booking.truck.registrationNumber || 'Vehicle',
         ],
         actionUrl: `/booking/${booking.id}`,
-        metadata: { bookingId: booking.id, status: 'Completed', party: 'load_owner' },
+        metadata: { bookingId: booking.id, status: 'Completed', party: 'factory_owner' },
       }),
     ])
   }
@@ -388,7 +388,7 @@ export class NotificationsService {
           new Date().toLocaleString('en-IN'),
         ],
         actionUrl: `/booking/${booking.id}`,
-        metadata: { bookingId: booking.id, checkpointSeq: checkpoint.seq, party: 'load_owner' },
+        metadata: { bookingId: booking.id, checkpointSeq: checkpoint.seq, party: 'factory_owner' },
       }),
     ])
   }
