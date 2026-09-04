@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import Razorpay = require('razorpay')
+import Razorpay from 'razorpay'
 import * as crypto from 'crypto'
 import {
   PaymentGateway,

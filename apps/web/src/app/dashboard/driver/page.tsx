@@ -1,9 +1,9 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-import React from 'react'
-import { UnifiedDashboard } from '@/components/dashboard/UnifiedDashboard'
-
-/** Vehicle-side dashboard for individual driver registrations. */
-export default function DriverDashboardPage() {
-  return <UnifiedDashboard roleOverride="driver" />
+/**
+ * Legacy dashboard route kept only as a redirect to the canonical route.
+ * Canonical: /dashboard/truck-driver
+ */
+export default function LegacyDriverDashboardPage() {
+  redirect('/dashboard/truck-driver')
 }

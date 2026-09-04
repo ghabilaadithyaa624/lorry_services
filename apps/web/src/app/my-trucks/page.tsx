@@ -559,7 +559,7 @@ export default function MyFleetPage() {
         </div>
 
         {/* ── Smart Matches — both dashboards, Pending/Booked/Completed, ≤50km, WhatsApp ── */}
-        <MatchesPanel role="truck_owner" />
+        <MatchesPanel role="truck_driver" />
 
         {/* ── Search & Filter Controls Toolbar ── */}
         <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal flex flex-col md:flex-row md:items-center justify-between gap-3">

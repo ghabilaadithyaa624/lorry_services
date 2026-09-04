@@ -9,6 +9,7 @@ import {
   DisputeStatus,
   VahanCheckStatus,
 } from '@lorrycarry/database'
+import { normalizeRole } from '../common/utils/roles.util'
 
 @Injectable()
 export class AdminService {
@@ -404,7 +405,9 @@ export class AdminService {
   async listUsers(adminId: string, role?: UserRole, page = 1, limit = 20) {
     await this.assertAdmin(adminId)
     const skip = (page - 1) * limit
-    const where = role ? { role } : {}
+    // Accept legacy role labels in the filter query string.
+    const canonicalRole = normalizeRole(role)
+    const where = canonicalRole ? { role: canonicalRole } : {}
 
     const [users, total] = await prisma.$transaction([
       prisma.user.findMany({

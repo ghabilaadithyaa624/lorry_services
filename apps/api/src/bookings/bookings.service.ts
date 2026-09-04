@@ -359,8 +359,8 @@ export class BookingsService {
   /**
    * Get user's bookings
    */
-  async findByUser(userId: string, role: 'load_owner' | 'truck_owner') {
-    const where = role === 'load_owner' 
+  async findByUser(userId: string, role: 'factory_owner' | 'truck_driver') {
+    const where = role === 'factory_owner' 
       ? { loadOwnerId: userId }
       : { truckOwnerId: userId }
 

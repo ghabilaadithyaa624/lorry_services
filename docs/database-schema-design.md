@@ -306,6 +306,34 @@ Application code across `apps/api`, `apps/web`, `apps/admin`, and `apps/mobile` 
 change to use the new role names and dashboard routes (`/dashboard/factory-owner`,
 `/dashboard/truck-driver`) end-to-end.
 
+### 5.1 Follow-up: dropping the legacy enum values
+
+File: [`packages/database/prisma/migrations/20260904000000_canonicalize_user_roles/migration.sql`](../packages/database/prisma/migrations/20260904000000_canonicalize_user_roles/migration.sql)
+
+The rename above left a short-lived `driver` value in the enum (added by
+`20260903000000_add_driver_role_and_trial_subscription`) for an individual-driver persona. The
+owner-operator model makes that persona identical to `truck_driver`, so the follow-up migration
+canonicalizes the enum to exactly `factory_owner | truck_driver | admin`.
+
+| Change | Mechanism | Backward compatible? |
+|---|---|---|
+| `users.role = 'driver'` → `'truck_driver'` | `UPDATE` **before** the value is dropped | ✅ no row is left pointing at a removed value |
+| Drop `driver` (and any surviving `load_owner` / `truck_owner`) from `UserRole` | Postgres has no `DROP VALUE`: create `UserRole_new`, cast the column via `TEXT` with a `CASE` remap, `DROP TYPE`, `RENAME` | ✅ the `CASE` remap makes the migration safe even on a database that skipped the rename migration |
+
+Role labels still in flight — cached cookies, unexpired JWTs, older mobile bundles — keep working:
+every entry point normalizes them before use.
+
+| Layer | Normalizer |
+|---|---|
+| API | `apps/api/src/common/utils/roles.util.ts` (`normalizeRole`), applied in `RolesGuard`, `AuthService.verifyOtp`, `VerifyOtpDto`, and `AdminService.listUsers` |
+| Web | `apps/web/src/lib/roles.ts` (`normalizeRole`, `getDashboardForRole`), applied in `middleware.ts` and the dashboard components |
+| Mobile | `apps/mobile/src/lib/roles.ts` |
+| Shared | `packages/shared/src/types` (`normalizeUserRole`, `LEGACY_ROLE_MAP`) |
+
+Legacy dashboard routes remain mounted as pure redirects: `/dashboard/load-owner` →
+`/dashboard/factory-owner`, and `/dashboard/truck-owner` and `/dashboard/driver` →
+`/dashboard/truck-driver`.
+
 ---
 
 ## 6. Normalization Notes

@@ -293,7 +293,7 @@ function MyLoadsContent() {
         </div>
 
         {/* ── 5b. Global Smart Matches (both dashboards) — Pending/Booked/Completed with ≤50km & WhatsApp ── */}
-        <MatchesPanel role="load_owner" compact />
+        <MatchesPanel role="factory_owner" compact />
 
         {/* ── LOADS LIST / CARDS ── */}
         {loading ? (

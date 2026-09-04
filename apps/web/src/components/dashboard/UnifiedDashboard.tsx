@@ -25,7 +25,7 @@ import { DashboardSummaryCards } from '@/components/dashboard/DashboardSummaryCa
 import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
 import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
-import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
+import { getRoleLabel, isVehicleSideRole, normalizeRole, type AnyUserRole, type AppUserRole } from '@/lib/roles'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
 import { toast } from '@/lib/toast'
@@ -36,7 +36,7 @@ interface UserState {
   id?: string
   phone?: string
   name?: string
-  role?: 'load_owner' | 'truck_owner' | 'driver' | 'admin' | 'factory_owner' | 'truck_driver'
+  role?: AnyUserRole
 }
 
 interface LoadItem {
@@ -112,7 +112,7 @@ interface ActivityItem {
 }
 
 interface UnifiedDashboardProps {
-  roleOverride?: 'load_owner' | 'truck_owner' | 'driver' | 'factory_owner' | 'truck_driver'
+  roleOverride?: Exclude<AppUserRole, 'admin'>
 }
 
 export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
@@ -149,10 +149,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
     }
   }, [])
 
-  const effectiveRole = roleOverride || user?.role || 'load_owner'
-  const isTruckOwner = isVehicleSideRole(effectiveRole) || effectiveRole === 'truck_driver'
-  const isTruckDriver = isTruckOwner
-  const isDriver = effectiveRole === 'driver'
+  const effectiveRole = normalizeRole(roleOverride || user?.role) || 'factory_owner'
+  const isTruckDriver = isVehicleSideRole(effectiveRole)
+  // Kept as an alias for existing JSX; the transporter/driver split is gone.
+  const isTruckOwner = isTruckDriver
   const isTrial = subscriptionStatus?.isTrial === true
 
   useEffect(() => {
@@ -505,12 +505,12 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <span>Live Freight Network Online</span>
               </span>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary-500/10 text-primary-400 border border-primary-500/20 text-xs font-semibold font-mono">
-                {isDriver ? 'Driver workspace' : isTruckOwner ? 'Transporter workspace' : 'Factory owner workspace'}
+                {isTruckDriver ? 'Truck driver workspace' : 'Factory owner workspace'}
               </span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Good morning, {user?.name || (isDriver ? 'Driver' : isTruckOwner ? 'Transporter' : 'Factory owner')}
+              Good morning, {user?.name || (isTruckDriver ? 'Truck driver' : 'Factory owner')}
             </h1>
             <p className="text-xs sm:text-sm text-surface-400">
               Direct marketplace operating command • Zero middleman brokerage
@@ -526,7 +526,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
                 >
                   <PlusCircle className="w-4 h-4" />
-                  <span>{isDriver ? 'Register Vehicle' : 'Register Truck'}</span>
+                  <span>Register Truck</span>
                 </Link>
                 <Link
                   href="/search?type=load"
@@ -735,7 +735,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         </div>
 
         {/* ── 4b. Smart Matching Engine — Need Load ↔ Need Vehicle (tonnage/route/budget, ≤50km, WhatsApp trigger) ── */}
-        <MatchesPanel role={isTruckOwner ? 'truck_owner' : 'load_owner'} />
+        <MatchesPanel role={isTruckDriver ? 'truck_driver' : 'factory_owner'} />
 
         {/* ── 5. My Trips Widget (Active & Completed Tabs) ── */}
         <div className="bg-panel rounded-2xl border border-white/10 shadow-modal p-5 sm:p-7 space-y-6">

@@ -103,12 +103,11 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     setSidebarOpen(false)
   }, [pathname])
 
-  const isTruckOwner = isVehicleSideRole(user?.role)
-  const isDriver = user?.role === 'driver'
+  const isTruckDriver = isVehicleSideRole(user?.role)
   const isAdmin = user?.role === 'admin'
 
-  const loadOwnerNav: NavItem[] = [
-    { name: t('dash.overview'), href: '/dashboard/load-owner', icon: HomeIcon },
+  const factoryOwnerNav: NavItem[] = [
+    { name: t('dash.overview'), href: '/dashboard/factory-owner', icon: HomeIcon },
     { name: t('nav.findTrucks'), href: '/search?type=truck', icon: MagnifyingGlassIcon },
     { name: t('nav.postFreight'), href: '/post-load', icon: PlusCircleIcon },
     { name: t('dash.myLoads'), href: '/my-loads', icon: ClipboardDocumentListIcon },
@@ -122,8 +121,8 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: t('nav.settings'), href: '/settings', icon: Cog6ToothIcon },
   ]
 
-  const truckOwnerNav: NavItem[] = [
-    { name: t('dash.overview'), href: '/dashboard/truck-owner', icon: HomeIcon },
+  const truckDriverNav: NavItem[] = [
+    { name: t('dash.overview'), href: '/dashboard/truck-driver', icon: HomeIcon },
     { name: t('nav.findLoads'), href: '/search?type=load', icon: MagnifyingGlassIcon },
     { name: t('dash.myFleet'), href: '/my-trucks', icon: TruckIcon },
     { name: t('dash.bookings'), href: '/bookings', icon: BriefcaseIcon },
@@ -149,22 +148,14 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: 'Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
   ]
 
-  const navItems = isAdmin
-    ? adminNav
-    : isTruckOwner
-      ? truckOwnerNav.map((item) =>
-          isDriver && item.href === '/dashboard/truck-owner'
-            ? { ...item, href: '/dashboard/driver' }
-            : item
-        )
-      : loadOwnerNav
+  const navItems = isAdmin ? adminNav : isTruckDriver ? truckDriverNav : factoryOwnerNav
 
   const roleLabel = getRoleLabel(user?.role)
 
   /** Exact match for section roots, prefix match for nested routes. */
   const isActiveRoute = (href: string) => {
     const path = href.split('?')[0]
-    const roots = ['/admin/dashboard', '/dashboard/load-owner', '/dashboard/truck-owner']
+    const roots = ['/admin/dashboard', '/dashboard/factory-owner', '/dashboard/truck-driver']
     if (roots.includes(path)) return pathname === path
     return pathname === path || pathname.startsWith(`${path}/`)
   }

@@ -1,6 +1,19 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
+  "//": "PRISMA_* engine overrides must reach task processes so builds work on hosts that cannot reach binaries.prisma.sh (air-gapped/restricted CI). NEXT_PUBLIC_API_URL is read at build time by the web app.",
+  "globalPassThroughEnv": [
+    "PRISMA_QUERY_ENGINE_LIBRARY",
+    "PRISMA_QUERY_ENGINE_BINARY",
+    "PRISMA_SCHEMA_ENGINE_BINARY",
+    "PRISMA_CLI_QUERY_ENGINE_TYPE",
+    "PRISMA_ENGINES_MIRROR",
+    "PRISMA_BINARIES_MIRROR",
+    "PRISMA_SKIP_POSTINSTALL_GENERATE",
+    "NEXT_PUBLIC_API_URL",
+    "DATABASE_URL",
+    "DIRECT_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

@@ -102,7 +102,7 @@ export function NeedLoadForm() {
         <div className="absolute -right-12 -top-16 h-48 w-48 rounded-full bg-primary-500/20 blur-3xl" aria-hidden="true" />
         <div className="relative max-w-3xl">
           <Link
-            href="/dashboard/load-owner"
+            href="/dashboard/factory-owner"
             className="mb-5 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 transition-colors hover:text-white"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />

@@ -9,7 +9,7 @@ import { toast } from '@/lib/toast'
 import { cn, formatINR, formatPhone, whatsappLink } from '@/lib/utils'
 
 interface MatchesPanelProps {
-  role?: 'load_owner' | 'truck_owner'
+  role?: 'factory_owner' | 'truck_driver'
   compact?: boolean
 }
 
@@ -110,7 +110,7 @@ export function MatchesPanel({ role, compact = false }: MatchesPanelProps) {
                 <Sparkles className="w-5 h-5" />
               </div>
               <h2 className="text-base sm:text-lg font-bold text-white">
-                {role === 'truck_owner' ? 'Matched Freight Loads' : role === 'load_owner' ? 'Matched Lorries' : 'Smart Matches'}
+                {role === 'truck_driver' ? 'Matched Freight Loads' : role === 'factory_owner' ? 'Matched Lorries' : 'Smart Matches'}
               </h2>
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-xs font-mono font-semibold">
                 ≤ {radius} km
@@ -120,7 +120,7 @@ export function MatchesPanel({ role, compact = false }: MatchesPanelProps) {
               Backend engine compares <span className="text-surface-200 font-semibold">tonnage</span>,{' '}
               <span className="text-surface-200 font-semibold">route proximity (≤50km)</span> and{' '}
               <span className="text-surface-200 font-semibold">budget</span> between your{' '}
-              {role === 'truck_owner' ? 'Need Vehicle' : role === 'load_owner' ? 'Need Load' : 'Need Load ↔ Need Vehicle'} entries. WhatsApp alerts fire automatically on new high-fit matches.
+              {role === 'truck_driver' ? 'Need Vehicle' : role === 'factory_owner' ? 'Need Load' : 'Need Load ↔ Need Vehicle'} entries. WhatsApp alerts fire automatically on new high-fit matches.
             </p>
           </div>
 
@@ -190,20 +190,20 @@ export function MatchesPanel({ role, compact = false }: MatchesPanelProps) {
         ) : matches.length === 0 ? (
           <div className="text-center py-10 sm:py-12 space-y-3 bg-surface-950/60 rounded-2xl border border-white/5">
             <div className="w-14 h-14 rounded-2xl bg-primary-500/10 text-primary-400 flex items-center justify-center mx-auto border border-primary-500/20">
-              {role === 'truck_owner' ? <Package className="w-7 h-7" /> : <Truck className="w-7 h-7" />}
+              {role === 'truck_driver' ? <Package className="w-7 h-7" /> : <Truck className="w-7 h-7" />}
             </div>
             <h3 className="text-sm sm:text-base font-bold text-white">No {statusFilter !== 'ALL' ? statusFilter.toLowerCase() : ''} matches within {radius} km</h3>
             <p className="text-xs sm:text-sm text-surface-400 max-w-md mx-auto">
-              {role === 'truck_owner'
+              {role === 'truck_driver'
                 ? 'Post a Need Vehicle or update your truck location to discover nearby freight within 50km.'
                 : 'Post a Need Load to trigger tonnage/route/budget matching and receive WhatsApp alerts when a verified lorry is within 50km.'}
             </p>
             <div className="pt-2 flex flex-wrap justify-center gap-2">
               <Link
-                href={role === 'truck_owner' ? '/my-trucks' : '/post-load'}
+                href={role === 'truck_driver' ? '/my-trucks' : '/post-load'}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-xs font-bold transition-colors"
               >
-                <span>{role === 'truck_owner' ? 'View My Trucks' : 'Post Need Load'}</span>
+                <span>{role === 'truck_driver' ? 'View My Trucks' : 'Post Need Load'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
               <Link
@@ -218,7 +218,7 @@ export function MatchesPanel({ role, compact = false }: MatchesPanelProps) {
         ) : (
           <ul className="space-y-3">
             {matches.map((m) => {
-              const isLoadOwnerView = role === 'load_owner'
+              const isLoadOwnerView = role === 'factory_owner'
               const counterpart = isLoadOwnerView ? m.truck : m.load
               const primaryTitle = isLoadOwnerView
                 ? m.truck?.registrationNumber || `TRUCK-${m.truckId.slice(0, 6).toUpperCase()}`

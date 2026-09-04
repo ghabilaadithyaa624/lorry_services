@@ -1,3 +1,27 @@
+/** Canonical user roles — mirrors the Prisma `UserRole` enum. */
+export type CanonicalUserRole = 'factory_owner' | 'truck_driver' | 'admin';
+
+/** Role labels that may still exist in old clients, cookies or JWTs. */
+export type LegacyUserRole = 'load_owner' | 'truck_owner' | 'driver';
+
+export type AnyUserRole = CanonicalUserRole | LegacyUserRole;
+
+export const LEGACY_ROLE_MAP: Record<LegacyUserRole, CanonicalUserRole> = {
+  load_owner: 'factory_owner',
+  truck_owner: 'truck_driver',
+  driver: 'truck_driver',
+};
+
+/**
+ * Map any legacy or canonical role label onto a canonical role.
+ * Unknown values return `undefined` so callers can decide the fallback.
+ */
+export function normalizeUserRole(role?: string | null): CanonicalUserRole | undefined {
+  if (!role) return undefined;
+  if (role === 'factory_owner' || role === 'truck_driver' || role === 'admin') return role;
+  return LEGACY_ROLE_MAP[role as LegacyUserRole];
+}
+
 export interface GeoLocation {
   latitude: number;
   longitude: number;
@@ -10,7 +34,7 @@ export interface OTPRequestDTO {
 export interface OTPVerifyDTO {
   phone: string;
   code: string;
-  role?: 'load_owner' | 'truck_owner' | 'driver' | 'factory_owner' | 'truck_driver' | 'admin';
+  role?: AnyUserRole;
 }
 
 export interface AuthResponse {

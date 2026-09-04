@@ -21,6 +21,7 @@ import { useI18n } from '@/lib/i18n'
 import { api, trucksApi } from '@/lib/api'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+import { normalizeRole } from '@/lib/roles'
 
 /**
  * PostFreightModal — role-aware quick-post dialog for the global
@@ -39,7 +40,7 @@ import { cn } from '@/lib/utils'
  * label through the shared i18n catalogue.
  */
 
-export type PostFreightRole = 'load_owner' | 'truck_owner'
+export type PostFreightRole = 'factory_owner' | 'truck_driver'
 
 type View = 'role' | PostFreightRole | 'success'
 
@@ -74,7 +75,10 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
 
   const isAuthenticated = Boolean(user)
   const userRole: PostFreightRole | null =
-    user?.role === 'truck_owner' || user?.role === 'load_owner' ? user.role : null
+    (() => {
+      const canonical = normalizeRole(user?.role)
+      return canonical && canonical !== 'admin' ? canonical : null
+    })()
 
   // Signed-in operators land directly on their role's form; anonymous
   // operators first choose who they are posting as.
@@ -172,7 +176,7 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
         advancePayable: advanceNum,
       })
       toast.success(t('pf.success.load.title'))
-      setSuccessRole('load_owner')
+      setSuccessRole('factory_owner')
       setView('success')
     } catch (err: unknown) {
       const message =
@@ -229,7 +233,7 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
       }
 
       toast.success(t('pf.success.truck.title'))
-      setSuccessRole('truck_owner')
+      setSuccessRole('truck_driver')
       setView('success')
     } catch (err: unknown) {
       const message =
@@ -245,7 +249,7 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
 
   const modalTitle =
     view === 'success'
-      ? successRole === 'truck_owner'
+      ? successRole === 'truck_driver'
         ? t('pf.success.truck.title')
         : t('pf.success.load.title')
       : t('pf.title')
@@ -264,7 +268,7 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => chooseRole('load_owner')}
+              onClick={() => chooseRole('factory_owner')}
               aria-label={t('pf.role.factoryOwner')}
               className={cn(
                 'group text-left p-4 rounded-2xl border border-hairline bg-sunken/50 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all',
@@ -280,7 +284,7 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
 
             <button
               type="button"
-              onClick={() => chooseRole('truck_owner')}
+              onClick={() => chooseRole('truck_driver')}
               aria-label={t('pf.role.truckOwner')}
               className={cn(
                 'group text-left p-4 rounded-2xl border border-hairline bg-sunken/50 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all',
@@ -305,7 +309,7 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
       )}
 
       {/* ── NEED VEHICLE (FACTORY OWNER) ── */}
-      {view === 'load_owner' && (
+      {view === 'factory_owner' && (
         <form onSubmit={submitNeedVehicle} className="space-y-4" data-testid="pf-need-vehicle">
           <div className="flex items-center gap-2 text-sm font-semibold text-primary-600 dark:text-primary-400">
             <Building2 className="w-4 h-4" aria-hidden="true" />
@@ -446,7 +450,7 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
       )}
 
       {/* ── NEED LOAD (TRUCK OWNER) ── */}
-      {view === 'truck_owner' && (
+      {view === 'truck_driver' && (
         <form onSubmit={submitNeedLoad} className="space-y-4" data-testid="pf-need-load">
           <div className="flex items-center gap-2 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
             <Truck className="w-4 h-4" aria-hidden="true" />
@@ -613,10 +617,10 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
           </div>
           <div>
             <p className="text-base font-bold text-ink">
-              {successRole === 'truck_owner' ? t('pf.success.truck.title') : t('pf.success.load.title')}
+              {successRole === 'truck_driver' ? t('pf.success.truck.title') : t('pf.success.load.title')}
             </p>
             <p className="text-sm text-muted mt-1.5 leading-relaxed">
-              {successRole === 'truck_owner' ? t('pf.success.truck.body') : t('pf.success.load.body')}
+              {successRole === 'truck_driver' ? t('pf.success.truck.body') : t('pf.success.load.body')}
             </p>
           </div>
           <div className="flex flex-col gap-2.5">
@@ -626,11 +630,11 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
               fullWidth
               onClick={() => {
                 onClose()
-                router.push(successRole === 'truck_owner' ? '/my-trucks' : '/my-loads')
+                router.push(successRole === 'truck_driver' ? '/my-trucks' : '/my-loads')
               }}
               leftIcon={<MapPin className="w-4 h-4" />}
             >
-              {successRole === 'truck_owner' ? t('pf.success.viewTrucks') : t('pf.success.viewLoads')}
+              {successRole === 'truck_driver' ? t('pf.success.viewTrucks') : t('pf.success.viewLoads')}
             </Button>
             <Button variant="secondary" size="md" fullWidth onClick={onClose}>
               {t('pf.done')}

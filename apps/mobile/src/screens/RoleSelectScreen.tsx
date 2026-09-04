@@ -18,7 +18,7 @@ import axios from 'axios'
 
 type RoleSelectScreenRouteProp = RouteProp<AuthStackParamList, 'RoleSelect'>
 type RoleSelectScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'RoleSelect'>
-type RegistrationRole = 'driver' | 'load_owner' | 'truck_owner'
+import type { RegistrationRole } from '../lib/roles'
 
 interface RoleSelectProps {
   route: RoleSelectScreenRouteProp
@@ -27,25 +27,18 @@ interface RoleSelectProps {
 
 const roles: Array<{ value: RegistrationRole; icon: string; title: string; caption: string; description: string }> = [
   {
-    value: 'driver',
-    icon: '🧑‍✈️',
-    title: 'Driver',
-    caption: 'ON THE ROAD',
-    description: 'Find loads, manage trips, and get route updates in one place.',
-  },
-  {
-    value: 'load_owner',
+    value: 'factory_owner',
     icon: '🏭',
     title: 'Factory Owner',
     caption: 'SHIP GOODS',
     description: 'Post freight requirements and connect with verified transporters.',
   },
   {
-    value: 'truck_owner',
+    value: 'truck_driver',
     icon: '🚛',
-    title: 'Transporter',
-    caption: 'GROW YOUR FLEET',
-    description: 'List vehicles, avoid empty runs, and manage freight bookings.',
+    title: 'Truck Driver',
+    caption: 'ON THE ROAD',
+    description: 'List vehicles, find loads, avoid empty runs, and manage bookings.',
   },
 ]
 

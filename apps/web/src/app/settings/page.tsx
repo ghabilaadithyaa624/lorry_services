@@ -36,6 +36,7 @@ import {
 } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { cn, formatPhone } from '@/lib/utils'
+import { getRoleLabel } from '@/lib/roles'
 
 type SectionId =
   | 'account'
@@ -295,13 +296,7 @@ export default function SettingsPage() {
                   <div>
                     <span className="block text-sm font-medium text-body mb-1.5">Role</span>
                     <Badge variant="neutral">
-                      {profile?.role === 'driver'
-                        ? 'Driver'
-                        : profile?.role === 'truck_owner'
-                          ? 'Transporter'
-                          : profile?.role === 'admin'
-                            ? 'Administrator'
-                            : 'Factory owner'}
+                      {getRoleLabel(profile?.role)}
                     </Badge>
                   </div>
 

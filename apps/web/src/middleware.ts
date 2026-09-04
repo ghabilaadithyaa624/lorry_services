@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getDashboardForRole, normalizeRole, LEGACY_DASHBOARD_REDIRECTS } from '@/lib/roles'
 
 /**
  * Next.js Middleware for Auth Protection
@@ -10,18 +11,10 @@ import type { NextRequest } from 'next/server'
 
 const PUBLIC_EXACT_PATHS = ['/']
 const PUBLIC_PREFIXES = ['/login', '/role-select', '/search', '/subscribe', '/subscription', '/api']
-const LOAD_OWNER_PATHS = ['/dashboard/load-owner', '/post-load', '/need-load', '/my-loads']
-const TRUCK_OWNER_PATHS = ['/dashboard/truck-owner', '/register-truck', '/need-vehicle', '/my-trucks']
-const DRIVER_PATHS = ['/dashboard/driver']
+const FACTORY_OWNER_PATHS = ['/dashboard/factory-owner', '/post-load', '/need-load', '/my-loads']
+const TRUCK_DRIVER_PATHS = ['/dashboard/truck-driver', '/register-truck', '/need-vehicle', '/my-trucks']
 
-const dashboardForRole = (role?: string) =>
-  role === 'admin'
-    ? '/admin'
-    : role === 'driver'
-      ? '/dashboard/driver'
-      : role === 'truck_owner' || role === 'truck_driver'
-        ? '/dashboard/truck-owner'
-        : '/dashboard/load-owner'
+const dashboardForRole = (role?: string) => getDashboardForRole(role)
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -45,6 +38,12 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // Legacy dashboard routes always redirect to their canonical equivalent.
+  const legacyTarget = LEGACY_DASHBOARD_REDIRECTS[pathname]
+  if (legacyTarget) {
+    return NextResponse.redirect(new URL(legacyTarget, request.url))
   }
 
   // Redirect /dashboard to appropriate role dashboard
@@ -79,21 +78,17 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Role-based access control
-  if (LOAD_OWNER_PATHS.some(path => pathname.startsWith(path))) {
-    if (userRole !== 'load_owner' && userRole !== 'factory_owner') {
+  // Role-based access control (legacy cookie values are normalized first)
+  const canonicalRole = normalizeRole(userRole)
+
+  if (FACTORY_OWNER_PATHS.some(path => pathname.startsWith(path))) {
+    if (canonicalRole !== 'factory_owner' && canonicalRole !== 'admin') {
       return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
     }
   }
 
-  if (TRUCK_OWNER_PATHS.some(path => pathname.startsWith(path))) {
-    if (userRole !== 'truck_owner' && userRole !== 'driver' && userRole !== 'truck_driver') {
-      return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
-    }
-  }
-
-  if (DRIVER_PATHS.some(path => pathname.startsWith(path))) {
-    if (userRole !== 'driver') {
+  if (TRUCK_DRIVER_PATHS.some(path => pathname.startsWith(path))) {
+    if (canonicalRole !== 'truck_driver' && canonicalRole !== 'admin') {
       return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
     }
   }

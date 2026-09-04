@@ -198,6 +198,30 @@ Admin API additions: `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`
 | `npm run db:seed` | Seeds database with initial test records |
 | `npm run db:studio` | Launches Prisma Studio GUI at `http://localhost:5555` |
 
+### Building on a restricted network
+
+Two build steps reach out to the public internet. On an air-gapped or firewalled
+host (including some CI runners) they fail with `ECONNRESET` / "Client network
+socket disconnected before secure TLS connection was established":
+
+1. **`npm run db:generate` / `packages/database` build** downloads the Prisma
+   engines from `binaries.prisma.sh`. Pre-seed the engines (or point at an
+   internal mirror) and export the paths before building:
+
+   ```bash
+   export PRISMA_QUERY_ENGINE_LIBRARY=/path/to/libquery_engine.so.node
+   export PRISMA_SCHEMA_ENGINE_BINARY=/path/to/schema-engine
+   # or, if you host a mirror:
+   export PRISMA_ENGINES_MIRROR=https://your-mirror.internal
+   ```
+
+   These variables are listed in `turbo.json` under `globalPassThroughEnv`, so
+   Turborepo forwards them to each workspace task.
+
+2. **`apps/web` build** fetches `Plus Jakarta Sans` and `JetBrains Mono` through
+   `next/font/google` in `src/app/layout.tsx`. Google Fonts must be reachable at
+   build time, otherwise self-host the fonts via `next/font/local`.
+
 ---
 
 ## 📄 License

@@ -7,7 +7,6 @@ import {
   ArrowRight,
   Building2,
   Check,
-  CircleUserRound,
   ShieldCheck,
   Sparkles,
   Truck,
@@ -16,10 +15,9 @@ import { REGISTRATION_ROLES, type PublicRegistrationRole } from '@/lib/roles'
 import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { cn } from '@/lib/utils'
 
-const ROLE_ICONS = {
-  driver: CircleUserRound,
-  load_owner: Building2,
-  truck_owner: Truck,
+const ROLE_ICONS: Record<string, typeof Building2> = {
+  factory_owner: Building2,
+  truck_driver: Truck,
 }
 
 /** The first, deliberately low-friction step of new-operator onboarding. */

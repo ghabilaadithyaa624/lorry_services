@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Building2,
   Check,
-  CircleUserRound,
   LoaderCircle,
   LockKeyhole,
   MessageCircle,
@@ -21,6 +20,7 @@ import { authApi, setAuthCookies } from '@/lib/api'
 import {
   getDashboardForRole,
   getRoleLabel,
+  normalizeRole,
   REGISTRATION_ROLES,
   type PublicRegistrationRole,
 } from '@/lib/roles'
@@ -28,10 +28,9 @@ import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
-const ROLE_ICONS = {
-  driver: CircleUserRound,
-  load_owner: Building2,
-  truck_owner: Truck,
+const ROLE_ICONS: Record<string, typeof Building2> = {
+  factory_owner: Building2,
+  truck_driver: Truck,
 }
 
 function OnboardingProgress({ step }: { step: 2 | 3 }) {
@@ -65,10 +64,13 @@ function LoginForm() {
   const [otp, setOtp] = useState('')
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [selectedRole, setSelectedRole] = useState<PublicRegistrationRole | null>(() => {
-    if (initialRole === 'driver' || initialRole === 'load_owner' || initialRole === 'truck_owner') return initialRole
+    // Normalize so legacy ?role=load_owner deep links and stale
+    // sessionStorage values still resolve to a canonical role.
+    const fromQuery = normalizeRole(initialRole)
+    if (fromQuery && fromQuery !== 'admin') return fromQuery
     if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('selectedRole')
-      if (saved === 'driver' || saved === 'load_owner' || saved === 'truck_owner') return saved
+      const saved = normalizeRole(sessionStorage.getItem('selectedRole'))
+      if (saved && saved !== 'admin') return saved
     }
     return null
   })

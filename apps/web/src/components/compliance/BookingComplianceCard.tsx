@@ -6,10 +6,11 @@ import { complianceApi, ComplianceChecklist } from '@/lib/api'
 import { ComplianceChecklist as ComplianceChecklistCard } from './ComplianceChecklist'
 import { Button } from '@/components/ui'
 import { toast } from '@/lib/toast'
+import { isFreightSideRole } from '@/lib/roles'
 
 interface BookingComplianceCardProps {
   bookingId: string
-  /** Role of the current viewer — load owners edit the E-Way Bill. */
+  /** Role of the current viewer — factory owners edit the E-Way Bill. */
   viewerRole?: string
   onChecklistRefresh?: () => void
 }
@@ -79,7 +80,7 @@ export function BookingComplianceCard({
     }
   }
 
-  const canEditEway = viewerRole === 'load_owner' || viewerRole === 'admin'
+  const canEditEway = isFreightSideRole(viewerRole) || viewerRole === 'admin'
 
   return (
     <ComplianceChecklistCard

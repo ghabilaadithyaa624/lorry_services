@@ -20,9 +20,6 @@ jest.mock('@lorrycarry/database', () => {
   return {
     prisma: mockPrisma,
     UserRole: {
-      load_owner: 'load_owner',
-      truck_owner: 'truck_owner',
-      driver: 'driver',
       factory_owner: 'factory_owner',
       truck_driver: 'truck_driver',
       admin: 'admin',

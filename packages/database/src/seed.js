@@ -16,28 +16,28 @@ async function main() {
         data: {
             phone: '+919876543210',
             name: 'Rajesh Sharma',
-            role: UserRole.load_owner,
+            role: UserRole.factory_owner,
         }
     });
     const loadOwner2 = await prisma.user.create({
         data: {
             phone: '+919876543211',
             name: 'Priya Manufacturing',
-            role: UserRole.load_owner,
+            role: UserRole.factory_owner,
         }
     });
     const truckOwner1 = await prisma.user.create({
         data: {
             phone: '+919876543220',
             name: 'Kumar Transports',
-            role: UserRole.truck_owner,
+            role: UserRole.truck_driver,
         }
     });
     const truckOwner2 = await prisma.user.create({
         data: {
             phone: '+919876543221',
             name: 'Singh Logistics',
-            role: UserRole.truck_owner,
+            role: UserRole.truck_driver,
         }
     });
     const admin = await prisma.user.create({
