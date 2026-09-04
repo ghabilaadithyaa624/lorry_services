@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import type { FreightEstimate, PricingInput } from './intelligence/pricingEngine'
 
 // Use the same-origin rewrite by default so browser requests work behind a
 // preview/proxy host. Direct API origins remain configurable for deployments.
@@ -572,4 +573,14 @@ export const clearAuthCookies = () => {
   document.cookie = 'accessToken=; path=/; max-age=0'
   document.cookie = 'userRole=; path=/; max-age=0'
   csrfToken = null
+}
+
+/**
+ * Freight Pricing Intelligence API.
+ * Calls POST /pricing/estimate on the NestJS backend.
+ */
+export const pricingApi = {
+  /** Calculate indicative freight rate estimate grounded in Indian transport economics. */
+  estimate: (data: PricingInput) =>
+    api.post<FreightEstimate>('/pricing/estimate', data),
 }

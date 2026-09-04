@@ -19,6 +19,7 @@ import { NotificationsModule } from './notifications/notifications.module'
 import { MatchingModule } from './matching/matching.module'
 import { RatingsModule } from './ratings/ratings.module'
 import { ComplianceModule } from './compliance/compliance.module'
+import { PricingModule } from './pricing/pricing.module'
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard'
 import { CommonModule } from './common/common.module'
 import { RedisModule } from './common/redis/redis.module'
@@ -51,6 +52,7 @@ import { RedisModule } from './common/redis/redis.module'
     MatchingModule,
     RatingsModule,
     ComplianceModule,
+    PricingModule,
   ],
   providers: [
     // Rate limiting guard
