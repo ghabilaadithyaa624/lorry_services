@@ -44,6 +44,8 @@ const localGlobal = global as any
 localGlobal.window = {
   location: {
     href: '',
+    // Authenticated screen by default; public-route behaviour is asserted below.
+    pathname: '/my-loads',
   },
 }
 
@@ -94,6 +96,7 @@ describe('api Response Interceptor — Refresh Token Retry & Error Paths', () =>
     mockLocalStorage = {}
     mockCookies = {}
     localGlobal.window.location.href = ''
+    localGlobal.window.location.pathname = '/my-loads'
   })
 
   it('should trigger refresh token flow and clear credentials/redirect on refresh failure', async () => {
@@ -167,6 +170,36 @@ describe('api Response Interceptor — Refresh Token Retry & Error Paths', () =>
 
     // 5. Verify redirect to /login
     expect(localGlobal.window.location.href).toBe('/login')
+  })
+
+  it('should clear credentials but stay on the page when a public route probes the API anonymously', async () => {
+    // Public pages such as /help and /security render the app shell, which
+    // calls the API on mount. An anonymous visitor must not be bounced to
+    // /login from a route the middleware considers public.
+    localGlobal.window.location.pathname = '/help'
+
+    const originalRequest: any = {
+      url: '/users/me',
+      headers: {},
+    }
+    const error401: any = {
+      config: originalRequest,
+      response: {
+        status: 401,
+      },
+    }
+
+    await expect(mockResponseInterceptorReject(error401)).rejects.toThrow('No refresh token available')
+
+    // Stale session data is still cleaned up…
+    expect(localStorage.removeItem).toHaveBeenCalledWith('accessToken')
+    expect(localStorage.removeItem).toHaveBeenCalledWith('refreshToken')
+    expect(localStorage.removeItem).toHaveBeenCalledWith('user')
+    expect(mockCookies['accessToken']).toBeUndefined()
+    expect(mockCookies['userRole']).toBeUndefined()
+
+    // …but no hard navigation away from the public page.
+    expect(localGlobal.window.location.href).toBe('')
   })
 
   it('should successfully refresh the token, update storage/cookies and retry the original request', async () => {

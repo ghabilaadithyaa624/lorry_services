@@ -1,16 +1,20 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getDashboardForRole, normalizeRole, LEGACY_DASHBOARD_REDIRECTS } from '@/lib/roles'
+import { isPublicPath } from '@/lib/publicRoutes'
 
 /**
  * Next.js Middleware for Auth Protection
  * - Redirects unauthenticated users to /login
  * - Redirects authenticated users away from /login
  * - Server-verifiable role-based route protection
+ *
+ * The public/protected route table lives in `@/lib/publicRoutes` so marketing,
+ * legal and SEO routes (`/privacy`, `/terms`, `/security`, `/help`,
+ * `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest`, static assets) stay
+ * reachable without a session while everything else remains default-deny.
  */
 
-const PUBLIC_EXACT_PATHS = ['/']
-const PUBLIC_PREFIXES = ['/login', '/role-select', '/search', '/subscribe', '/subscription', '/api']
 const FACTORY_OWNER_PATHS = ['/dashboard/factory-owner', '/post-load', '/need-load', '/my-loads']
 const TRUCK_DRIVER_PATHS = ['/dashboard/truck-driver', '/register-truck', '/need-vehicle', '/my-trucks']
 
@@ -21,8 +25,9 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('accessToken')?.value
   const userRole = request.cookies.get('userRole')?.value
 
-  // Check if current route is public
-  const isPublic = PUBLIC_EXACT_PATHS.includes(pathname) || PUBLIC_PREFIXES.some(prefix => pathname.startsWith(prefix))
+  // Check if current route is public (allowlist lives in @/lib/publicRoutes).
+  // Everything that is not explicitly public requires authentication.
+  const isPublic = isPublicPath(pathname)
 
   if (isPublic) {
     // If logged in and trying to access login, redirect to dashboard
@@ -98,6 +103,15 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    /**
+     * Skip framework payloads and static/generated assets so middleware never
+     * gates them: `/_next/*`, `/images/*`, `/favicon.ico`, `/icon.png`,
+     * `/apple-icon.png`, `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest`.
+     *
+     * The same paths are also allowlisted inside `middleware()` via
+     * `isPublicPath()` — belt and braces, because dev/preview servers and
+     * rewritten asset URLs do not always hit the matcher.
+     */
+    '/((?!_next/|images/|public/|favicon.ico|icon.png|apple-icon.png|robots.txt|sitemap.xml|manifest.webmanifest).*)',
   ],
 }

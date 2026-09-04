@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import type { FreightEstimate, PricingInput } from './intelligence/pricingEngine'
 import type { NationalLogisticsSummary } from './intelligence/nationalLogisticsEngine'
+import { isPublicPath } from './publicRoutes'
 
 // Use the same-origin rewrite by default so browser requests work behind a
 // preview/proxy host. Direct API origins remain configurable for deployments.
@@ -115,7 +116,18 @@ api.interceptors.response.use(
               localStorage.removeItem('refreshToken')
               localStorage.removeItem('user')
               clearAuthCookies()
-              window.location.href = '/login'
+              /**
+               * Only force the login hop on authenticated screens. Public pages
+               * such as `/help` and `/security` render the app shell and probe
+               * the API on mount; for an anonymous visitor that probe always
+               * answers 401, and the redirect used to bounce them off a page
+               * they are allowed to read. Stale credentials are still cleared.
+               * `isPublicPath` returns false for a missing pathname, so the
+               * existing behaviour is preserved wherever it is unknown.
+               */
+              if (!isPublicPath(window.location?.pathname)) {
+                window.location.href = '/login'
+              }
             }
             throw refreshError
           } finally {
