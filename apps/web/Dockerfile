@@ -4,9 +4,11 @@ COPY package*.json ./
 COPY turbo.json ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/database/package.json ./packages/database/
+COPY packages/shared/package.json ./packages/shared/
 RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
+RUN npm run build --workspace=@lorrycarry/shared
 RUN npm run build --workspace=@lorrycarry/web
 
 FROM node:20-alpine

@@ -13,7 +13,7 @@ import {
   InformationCircleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
-import { MatchResult } from '@/lib/intelligence/matchingEngine'
+import { MatchResult, getMatchColorClasses } from '@/lib/intelligence/matchingEngine'
 import { cn } from '@/lib/utils'
 
 interface MatchScoreBadgeProps {
@@ -49,7 +49,7 @@ export function MatchScoreBadge({
         }}
         className={cn(
           'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border transition-all cursor-pointer select-none shadow-2xs hover:scale-105',
-          match.color
+          getMatchColorClasses(match)
         )}
       >
         <span className="font-mono text-xs">{match.score}%</span>
@@ -340,7 +340,7 @@ export function MatchFactorCard({ match, className }: { match: MatchResult; clas
             Score Breakdown
           </span>
         </div>
-        <span className={cn('text-sm font-black font-mono px-2 py-0.5 rounded-full border', match.color)}>
+        <span className={cn('text-sm font-black font-mono px-2 py-0.5 rounded-full border', getMatchColorClasses(match))}>
           {match.score}% MATCH
         </span>
       </div>

@@ -2,34 +2,26 @@ import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenEx
 import { prisma, Prisma } from '@lorrycarry/database'
 import { randomUUID } from 'crypto'
 import { GupshupService } from '../auth/gupshup.service'
+import {
+  calculateGeoDistance,
+  calculateMatchScore as calculateSharedMatchScore,
+  MatchResult as SharedMatchResult,
+  MatchFactorDetail,
+  LoadItem,
+  TruckItem,
+} from '@lorrycarry/shared'
 
 export type MatchStatus = 'Pending' | 'Booked' | 'Completed' | 'Cancelled'
 
-export interface MatchFactorDetail {
-  key: 'capacity' | 'bodyType' | 'proximity' | 'verification' | 'corridor' | 'budget'
-  label: string
-  value: string
-  fit: boolean
-  score: number
-  maxScore: number
-  detail: string
-}
+export type { MatchFactorDetail }
 
-export interface MatchResult {
-  score: number
-  rating: 'PERFECT' | 'STRONG' | 'MODERATE' | 'POOR'
-  label: string
-  reasons: string[]
-  warnings: string[]
-  isCapacityFit: boolean
-  isBodyTypeFit: boolean
-  isProximityFit: boolean
-  isVerified: boolean
-  isPreferredCorridor: boolean
-  isReturnLoad: boolean
-  isBudgetFit: boolean
-  distanceKm: number
-  factors: Record<string, MatchFactorDetail>
+/**
+ * Backend match result. Identical to the shared {@link SharedMatchResult}
+ * except that the budget factor is always present because the API always
+ * enables the budget gate (see {@link MatchingService.calculateMatchScore}).
+ */
+export interface MatchResult extends SharedMatchResult {
+  factors: SharedMatchResult['factors'] & { budget: MatchFactorDetail }
 }
 
 const MAX_PROXIMITY_KM = 50
@@ -42,7 +34,7 @@ export class MatchingService {
   constructor(private readonly gupshup: GupshupService) {}
 
   // ────────────────────────────────────────────────
-  // Core matching logic: tonnage, route (proximity), budget
+  // Core matching logic — delegated to @lorrycarry/shared
   // ────────────────────────────────────────────────
 
   private toNumber(v: any): number {
@@ -52,247 +44,83 @@ export class MatchingService {
     return isNaN(n) ? 0 : n
   }
 
-  private calculateGeoDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371
-    const dLat = ((lat2 - lat1) * Math.PI) / 180
-    const dLon = ((lon2 - lon1) * Math.PI) / 180
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return Math.round(R * c * 1.3) // road factor
+  private toOptionalNumber(v: any): number | undefined {
+    if (v === null || v === undefined || v === '') return undefined
+    const n = Number(v)
+    return isNaN(n) ? undefined : n
   }
 
-  private estimateBudgetFit(loadMaxPrice: number | null | undefined, tonnage: number, truckType: string, distanceKm: number): { fit: boolean; detail: string; estimated: number } {
-    if (loadMaxPrice === null || loadMaxPrice === undefined) {
-      return { fit: true, detail: 'No budget cap specified — open to market rate', estimated: 0 }
-    }
-    const maxPrice = this.toNumber(loadMaxPrice)
-    // Replicate pricingEngine heuristic
-    let baseRate = 3.4
-    let handling = 2500
-    if (truckType === 'Container') { baseRate = 4.10; handling = 3500 }
-    else if (truckType === 'OpenBody' || truckType === 'Open body') { baseRate = 3.15; handling = 3000 }
-    let rate = baseRate
-    if (distanceKm > 1000) rate *= 0.88
-    else if (distanceKm > 500) rate *= 0.94
-    if (distanceKm < 10) distanceKm = 350
-    const estimated = Math.round((handling + distanceKm * tonnage * rate) / 100) * 100
-    const fit = maxPrice >= estimated * 0.85 // allow 15% variance
-    const detail = fit
-      ? `Budget accommodates estimated freight (₹${estimated.toLocaleString('en-IN')} ≤ ₹${maxPrice.toLocaleString('en-IN')})`
-      : `Budget below estimated freight (₹${estimated.toLocaleString('en-IN')} > ₹${maxPrice.toLocaleString('en-IN')})`
-    return { fit, detail, estimated }
+  private calculateGeoDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    return calculateGeoDistance(lat1, lon1, lat2, lon2)
   }
 
   /**
-   * Deterministic explainable match score (same breakdown as frontend matchingEngine)
-   * Capacity 35 + BodyType 25 + Proximity 20 + Verification 15 + Corridor 5 = 100
-   * Budget is an additional gate, not scored, but reported.
+   * Normalises a Prisma model or raw SQL row (camelCase or snake_case, Decimal
+   * columns) into the shared {@link LoadItem} shape.
+   */
+  private toLoadItem(load: any): LoadItem {
+    return {
+      id: String(load.id ?? ''),
+      tonnageRequired: this.toNumber(load.tonnageRequired ?? load.tonnage_required),
+      loadingAddress: load.loadingAddress ?? load.loading_address ?? undefined,
+      loadingPin: load.loadingPin ?? load.loading_pin ?? undefined,
+      loadingLat: this.toOptionalNumber(load.loadingLat ?? load.loading_lat),
+      loadingLng: this.toOptionalNumber(load.loadingLng ?? load.loading_lng),
+      unloadingAddress: load.unloadingAddress ?? load.unloading_address ?? undefined,
+      unloadingPin: load.unloadingPin ?? load.unloading_pin ?? undefined,
+      unloadingLat: this.toOptionalNumber(load.unloadingLat ?? load.unloading_lat),
+      unloadingLng: this.toOptionalNumber(load.unloadingLng ?? load.unloading_lng),
+      truckType: load.truckType ?? load.truck_type ?? 'Open',
+      urgent: Boolean(load.urgent),
+      maxPrice: this.toOptionalNumber(load.maxPrice ?? load.max_price) ?? null,
+      createdAt: load.createdAt ? String(load.createdAt) : load.created_at ? String(load.created_at) : undefined,
+      ownerPhone: load.ownerPhone ?? load.user?.phone ?? null,
+      ownerName: load.ownerName ?? load.user?.name ?? null,
+    }
+  }
+
+  /** Normalises a Prisma model or raw SQL row into the shared {@link TruckItem} shape. */
+  private toTruckItem(truck: any): TruckItem {
+    const pref = truck.preferredDestinations ?? truck.preferred_destinations
+    return {
+      id: String(truck.id ?? ''),
+      registrationNumber: truck.registrationNumber ?? truck.registration_number ?? undefined,
+      bodyType: truck.bodyType ?? truck.body_type ?? 'Open',
+      tonnageCapacity: this.toNumber(truck.tonnageCapacity ?? truck.tonnage_capacity),
+      currentLat: this.toOptionalNumber(truck.currentLat ?? truck.current_lat),
+      currentLng: this.toOptionalNumber(truck.currentLng ?? truck.current_lng),
+      distanceKm: this.toOptionalNumber(truck.distanceKm ?? truck.distance_km),
+      serviceableRadiusKm: this.toOptionalNumber(truck.serviceableRadiusKm ?? truck.serviceable_radius_km),
+      preferredDestinations: Array.isArray(pref) ? pref.map((d: any) => String(d)) : undefined,
+      verificationStatus: truck.verificationStatus ?? truck.verification_status ?? undefined,
+      ownerPhone: truck.ownerPhone ?? truck.user?.phone ?? undefined,
+      ownerName: truck.ownerName ?? truck.user?.name ?? undefined,
+    }
+  }
+
+  /**
+   * Deterministic explainable match score — same engine as the web/mobile clients
+   * (`@lorrycarry/shared` → `calculateMatchScore`).
+   * Capacity 35 + BodyType 25 + Proximity 20 + Verification 15 + Corridor 5 = 100.
+   *
+   * Server-side gates layered on top of the shared scoring:
+   * - `maxProximityKm: 50` — the API only ever evaluates candidates discovered
+   *   within the 50 km PostGIS radius, so the proximity factor is aligned with
+   *   that query filter.
+   * - `budget: true` — the budget gate is enabled server-side because the API
+   *   is the system of record for persisted `matches.budget_compatible` and for
+   *   the WhatsApp notifications sent to transporters. Clients can opt in to the
+   *   same gate via `MatchScoringOptions.budget`, but by default they show the
+   *   ungated "smart match" so shippers still see physically compatible trucks
+   *   when their budget is below benchmark.
    */
   calculateMatchScore(load: any, truck: any, distanceKm?: number): MatchResult {
-    let dist = typeof distanceKm === 'number' ? distanceKm : (typeof truck.distanceKm === 'number' ? truck.distanceKm : undefined)
-    if (dist === undefined && truck.currentLat && truck.currentLng && load.loadingLat && load.loadingLng) {
-      dist = this.calculateGeoDistance(
-        this.toNumber(truck.currentLat),
-        this.toNumber(truck.currentLng),
-        this.toNumber(load.loadingLat),
-        this.toNumber(load.loadingLng),
-      )
-    }
-    if (dist === undefined) dist = 15
-
-    const loadTonnage = this.toNumber(load.tonnageRequired ?? load.tonnage_required)
-    const truckTonnage = this.toNumber(truck.tonnageCapacity ?? truck.tonnage_capacity)
-    const reqType = load.truckType ?? load.truck_type ?? 'Open'
-    const actType = truck.bodyType ?? truck.body_type ?? 'Open'
-    const maxRadius = this.toNumber(truck.serviceableRadiusKm ?? truck.serviceable_radius_km) || 50
-
-    let score = 0
-    const reasons: string[] = []
-    const warnings: string[] = []
-
-    // 1. Capacity 35
-    let isCapacityFit = false
-    let capacityScore = 0
-    let capacityValue = `${truckTonnage}T / ${loadTonnage}T`
-    let capacityDetail = ''
-    if (truckTonnage >= loadTonnage && loadTonnage > 0) {
-      isCapacityFit = true
-      const ratio = loadTonnage / (truckTonnage || 1)
-      if (ratio >= 0.7) {
-        capacityScore = 35
-        capacityValue = `Optimal (${(ratio * 100).toFixed(0)}% payload)`
-        capacityDetail = `Optimal capacity match (${loadTonnage}T load in ${truckTonnage}T lorry)`
-        reasons.push(capacityDetail)
-      } else {
-        capacityScore = 25
-        capacityValue = `Fits (${(ratio * 100).toFixed(0)}% space used)`
-        capacityDetail = `Capacity fits with excess space (${truckTonnage}T capacity for ${loadTonnage}T load)`
-        reasons.push(capacityDetail)
-      }
-    } else if (loadTonnage === 0) {
-      isCapacityFit = true
-      capacityScore = 30
-      capacityValue = `${truckTonnage}T Capacity Available`
-      capacityDetail = `Truck has ${truckTonnage}T payload available`
-    } else {
-      const deficit = loadTonnage - truckTonnage
-      capacityScore = Math.max(0, Math.round(15 - deficit * 2))
-      capacityValue = `Under-capacity (-${deficit.toFixed(1)}T)`
-      capacityDetail = `Truck capacity is ${deficit.toFixed(1)}T under required tonnage`
-      warnings.push(capacityDetail)
-    }
-    score += capacityScore
-
-    // 2. Body type 25
-    let isBodyTypeFit = false
-    let bodyTypeScore = 0
-    let bodyTypeValue = `${actType}`
-    let bodyTypeDetail = ''
-    if (actType === reqType) {
-      isBodyTypeFit = true
-      bodyTypeScore = 25
-      bodyTypeValue = `Exact Match (${actType})`
-      bodyTypeDetail = `Exact body type match (${actType})`
-      reasons.push(bodyTypeDetail)
-    } else if ((reqType === 'Open' && actType === 'OpenBody') || (reqType === 'OpenBody' && actType === 'Open') || (reqType === 'Open body' && actType === 'Open') || (reqType === 'Open' && actType === 'Open body')) {
-      isBodyTypeFit = true
-      bodyTypeScore = 18
-      bodyTypeValue = `Compatible (${actType})`
-      bodyTypeDetail = `Compatible open trailer configuration (${actType})`
-      reasons.push(bodyTypeDetail)
-    } else {
-      bodyTypeScore = 0
-      bodyTypeValue = `Mismatch (${actType} vs ${reqType})`
-      bodyTypeDetail = `Body type mismatch (Requires ${reqType}, Truck is ${actType})`
-      warnings.push(bodyTypeDetail)
-    }
-    score += bodyTypeScore
-
-    // 3. Proximity 20
-    let isProximityFit = false
-    let proximityScore = 0
-    let proximityValue = `${dist.toFixed(1)} km away`
-    let proximityDetail = ''
-    if (dist <= 10) {
-      isProximityFit = true
-      proximityScore = 20
-      proximityValue = `${dist.toFixed(1)} km (Immediate)`
-      proximityDetail = `Immediate proximity (${dist.toFixed(1)} km from loading hub)`
-      reasons.push(proximityDetail)
-    } else if (dist <= maxRadius && dist <= MAX_PROXIMITY_KM) {
-      isProximityFit = true
-      proximityScore = Math.max(5, Math.round(20 - (dist / maxRadius) * 12))
-      proximityValue = `${dist.toFixed(1)} km (In Radius)`
-      proximityDetail = `Within service radius (${dist.toFixed(1)} km away)`
-      reasons.push(proximityDetail)
-    } else if (dist <= MAX_PROXIMITY_KM) {
-      isProximityFit = true
-      proximityScore = Math.max(5, Math.round(20 - (dist / MAX_PROXIMITY_KM) * 12))
-      proximityValue = `${dist.toFixed(1)} km (In Radius)`
-      proximityDetail = `Within 50km proximity filter (${dist.toFixed(1)} km away)`
-      reasons.push(proximityDetail)
-    } else {
-      proximityScore = Math.max(0, Math.round(10 - ((dist - MAX_PROXIMITY_KM) / 50) * 8))
-      proximityValue = `${dist.toFixed(1)} km (Extended)`
-      proximityDetail = `Beyond 50km proximity filter (${dist.toFixed(1)} km from pickup)`
-      warnings.push(proximityDetail)
-    }
-    score += proximityScore
-
-    // 4. Verification 15
-    const isVerified = (truck.verificationStatus ?? truck.verification_status) === 'Verified'
-    let verificationScore = 0
-    const verificationValue = isVerified ? 'Verified Transporter' : 'Verification Pending'
-    let verificationDetail = ''
-    if (isVerified) {
-      verificationScore = 15
-      verificationDetail = 'Verified transporter (RC and Vahan records verified)'
-      reasons.push(verificationDetail)
-    } else {
-      verificationScore = 4
-      verificationDetail = 'Transporter verification is pending approval'
-      warnings.push(verificationDetail)
-    }
-    score += verificationScore
-
-    // 5. Corridor 5
-    let isPreferredCorridor = false
-    let isReturnLoad = false
-    let corridorScore = 0
-    let corridorValue = 'Standard Route'
-    let corridorDetail = 'Standard operational corridor'
-    const pref = truck.preferredDestinations ?? truck.preferred_destinations
-    if (Array.isArray(pref) && pref.length > 0) {
-      const unloadingText = (load.unloadingAddress ?? load.unloading_address ?? '').toLowerCase()
-      const loadingText = (load.loadingAddress ?? load.loading_address ?? '').toLowerCase()
-      const matchesDestination = pref.some((d: any) => unloadingText.includes(String(d).toLowerCase()))
-      const matchesOrigin = pref.some((d: any) => loadingText.includes(String(d).toLowerCase()))
-      if (matchesDestination) {
-        isPreferredCorridor = true
-        corridorScore = 5
-        corridorValue = 'Preferred Corridor'
-        corridorDetail = 'Matches truck designated preferred freight corridor'
-        reasons.push(corridorDetail)
-      } else if (matchesOrigin) {
-        isReturnLoad = true
-        isPreferredCorridor = true
-        corridorScore = 5
-        corridorValue = 'Potential Return Load'
-        corridorDetail = 'Originates from truck destination corridor (Return Haul)'
-        reasons.push(corridorDetail)
-      }
-    }
-    score += corridorScore
-
-    // Budget check (gate, not scored but influences rating)
-    const budgetCheck = this.estimateBudgetFit(load.maxPrice ?? load.max_price, loadTonnage, actType, dist)
-    const isBudgetFit = budgetCheck.fit
-    let budgetScore = isBudgetFit ? 0 : 0 // not added to 100, but warning if not fit
-    let budgetValue = isBudgetFit ? 'Budget Compatible' : 'Budget Mismatch'
-    let budgetDetail = budgetCheck.detail
-    if (isBudgetFit) reasons.push(budgetDetail)
-    else warnings.push(budgetDetail)
-
-    // Normalize
-    score = Math.min(100, Math.max(10, Math.round(score)))
-    // Apply budget penalty: if budget not fit, cap score at 65
-    if (!isBudgetFit && score > 65) score = 65
-
-    let rating: MatchResult['rating'] = 'POOR'
-    if (score >= 85) rating = 'PERFECT'
-    else if (score >= 70) rating = 'STRONG'
-    else if (score >= 50) rating = 'MODERATE'
-
-    const factors: Record<string, MatchFactorDetail> = {
-      capacity: { key: 'capacity', label: 'Capacity Fit', value: capacityValue, fit: isCapacityFit, score: capacityScore, maxScore: 35, detail: capacityDetail },
-      bodyType: { key: 'bodyType', label: 'Body Type', value: bodyTypeValue, fit: isBodyTypeFit, score: bodyTypeScore, maxScore: 25, detail: bodyTypeDetail },
-      proximity: { key: 'proximity', label: 'Distance / Proximity', value: proximityValue, fit: isProximityFit, score: proximityScore, maxScore: 20, detail: proximityDetail },
-      verification: { key: 'verification', label: 'Transporter Verification', value: verificationValue, fit: isVerified, score: verificationScore, maxScore: 15, detail: verificationDetail },
-      corridor: { key: 'corridor', label: 'Corridor / Return Load', value: corridorValue, fit: isPreferredCorridor || isReturnLoad, score: corridorScore, maxScore: 5, detail: corridorDetail },
-      budget: { key: 'budget', label: 'Budget Compatibility', value: budgetValue, fit: isBudgetFit, score: isBudgetFit ? 5 : 0, maxScore: 5, detail: budgetDetail },
-    }
-
-    return {
-      score,
-      rating,
-      label: `${score}% Smart Match`,
-      reasons,
-      warnings,
-      isCapacityFit,
-      isBodyTypeFit,
-      isProximityFit,
-      isVerified,
-      isPreferredCorridor,
-      isReturnLoad,
-      isBudgetFit,
-      distanceKm: dist,
-      factors,
-    }
+    const result = calculateSharedMatchScore(this.toLoadItem(load), this.toTruckItem(truck), {
+      distanceKm: typeof distanceKm === 'number' ? distanceKm : undefined,
+      maxProximityKm: MAX_PROXIMITY_KM,
+      budget: true,
+    })
+    return result as MatchResult
   }
 
   private normalizeRadius(radiusKm?: number): number {
