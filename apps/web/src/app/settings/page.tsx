@@ -105,19 +105,50 @@ export default function SettingsPage() {
     try {
       setLoading(true)
       setError('')
-      const [profileRes, prefsRes] = await Promise.all([
+      const [profileRes, prefsRes] = await Promise.allSettled([
         usersApi.getProfile(),
         usersApi.getPreferences(),
       ])
-      setProfile(profileRes.data)
-      setName(profileRes.data?.name || '')
-      setPrefs(prefsRes.data)
+
+      let profileData = profileRes.status === 'fulfilled' ? profileRes.value.data : null
+      if (!profileData) {
+        try {
+          const stored = localStorage.getItem('user')
+          if (stored) profileData = JSON.parse(stored)
+        } catch {
+          // Ignore parse errors
+        }
+      }
+
+      let prefsData = prefsRes.status === 'fulfilled' ? prefsRes.value.data : null
+      if (!prefsData) {
+        prefsData = {
+          theme: (theme as any) || 'system',
+          language: 'ta',
+          currency: 'INR',
+          distanceUnit: 'km',
+          notifyWhatsapp: true,
+          notifySms: true,
+          notifyPush: true,
+          notifyCheckpoints: true,
+          defaultRadiusKm: 50,
+          preferredBodyType: null,
+          autoDetectLocation: true,
+          profileVisible: true,
+        }
+      }
+
+      if (profileData) {
+        setProfile(profileData)
+        setName(profileData?.name || '')
+      }
+      setPrefs(prefsData)
     } catch {
       setError('We could not load your settings. Please try again.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [theme])
 
   useEffect(() => {
     load()
