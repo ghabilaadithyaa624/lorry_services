@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import Stripe = require('stripe')
+import Stripe from 'stripe'
 import {
   PaymentGateway,
   CreateCheckoutInput,
