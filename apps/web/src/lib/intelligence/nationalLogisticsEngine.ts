@@ -36,15 +36,36 @@ export interface NationalLogisticsSummary {
     totalCompletedBookings: number
     totalGrossPaymentVolumeINR: number
     kycApprovalRatePercent: number
+    openLoads?: number
+    inTransitLoads?: number
+    completedLoads?: number
+    vahanVerifiedTrucksCount?: number
+    fastagActiveTrucksCount?: number
+    totalBookings?: number
+    inTransitBookings?: number
+    documentComplianceRatePercent?: number
+    vahanVerificationRatePercent?: number
+    activeSubscriptionsCount?: number
+    activeTrialsCount?: number
+    totalDisputesCount?: number
+    openDisputesCount?: number
+    resolvedDisputesCount?: number
   }
   estimatedMetrics: {
     nationalAvgRatePerTonKmINR: number
     avgTransitOnTimeRatePercent: number
+    avgTransitHours?: number | null
+    avgTonnagePerTrip?: number
+    estimatedEmptyKmSavedTotal?: number
+    disputeResolutionRatePercent?: number
   }
   predictiveMetrics: {
     projectedMonthlyVolumeTons: number
+    demandSupplyRatio?: number
+    emptyRunReductionPotentialKm?: number
   }
   corridors: CorridorStat[]
+  generatedAt?: string
 }
 
 /**

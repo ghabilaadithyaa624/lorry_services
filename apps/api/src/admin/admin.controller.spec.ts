@@ -1,8 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { AdminController } from './admin.controller'
 import { AdminService } from './admin.service'
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@lorrycarry/database'
 import { VerifyDocumentDto, VerifyTruckDto, PaginationDto } from './dto/admin.dto'
+
+jest.mock('@lorrycarry/database', () => ({
+  prisma: {},
+  UserRole: {
+    factory_owner: 'factory_owner',
+    truck_driver: 'truck_driver',
+    admin: 'admin',
+  },
+}))
 
 describe('AdminController', () => {
   let controller: AdminController
@@ -14,12 +23,16 @@ describe('AdminController', () => {
     const mockAdminService = {
       getDashboardStats: jest.fn(),
       getAnalytics: jest.fn(),
+      getIntelligence: jest.fn(),
       listUsers: jest.fn(),
       getPendingDocuments: jest.fn(),
       verifyDocument: jest.fn(),
       verifyTruck: jest.fn(),
       listSubscriptions: jest.fn(),
       listBookings: jest.fn(),
+      listDisputes: jest.fn(),
+      resolveDispute: jest.fn(),
+      checkVahan: jest.fn(),
     }
 
     const module: TestingModule = await Test.createTestingModule({
@@ -80,6 +93,34 @@ describe('AdminController', () => {
 
       const result = await controller.getAnalytics(mockUserId, '999')
       expect(adminService.getAnalytics).toHaveBeenCalledWith(mockUserId, 30)
+    })
+  })
+
+  describe('getIntelligence', () => {
+    it('should return national logistics intelligence summary', async () => {
+      const mockIntelligence = {
+        realMetrics: {
+          totalPlatformLoads: 10,
+          totalPlatformTrucks: 8,
+          verifiedTrucksCount: 6,
+          totalCompletedBookings: 12,
+          totalGrossPaymentVolumeINR: 250000,
+          kycApprovalRatePercent: 75,
+        },
+        estimatedMetrics: {
+          nationalAvgRatePerTonKmINR: 3.95,
+          avgTransitOnTimeRatePercent: 94.2,
+        },
+        predictiveMetrics: {
+          projectedMonthlyVolumeTons: 720,
+        },
+        corridors: [],
+      }
+      adminService.getIntelligence.mockResolvedValue(mockIntelligence as any)
+
+      const result = await controller.getIntelligence(mockUserId)
+      expect(result).toEqual(mockIntelligence)
+      expect(adminService.getIntelligence).toHaveBeenCalledWith(mockUserId)
     })
   })
 

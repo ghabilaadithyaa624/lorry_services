@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import type { FreightEstimate, PricingInput } from './intelligence/pricingEngine'
+import type { NationalLogisticsSummary } from './intelligence/nationalLogisticsEngine'
 
 // Use the same-origin rewrite by default so browser requests work behind a
 // preview/proxy host. Direct API origins remain configurable for deployments.
@@ -262,6 +263,7 @@ export const usersApi = {
 export const adminApi = {
   getStats: () => api.get('/admin/stats'),
   getAnalytics: (rangeDays = 30) => api.get(`/admin/analytics?range=${rangeDays}`),
+  getIntelligence: () => api.get<NationalLogisticsSummary>('/admin/intelligence'),
   listUsers: (role?: string, page = 1, limit = 20) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) })
     if (role) params.set('role', role)
