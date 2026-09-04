@@ -16,10 +16,8 @@ import {
   XCircle,
   IndianRupee,
   ChevronDown,
-  MessageSquareQuote,
 } from 'lucide-react'
 import { Navbar, Footer } from '@/components/layout'
-import { FreightNetworkDiagram } from '@/components/ui'
 import HeroSection from '@/components/HeroSection'
 import { StructuredData } from '@/components/seo/StructuredData'
 import { getFaqStructuredData, getBreadcrumbStructuredData } from '@/lib/seo/structuredData'
@@ -193,25 +191,49 @@ export default function HomePage() {
     },
   ]
 
-  // Testimonial Placeholders — replace with real customer testimonials once available
-  const testimonials = [
+  // Operational Benefits — factual platform capabilities only (no customer claims/metrics)
+  const operationalBenefits = [
     {
-      quote: 'Placeholder — replace with real customer quote about direct fleet access and zero brokerage experience.',
-      name: 'Placeholder Name',
-      role: 'Fleet Manager',
-      company: 'Placeholder Company',
+      code: 'MATCHING',
+      metric: '\u2264 50 KM',
+      title: 'Geospatial Proximity Matching',
+      desc: 'PostGIS-powered discovery within a customizable search radius, ranked by a deterministic 100-point compatibility score across capacity fit, body type, proximity, and verification.',
+      icon: MapPin,
     },
     {
-      quote: 'Placeholder — replace with real customer quote about Vahan-verified trucks and checkpoint tracking transparency.',
-      name: 'Placeholder Name',
-      role: 'Logistics Head',
-      company: 'Placeholder Company',
+      code: 'VERIFICATION',
+      metric: 'VAHAN RC',
+      title: 'Government Database Verification',
+      desc: 'Truck registration certificates are validated against the Vahan database with masked owner PII, insurance validity, fitness, and FASTag readiness surfaced on every listing.',
+      icon: CheckCircle2,
     },
     {
-      quote: 'Placeholder — replace with real customer quote about 50km proximity matching and direct driver connect.',
-      name: 'Placeholder Name',
-      role: 'Transport Owner',
-      company: 'Placeholder Company',
+      code: 'COMMERCIALS',
+      metric: '50 / 50',
+      title: 'Zero Brokerage Commercial Terms',
+      desc: 'Standardised 50% advance at loading and 50% balance on POD confirmation, settled directly between shipper and transporter with no commission taken by the platform.',
+      icon: IndianRupee,
+    },
+    {
+      code: 'TRACKING',
+      metric: '5 STAGE',
+      title: 'Checkpoint Trip Telemetry',
+      desc: 'Geofenced checkpoint trail with milestone crossing logs, ETA recalculation, incident reporting, and Proof of Delivery image submission.',
+      icon: Signal,
+    },
+    {
+      code: 'DOCUMENTS',
+      metric: '7 STAGE',
+      title: 'Digital Document Chain',
+      desc: 'Booking, E-Way Bill, loading, transit, delivery, POD, and balance documents stored via private pre-signed upload and download URLs with admin verification.',
+      icon: FileText,
+    },
+    {
+      code: 'BACKHAUL',
+      metric: '\u2264 300 KM',
+      title: 'Return Load Radar',
+      desc: 'Backhaul discovery resolves drop-off hubs from active bookings, truck GPS, or preferred corridors and ranks open return loads by deadhead distance and payload fit.',
+      icon: Truck,
     },
   ]
 
@@ -786,56 +808,63 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── SECTION 7: TESTIMONIALS (PLACEHOLDER CONTENT) ── */}
-        <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="space-y-12">
+        {/* ── SECTION 7: OPERATIONAL BENEFITS (FACTUAL PLATFORM CAPABILITIES) ── */}
+        <section id="operational-benefits" className="relative py-20 bg-[#070A11] overflow-hidden">
+          {/* Ambient brand glow */}
+          <div
+            className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[380px] bg-gradient-to-b from-orange-500/20 via-sky-500/10 to-transparent blur-3xl pointer-events-none"
+            aria-hidden="true"
+          />
+
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
             <div className="text-center max-w-2xl mx-auto space-y-3">
-              <span className="inline-block px-2.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 font-mono text-[10px] uppercase font-bold">
-                OPERATOR FEEDBACK (PLACEHOLDER)
+              <span className="inline-block px-2.5 py-0.5 rounded-full bg-orange-500/15 text-orange-300 border border-orange-500/30 font-mono text-[10px] uppercase font-bold tracking-widest">
+                OPERATIONAL BENEFITS
               </span>
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight font-sans">
-                Trusted by Freight Operators
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-sans">
+                What The Platform Actually Does
               </h2>
-              <p className="text-xs sm:text-sm text-gray-500 font-sans">
-                Illustrative feedback from shippers and transport owners on the LorryCarry direct network.
+              <p className="text-xs sm:text-sm text-slate-400 font-sans">
+                Shipped product capabilities of the LorryCarry direct freight network — matching, verification, commercial terms, tracking, and documentation.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {testimonials.map((t, idx) => (
-                <div
-                  key={idx}
-                  className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-7 flex flex-col justify-between space-y-6 shadow-sm hover:shadow-md transition-all"
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <MessageSquareQuote className="w-8 h-8 text-orange-500/70" />
-                      <span className="text-[9px] font-mono font-bold text-gray-400 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded border border-gray-200">
-                        SAMPLE CARD
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {operationalBenefits.map((benefit) => {
+                const Icon = benefit.icon
+                return (
+                  <div
+                    key={benefit.code}
+                    className="bg-slate-900/70 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-7 space-y-5 shadow-xl transition-all hover:border-orange-500/40 hover:bg-slate-900/90"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-orange-500/10 border border-orange-500/25 shrink-0">
+                        <Icon className="w-5 h-5 text-orange-400" />
+                      </span>
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400 bg-white/5 border border-white/10 px-2 py-1 rounded-lg">
+                        {benefit.code}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-700 leading-relaxed font-sans italic">
-                      &ldquo;{t.quote}&rdquo;
-                    </p>
-                  </div>
 
-                  <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                    {/* Avatar Placeholder */}
-                    <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-xs font-mono shrink-0">
-                      {t.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-gray-900 font-sans block">
-                        {t.name}
+                    <div className="space-y-2">
+                      <span className="block text-xl font-mono font-bold text-orange-400 tracking-tight">
+                        {benefit.metric}
                       </span>
-                      <span className="text-[11px] text-gray-500 font-sans">
-                        {t.role}, {t.company}
-                      </span>
+                      <h3 className="text-sm sm:text-base font-bold text-white font-sans leading-snug">
+                        {benefit.title}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-400 leading-relaxed font-sans">
+                        {benefit.desc}
+                      </p>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
+
+            <p className="text-center text-[10px] sm:text-[11px] font-mono uppercase tracking-widest text-slate-500">
+              NO CUSTOMER TESTIMONIALS ARE PUBLISHED UNTIL VERIFIED OPERATOR QUOTES ARE AVAILABLE
+            </p>
           </div>
         </section>
 
