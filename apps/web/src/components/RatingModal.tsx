@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { StarIcon } from '@heroicons/react/24/solid'
-import { StarIcon as StarOutline } from '@heroicons/react/24/outline'
+import { StarIcon as StarOutline, XMarkIcon } from '@heroicons/react/24/outline'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
@@ -34,6 +34,15 @@ export function RatingModal({ isOpen, onClose, booking, onRatingSubmitted }: Rat
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   const handleSubmit = async () => {
     if (rating === 0) {
       toast.error('Please select a rating')
@@ -62,19 +71,32 @@ export function RatingModal({ isOpen, onClose, booking, onRatingSubmitted }: Rat
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      
-      {/* Modal */}
-      <div className="relative bg-panel rounded-2xl border border-white/10 shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm cursor-pointer"
+      onClick={onClose}
+    >
+      {/* Modal Card */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rating-modal-title"
+        onClick={(e) => e.stopPropagation()}
+        className="relative bg-panel rounded-2xl border border-white/10 shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200 cursor-default"
+      >
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary-600 to-primary-700 p-6 text-center">
-          <div className="text-4xl mb-2">🎉</div>
-          <h2 className="text-xl font-bold text-white">Trip Completed!</h2>
+        <div className="relative bg-gradient-to-r from-primary-600 to-primary-700 p-6 text-center">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close dialog"
+            className="absolute top-4 right-4 text-white/70 hover:text-white p-1 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <XMarkIcon className="w-5 h-5" aria-hidden="true" />
+          </button>
+          <div className="text-4xl mb-2" aria-hidden="true">🎉</div>
+          <h2 id="rating-modal-title" className="text-xl font-bold text-white">
+            Trip Completed!
+          </h2>
           <p className="text-primary-200 text-sm mt-1">
             Your cargo has been delivered successfully
           </p>
@@ -84,14 +106,15 @@ export function RatingModal({ isOpen, onClose, booking, onRatingSubmitted }: Rat
         <div className="p-6 space-y-6">
           {ratingSubmitted ? (
             <div className="text-center space-y-4">
-              <div className="text-5xl">⭐</div>
+              <div className="text-5xl" aria-hidden="true">⭐</div>
               <h3 className="text-lg font-bold text-white">Thank You!</h3>
               <p className="text-surface-300 text-sm">
                 Your rating has been submitted successfully.
               </p>
               <button
+                type="button"
                 onClick={onClose}
-                className="w-full py-3 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-bold transition-colors"
+                className="w-full py-3 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
               >
                 Close
               </button>
@@ -115,17 +138,25 @@ export function RatingModal({ isOpen, onClose, booking, onRatingSubmitted }: Rat
 
               {/* Rating Stars */}
               <div className="space-y-3">
-                <label className="block text-sm font-bold text-surface-200">
+                <label id="rating-stars-label" className="block text-sm font-bold text-surface-200">
                   Rate your delivery experience
                 </label>
-                <div className="flex items-center justify-center gap-2">
+                <div
+                  role="radiogroup"
+                  aria-labelledby="rating-stars-label"
+                  className="flex items-center justify-center gap-2"
+                >
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
+                      type="button"
+                      role="radio"
+                      aria-checked={rating === star}
+                      aria-label={`${star} star${star > 1 ? 's' : ''}`}
                       onClick={() => setRating(star)}
                       onMouseEnter={() => setHoverRating(star)}
                       onMouseLeave={() => setHoverRating(0)}
-                      className="p-1 transition-transform hover:scale-110 focus:outline-none"
+                      className="p-1 transition-transform hover:scale-110 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                     >
                       {star <= (hoverRating || rating) ? (
                         <StarIcon className="w-10 h-10 text-yellow-400 drop-shadow-lg" />
@@ -135,7 +166,7 @@ export function RatingModal({ isOpen, onClose, booking, onRatingSubmitted }: Rat
                     </button>
                   ))}
                 </div>
-                <p className="text-center text-sm text-surface-400">
+                <p className="text-center text-sm text-surface-400" aria-live="polite">
                   {rating === 1 && 'Poor - Very disappointed'}
                   {rating === 2 && 'Fair - Below expectations'}
                   {rating === 3 && 'Good - Met expectations'}
@@ -147,10 +178,11 @@ export function RatingModal({ isOpen, onClose, booking, onRatingSubmitted }: Rat
 
               {/* Review */}
               <div className="space-y-2">
-                <label className="block text-sm font-bold text-surface-200">
+                <label htmlFor="review-comment-input" className="block text-sm font-bold text-surface-200">
                   Share your experience (optional)
                 </label>
                 <textarea
+                  id="review-comment-input"
                   value={review}
                   onChange={(e) => setReview(e.target.value)}
                   placeholder="How was your experience with this driver? Did they deliver on time? Was the cargo handled properly?"
@@ -162,15 +194,17 @@ export function RatingModal({ isOpen, onClose, booking, onRatingSubmitted }: Rat
               {/* Actions */}
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={onClose}
-                  className="flex-1 py-3 rounded-xl bg-surface-800 hover:bg-surface-700 text-surface-300 font-bold transition-colors border border-white/5"
+                  className="flex-1 py-3 rounded-xl bg-surface-800 hover:bg-surface-700 text-surface-300 font-bold transition-colors border border-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 >
                   Skip for Now
                 </button>
                 <button
+                  type="button"
                   onClick={handleSubmit}
                   disabled={rating === 0 || isSubmitting}
-                  className="flex-1 py-3 rounded-xl bg-primary-600 hover:bg-primary-500 disabled:bg-surface-700 disabled:text-surface-500 text-white font-bold transition-colors"
+                  className="flex-1 py-3 rounded-xl bg-primary-600 hover:bg-primary-500 disabled:bg-surface-700 disabled:text-surface-500 text-white font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 >
                   {isSubmitting ? 'Submitting...' : 'Submit Rating'}
                 </button>
