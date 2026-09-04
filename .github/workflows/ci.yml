@@ -52,6 +52,9 @@ jobs:
       - name: Build Shared Package
         run: npm run build --workspace=@lorrycarry/shared
 
+      - name: Build Database Package
+        run: npm run build --workspace=@lorrycarry/database
+
       - name: Run Shared Package Tests
         run: npm run test --workspace=@lorrycarry/shared
 
@@ -63,18 +66,6 @@ jobs:
 
       - name: Run Web Tests
         run: npm --prefix apps/web test
-
-      - name: Build Database Package
-        run: npm run build --workspace=@lorrycarry/database
-
-      - name: Run API Tests
-        run: npm --prefix apps/api test
-
-      - name: Run Web Tests
-        run: npm --prefix apps/web test
-
-      - name: Run Tests
-        run: npm --prefix apps/api test
 
       - name: Build API
         run: npm run build --workspace=@lorrycarry/api
