@@ -90,7 +90,7 @@ export function NeedVehicleForm() {
       <section className="relative overflow-hidden rounded-panel bg-slate-950 px-5 py-7 text-white shadow-elevated sm:px-8 sm:py-9">
         <div className="absolute -right-8 -top-20 h-56 w-56 rounded-full bg-emerald-500/15 blur-3xl" aria-hidden="true" />
         <div className="relative max-w-3xl">
-          <Link href="/dashboard/truck-owner" className="mb-5 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 transition-colors hover:text-white">
+          <Link href="/dashboard/truck-driver" className="mb-5 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 transition-colors hover:text-white">
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {t('needVehicle.backToDashboard')}
           </Link>

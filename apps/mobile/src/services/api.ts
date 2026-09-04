@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { MMKV } from 'react-native-mmkv'
+import type { RegistrationRole } from '../lib/roles'
 
 const storage = new MMKV()
 const API_URL = 'http://localhost:3002/api/v1' // Change for production
@@ -63,7 +64,7 @@ export const authApi = {
   requestOtp: (phone: string, channel: 'whatsapp' | 'sms' = 'whatsapp') =>
     api.post('/auth/otp/request', { phone, channel }),
 
-  verifyOtp: (phone: string, otp: string, role?: 'load_owner' | 'truck_owner' | 'driver') =>
+  verifyOtp: (phone: string, otp: string, role?: RegistrationRole) =>
     api.post('/auth/otp/verify', { phone, otp, role }),
 
   refreshToken: (refreshToken: string) =>

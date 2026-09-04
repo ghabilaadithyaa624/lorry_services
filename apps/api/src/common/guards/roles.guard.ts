@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@
 import { Reflector } from '@nestjs/core'
 import { UserRole } from '@prisma/client'
 import { ROLES_KEY } from '../decorators/roles.decorator'
+import { normalizeRole } from '../utils/roles.util'
 
 /**
  * Roles Guard - Check if user has required role
@@ -28,7 +29,10 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated')
     }
 
-    const hasRole = requiredRoles.some((role) => user.role === role)
+    // Normalize so tokens/sessions still carrying legacy labels
+    // (load_owner / truck_owner / driver) resolve to their canonical role.
+    const userRole = normalizeRole(user.role) ?? user.role
+    const hasRole = requiredRoles.some((role) => userRole === normalizeRole(role as string))
     
     if (!hasRole) {
       throw new ForbiddenException(`Access denied. Required roles: ${requiredRoles.join(', ')}`)

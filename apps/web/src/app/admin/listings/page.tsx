@@ -13,6 +13,7 @@ import { adminApi } from '@/lib/api'
 import { Badge, Button, Modal, Spinner } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { formatPhone, cn } from '@/lib/utils'
+import { getRoleLabel } from '@/lib/roles'
 
 interface Stats {
   totalLoads: number
@@ -386,11 +387,11 @@ export default function MarketplaceListingsPage() {
                     </td>
                     <td className="py-3.5 px-4">
                       <Badge
-                        variant={u.role === 'load_owner' ? 'info' : u.role === 'admin' ? 'danger' : 'success'}
+                        variant={u.role === 'factory_owner' ? 'info' : u.role === 'admin' ? 'danger' : 'success'}
                         size="sm"
                         className="font-mono text-[10px]"
                       >
-                        {u.role === 'load_owner' ? 'Factory Owner' : u.role === 'truck_owner' ? 'Transporter' : u.role === 'driver' ? 'Driver' : 'Admin'}
+                        {getRoleLabel(u.role)}
                       </Badge>
                     </td>
                     <td className="py-3.5 px-4 text-right font-black text-amber-400">{u._count.loads}</td>

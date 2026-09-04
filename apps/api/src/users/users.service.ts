@@ -8,6 +8,7 @@ import { prisma, UserRole, SubscriptionStatus } from "@lorrycarry/database";
 import { S3Service } from "../common/services/s3.service";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UpdatePreferencesDto } from "./dto/update-preferences.dto";
+import { isVehicleSideRole as isVehicleSide, isFreightSideRole as isFreightSide } from '../common/utils/roles.util'
 
 export interface ActivityItem {
   id: string;
@@ -50,11 +51,9 @@ export interface UserNotificationItem {
   deliveredAt?: Date;
 }
 
-const isVehicleSideRole = (role: string | UserRole) =>
-  role === UserRole.truck_owner || role === UserRole.driver || (role as any) === 'truck_driver'
+const isVehicleSideRole = (role: string | UserRole) => isVehicleSide(role)
 
-const isLoadSideRole = (role: string | UserRole) =>
-  role === UserRole.load_owner || (role as any) === 'factory_owner'
+const isLoadSideRole = (role: string | UserRole) => isFreightSide(role)
 
 @Injectable()
 export class UsersService {
@@ -349,7 +348,7 @@ export class UsersService {
       id: `acc-create-${user.id}`,
       category: "ACCOUNT",
       title: "Account Registered",
-      description: `Registered with mobile ${user.phone} as ${user.role === "driver" ? "Driver" : user.role === "truck_owner" ? "Transporter" : "Factory Owner"}.`,
+      description: `Registered with mobile ${user.phone} as ${isVehicleSideRole(user.role) ? "Truck Driver" : "Factory Owner"}.`,
       timestamp: user.createdAt,
       status: "Completed",
     });
@@ -357,7 +356,7 @@ export class UsersService {
     // Execute all independent queries concurrently
     const isTruckOwner = isVehicleSideRole(user.role);
     const [loads, trucks, bookings, payments] = await Promise.all([
-      // 2. Loads (Only for load_owner or admin)
+      // 2. Loads (Only for factory_owner or admin)
       isLoadSideRole(user.role) || user.role === UserRole.admin
         ? prisma.load.findMany({
             where: { userId },
@@ -366,7 +365,7 @@ export class UsersService {
           })
         : Promise.resolve([]),
 
-      // 3. Trucks & Documents (Only for truck_owner or admin)
+      // 3. Trucks & Documents (Only for truck_driver or admin)
       isVehicleSideRole(user.role) || user.role === UserRole.admin
         ? prisma.truck.findMany({
             where: { userId },
@@ -430,7 +429,7 @@ export class UsersService {
         description: `${truck.tonnageCapacity}T capacity, ${truck.bodyType} body. Status: ${truck.verificationStatus}`,
         timestamp: truck.createdAt,
         status: truck.verificationStatus,
-        actionUrl: `/dashboard/truck-owner`,
+        actionUrl: `/dashboard/truck-driver`,
         metadata: {
           registrationNumber: truck.registrationNumber,
           verificationStatus: truck.verificationStatus,
@@ -593,7 +592,7 @@ export class UsersService {
             message: `Truck ${truck.registrationNumber} is verified and visible in marketplace searches.`,
             timestamp: truck.verifiedAt || truck.updatedAt,
             read: true,
-            actionUrl: user.role === UserRole.driver ? "/dashboard/driver" : "/dashboard/truck-owner",
+            actionUrl: "/dashboard/truck-driver",
           });
         }
       });

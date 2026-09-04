@@ -1,8 +1,9 @@
-'use client'
+import { redirect } from 'next/navigation'
 
-import React from 'react'
-import { UnifiedDashboard } from '@/components/dashboard/UnifiedDashboard'
-
-export default function TruckOwnerDashboardPage() {
-  return <UnifiedDashboard roleOverride="truck_owner" />
+/**
+ * Legacy dashboard route kept only as a redirect to the canonical route.
+ * Canonical: /dashboard/truck-driver
+ */
+export default function LegacyTruckOwnerDashboardPage() {
+  redirect('/dashboard/truck-driver')
 }

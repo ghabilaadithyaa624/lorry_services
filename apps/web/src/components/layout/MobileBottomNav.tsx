@@ -19,7 +19,7 @@ interface UserState {
   id?: string
   phone?: string
   name?: string
-  role?: 'load_owner' | 'truck_owner' | 'driver' | 'admin'
+  role?: string
 }
 
 /**

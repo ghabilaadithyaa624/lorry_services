@@ -177,7 +177,7 @@ describe('AdminService', () => {
     })
 
     it('should throw ForbiddenException if user is not admin', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.truck_owner })
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.truck_driver })
       await expect(service.getAnalytics('user-id')).rejects.toThrow(
         new ForbiddenException('Admin access required'),
       )

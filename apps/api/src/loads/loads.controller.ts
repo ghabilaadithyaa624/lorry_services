@@ -31,7 +31,7 @@ export class LoadsController {
   ) {}
 
   @Post()
-  @Roles(UserRole.load_owner)
+  @Roles(UserRole.factory_owner)
   @ApiOperation({ summary: 'Post a new load (Need Load) — triggers tonnage/route/budget matching & WhatsApp' })
   async create(
     @Body() dto: CreateLoadDto,
@@ -52,7 +52,7 @@ export class LoadsController {
   }
 
   @Get('my-loads')
-  @Roles(UserRole.load_owner)
+  @Roles(UserRole.factory_owner)
   @ApiOperation({ summary: 'Get my posted loads with pagination' })
   async findMyLoads(
     @CurrentUser('id') userId: string,
@@ -78,7 +78,7 @@ export class LoadsController {
   }
 
   @Patch(':id/status')
-  @Roles(UserRole.load_owner)
+  @Roles(UserRole.factory_owner)
   @ApiOperation({ summary: 'Update load status' })
   async updateStatus(
     @Param('id') id: string,
@@ -89,7 +89,7 @@ export class LoadsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.load_owner)
+  @Roles(UserRole.factory_owner)
   @ApiOperation({ summary: 'Delete load (only if Open)' })
   async delete(
     @Param('id') id: string,

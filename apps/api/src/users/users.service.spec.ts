@@ -42,9 +42,6 @@ jest.mock('@lorrycarry/database', () => {
   return {
     prisma: mockPrisma,
     UserRole: {
-      truck_owner: 'truck_owner',
-      load_owner: 'load_owner',
-      driver: 'driver',
       truck_driver: 'truck_driver',
       factory_owner: 'factory_owner',
       admin: 'admin',
@@ -447,7 +444,7 @@ describe('UsersService', () => {
     it('should surface rich metadata from persisted WhatsApp notifications', async () => {
       ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
         id: 'u-1',
-        role: UserRole.load_owner,
+        role: UserRole.factory_owner,
         trucks: [],
         subscriptions: [],
       })

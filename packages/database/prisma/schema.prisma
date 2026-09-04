@@ -100,15 +100,16 @@ model NotificationReceipt {
   @@map("notification_receipts")
 }
 
+/// Canonical user roles (see docs/database-schema-design.md).
+/// Legacy values `load_owner` / `truck_owner` were renamed in place to
+/// `factory_owner` / `truck_driver`, and `driver` rows were migrated to
+/// `truck_driver` by migration 20260904000000_canonicalize_user_roles.
 enum UserRole {
   /// Factory owners / shippers who post freight requirements.
-  load_owner
-  /// Fleet operators / transporters who list vehicles.
-  truck_owner
-  /// Individual drivers who work from the vehicle-side workspace.
-  driver
   factory_owner
+  /// Truck drivers / fleet operators who list vehicles and run trips.
   truck_driver
+  /// Platform operators.
   admin
 }
 

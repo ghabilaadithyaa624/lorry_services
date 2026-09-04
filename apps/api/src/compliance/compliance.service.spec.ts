@@ -74,16 +74,16 @@ describe('ComplianceService', () => {
   describe('access control', () => {
     it('should 404 for a missing truck', async () => {
       ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(null)
-      await expect(service.getTruckCompliance('nope', OWNER, 'truck_owner')).rejects.toThrow(NotFoundException)
+      await expect(service.getTruckCompliance('nope', OWNER, 'truck_driver')).rejects.toThrow(NotFoundException)
     })
 
     it('should allow the truck owner and admins, deny strangers', async () => {
       ;(prisma.truck.findUnique as jest.Mock).mockResolvedValue(truckWithVahan())
 
-      await expect(service.getTruckCompliance('truck-1', OWNER, 'truck_owner')).resolves.toBeTruthy()
+      await expect(service.getTruckCompliance('truck-1', OWNER, 'truck_driver')).resolves.toBeTruthy()
       await expect(service.getTruckCompliance('truck-1', ADMIN, 'admin')).resolves.toBeTruthy()
       await expect(
-        service.getTruckCompliance('truck-1', OTHER, 'truck_owner')
+        service.getTruckCompliance('truck-1', OTHER, 'truck_driver')
       ).rejects.toThrow(ForbiddenException)
     })
   })
@@ -94,7 +94,7 @@ describe('ComplianceService', () => {
     it('should report a fully compliant truck with Vahan-backed items', async () => {
       ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(truckWithVahan())
 
-      const checklist = await service.getTruckCompliance('truck-1', OWNER, 'truck_owner')
+      const checklist = await service.getTruckCompliance('truck-1', OWNER, 'truck_driver')
 
       expect(checklist.overall).toBe('compliant')
       const keys = checklist.items.map((i) => i.key)
@@ -107,7 +107,7 @@ describe('ComplianceService', () => {
         truckWithVahan({ vahanValidatedAt: null, vahanDetails: null, fastagStatus: 'Unknown' }),
       )
 
-      const checklist = await service.getTruckCompliance('truck-1', OWNER, 'truck_owner')
+      const checklist = await service.getTruckCompliance('truck-1', OWNER, 'truck_driver')
 
       const rc = checklist.items.find((i) => i.key === 'rc_vahan')!
       expect(rc.status).toBe('pending')
@@ -128,7 +128,7 @@ describe('ComplianceService', () => {
         }),
       )
 
-      const checklist = await service.getTruckCompliance('truck-1', OWNER, 'truck_owner')
+      const checklist = await service.getTruckCompliance('truck-1', OWNER, 'truck_driver')
       expect(checklist.items.find((i) => i.key === 'insurance')!.status).toBe('expired')
       expect(checklist.overall).toBe('expired')
     })
@@ -136,7 +136,7 @@ describe('ComplianceService', () => {
     it('should flag LowBalance FASTag as action_required', async () => {
       ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(truckWithVahan({ fastagStatus: 'LowBalance' }))
 
-      const checklist = await service.getTruckCompliance('truck-1', OWNER, 'truck_owner')
+      const checklist = await service.getTruckCompliance('truck-1', OWNER, 'truck_driver')
       expect(checklist.items.find((i) => i.key === 'fastag')!.status).toBe('action_required')
       expect(checklist.overall).toBe('action_required')
     })
@@ -148,7 +148,7 @@ describe('ComplianceService', () => {
         }),
       )
 
-      const checklist = await service.getTruckCompliance('truck-1', OWNER, 'truck_owner')
+      const checklist = await service.getTruckCompliance('truck-1', OWNER, 'truck_driver')
       const rc = checklist.items.find((i) => i.key === 'rc_vahan')!
       expect(rc.status).toBe('action_required')
     })
@@ -164,7 +164,7 @@ describe('ComplianceService', () => {
       ;(prisma.truck.update as jest.Mock).mockResolvedValueOnce({})
       vahan.validateRC.mockResolvedValueOnce({ valid: true, found: true, data: { registrationNumber: 'MH12QW8842' } })
 
-      const result = await service.validateTruckRC('truck-1', OWNER, 'truck_owner')
+      const result = await service.validateTruckRC('truck-1', OWNER, 'truck_driver')
 
       expect(vahan.validateRC).toHaveBeenCalledWith('MH12QW8842')
       expect(prisma.truck.update).toHaveBeenCalledWith(
@@ -184,7 +184,7 @@ describe('ComplianceService', () => {
       ;(prisma.truck.update as jest.Mock).mockResolvedValueOnce({})
       vahan.validateRC.mockResolvedValueOnce({ valid: false, found: false, error: 'RC not found in the Vahan database' })
 
-      const result = await service.validateTruckRC('truck-1', OWNER, 'truck_owner')
+      const result = await service.validateTruckRC('truck-1', OWNER, 'truck_driver')
 
       expect(result.validation.valid).toBe(false)
       expect(prisma.truck.update).toHaveBeenCalledWith(
@@ -205,7 +205,7 @@ describe('ComplianceService', () => {
         .mockResolvedValueOnce(truckWithVahan({ fastagStatus: 'Active' }))
       ;(prisma.truck.update as jest.Mock).mockResolvedValueOnce({ id: 'truck-1', fastagStatus: 'Active' })
 
-      const result = await service.updateFastag('truck-1', OWNER, 'truck_owner', 'Active')
+      const result = await service.updateFastag('truck-1', OWNER, 'truck_driver', 'Active')
 
       expect(prisma.truck.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ fastagStatus: 'Active' }) }),
@@ -216,7 +216,7 @@ describe('ComplianceService', () => {
 
     it('should deny a stranger reporting FASTag status', async () => {
       ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(truckWithVahan())
-      await expect(service.updateFastag('truck-1', OTHER, 'truck_owner', 'Active')).rejects.toThrow(ForbiddenException)
+      await expect(service.updateFastag('truck-1', OTHER, 'truck_driver', 'Active')).rejects.toThrow(ForbiddenException)
     })
   })
 
@@ -241,8 +241,8 @@ describe('ComplianceService', () => {
       const booking = bookingFixture()
       ;(prisma.booking.findUnique as jest.Mock).mockResolvedValue(booking)
 
-      const forOwner = await service.getBookingCompliance('bk-1', 'load-owner-1', 'load_owner')
-      const forTrucker = await service.getBookingCompliance('bk-1', OWNER, 'truck_owner')
+      const forOwner = await service.getBookingCompliance('bk-1', 'load-owner-1', 'factory_owner')
+      const forTrucker = await service.getBookingCompliance('bk-1', OWNER, 'truck_driver')
 
       expect(forOwner.items.map((i) => i.key)).toContain('eway_bill')
       expect(forOwner.items.find((i) => i.key === 'eway_bill')!.status).toBe('compliant')
@@ -254,7 +254,7 @@ describe('ComplianceService', () => {
         bookingFixture({ ewayBillNumber: null, ewayBillStatus: 'Pending', ewayBillValidUpto: null, ewayBillUpdatedAt: null }),
       )
 
-      const checklist = await service.getBookingCompliance('bk-1', 'load-owner-1', 'load_owner')
+      const checklist = await service.getBookingCompliance('bk-1', 'load-owner-1', 'factory_owner')
       const eway = checklist.items.find((i) => i.key === 'eway_bill')!
       expect(eway.status).toBe('pending')
       expect(eway.detail).toContain('GST/NIC portal')
@@ -265,14 +265,14 @@ describe('ComplianceService', () => {
         bookingFixture({ ewayBillValidUpto: new Date(Date.now() - 86400000) }),
       )
 
-      const checklist = await service.getBookingCompliance('bk-1', 'load-owner-1', 'load_owner')
+      const checklist = await service.getBookingCompliance('bk-1', 'load-owner-1', 'factory_owner')
       expect(checklist.items.find((i) => i.key === 'eway_bill')!.status).toBe('expired')
       expect(checklist.overall).toBe('expired')
     })
 
     it('should deny unrelated users', async () => {
       ;(prisma.booking.findUnique as jest.Mock).mockResolvedValueOnce(bookingFixture())
-      await expect(service.getBookingCompliance('bk-1', OTHER, 'load_owner')).rejects.toThrow(ForbiddenException)
+      await expect(service.getBookingCompliance('bk-1', OTHER, 'factory_owner')).rejects.toThrow(ForbiddenException)
     })
   })
 
@@ -291,7 +291,7 @@ describe('ComplianceService', () => {
         .mockResolvedValueOnce(bookingFixture()) // checklist refetch
       mockBookingUpdateEcho(detached)
 
-      const result = await service.updateEwayBill('bk-1', 'load-owner-1', 'load_owner', '381234567890')
+      const result = await service.updateEwayBill('bk-1', 'load-owner-1', 'factory_owner', '381234567890')
 
       expect(prisma.booking.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -310,7 +310,7 @@ describe('ComplianceService', () => {
       const booking = bookingFixture()
       ;(prisma.booking.findUnique as jest.Mock).mockResolvedValue(booking)
       mockBookingUpdateEcho(booking)
-      await expect(service.updateEwayBill('bk-1', OWNER, 'truck_owner', '381234567890')).rejects.toThrow(ForbiddenException)
+      await expect(service.updateEwayBill('bk-1', OWNER, 'truck_driver', '381234567890')).rejects.toThrow(ForbiddenException)
       await expect(service.updateEwayBill('bk-1', ADMIN, 'admin', '381234567890')).resolves.toBeTruthy()
     })
 
@@ -324,7 +324,7 @@ describe('ComplianceService', () => {
       const result = await service.updateEwayBill(
         'bk-1',
         'load-owner-1',
-        'load_owner',
+        'factory_owner',
         '381234567890',
         futureIso(-5),
       )
@@ -341,7 +341,7 @@ describe('ComplianceService', () => {
         ) // checklist refetch
       mockBookingUpdateEcho(attached)
 
-      const result = await service.updateEwayBill('bk-1', 'load-owner-1', 'load_owner', null)
+      const result = await service.updateEwayBill('bk-1', 'load-owner-1', 'factory_owner', null)
 
       expect(prisma.booking.update).toHaveBeenCalledWith(
         expect.objectContaining({

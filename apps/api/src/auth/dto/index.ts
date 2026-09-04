@@ -1,6 +1,7 @@
-import { IsString, IsEnum, IsOptional, Matches } from 'class-validator'
+import { IsString, IsEnum, IsIn, IsOptional, Matches } from 'class-validator'
 import { ApiProperty } from '@nestjs/swagger'
 import { UserRole } from '@prisma/client'
+import { CANONICAL_ROLES, LEGACY_ROLE_MAP } from '../../common/utils/roles.util'
 
 export enum OtpChannel {
   WHATSAPP = 'whatsapp',
@@ -30,8 +31,17 @@ export class VerifyOtpDto {
   @Matches(/^\d{6}$/, { message: 'OTP must be 6 digits' })
   otp: string
 
-  @ApiProperty({ enum: UserRole, required: false, description: 'Required for new users' })
-  @IsEnum(UserRole)
+  /**
+   * Canonical roles: factory_owner | truck_driver | admin.
+   * Legacy labels (load_owner, truck_owner, driver) are still accepted from
+   * older clients and normalized server-side by `normalizeRole`.
+   */
+  @ApiProperty({
+    enum: [...CANONICAL_ROLES, ...Object.keys(LEGACY_ROLE_MAP)],
+    required: false,
+    description: 'Required for new users. Legacy role labels are accepted and normalized.',
+  })
+  @IsIn([...CANONICAL_ROLES, ...Object.keys(LEGACY_ROLE_MAP)])
   @IsOptional()
   role?: UserRole
 }

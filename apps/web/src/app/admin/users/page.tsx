@@ -18,21 +18,21 @@ import { adminApi } from '@/lib/api'
 import { Badge, Button, Spinner, Modal } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { formatPhone, getInitials, cn } from '@/lib/utils'
+import type { AppUserRole } from '@/lib/roles'
 
 interface User {
   id: string
   phone: string
   name: string | null
-  role: 'load_owner' | 'truck_owner' | 'driver' | 'admin'
+  role: AppUserRole
   createdAt: string
   updatedAt: string
   _count: { loads: number; trucks: number; subscriptions: number }
 }
 
 const ROLE_BADGE: Record<string, { variant: 'info' | 'success' | 'danger'; label: string }> = {
-  load_owner: { variant: 'info', label: 'Factory Owner' },
-  truck_owner: { variant: 'success', label: 'Transporter' },
-  driver: { variant: 'success', label: 'Driver' },
+  factory_owner: { variant: 'info', label: 'Factory Owner' },
+  truck_driver: { variant: 'success', label: 'Truck Driver' },
   admin: { variant: 'danger', label: 'Admin' },
 }
 
@@ -83,8 +83,8 @@ export default function UserOperationsPage() {
   })
 
   // Role distribution metrics
-  const loadOwnerCount = users.filter((u) => u.role === 'load_owner').length
-  const truckOwnerCount = users.filter((u) => u.role === 'truck_owner').length
+  const loadOwnerCount = users.filter((u) => u.role === 'factory_owner').length
+  const truckOwnerCount = users.filter((u) => u.role === 'truck_driver').length
   const adminCount = users.filter((u) => u.role === 'admin').length
 
   if (loading) {
@@ -190,9 +190,8 @@ export default function UserOperationsPage() {
           <FunnelIcon className="w-4 h-4 text-primary-400 shrink-0" />
           {[
             { id: '', label: 'All Roles' },
-            { id: 'load_owner', label: 'Factory Owners' },
-            { id: 'truck_owner', label: 'Transporters' },
-            { id: 'driver', label: 'Drivers' },
+            { id: 'factory_owner', label: 'Factory Owners' },
+            { id: 'truck_driver', label: 'Truck Drivers' },
             { id: 'admin', label: 'Admins' },
           ].map((r) => (
             <button

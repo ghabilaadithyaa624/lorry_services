@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { MMKV } from 'react-native-mmkv'
+import type { AnyUserRole } from '../lib/roles'
 
 const storage = new MMKV()
 
@@ -7,7 +8,7 @@ interface User {
   id: string
   phone: string
   name: string | null
-  role: 'load_owner' | 'truck_owner' | 'driver' | 'admin'
+  role: AnyUserRole
 }
 
 interface AuthContextType {

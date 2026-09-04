@@ -13,6 +13,7 @@ import { BookingsService } from './bookings.service'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { Roles } from '../common/decorators/roles.decorator'
+import { isFreightSideRole } from '../common/utils/roles.util'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { CreateBookingDto } from './dto/create-booking.dto'
 import { CreateDisputeDto } from './dto/create-dispute.dto'
@@ -48,7 +49,7 @@ export class BookingsController {
   ) {
     return this.bookingsService.findByUser(
       userId,
-      role === UserRole.load_owner || (role as any) === 'factory_owner' ? 'load_owner' : 'truck_owner'
+      isFreightSideRole(role) ? 'factory_owner' : 'truck_driver'
     )
   }
 

@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { prisma, UserRole } from '@lorrycarry/database'
 import { TRIAL_DURATION_DAYS } from '@lorrycarry/shared'
+import { normalizeRole, PUBLIC_REGISTRATION_ROLES } from '../common/utils/roles.util'
 import { REDIS_CLIENT } from '../common/redis/redis.module'
 import Redis from 'ioredis'
 import * as crypto from 'crypto'
@@ -144,19 +145,13 @@ export class AuthService {
       if (role === UserRole.admin) {
         throw new UnauthorizedException('Admin role cannot be selected during public registration')
       }
-      const validRegistrationRoles: string[] = [
-        UserRole.load_owner,
-        UserRole.truck_owner,
-        UserRole.driver,
-        UserRole.factory_owner,
-        UserRole.truck_driver,
-      ]
-      if (
-        !Object.values(UserRole).includes(role) ||
-        !validRegistrationRoles.includes(role)
-      ) {
+      // Accept legacy labels from older clients and map them onto the
+      // canonical role before the account is created.
+      const canonicalRole = normalizeRole(role)
+      if (!canonicalRole || !PUBLIC_REGISTRATION_ROLES.includes(canonicalRole)) {
         throw new UnauthorizedException('Invalid registration role')
       }
+      role = canonicalRole
     }
 
     // Verify OTP

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../services/api'
+import { getRoleLabel, isVehicleSideRole } from '../lib/roles'
 
 interface TrialStatus {
   hasSubscription: boolean
@@ -14,17 +15,13 @@ interface TrialStatus {
   expiresAt?: string | null
 }
 
-const getRoleLabel = (role?: string) => {
-  if (role === 'driver') return '🧑‍✈️ Driver'
-  if (role === 'truck_owner') return '🚛 Transporter'
-  return '🏭 Factory Owner'
-}
+
 
 export function HomeScreen() {
   const { user, logout } = useAuth()
   const navigation = useNavigation<any>()
   const [trial, setTrial] = useState<TrialStatus | null>(null)
-  const vehicleSide = user?.role === 'driver' || user?.role === 'truck_owner'
+  const vehicleSide = isVehicleSideRole(user?.role)
 
   useEffect(() => {
     api.get('/subscriptions/status')

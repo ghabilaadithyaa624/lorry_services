@@ -27,7 +27,7 @@ export class ComplianceController {
   // ── Truck-level (Vahan RC, insurance, fitness, PUC, permit, FASTag) ───────
 
   @Post('trucks/:id/validate-rc')
-  @Roles(UserRole.truck_owner, UserRole.admin)
+  @Roles(UserRole.truck_driver, UserRole.admin)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Validate a truck RC against the Vahan API and store the snapshot' })
   async validateRC(
@@ -49,7 +49,7 @@ export class ComplianceController {
   }
 
   @Patch('trucks/:id/fastag')
-  @Roles(UserRole.truck_owner, UserRole.admin)
+  @Roles(UserRole.truck_driver, UserRole.admin)
   @ApiOperation({ summary: 'Report FASTag status (Active / LowBalance / Inactive) for a truck' })
   async updateFastag(
     @Param('id') truckId: string,
@@ -73,7 +73,7 @@ export class ComplianceController {
   }
 
   @Post('bookings/:id/eway-bill')
-  @Roles(UserRole.load_owner, UserRole.admin)
+  @Roles(UserRole.factory_owner, UserRole.admin)
   @ApiOperation({ summary: 'Attach / update the 12-digit E-Way Bill number for a booking' })
   async updateEwayBill(
     @Param('id') bookingId: string,
