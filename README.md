@@ -227,6 +227,8 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 | `PATCH` | `/api/v1/bookings/:id/confirm-balance` | Factory Owner | Confirm 50% delivery balance release milestone upon POD sign-off |
 | `POST` | `/api/v1/bookings/:id/disputes` | Authenticated Party | Raise a counterparty dispute against a booking |
 
+**Payment milestone rules.** `confirm-advance` / `confirm-balance` are the authoritative way to record the 50/50 split; `PATCH /bookings/:id/status` is retained for lifecycle transitions and backward compatibility. Both milestone endpoints enforce, in order: the caller must be a party to the booking (otherwise `404`, so booking existence is not leaked), the caller must be the **cargo owner** releasing the money (`403` — a truck driver cannot confirm their own payout), the booking must not be `Cancelled` (`400`), the milestone must not already be confirmed (`400`), and the **advance must be confirmed before the balance** (`400`). On success the endpoint sets `advanceConfirmed`/`advanceConfirmedAt` or `balanceConfirmed`/`balanceConfirmedAt`.
+
 ### 7. Booking Digital Document Chain (`/api/v1/bookings/:bookingId/documents` & `/api/v1/admin/booking-documents`)
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |

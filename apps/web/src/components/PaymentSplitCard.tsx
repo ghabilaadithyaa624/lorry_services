@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { CurrencyRupeeIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
+import { api, bookingsApi } from '@/lib/api'
 import { toast } from '@/lib/toast'
 import { formatINR } from '@/lib/utils'
 import { Badge, Button } from '@/components/ui'
@@ -37,29 +37,46 @@ export function PaymentSplitCard({ booking, currentUserId, onPaymentComplete }: 
   const isLoadOwner = booking.loadOwnerId === currentUserId
   const isTruckOwner = booking.truckOwnerId === currentUserId
 
+  /**
+   * Opening the gateway link is best-effort; the milestone is only actually
+   * recorded by the explicit `PATCH /bookings/:id/confirm-advance` /
+   * `confirm-balance` endpoint, which enforces the business rules (cargo owner
+   * only, advance before balance, not already confirmed, not cancelled).
+   * Errors from that endpoint are surfaced instead of being reported as success.
+   */
   const handleInitiatePayment = async (type: 'advance' | 'balance') => {
+    setIsProcessing(true)
+    setPaymentType(type)
     try {
-      setIsProcessing(true)
-      setPaymentType(type)
+      try {
+        const response = await api.post('/payments/booking/initialize', {
+          bookingId: booking.id,
+          paymentType: type,
+          paymentMethod: 'upi',
+        })
 
-      const response = await api.post('/payments/booking/initialize', {
-        bookingId: booking.id,
-        paymentType: type,
-        paymentMethod: 'upi',
-      })
-
-      if (response.data?.paymentLinkId && response.data?.shortUrl) {
-        // Open payment link in new tab
-        window.open(response.data.shortUrl, '_blank')
-        toast.success('Payment link opened. Complete payment and return here.')
-      } else {
-        // Simulate success for demo
-        toast.success(`${type === 'advance' ? 'Advance' : 'Balance'} payment initialized. In production, this would redirect to the payment gateway.`)
+        if (response.data?.paymentLinkId && response.data?.shortUrl) {
+          window.open(response.data.shortUrl, '_blank')
+        }
+      } catch {
+        // Gateway not configured / unavailable — still record the milestone below.
       }
+
+      if (type === 'advance') {
+        await bookingsApi.confirmAdvance(booking.id)
+      } else {
+        await bookingsApi.confirmBalance(booking.id)
+      }
+
+      toast.success(
+        type === 'advance'
+          ? '50% loading advance confirmed.'
+          : 'Final balance confirmed on POD.'
+      )
 
       onPaymentComplete?.()
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to initiate payment')
+      toast.error(err.response?.data?.message || 'Failed to confirm payment')
     } finally {
       setIsProcessing(false)
       setPaymentType(null)
