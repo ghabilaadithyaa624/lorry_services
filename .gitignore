@@ -75,3 +75,7 @@ __pycache__/
 *.pyc
 *.tsbuildinfo
 
+# AI & Agent artifacts
+.agents/
+.claude/
+skills-lock.json
