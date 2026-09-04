@@ -6,6 +6,9 @@ import { CreateBookingDto } from './dto/create-booking.dto'
 import { CreateDisputeDto } from './dto/create-dispute.dto'
 
 jest.mock('@prisma/client', () => ({
+  PrismaClient: class {
+    constructor() {}
+  },
   UserRole: {
     factory_owner: 'factory_owner',
     truck_driver: 'truck_driver',

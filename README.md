@@ -196,6 +196,37 @@ Admin API additions: `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`
 | `/api/v1/bookings/:id/confirm-balance` | PATCH | Factory owner confirms 50% delivery balance release on POD receipt |
 | `/api/v1/bookings/:id/disputes` | POST | Raise a counterparty dispute |
 
+### Freight Rate Estimation & Logistics Intelligence API
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/v1/pricing/estimate` | POST | Calculate indicative benchmark freight rate estimate based on tonnage, truck type, and distance/coordinates |
+| `/api/v1/intelligence/pricing/estimate` | POST | Alias endpoint for freight pricing rate estimator |
+
+#### Request Body (`POST /api/v1/pricing/estimate`)
+- `tonnage` *(number, required)*: Cargo payload in metric tons (e.g. `14`)
+- `truckType` *(string, required)*: Truck body configuration (`Open`, `Container`, `OpenBody`)
+- `distanceKm` *(number, optional)*: Route distance in km (calculated from GPS coordinates if omitted, or fallback corridor `350 km`)
+- `loadingLat` / `loadingLng` *(number, optional)*: Origin GPS coordinates
+- `unloadingLat` / `unloadingLng` *(number, optional)*: Destination GPS coordinates
+
+#### Response Structure
+- `minEstimate`: Lower market range bound in INR (-10% variance)
+- `recommendedTarget`: Indicative target freight cost rounded to nearest ₹100
+- `maxEstimate`: Upper market range bound in INR (+15% variance)
+- `ratePerTonKm`: Distance-discounted rate per ton-km
+- `distanceKm`: Transit route distance in kilometers
+- `baseHandlingCharge`: Fixed loading/unloading buffer fee
+- `tonnage`: Cargo tonnage evaluated
+- `truckType`: Normalized truck body configuration
+- `confidence`: Confidence indicator (`HIGH` with distanceKm, `MEDIUM` with lat/lng, `BENCHMARK` fallback)
+- `disclaimer`: Commercial indicative estimate disclaimer
+- `explanation`: Transparent arithmetic breakdown of rate calculation
+- `longHaulAdjustment`: Scale discount factors applied (>500km / >1000km)
+- `truckTypeAdjustment`: Body type base benchmark and terminal handling buffer
+- `priceSensitivity`: ±10% payload tonnage variations and marginal cost per ton
+- `routeComparison`: Comparison across body types (Open, Container, OpenBody) and bypass routing
+
 ---
 
 ## 📜 Available NPM Scripts

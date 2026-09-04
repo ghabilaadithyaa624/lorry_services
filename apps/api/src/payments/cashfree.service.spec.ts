@@ -190,11 +190,9 @@ describe('CashfreeService', () => {
     })
 
     it('should return false on crypto error', () => {
-      jest.spyOn(crypto, 'createHmac').mockImplementationOnce(() => {
-        throw new Error('Crypto error')
-      })
-
-      const result = service.verifyWebhookSignature({ data: 'test' }, 'any-signature')
+      const circular: any = {}
+      circular.self = circular
+      const result = service.verifyWebhookSignature(circular, 'any-signature')
       expect(result).toBe(false)
     })
   })
