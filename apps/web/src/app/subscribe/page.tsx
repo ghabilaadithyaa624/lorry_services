@@ -3,9 +3,12 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
+  BanknotesIcon,
   CheckCircleIcon,
-  ShieldCheckIcon,
+  ClockIcon,
   LockClosedIcon,
+  PhoneIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 import { Navbar, Footer } from '@/components/layout'
 import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
@@ -15,7 +18,9 @@ import { toast } from '@/lib/toast'
 import { api } from '@/lib/api'
 import { cn, formatINR } from '@/lib/utils'
 import {
+  checkoutLoginUrl,
   getEntitlement,
+  hasClientSession,
   initiateSubscription,
   openCheckout,
   SubscriptionEntitlement,
@@ -75,8 +80,13 @@ function SubscribeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const reason = searchParams.get('reason')
+  const planParam = searchParams.get('plan')
 
-  const [selectedPlan, setSelectedPlan] = useState('quarterly')
+  const [selectedPlan, setSelectedPlan] = useState(
+    PLANS.some((p) => p.id === planParam) ? (planParam as string) : 'quarterly'
+  )
+  // `null` until the browser has been probed, so SSR and the first paint match.
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(false)
   const [hasSubscription, setHasSubscription] = useState<boolean | null>(null)
   const [subscriptionStatus, setSubscriptionStatus] = useState<TrialStatus | null>(null)
@@ -84,6 +94,20 @@ function SubscribeContent() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    /**
+     * `/subscribe` is a public pricing page. An anonymous visitor must be able
+     * to read plans without any authenticated request firing, so we probe the
+     * local session first and only ask the API for entitlement data when a
+     * session exists. This also keeps private subscription status off the
+     * public view.
+     */
+    const authed = hasClientSession()
+    setIsAuthenticated(authed)
+    if (!authed) {
+      setHasSubscription(false)
+      return
+    }
+
     getEntitlement()
       .then((ent) => {
         setEntitlement(ent)
@@ -112,6 +136,17 @@ function SubscribeContent() {
   const hasPaidSubscription = hasSubscription === true && !isTrial
 
   const handleSubscribe = async () => {
+    /**
+     * Checkout stays protected. Anonymous visitors are sent to login with a
+     * redirect back to this pricing page, where they can complete payment.
+     * (The backend `/subscriptions/initiate` endpoint is authenticated too —
+     * this is the UX half of the gate, not the enforcement.)
+     */
+    if (!hasClientSession()) {
+      router.push(checkoutLoginUrl(`/subscribe?plan=${selectedPlan}`))
+      return
+    }
+
     setLoading(true)
     setError('')
 
@@ -208,6 +243,42 @@ function SubscribeContent() {
           <p className="text-xs sm:text-sm text-surface-400 max-w-lg mx-auto">
             Direct freight intelligence without broker friction. Connect directly with verified truck drivers and shippers.
           </p>
+        </div>
+
+        {/* What a pass includes — public, factual copy (visible without login) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <GlassPanel padding="md" className="space-y-2">
+            <div className="flex items-center gap-2">
+              <ClockIcon className="w-5 h-5 text-emerald-400 shrink-0" />
+              <h3 className="text-sm font-semibold text-white font-sans">90-Day Free Trial</h3>
+            </div>
+            <p className="text-xs text-surface-400 leading-relaxed font-sans">
+              New accounts start on a 90-day free trial with full marketplace access. No payment is
+              taken until the trial ends — you can compare passes here before you commit.
+            </p>
+          </GlassPanel>
+
+          <GlassPanel padding="md" className="space-y-2">
+            <div className="flex items-center gap-2">
+              <PhoneIcon className="w-5 h-5 text-primary-400 shrink-0" />
+              <h3 className="text-sm font-semibold text-white font-sans">Unlocks Direct Contact</h3>
+            </div>
+            <p className="text-xs text-surface-400 leading-relaxed font-sans">
+              A subscription reveals the direct phone number and WhatsApp contact of verified truck
+              operators and load posters, so you negotiate with the counterparty yourself.
+            </p>
+          </GlassPanel>
+
+          <GlassPanel padding="md" className="space-y-2">
+            <div className="flex items-center gap-2">
+              <BanknotesIcon className="w-5 h-5 text-amber-400 shrink-0" />
+              <h3 className="text-sm font-semibold text-white font-sans">No Broker Commission</h3>
+            </div>
+            <p className="text-xs text-surface-400 leading-relaxed font-sans">
+              LorryCarry charges a flat access pass only. There is no per-trip broker commission and
+              no cut of your freight value — payment settles directly between shipper and transporter.
+            </p>
+          </GlassPanel>
         </div>
 
         {/* Error notification */}
@@ -313,18 +384,27 @@ function SubscribeContent() {
             variant="primary"
             size="lg"
             loading={loading}
-            disabled={hasPaidSubscription}
+            disabled={isAuthenticated === true && hasPaidSubscription}
             onClick={handleSubscribe}
             className="px-10 py-4 text-base font-bold mx-auto shadow-glow-primary font-mono"
           >
             {loading
               ? 'Initializing payment gateway...'
-              : hasPaidSubscription
-                ? 'YOUR PASS IS ACTIVE'
-                : isTrial
-                  ? `UPGRADE TO ${activePlan.label.toUpperCase()} — ${formatINR(activePlan.price)}`
-                  : `COMPLETE PAYMENT — ${formatINR(activePlan.price)}`}
+              : isAuthenticated !== true
+                ? `LOG IN TO SUBSCRIBE — ${formatINR(activePlan.price)}`
+                : hasPaidSubscription
+                  ? 'YOUR PASS IS ACTIVE'
+                  : isTrial
+                    ? `UPGRADE TO ${activePlan.label.toUpperCase()} — ${formatINR(activePlan.price)}`
+                    : `COMPLETE PAYMENT — ${formatINR(activePlan.price)}`}
           </Button>
+
+          {isAuthenticated === false && (
+            <p className="text-xs text-surface-400 font-sans">
+              You are browsing public pricing. Log in to start checkout — we will bring you straight
+              back to this page to complete payment.
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-xs font-mono text-surface-400">
             <span className="flex items-center gap-1.5">

@@ -128,6 +128,8 @@ never pointed at a URL that answers with a login redirect.
 
 Prefix matching is segment-aware: `/terms` and `/terms/archive` are public, `/terms-of-service` is not.
 
+**Pricing pages are public, checkout is not.** `/subscribe` and `/subscription` render plans, prices, the 90-day free trial terms and what a pass unlocks to anonymous visitors — no authenticated request is made and no private subscription status is rendered until a session exists. Clicking **Subscribe / Upgrade / Pay** without a session redirects to `/login?redirect=/subscribe?plan=<plan>` and returns the user to the pricing page with their plan preselected so they can complete checkout. Payment initiation itself stays protected: `POST /api/v1/subscriptions/initiate` requires a valid bearer token, so the client-side gate is UX only and not the enforcement boundary.
+
 Covered by `publicRoutes.spec.ts`, `middleware.spec.ts` and `seo.spec.ts` (`npm --prefix apps/web test`).
 
 ---

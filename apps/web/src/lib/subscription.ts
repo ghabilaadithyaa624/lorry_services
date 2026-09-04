@@ -140,3 +140,32 @@ export async function verifyOrder(orderId: string) {
   const res = await api.get(`/subscriptions/verify/${orderId}`)
   return res.data
 }
+
+/**
+ * Client-side session probe used by the **public** pricing pages.
+ *
+ * `/subscribe` and `/subscription` are public (see `@/lib/publicRoutes`) so
+ * anonymous visitors can read plans and pricing. They must not call the
+ * authenticated entitlement endpoints, and they must not start a checkout.
+ * This helper answers "is there a session in this browser?" without hitting the
+ * API — it is a UX gate only. Real enforcement stays server-side: the
+ * `/subscriptions/initiate` endpoint requires a valid bearer token.
+ */
+export function hasClientSession(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return Boolean(window.localStorage.getItem('accessToken'))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Where an anonymous visitor should be sent when they click Subscribe /
+ * Upgrade / Pay. After a successful login the app returns them to the pricing
+ * page so they can complete checkout.
+ */
+export function checkoutLoginUrl(returnTo = '/subscribe'): string {
+  const safe = returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/subscribe'
+  return `/login?redirect=${encodeURIComponent(safe)}`
+}
