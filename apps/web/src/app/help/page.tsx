@@ -40,7 +40,7 @@ const FAQ_GROUPS: Array<{
       {
         question: 'How do I sign in to LorryCarry?',
         answer:
-          'Enter your mobile number and we send a one-time password over WhatsApp or SMS. There is no password to remember. Choose your role — load owner or truck owner — the first time you sign in.',
+          'Enter your mobile number and we send a one-time password over WhatsApp or SMS. There is no password to remember. Choose your role — factory owner or truck driver — the first time you sign in.',
       },
       {
         question: 'Can I change my role after registering?',

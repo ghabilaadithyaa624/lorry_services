@@ -25,11 +25,14 @@ import {
   UsersIcon,
   GlobeAsiaAustraliaIcon,
 } from '@heroicons/react/24/outline'
-import { usersApi } from '@/lib/api'
+import { notificationsApi, usersApi } from '@/lib/api'
 import { Avatar } from '@/components/ui'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
+import { LanguageToggle } from './LanguageToggle'
 import { AIFreightAssistantDrawer } from '@/components/intelligence'
+import { useI18n } from '@/lib/i18n'
 import { cn, formatPhone } from '@/lib/utils'
+import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -55,6 +58,7 @@ interface NavItem {
  */
 export function DashboardLayout({ children, title, subtitle, action }: DashboardLayoutProps) {
   const pathname = usePathname()
+  const { t } = useI18n()
   const [user, setUser] = useState<ProfileMenuUser | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -73,7 +77,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
   const loadSignals = useCallback(async () => {
     try {
       const [notifications, profile] = await Promise.allSettled([
-        usersApi.getNotifications(),
+        notificationsApi.getUnreadCount(),
         usersApi.getProfile(),
       ])
       if (notifications.status === 'fulfilled') {
@@ -90,6 +94,8 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
 
   useEffect(() => {
     loadSignals()
+    const interval = setInterval(loadSignals, 30_000)
+    return () => clearInterval(interval)
   }, [loadSignals])
 
   // Close the mobile drawer on navigation.
@@ -97,36 +103,37 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     setSidebarOpen(false)
   }, [pathname])
 
-  const isTruckOwner = user?.role === 'truck_owner'
+  const isTruckOwner = isVehicleSideRole(user?.role)
+  const isDriver = user?.role === 'driver'
   const isAdmin = user?.role === 'admin'
 
   const loadOwnerNav: NavItem[] = [
-    { name: 'Overview', href: '/dashboard/load-owner', icon: HomeIcon },
-    { name: 'Find trucks', href: '/search?type=truck', icon: MagnifyingGlassIcon },
-    { name: 'Post freight', href: '/post-load', icon: PlusCircleIcon },
-    { name: 'My loads', href: '/my-loads', icon: ClipboardDocumentListIcon },
-    { name: 'Bookings', href: '/bookings', icon: BriefcaseIcon },
-    { name: 'Tracking', href: '/tracking', icon: MapIcon },
-    { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
-    { name: 'Documents', href: '/documents', icon: DocumentCheckIcon },
-    { name: 'Activity', href: '/activity', icon: ClockIcon },
-    { name: 'Notifications', href: '/notifications', icon: BellAlertIcon, badgeKey: 'notifications' },
-    { name: 'Subscription', href: '/subscribe', icon: CreditCardIcon },
-    { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+    { name: t('dash.overview'), href: '/dashboard/load-owner', icon: HomeIcon },
+    { name: t('nav.findTrucks'), href: '/search?type=truck', icon: MagnifyingGlassIcon },
+    { name: t('nav.postFreight'), href: '/post-load', icon: PlusCircleIcon },
+    { name: t('dash.myLoads'), href: '/my-loads', icon: ClipboardDocumentListIcon },
+    { name: t('dash.bookings'), href: '/bookings', icon: BriefcaseIcon },
+    { name: t('dash.tracking'), href: '/tracking', icon: MapIcon },
+    { name: t('dash.analytics'), href: '/analytics', icon: ChartBarIcon },
+    { name: t('dash.documents'), href: '/documents', icon: DocumentCheckIcon },
+    { name: t('dash.activity'), href: '/activity', icon: ClockIcon },
+    { name: t('nav.notifications'), href: '/notifications', icon: BellAlertIcon, badgeKey: 'notifications' },
+    { name: t('dash.subscription'), href: '/subscribe', icon: CreditCardIcon },
+    { name: t('nav.settings'), href: '/settings', icon: Cog6ToothIcon },
   ]
 
   const truckOwnerNav: NavItem[] = [
-    { name: 'Overview', href: '/dashboard/truck-owner', icon: HomeIcon },
-    { name: 'Find loads', href: '/search?type=load', icon: MagnifyingGlassIcon },
-    { name: 'My fleet', href: '/my-trucks', icon: TruckIcon },
-    { name: 'Bookings', href: '/bookings', icon: BriefcaseIcon },
-    { name: 'Tracking', href: '/tracking', icon: MapIcon },
-    { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
-    { name: 'Documents', href: '/documents', icon: DocumentCheckIcon },
-    { name: 'Activity', href: '/activity', icon: ClockIcon },
-    { name: 'Notifications', href: '/notifications', icon: BellAlertIcon, badgeKey: 'notifications' },
-    { name: 'Subscription', href: '/subscribe', icon: CreditCardIcon },
-    { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+    { name: t('dash.overview'), href: '/dashboard/truck-owner', icon: HomeIcon },
+    { name: t('nav.findLoads'), href: '/search?type=load', icon: MagnifyingGlassIcon },
+    { name: t('dash.myFleet'), href: '/my-trucks', icon: TruckIcon },
+    { name: t('dash.bookings'), href: '/bookings', icon: BriefcaseIcon },
+    { name: t('dash.tracking'), href: '/tracking', icon: MapIcon },
+    { name: t('dash.analytics'), href: '/analytics', icon: ChartBarIcon },
+    { name: t('dash.documents'), href: '/documents', icon: DocumentCheckIcon },
+    { name: t('dash.activity'), href: '/activity', icon: ClockIcon },
+    { name: t('nav.notifications'), href: '/notifications', icon: BellAlertIcon, badgeKey: 'notifications' },
+    { name: t('dash.subscription'), href: '/subscribe', icon: CreditCardIcon },
+    { name: t('nav.settings'), href: '/settings', icon: Cog6ToothIcon },
   ]
 
   const adminNav: NavItem[] = [
@@ -134,15 +141,25 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: 'KYC queue', href: '/admin/kyc', icon: DocumentCheckIcon },
     { name: 'Listings', href: '/admin/listings', icon: ClipboardDocumentListIcon },
     { name: 'Bookings', href: '/admin/bookings', icon: BriefcaseIcon },
+    { name: 'Disputes', href: '/admin/disputes', icon: ShieldExclamationIcon },
     { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCardIcon },
+    { name: 'Performance', href: '/admin/analytics', icon: ChartBarIcon },
     { name: 'Users', href: '/admin/users', icon: UsersIcon },
     { name: 'Intelligence', href: '/admin/intelligence', icon: GlobeAsiaAustraliaIcon },
     { name: 'Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
   ]
 
-  const navItems = isAdmin ? adminNav : isTruckOwner ? truckOwnerNav : loadOwnerNav
+  const navItems = isAdmin
+    ? adminNav
+    : isTruckOwner
+      ? truckOwnerNav.map((item) =>
+          isDriver && item.href === '/dashboard/truck-owner'
+            ? { ...item, href: '/dashboard/driver' }
+            : item
+        )
+      : loadOwnerNav
 
-  const roleLabel = isTruckOwner ? 'Truck owner' : isAdmin ? 'Administrator' : 'Load owner'
+  const roleLabel = getRoleLabel(user?.role)
 
   /** Exact match for section roots, prefix match for nested routes. */
   const isActiveRoute = (href: string) => {
@@ -240,10 +257,13 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
             <span className="mx-2 text-subtle" aria-hidden="true">
               /
             </span>
-            <span className="text-ink font-medium">{title || 'Dashboard'}</span>
+            <span className="text-ink font-medium">{title || t('dash.dashboardFallbackTitle')}</span>
           </p>
 
           <div className="flex items-center gap-3">
+            {/* Top-bar language selector — தமிழ் | हिन्दी | English */}
+            <LanguageToggle compact className="hidden lg:inline-flex" />
+
             <Link
               href="/notifications"
               className="relative p-2.5 rounded-xl text-muted hover:text-ink hover:bg-wash transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -328,7 +348,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
               className="relative w-[280px] max-w-[85vw] bg-panel border-r border-hairline h-full flex flex-col shadow-modal"
             >
               <div className="flex items-center justify-between p-4 border-b border-hairline shrink-0">
-                <span className="font-semibold text-sm text-ink">Menu</span>
+                <span className="font-semibold text-sm text-ink">{t('common.menu')}</span>
                 <button
                   type="button"
                   onClick={() => setSidebarOpen(false)}
@@ -343,14 +363,19 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
                 {navItems.map((item) => renderNavLink(item, () => setSidebarOpen(false)))}
               </nav>
 
-              <div className="p-3 border-t border-hairline shrink-0 space-y-0.5">
+              <div className="p-3 border-t border-hairline shrink-0 space-y-2">
+                {/* Top-bar language selector — mobile drawer placement */}
+                <div className="flex items-center justify-between gap-3 px-3 py-1.5">
+                  <span className="text-xs font-medium text-muted">{t('common.language')}</span>
+                  <LanguageToggle compact />
+                </div>
                 <Link
                   href="/profile"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-body hover:bg-wash min-h-[44px]"
                 >
                   <UserCircleIcon className="w-[18px] h-[18px] text-subtle" aria-hidden="true" />
-                  <span>Profile</span>
+                  <span>{t('common.profile')}</span>
                 </Link>
                 <Link
                   href="/help"
@@ -358,7 +383,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
                   className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-body hover:bg-wash min-h-[44px]"
                 >
                   <ShieldCheckIcon className="w-[18px] h-[18px] text-subtle" aria-hidden="true" />
-                  <span>Help & support</span>
+                  <span>{t('common.helpSupport')}</span>
                 </Link>
               </div>
             </div>

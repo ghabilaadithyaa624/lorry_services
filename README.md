@@ -1,6 +1,6 @@
 # 🚚 LorryCarry - Direct Truck & Freight Load Marketplace
 
-LorryCarry is a high-performance monorepo platform connecting load owners and truck transporters directly across India with zero broker commissions. Built with **NestJS**, **Next.js 15 (App Router)**, **PostgreSQL (PostGIS)**, **Redis**, **Cashfree Payments**, **Gupshup WhatsApp API / MSG91**, and **MapmyIndia / Mappls**.
+LorryCarry is a high-performance monorepo platform connecting factory owners and truck transporters directly across India with zero broker commissions. Built with **NestJS**, **Next.js 15 (App Router)**, **PostgreSQL (PostGIS)**, **Redis**, **Cashfree Payments**, **Gupshup WhatsApp API / MSG91**, and **MapmyIndia / Mappls**.
 
 ---
 
@@ -9,15 +9,23 @@ LorryCarry is a high-performance monorepo platform connecting load owners and tr
 - **Direct Load & Truck Matching**: Load owners post freight requirements and discover verified truck operators within customizable search radii using PostGIS spatial indexing.
 - **Zero Broker Commissions**: Transparent direct bookings with standard commercial terms (50% advance at loading, 50% balance upon delivery confirmation).
 - **5-Stage Trip Tracking**: Geofence checkpoint tracking with automated WhatsApp notifications at every leg of the journey.
+- **Verification & Compliance (Vahan + FASTag + E-Way Bill)**:
+  - **Vahan RC Validation**: Every registered truck is validated against the Vahan (mParivahan) database via a provider-agnostic API adapter — format-checked registration numbers, PII-masked owner/chassis data, response caching, and a clearly-labelled sandbox mode for local development.
+  - **Verified Transporter Badges**: Search results and marketplace cards render a "Vahan Verified" badge backed by the live validation timestamp, plus a "FASTag Ready" chip when the tag is active.
+  - **Compliance Checklist**: Truck- and trip-level checklists (`/compliance/trucks/:id`, `/compliance/bookings/:id`) covering RC status, insurance validity, fitness certificate, national permit, PUC, FASTag readiness and E-Way Bill lifecycle (12-digit format validation, expiry tracking).
+  - **Admin KYC Cross-Check**: The verification queue surfaces the Vahan snapshot (registration status, insurance/fitness validity) next to each pending document.
 - **Production Admin Dashboard**:
   - **Overview & KPI Analytics**: Real-time stats on users, trucks, loads, bookings, conversion rates, and revenue.
+  - **Dashboard Analytics**: Trip completion, earnings summary, active booking pipeline and a route efficiency heatmap (corridor × month) with CSV/PDF report export.
   - **KYC Verification Queue**: Document verification pipeline (RC, Insurance) with instant Verify/Reject actions, modal confirmations, and rejection notes.
   - **Fleet & Listings Management**: Overview of active trucks and freight listings with direct truck verification controls.
+  - **Booking Dispute Resolution**: Counterparty claims for payment, delay, documents, and cargo damage with investigation, decision notes, priority sorting, and recorded decision notes.
+  - **Performance Analytics**: Time-scoped trip count, completed deliveries, settled revenue, freight value, transit duration, and checkpoint-based route efficiency by corridor.
   - **Subscription Management**: Track active, expired, and cancelled plan subscriptions with expiration alerts.
-  - **User Directory**: Search and filter load owners, truck owners, and administrators with detailed operational metrics.
+  - **User Directory**: Search and filter factory owners, truck drivers, and administrators with detailed operational metrics.
   - **Booking Lifecycle**: Monitor all bookings from pending quotation to in-transit and delivery completion.
 - **Cashfree Paywall & Subscription Engine**: Secure billing (`₹999/month` and per-unlock credits) with webhook-driven auto-activation.
-- **WhatsApp Notification Engine**: Instant booking confirmations, checkpoint updates, and OTP verification via Gupshup.
+- **WhatsApp Notification Engine**: Instant booking confirmations, dispatch updates, delivery-completion alerts, checkpoint updates, and OTP verification via Gupshup — with a persisted in-app notification centre and read/unread state on web and mobile.
 
 ---
 
@@ -98,9 +106,20 @@ Key environment variables:
 - `DATABASE_URL`: PostgreSQL connection string with PostGIS enabled
 - `JWT_SECRET` & `JWT_REFRESH_SECRET`: Secure cryptographic secrets
 - `CASHFREE_API_KEY` & `CASHFREE_SECRET_KEY`: Cashfree sandbox or production credentials
+- `VAHAN_API_KEY`: Vahan (mParivahan) RC validation provider key — see `.env.example` for sandbox/cache options
 - `PORT`: Backend port (default `3002`)
 - `CLIENT_URL`: Web client URL (`http://localhost:3010`)
 - `ADMIN_URL`: Admin portal URL (`http://localhost:3011`)
+
+### Subscription webhooks
+
+| Gateway | Endpoint | Notes |
+| :--- | :--- | :--- |
+| Cashfree | `POST /api/v1/subscriptions/webhook/cashfree` | HMAC signature verified |
+| Razorpay | `POST /api/v1/subscriptions/webhook/razorpay` | `x-razorpay-signature` (HMAC-SHA256) verified |
+| Stripe | `POST /api/v1/subscriptions/webhook/stripe` | `stripe-signature` verified via Stripe SDK |
+
+Trial state is stored per user (`trial_started_at`, `trial_ends_at`, `trial_converted_at`); see `GET /api/v1/subscriptions/status` for the entitlement + countdown payload consumed by the dashboard.
 
 ### 3. Database Setup & Migrations
 
@@ -148,8 +167,22 @@ The Next.js Admin Portal is located at `/admin` (or `http://localhost:3010/admin
 | `/admin/kyc` | Pending KYC documents queue with modal approval/rejection and note submission |
 | `/admin/listings` | Marketplace load/truck summaries, pending fleet verification, top contributors |
 | `/admin/subscriptions` | Subscription directory with active/expired statuses and pagination |
-| `/admin/users` | User management with role filtering (`load_owner`, `truck_owner`, `admin`) |
+| `/admin/users` | User management with role filtering (`factory_owner`, `truck_driver`, `admin`) |
 | `/admin/bookings` | End-to-end booking records with route addresses, pricing, and lifecycle tracking |
+| `/admin/disputes` | Priority-sorted booking dispute queue with investigation and resolution actions |
+| `/admin/analytics` | Time-scoped trip, revenue, and checkpoint-based route efficiency analytics |
+
+Admin API additions: `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`, `PATCH /admin/disputes/:id/resolve`, and `GET /admin/analytics?range=30`. Authenticated booking parties can raise a case through `POST /bookings/:id/disputes`.
+
+### Verification & Compliance API
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/v1/compliance/trucks/:id` | GET | Truck compliance checklist (RC, insurance, fitness, permit, PUC, FASTag) |
+| `/api/v1/compliance/trucks/:id/validate-rc` | POST | Live Vahan RC validation + snapshot persistence (rate-limited) |
+| `/api/v1/compliance/trucks/:id/fastag` | PATCH | Report FASTag status (`Active` / `LowBalance` / `Inactive`) |
+| `/api/v1/compliance/bookings/:id` | GET | Trip compliance checklist (adds E-Way Bill lifecycle) |
+| `/api/v1/compliance/bookings/:id/eway-bill` | POST | Attach/update the 12-digit E-Way Bill number + validity |
 
 ---
 

@@ -7,20 +7,16 @@ import {
   Truck,
   Search,
   PlusCircle,
-  Bell,
-  Menu,
-  X,
   ShieldAlert,
   AlertTriangle,
   CheckCircle2,
   Sparkles,
   ArrowRight,
   Info,
-  ChevronDown,
   ShieldCheck,
 } from 'lucide-react'
-import { api, authApi } from '@/lib/api'
-import { Footer } from '@/components/layout'
+import { api } from '@/lib/api'
+import { Footer, Navbar } from '@/components/layout'
 import {
   assessShipmentIntelligence,
   summarizeActiveShipmentsControlTower,
@@ -39,8 +35,6 @@ export default function ControlTowerTrackingPage() {
   >('ALL')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [user, setUser] = useState<{ id?: string; name?: string; role?: string } | null>(null)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   useEffect(() => {
     try {
@@ -99,16 +93,6 @@ export default function ControlTowerTrackingPage() {
     }
   }
 
-  const handleLogout = async () => {
-    try {
-      await authApi.logout()
-    } catch {
-      // Ignore
-    }
-    setUser(null)
-    router.push('/login')
-  }
-
   const summary = summarizeActiveShipmentsControlTower(bookings)
 
   const filteredBookings = bookings.filter((bk) => {
@@ -120,210 +104,13 @@ export default function ControlTowerTrackingPage() {
     return true
   })
 
-  const navLinks = [
-    { name: 'Control Tower', href: '/tracking', active: true },
-    {
-      name: 'Find Trucks',
-      href: '/search?type=truck',
-      active: false,
-    },
-    {
-      name: 'Find Loads',
-      href: '/search?type=load',
-      active: false,
-    },
-    { name: 'Pricing & Plans', href: '/subscribe', active: false },
-  ]
 
-  const isTruckOwner = user?.role === 'truck_owner'
-  const isShipper = user?.role === 'load_owner' || !user?.role
+  const isShipper = user?.role === 'factory_owner' || !user?.role
 
   return (
     <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
-      {/* ── 1. Unified Sticky Top Navigation ── */}
-      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20">
-            {/* Brand Logo */}
-            <div className="flex items-center gap-8">
-              <Link
-                href="/"
-                className="flex items-center gap-2.5 group focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 rounded-xl focus:outline-none"
-              >
-                <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
-                  <Truck className="w-5 h-5 stroke-[2.4]" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xl font-black tracking-tight text-gray-900 leading-none">
-                    Lorry<span className="text-orange-500">Carry</span>
-                  </span>
-                  <span className="text-[10px] font-mono font-bold text-gray-500 uppercase tracking-wider mt-0.5">
-                    Direct Freight Network
-                  </span>
-                </div>
-              </Link>
-
-              {/* Desktop Nav Links */}
-              <nav className="hidden md:flex items-center gap-1">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.name}
-                    href={link.href}
-                    className={cn(
-                      'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none',
-                      link.active
-                        ? 'text-orange-600 bg-orange-50'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    )}
-                  >
-                    {link.name}
-                  </Link>
-                ))}
-              </nav>
-            </div>
-
-            {/* Right Actions & User Account Dropdown */}
-            <div className="hidden sm:flex items-center gap-3">
-              <button
-                type="button"
-                className="relative p-2.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
-                title="Notifications"
-                aria-label="Notifications"
-                onClick={() => router.push('/notifications')}
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white" />
-              </button>
-
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 hover:border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:text-gray-900 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none shadow-2xs cursor-pointer"
-                >
-                  <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-xs">
-                    {user?.name ? user.name.charAt(0).toUpperCase() : isTruckOwner ? 'T' : 'S'}
-                  </div>
-                  <span>{user?.name || 'My Account'}</span>
-                  <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px] font-mono">
-                    {isTruckOwner ? 'Fleet Owner' : 'Shipper'}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
-                </button>
-
-                {/* Role Pill Dropdown for Account Features */}
-                {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-gray-200 shadow-lg py-2 z-50 animate-fade-in text-xs font-medium">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="font-bold text-gray-900">{user?.name || 'Account'}</p>
-                      <p className="text-gray-500 text-[11px]">{isTruckOwner ? 'Transporter' : 'Cargo Shipper'}</p>
-                    </div>
-
-                    <div className="py-1">
-                      <Link
-                        href={isTruckOwner ? '/dashboard/truck-owner' : '/dashboard/load-owner'}
-                        onClick={() => setUserMenuOpen(false)}
-                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-orange-600"
-                      >
-                        Dashboard Overview
-                      </Link>
-                      <Link
-                        href={isTruckOwner ? '/my-trucks' : '/my-loads'}
-                        onClick={() => setUserMenuOpen(false)}
-                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-orange-600"
-                      >
-                        {isTruckOwner ? 'My Registered Fleet' : 'My Posted Loads'}
-                      </Link>
-                      <Link
-                        href="/documents"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-orange-600"
-                      >
-                        KYC & Documents
-                      </Link>
-                      <Link
-                        href="/activity"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-orange-600"
-                      >
-                        Activity Log
-                      </Link>
-                      <Link
-                        href="/profile"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="block px-4 py-2 text-gray-700 hover:bg-gray-50 hover:text-orange-600"
-                      >
-                        Profile Settings
-                      </Link>
-                    </div>
-
-                    <div className="pt-1 border-t border-gray-100">
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 font-semibold"
-                      >
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Mobile Menu Button */}
-            <div className="flex md:hidden items-center gap-2">
-              <button
-                type="button"
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                aria-expanded={mobileMenuOpen}
-                aria-label={mobileMenuOpen ? 'Close main menu' : 'Open main menu'}
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Navigation Drawer */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-200 px-4 py-4 space-y-3 shadow-lg">
-            <nav className="space-y-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    'block px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors',
-                    link.active ? 'bg-orange-50 text-orange-600' : 'text-gray-700 hover:bg-gray-50'
-                  )}
-                >
-                  {link.name}
-                </Link>
-              ))}
-            </nav>
-
-            <div className="pt-3 border-t border-gray-100 space-y-2">
-              <Link
-                href={isTruckOwner ? '/dashboard/truck-owner' : '/dashboard/load-owner'}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block px-3.5 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 rounded-xl"
-              >
-                Go to Dashboard
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="w-full text-left px-3.5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        )}
-      </header>
+      {/* ── 1. Fixed Top Navigation (shared redesigned header) ── */}
+      <Navbar />
 
       {/* ── Main Workspace ── */}
       <main className="flex-1 py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">

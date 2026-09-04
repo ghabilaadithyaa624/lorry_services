@@ -217,8 +217,11 @@ module.exports = {
       }),
 
       fontFamily: {
-        sans:    ['var(--font-inter)', 'Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
-        display: ['var(--font-inter)', 'Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
+        // 'Noto Sans Tamil' / 'Noto Sans Devanagari' cover தமிழ் and हिन्दी
+        // glyphs so switching languages never falls back to unstyled
+        // system Tamil/Devanagari fonts mid-word alongside Latin text.
+        sans:    ['var(--font-inter)', 'Plus Jakarta Sans', 'Noto Sans Tamil', 'Noto Sans Devanagari', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['var(--font-inter)', 'Plus Jakarta Sans', 'Noto Sans Tamil', 'Noto Sans Devanagari', 'Inter', 'system-ui', 'sans-serif'],
         mono:    ['var(--font-geist-mono)', 'Geist Mono', 'JetBrains Mono', 'monospace'],
       },
 

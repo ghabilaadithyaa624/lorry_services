@@ -18,35 +18,35 @@ async function main() {
   await prisma.user.deleteMany();
 
   // 1. Create Users
-  const loadOwner1 = await prisma.user.create({
+  const factoryOwner1 = await prisma.user.create({
     data: {
       phone: '+919876543210',
       name: 'Pune Auto Components Ltd (Ramesh Patil)',
-      role: UserRole.load_owner,
+      role: UserRole.factory_owner,
     },
   });
 
-  const loadOwner2 = await prisma.user.create({
+  const factoryOwner2 = await prisma.user.create({
     data: {
       phone: '+919876543211',
       name: 'Sahyadri Agri Products (Sanjay Deshmukh)',
-      role: UserRole.load_owner,
+      role: UserRole.factory_owner,
     },
   });
 
-  const truckOwner1 = await prisma.user.create({
+  const truckDriver1 = await prisma.user.create({
     data: {
       phone: '+919876543220',
       name: 'Deccan Express Logistics (Vijay Pawar)',
-      role: UserRole.truck_owner,
+      role: UserRole.truck_driver,
     },
   });
 
-  const truckOwner2 = await prisma.user.create({
+  const truckDriver2 = await prisma.user.create({
     data: {
       phone: '+919876543221',
       name: 'Mahalaxmi Transport (Prakash Shinde)',
-      role: UserRole.truck_owner,
+      role: UserRole.truck_driver,
     },
   });
 
@@ -63,17 +63,18 @@ async function main() {
   // 2. Subscriptions
   await prisma.subscription.create({
     data: {
-      userId: loadOwner1.id,
+      userId: factoryOwner1.id,
       plan: 'Monthly Unlimited',
       status: SubscriptionStatus.active,
       startedAt: new Date(),
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      autoRenew: true,
     },
   });
 
   await prisma.subscription.create({
     data: {
-      userId: truckOwner1.id,
+      userId: truckDriver1.id,
       plan: 'Fleet Pro Unlimited',
       status: SubscriptionStatus.active,
       startedAt: new Date(),
@@ -83,7 +84,7 @@ async function main() {
 
   await prisma.subscription.create({
     data: {
-      userId: truckOwner2.id,
+      userId: truckDriver2.id,
       plan: 'Single Truck Saver',
       status: SubscriptionStatus.active,
       startedAt: new Date(),
@@ -97,7 +98,7 @@ async function main() {
   // Coordinates: Pune (18.5204° N, 73.8567° E), Bangalore (12.9716° N, 77.5946° E)
   const load1 = await prisma.load.create({
     data: {
-      userId: loadOwner1.id,
+      userId: factoryOwner1.id,
       tonnageRequired: 18.5,
       loadingAddress: 'Plot B-12, MIDC Chakan Phase 2, Pune, Maharashtra',
       loadingPin: '410501',
@@ -116,7 +117,7 @@ async function main() {
 
   const load2 = await prisma.load.create({
     data: {
-      userId: loadOwner2.id,
+      userId: factoryOwner2.id,
       tonnageRequired: 24.0,
       loadingAddress: 'Sugar Factory Yard, Hadapsar, Pune, Maharashtra',
       loadingPin: '411028',
@@ -147,10 +148,14 @@ async function main() {
 
   console.log('✅ Loads seeded');
 
-  // 4. Create Trucks
+  // 4. Create Trucks (with Vahan RC verification + FASTag compliance data)
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  const isoDate = (offsetDays: number) => new Date(now + offsetDays * DAY).toISOString().slice(0, 10);
+
   const truck1 = await prisma.truck.create({
     data: {
-      userId: truckOwner1.id,
+      userId: truckDriver1.id,
       registrationNumber: 'MH 12 QW 8842',
       bodyType: TruckType.Container,
       lengthFt: 32,
@@ -159,12 +164,36 @@ async function main() {
       serviceableRadiusKm: 100,
       preferredDestinations: ['Bangalore', 'Chennai', 'Hyderabad'],
       verificationStatus: VerificationStatus.Verified,
+      verifiedAt: new Date(now - 9 * DAY),
+      vahanValidatedAt: new Date(now - 2 * DAY),
+      vahanDetails: {
+        registrationNumber: 'MH12QW8842',
+        registrationStatus: 'ACTIVE',
+        ownerNameMasked: 'Transporter K.',
+        makerModel: 'Tata LPT 3118',
+        vehicleClass: 'Heavy Goods Vehicle (HGV)',
+        fuelType: 'DIESEL',
+        registrationDate: isoDate(-2100),
+        fitnessValidUpto: isoDate(320),
+        insuranceValidUpto: isoDate(200),
+        pucValidUpto: isoDate(120),
+        permitType: 'National Permit',
+        permitValidUpto: isoDate(280),
+        rto: 'RTO-MH12',
+        state: 'MH',
+        chassisNumberMasked: 'ME****421',
+        engineNumberMasked: 'EN****883',
+        source: 'vahan_api',
+        checkedAt: new Date(now - 2 * DAY).toISOString(),
+      },
+      fastagStatus: 'Active',
+      fastagUpdatedAt: new Date(now - 1 * DAY),
     },
   });
 
   const truck2 = await prisma.truck.create({
     data: {
-      userId: truckOwner2.id,
+      userId: truckDriver2.id,
       registrationNumber: 'MH 09 DT 5112',
       bodyType: TruckType.Open,
       lengthFt: 28,
@@ -173,6 +202,30 @@ async function main() {
       serviceableRadiusKm: 60,
       preferredDestinations: ['Bangalore', 'Hubballi', 'Belagavi'],
       verificationStatus: VerificationStatus.Verified,
+      verifiedAt: new Date(now - 5 * DAY),
+      vahanValidatedAt: new Date(now - 5 * DAY),
+      vahanDetails: {
+        registrationNumber: 'MH09DT5112',
+        registrationStatus: 'ACTIVE',
+        ownerNameMasked: 'Transporter S.',
+        makerModel: 'Ashok Leyland 2820',
+        vehicleClass: 'Heavy Goods Vehicle (HGV)',
+        fuelType: 'DIESEL',
+        registrationDate: isoDate(-1500),
+        fitnessValidUpto: isoDate(95),
+        insuranceValidUpto: isoDate(30),
+        pucValidUpto: isoDate(-10), // expired — demonstrates the action-required path
+        permitType: 'National Permit',
+        permitValidUpto: isoDate(150),
+        rto: 'RTO-MH09',
+        state: 'MH',
+        chassisNumberMasked: 'MB****107',
+        engineNumberMasked: 'EE****542',
+        source: 'sandbox',
+        checkedAt: new Date(now - 5 * DAY).toISOString(),
+      },
+      fastagStatus: 'LowBalance',
+      fastagUpdatedAt: new Date(now - 3 * 60 * 60 * 1000),
     },
   });
 
@@ -198,7 +251,10 @@ async function main() {
       s3Url: 'https://minio.lorrycarry.local/lorrycarry-kyc/rc_mh12qw8842.pdf',
       s3Key: 'kyc/rc_mh12qw8842.pdf',
       verificationStatus: VerificationStatus.Verified,
+      isVerified: true,
       verifiedBy: adminUser.id,
+      verifiedAt: new Date(),
+      expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // RC fitness valid 1 year out
     },
   });
 
@@ -210,7 +266,10 @@ async function main() {
       s3Url: 'https://minio.lorrycarry.local/lorrycarry-kyc/ins_mh12qw8842.pdf',
       s3Key: 'kyc/ins_mh12qw8842.pdf',
       verificationStatus: VerificationStatus.Verified,
+      isVerified: true,
       verifiedBy: adminUser.id,
+      verifiedAt: new Date(),
+      expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
     },
   });
 
@@ -221,15 +280,20 @@ async function main() {
     data: {
       loadId: load1.id,
       truckId: truck1.id,
-      loadOwnerId: loadOwner1.id,
-      truckOwnerId: truckOwner1.id,
+      factoryOwnerId: factoryOwner1.id,
+      truckDriverId: truckDriver1.id,
       agreedPrice: 62000,
       advanceConfirmed: true,
       balanceConfirmed: false,
-      ewayBillNumber: 'EWAY-384910293841',
+      ewayBillNumber: '381234567890',
+      ewayBillStatus: 'Active',
+      ewayBillValidUpto: new Date(now + 2 * DAY),
+      ewayBillUpdatedAt: new Date(now - 12 * 60 * 60 * 1000),
       liabilityAccepted: true,
       liabilityAcceptedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
       status: BookingStatus.InTransit,
+      whatsappTriggerStatus: 'Delivered',
+      whatsappTriggeredAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
     },
   });
 
@@ -280,7 +344,7 @@ async function main() {
   // 7. Payments & Notifications
   await prisma.payment.create({
     data: {
-      userId: loadOwner1.id,
+      userId: factoryOwner1.id,
       amount: 20000,
       purpose: PaymentPurpose.booking_advance,
       provider: 'cashfree',
@@ -291,7 +355,7 @@ async function main() {
 
   await prisma.notification.create({
     data: {
-      userId: truckOwner1.id,
+      userId: truckDriver1.id,
       channel: NotificationChannel.whatsapp,
       recipient: '+919876543220',
       template: 'ADVANCE_PAYMENT_CONFIRMED',

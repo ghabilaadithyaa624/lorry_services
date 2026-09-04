@@ -16,19 +16,33 @@ model User {
   role      UserRole
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 3-month free trial entitlement. One trial per account, granted lazily on
+  // first entitlement lookup (or at registration) and never re-issued.
+  trialStartedAt   DateTime? @map("trial_started_at")
+  trialEndsAt      DateTime? @map("trial_ends_at")
+  trialConvertedAt DateTime? @map("trial_converted_at") // set when user upgrades to a paid plan
   
-  loads              Load[]
-  trucks             Truck[]
-  subscriptions      Subscription[]
-  loadOwnerBookings  Booking[] @relation("LoadOwnerBookings")
-  truckOwnerBookings Booking[] @relation("TruckOwnerBookings")
-  payments           Payment[]
-  notifications      Notification[]
+  loads                Load[]
+  trucks               Truck[]
+  subscriptions        Subscription[]
+  loadOwnerBookings    Booking[] @relation("LoadOwnerBookings")
+  truckOwnerBookings   Booking[] @relation("TruckOwnerBookings")
+  payments             Payment[]
+  notifications        Notification[]
   notificationReceipts NotificationReceipt[]
+  preference           UserPreference?
+  givenRatings         Rating[] @relation("RaterRatings")
+  receivedRatings      Rating[] @relation("RatedRatings")
+  disputesRaised     BookingDispute[] @relation("DisputesRaised")
+  disputesResolved   BookingDispute[] @relation("DisputesResolved")
   preference         UserPreference?
+  givenRatings       Rating[] @relation("RaterRatings")
+  receivedRatings    Rating[] @relation("RatedRatings")
   
   @@index([phone])
   @@index([role])
+  @@index([trialEndsAt])
   @@map("users")
 }
 
@@ -90,8 +104,14 @@ model NotificationReceipt {
 }
 
 enum UserRole {
+  /// Factory owners / shippers who post freight requirements.
   load_owner
+  /// Fleet operators / transporters who list vehicles.
   truck_owner
+  /// Individual drivers who work from the vehicle-side workspace.
+  driver
+  factory_owner
+  truck_driver
   admin
 }
 
@@ -102,14 +122,30 @@ model Subscription {
   plan      String // 'monthly_unlimited', 'pay_per_unlock', etc.
   status    SubscriptionStatus
   startedAt DateTime           @map("started_at")
+  /// Hard expiry timestamp — the paywall gate compares `now() > expiresAt`
+  /// to decide whether contact-reveal / booking creation stays unlocked.
   expiresAt DateTime           @map("expires_at")
+  /// Whether Cashfree should attempt an automatic renewal charge when this
+  /// subscription approaches `expiresAt`.
+  autoRenew Boolean            @default(false) @map("auto_renew")
   paymentId String?            @map("payment_id")
   createdAt DateTime           @default(now()) @map("created_at")
+  id              String             @id @default(uuid())
+  userId          String             @map("user_id")
+  plan            String // 'monthly_unlimited', 'pay_per_unlock', etc.
+  status          SubscriptionStatus
+  startedAt       DateTime           @map("started_at")
+  expiresAt       DateTime           @map("expires_at")
+  paymentId       String?            @map("payment_id")
+  provider        String             @default("cashfree") // 'cashfree' | 'razorpay' | 'stripe'
+  providerOrderId String?            @map("provider_order_id") // Gateway order/session id
+  createdAt       DateTime           @default(now()) @map("created_at")
   
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
   @@index([status])
+  @@index([providerOrderId])
   @@map("subscriptions")
 }
 
@@ -147,6 +183,7 @@ model Load {
   
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   bookings Booking[]
+  matches  Match[]
   
   @@index([userId])
   @@index([status])
@@ -171,6 +208,25 @@ enum LoadStatus {
   Cancelled
 }
 
+// ── Verification & Compliance ──────────────────────────────────────────────
+/// FASTag toll-readiness status for a truck. `Unknown` until the owner or an
+/// admin confirms it; derived/manual — Vahan does not expose FASTag state.
+enum FastagStatus {
+  Unknown
+  Active
+  LowBalance
+  Inactive
+}
+
+/// Lifecycle of the E-Way Bill attached to a booking. `Expired`/`Invalid` are
+/// computed when the checklist is read or when the record is updated.
+enum EwayBillStatus {
+  Pending
+  Active
+  Expired
+  Invalid
+}
+
 // Truck registrations with geospatial
 model Truck {
   id                  String             @id @default(uuid())
@@ -187,15 +243,25 @@ model Truck {
   preferredDestinations Json?            @map("preferred_destinations") // Array of city names
   verificationStatus  VerificationStatus @default(Pending) @map("verification_status")
   verifiedAt          DateTime?          @map("verified_at")
+  /// Last successful RC validation snapshot from the Vahan (mParivahan) API.
+  vahanDetails        Json?              @map("vahan_details")
+  vahanValidatedAt    DateTime?          @map("vahan_validated_at")
+  /// FASTag toll-readiness (Active / LowBalance / Inactive / Unknown).
+  fastagStatus        FastagStatus       @default(Unknown) @map("fastag_status")
+  fastagUpdatedAt     DateTime?          @map("fastag_updated_at")
   createdAt           DateTime           @default(now()) @map("created_at")
   updatedAt           DateTime           @updatedAt @map("updated_at")
+
   
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents Document[]
   bookings  Booking[]
+  matches   Match[]
   
   @@index([userId])
   @@index([verificationStatus])
+  @@index([vahanValidatedAt])
+  @@index([fastagStatus])
   @@index([bodyType])
   @@index([tonnageCapacity])
   @@map("trucks")
@@ -205,6 +271,18 @@ enum VerificationStatus {
   Pending
   Verified
   Rejected
+}
+
+/// Result of the external Parivahan / Vahan registration lookup.
+/// `Unavailable` is explicit when provider credentials are not configured;
+/// it must never be presented as a successful government verification.
+enum VahanCheckStatus {
+  NotChecked
+  Pending
+  Verified
+  Mismatch
+  Unavailable
+  Error
 }
 
 // KYC documents (RC, Insurance)
@@ -219,9 +297,16 @@ model Document {
   fileSize           Int?               @map("file_size")
   mimeType           String?            @map("mime_type")
   verificationStatus VerificationStatus @default(Pending) @map("verification_status")
+  /// Convenience flag mirroring verificationStatus === Verified, so callers
+  /// (e.g. the RC verification badge on Truck/Document lists) can filter
+  /// without re-deriving the enum comparison everywhere.
+  isVerified         Boolean            @default(false) @map("is_verified")
   verifiedBy         String?            @map("verified_by") // Admin user ID
   verificationNotes  String?            @map("verification_notes")
   verifiedAt         DateTime?          @map("verified_at")
+  /// RC fitness-certificate expiry / Insurance policy expiry date, whichever
+  /// applies to `type`. Used to proactively flag documents nearing expiry.
+  expiryDate         DateTime?          @map("expiry_date")
   createdAt          DateTime           @default(now()) @map("created_at")
   
   truck Truck @relation(fields: [truckId], references: [id], onDelete: Cascade)
@@ -229,6 +314,7 @@ model Document {
   @@index([truckId])
   @@index([type])
   @@index([verificationStatus])
+  @@index([expiryDate])
   @@map("documents")
 }
 
@@ -250,6 +336,10 @@ model Booking {
   balanceConfirmed    Boolean         @default(false) @map("balance_confirmed")
   balanceConfirmedAt  DateTime?       @map("balance_confirmed_at")
   ewayBillNumber      String?         @map("eway_bill_number")
+  /// Lifecycle status of the attached E-Way Bill (see EwayBillStatus).
+  ewayBillStatus      EwayBillStatus  @default(Pending) @map("eway_bill_status")
+  ewayBillValidUpto   DateTime?       @map("eway_bill_valid_upto")
+  ewayBillUpdatedAt   DateTime?       @map("eway_bill_updated_at")
   liabilityAccepted   Boolean         @default(false) @map("liability_accepted")
   liabilityAcceptedAt DateTime?       @map("liability_accepted_at")
   status              BookingStatus   @default(Pending)
@@ -263,13 +353,26 @@ model Booking {
   loadOwner   User         @relation("LoadOwnerBookings", fields: [loadOwnerId], references: [id])
   truckOwner  User         @relation("TruckOwnerBookings", fields: [truckOwnerId], references: [id])
   checkpoints Checkpoint[]
+  matches     Match[]
+  payments    Payment[]
+  ratings     Rating[]
   
   @@index([loadId])
   @@index([truckId])
   @@index([status])
+  @@index([ewayBillStatus])
   @@index([loadOwnerId])
   @@index([truckOwnerId])
+  @@index([whatsappTriggerStatus])
   @@map("bookings")
+}
+
+enum WhatsappTriggerStatus {
+  NotTriggered
+  Queued
+  Sent
+  Delivered
+  Failed
 }
 
 enum BookingStatus {
@@ -278,6 +381,55 @@ enum BookingStatus {
   InTransit @map("In-transit")
   Completed
   Cancelled
+}
+
+/// A counterparty-reported booking issue that can be investigated and resolved
+/// by an administrator. Disputes are additive so existing bookings remain valid.
+model BookingDispute {
+  id           String          @id @default(uuid())
+  bookingId    String          @map("booking_id")
+  raisedById   String          @map("raised_by_id")
+  category     DisputeCategory  @default(Other)
+  priority     DisputePriority  @default(Medium)
+  status       DisputeStatus    @default(Open)
+  description  String
+  resolution   String?
+  resolvedById String?          @map("resolved_by_id")
+  resolvedAt   DateTime?        @map("resolved_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  raisedBy   User    @relation("DisputesRaised", fields: [raisedById], references: [id])
+  resolvedBy User?   @relation("DisputesResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([raisedById])
+  @@index([status])
+  @@index([priority])
+  @@map("booking_disputes")
+}
+
+enum DisputeCategory {
+  Payment
+  CargoDamage @map("Cargo_Damage")
+  Delay
+  Document
+  Other
+}
+
+enum DisputePriority {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum DisputeStatus {
+  Open
+  Investigating
+  Resolved
+  Rejected
 }
 
 // Checkpoint-based tracking (NOT live GPS)
@@ -308,6 +460,7 @@ model Checkpoint {
 model Payment {
   id              String          @id @default(uuid())
   userId          String          @map("user_id")
+  bookingId       String?         @map("booking_id")
   amount          Decimal         @db.Decimal(12, 2)
   currency        String          @default("INR")
   purpose         PaymentPurpose
@@ -322,9 +475,11 @@ model Payment {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
   
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   
   @@index([userId])
+  @@index([bookingId])
   @@index([status])
   @@index([providerTxnId])
   @@map("payments")
@@ -380,4 +535,73 @@ enum NotificationStatus {
   Sent
   Delivered
   Failed
+}
+
+// Matching Engine — Need Load ↔ Need Vehicle pairing
+enum MatchStatus {
+  Pending   // Initial algorithmic match, awaiting booking
+  Booked    // Load+Truck have a confirmed booking
+  Completed // Trip completed / POD confirmed
+  Cancelled
+}
+
+model Match {
+  id               String      @id @default(uuid())
+  loadId           String      @map("load_id")
+  truckId          String      @map("truck_id")
+  loadOwnerId      String      @map("load_owner_id")
+  truckOwnerId     String      @map("truck_owner_id")
+  bookingId        String?     @map("booking_id")
+  status           MatchStatus @default(Pending)
+  // Derived compatibility signals
+  distanceKm       Decimal?    @map("distance_km") @db.Decimal(10, 2)
+  matchScore       Int?        @map("match_score")
+  tonnageCompatible Boolean    @default(false) @map("tonnage_compatible")
+  routeCompatible   Boolean    @default(false) @map("route_compatible")
+  budgetCompatible  Boolean    @default(false) @map("budget_compatible")
+  // WhatsApp trigger tracking
+  notifiedAt       DateTime?   @map("notified_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  load    Load     @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  truck   Truck    @relation(fields: [truckId], references: [id], onDelete: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@unique([loadId, truckId])
+  @@index([loadId])
+  @@index([truckId])
+  @@index([loadOwnerId])
+  @@index([truckOwnerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("matches")
+}
+
+// Ratings for completed trips
+model Rating {
+  id          String    @id @default(uuid())
+  bookingId   String    @map("booking_id")
+  raterId     String    @map("rater_id")
+  ratedUserId String    @map("rated_user_id")
+  rating      Int       // 1-5 stars
+  review      String?   @db.Text
+  category    RatingCategory @default(overall)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  rater     User     @relation("RaterRatings", fields: [raterId], references: [id], onDelete: Cascade)
+  ratedUser User     @relation("RatedRatings", fields: [ratedUserId], references: [id], onDelete: Cascade)
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  @@unique([bookingId, raterId])
+  @@index([raterId])
+  @@index([ratedUserId])
+  @@map("ratings")
+}
+
+enum RatingCategory {
+  driver_service  // Factory owner rating driver
+  factory_payment // Driver rating factory owner payment behavior
+  overall         // General rating
 }

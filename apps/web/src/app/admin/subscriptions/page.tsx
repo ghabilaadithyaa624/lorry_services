@@ -21,6 +21,7 @@ interface Subscription {
   startedAt: string
   expiresAt: string
   paymentId: string | null
+  provider?: string
   createdAt: string
   user: { name: string | null; phone: string; role: string }
 }
@@ -121,7 +122,7 @@ export default function RevenueSubscriptionsPage() {
             </h1>
           </div>
           <p className="text-xs font-mono text-surface-400 mt-1">
-            Cashfree direct contact access pass records, subscriber accounts, and plan monetization metrics.
+            Cashfree / Razorpay / Stripe direct contact access pass records, subscriber accounts, and plan monetization metrics.
           </p>
         </div>
 
@@ -203,6 +204,11 @@ export default function RevenueSubscriptionsPage() {
 
                       <td className="py-3.5 px-4 font-bold text-purple-300">
                         {formatPlan(s.plan)}
+                        {s.provider && (
+                          <span className="ml-2 px-2 py-0.5 rounded-md bg-surface-950 border border-white/10 text-[10px] font-mono uppercase text-surface-400">
+                            {s.provider}
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4">

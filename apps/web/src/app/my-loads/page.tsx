@@ -9,7 +9,7 @@ import {
   ArrowPathIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
+import { api, matchesApi } from '@/lib/api'
 import { DashboardLayout } from '@/components/layout'
 import {
   Badge,
@@ -19,8 +19,9 @@ import {
   Skeleton,
 } from '@/components/ui'
 import { OperationalEmptyState } from '@/components/intelligence'
+import { MatchesPanel } from '@/components/matching/MatchesPanel'
 import { toast } from '@/lib/toast'
-import { cn, formatINR, timeAgo } from '@/lib/utils'
+import { cn, formatINR, timeAgo, formatPhone, whatsappLink } from '@/lib/utils'
 
 interface Load {
   id: string
@@ -118,6 +119,7 @@ function MyLoadsContent() {
   const [error, setError] = useState('')
   const [activeFilter, setActiveFilter] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
+  const [expandedMatches, setExpandedMatches] = useState<Record<string, { loading: boolean; items: any[] }>>({})
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
@@ -152,6 +154,29 @@ function MyLoadsContent() {
       toast.success('Load removed successfully')
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to delete load')
+    }
+  }
+
+  const toggleMatches = async (loadId: string) => {
+    if (expandedMatches[loadId]) {
+      setExpandedMatches((prev) => {
+        const copy = { ...prev }
+        delete copy[loadId]
+        return copy
+      })
+      return
+    }
+    setExpandedMatches((prev) => ({ ...prev, [loadId]: { loading: true, items: [] } }))
+    try {
+      const res = await matchesApi.getMatchesForLoad(loadId, 50)
+      const items = Array.isArray(res.data) ? res.data : []
+      setExpandedMatches((prev) => ({ ...prev, [loadId]: { loading: false, items } }))
+      if (items.length === 0) toast.info('No verified lorries within 50 km for this Need Load — try adjusting tonnage or budget')
+      // Also trigger persisted evaluation (WhatsApp) in background
+      matchesApi.evaluateForLoad(loadId, 50).catch(() => null)
+    } catch (err: any) {
+      setExpandedMatches((prev) => ({ ...prev, [loadId]: { loading: false, items: [] } }))
+      toast.error(err?.response?.data?.message || 'Failed to fetch matches')
     }
   }
 
@@ -267,6 +292,9 @@ function MyLoadsContent() {
           </div>
         </div>
 
+        {/* ── 5b. Global Smart Matches (both dashboards) — Pending/Booked/Completed with ≤50km & WhatsApp ── */}
+        <MatchesPanel role="load_owner" compact />
+
         {/* ── LOADS LIST / CARDS ── */}
         {loading ? (
           <div className="space-y-4">
@@ -284,7 +312,7 @@ function MyLoadsContent() {
           </GlassPanel>
         ) : filteredLoads.length === 0 ? (
           <OperationalEmptyState
-            role="load_owner"
+            role="factory_owner"
             title="No freight posted"
             description="Publish your cargo tonnage and warehouse coordinates to activate direct 50 km proximity matching with verified transporters."
             actionLabel="Post your first load"
@@ -355,11 +383,19 @@ function MyLoadsContent() {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => router.push(`/search?type=truck&location=${encodeURIComponent(load.loadingAddress)}`)}
+                        onClick={() => toggleMatches(load.id)}
                         leftIcon={<SparklesIcon className="w-4 h-4" />}
                         className="border-white/10 hover:border-white/20"
                       >
-                        Match lorries
+                        {expandedMatches[load.id] ? 'Hide matches' : 'Match lorries ≤50km'}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => router.push(`/search?type=truck&location=${encodeURIComponent(load.loadingAddress)}`)}
+                        className="border-white/10 hover:border-white/20 hidden sm:inline-flex"
+                      >
+                        Marketplace
                       </Button>
 
                       {load.status === 'Open' && (
@@ -377,6 +413,75 @@ function MyLoadsContent() {
                 </div>
 
                 <FreightLifecycleTimeline status={load.status} />
+
+                {/* Per-Load Smart Matches (tonnage/route/budget, ≤50km, WhatsApp, status tags) */}
+                {expandedMatches[load.id] && (
+                  <div className="pt-4 mt-4 border-t border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <SparklesIcon className="w-4 h-4 text-primary-400" />
+                        <span>Matching Need Vehicles ≤50km</span>
+                        <span className="px-2 py-0.5 rounded-full bg-primary-500/15 text-primary-300 border border-primary-500/20 text-xs font-mono">
+                          {expandedMatches[load.id].items.length} match{expandedMatches[load.id].items.length === 1 ? '' : 'es'}
+                        </span>
+                      </h4>
+                      <span className="text-xs text-surface-400 font-mono">WhatsApp auto-triggered on Pending</span>
+                    </div>
+                    {expandedMatches[load.id].loading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-20 w-full" />
+                        <Skeleton className="h-20 w-full" />
+                      </div>
+                    ) : expandedMatches[load.id].items.length === 0 ? (
+                      <div className="p-6 rounded-xl bg-surface-950/60 border border-white/5 text-center">
+                        <p className="text-sm font-semibold text-surface-300">No verified lorries within 50 km for this tonnage & budget</p>
+                        <p className="text-xs text-surface-400 mt-1">Matching checks tonnage (truck ≥ load), route proximity ≤50km, and budget (maxPrice ≥ estimate).</p>
+                      </div>
+                    ) : (
+                      <ul className="space-y-2">
+                        {expandedMatches[load.id].items.map((m: any) => {
+                          const truck = m.truck
+                          const match = m.match
+                          const dist = Number(m.distanceKm ?? match?.distanceKm ?? 0).toFixed(1)
+                          const score = match?.score ?? 70
+                          const isPending = true
+                          return (
+                            <li key={truck.id} className="p-3.5 rounded-xl bg-surface-950/80 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-mono font-bold text-white text-sm">{truck.registrationNumber || truck.id.slice(0, 8)}</span>
+                                  <Badge variant={isPending ? 'warning' : 'primary'} size="sm">Pending</Badge>
+                                  <span className="px-2 py-0.5 rounded-full bg-primary-500/15 text-primary-300 border border-primary-500/20 text-xs font-mono font-bold">{score}% match</span>
+                                  <span className="text-xs font-mono text-surface-400">{dist} km • ≤50km</span>
+                                </div>
+                                <p className="text-xs text-surface-400">
+                                  {truck.bodyType} • {truck.tonnageCapacity}T • {truck.verificationStatus} • {match?.factors?.capacity?.detail ?? ''} • {match?.factors?.budget?.detail ?? ''}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                {truck.ownerPhone || truck.user?.phone ? (
+                                  <a
+                                    href={whatsappLink(truck.ownerPhone || truck.user?.phone, `Hi, your lorry ${truck.registrationNumber} matches my Need Load ${load.loadingAddress} → ${load.unloadingAddress} (${load.tonnageRequired}T, ₹${load.maxPrice ?? 'open'}). Distance ${dist}km, score ${score}%.`)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold transition-colors"
+                                  >
+                                    WhatsApp
+                                  </a>
+                                ) : (
+                                  <span className="text-xs text-surface-500">Contact locked</span>
+                                )}
+                                <Button variant="primary" size="sm" onClick={() => router.push(`/search?type=truck`)}>
+                                  Book
+                                </Button>
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </GlassPanel>
             ))}
           </div>

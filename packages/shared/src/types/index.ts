@@ -10,7 +10,7 @@ export interface OTPRequestDTO {
 export interface OTPVerifyDTO {
   phone: string;
   code: string;
-  role?: 'load_owner' | 'truck_owner' | 'admin';
+  role?: 'load_owner' | 'truck_owner' | 'driver' | 'factory_owner' | 'truck_driver' | 'admin';
 }
 
 export interface AuthResponse {
@@ -57,4 +57,61 @@ export interface SearchTrucksFilter {
   truckType?: 'Open' | 'Container' | 'OpenBody';
   minTonnage?: number;
   radiusKm?: number;
+}
+
+// ── Verification & Compliance (Vahan RC / FASTag / E-Way Bill) ──────────────
+
+export type FastagStatus = 'Unknown' | 'Active' | 'LowBalance' | 'Inactive';
+
+export type EwayBillStatus = 'Pending' | 'Active' | 'Expired' | 'Invalid';
+
+/** Normalized, PII-safe subset of a Vahan (mParivahan) RC record. */
+export interface VahanRCData {
+  registrationNumber: string;
+  registrationStatus: string;
+  ownerNameMasked?: string;
+  makerModel?: string;
+  vehicleClass?: string;
+  fuelType?: string;
+  registrationDate?: string;
+  fitnessValidUpto?: string;
+  insuranceValidUpto?: string;
+  pucValidUpto?: string;
+  permitType?: string;
+  permitValidUpto?: string;
+  rto?: string;
+  state?: string;
+  chassisNumberMasked?: string;
+  engineNumberMasked?: string;
+}
+
+export interface VahanRCValidationResult {
+  valid: boolean;
+  found: boolean;
+  registrationNumber: string;
+  source: 'vahan_api' | 'sandbox' | 'unavailable';
+  checkedAt: string;
+  error?: string;
+  data?: VahanRCData;
+}
+
+export type ComplianceItemStatus = 'compliant' | 'action_required' | 'pending' | 'expired';
+
+export interface ComplianceItem {
+  key: string;
+  label: string;
+  status: ComplianceItemStatus;
+  detail: string;
+  source: 'vahan_api' | 'sandbox' | 'booking' | 'manual' | 'document';
+  verifiedAt?: string;
+  expiresAt?: string;
+}
+
+export interface ComplianceChecklist {
+  scope: 'truck' | 'booking';
+  scopeId: string;
+  registrationNumber?: string;
+  overall: ComplianceItemStatus;
+  items: ComplianceItem[];
+  checkedAt: string;
 }

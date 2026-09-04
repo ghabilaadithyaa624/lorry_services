@@ -4,7 +4,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
   describe('Subscription Checks', () => {
     it('should generate a direct transporter pass upgrade task when hasSubscription is false', () => {
       const result = deriveOperationalTasks({
-        userRole: 'load_owner',
+        userRole: 'factory_owner',
         hasSubscription: false,
       })
 
@@ -23,7 +23,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
 
     it('should NOT generate subscription upgrade task when hasSubscription is true', () => {
       const result = deriveOperationalTasks({
-        userRole: 'load_owner',
+        userRole: 'factory_owner',
         hasSubscription: true,
       })
 
@@ -33,7 +33,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
 
     it('should NOT generate subscription upgrade task when hasSubscription is undefined', () => {
       const result = deriveOperationalTasks({
-        userRole: 'load_owner',
+        userRole: 'factory_owner',
       })
 
       const subUpgradeTask = result.find((task) => task.id === 'sub-upgrade')
@@ -41,16 +41,16 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
     })
   })
 
-  describe('Truck Owner Compliance Tasks', () => {
+  describe('Truck Driver Compliance Tasks', () => {
     const mockTrucks = [
       { id: 'truck-1', registrationNumber: 'KA-01-MJ-1234', verificationStatus: 'Pending' },
       { id: 'truck-2', registrationNumber: 'DL-01-AB-5678', verificationStatus: 'Verified' },
       { id: 'truck-3', registrationNumber: 'MH-02-CD-9012', verificationStatus: 'Rejected' },
     ]
 
-    it('should generate KYC compliance tasks only for Pending trucks of a truck_owner', () => {
+    it('should generate KYC compliance tasks only for Pending trucks of a truck_driver', () => {
       const result = deriveOperationalTasks({
-        userRole: 'truck_owner',
+        userRole: 'truck_driver',
         trucks: mockTrucks,
       })
 
@@ -62,14 +62,14 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
         description: 'Upload your clear RC copy and Insurance certificate to activate direct marketplace matching.',
         category: 'COMPLIANCE',
         urgency: 'HIGH',
-        actionUrl: '/dashboard/truck-owner',
+        actionUrl: '/dashboard/truck-driver',
         actionLabel: 'Upload Documents',
       })
     })
 
-    it('should NOT generate KYC compliance tasks if userRole is NOT truck_owner', () => {
+    it('should NOT generate KYC compliance tasks if userRole is NOT truck_driver', () => {
       const result = deriveOperationalTasks({
-        userRole: 'load_owner',
+        userRole: 'factory_owner',
         trucks: mockTrucks,
       })
 
@@ -79,7 +79,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
 
     it('should handle undefined trucks array gracefully', () => {
       const result = deriveOperationalTasks({
-        userRole: 'truck_owner',
+        userRole: 'truck_driver',
         trucks: undefined,
       })
 
@@ -88,16 +88,16 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
     })
   })
 
-  describe('Load Owner Booking & Dispatch Tasks', () => {
+  describe('Factory Owner Booking & Dispatch Tasks', () => {
     const mockBookings = [
       { id: 'booking-1', status: 'Quoted', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 24000 },
       { id: 'booking-2', status: 'Cancelled', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 15000 },
       { id: 'booking-3', status: 'In_Transit', advanceConfirmed: true, balanceConfirmed: false, agreedPrice: 30000 },
     ]
 
-    it('should generate advance pending payment tasks only for non-cancelled and non-confirmed bookings of a load_owner', () => {
+    it('should generate advance pending payment tasks only for non-cancelled and non-confirmed bookings of a factory_owner', () => {
       const result = deriveOperationalTasks({
-        userRole: 'load_owner',
+        userRole: 'factory_owner',
         bookings: mockBookings,
       })
 
@@ -114,9 +114,9 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
       })
     })
 
-    it('should NOT generate advance payment tasks if userRole is NOT load_owner', () => {
+    it('should NOT generate advance payment tasks if userRole is NOT factory_owner', () => {
       const result = deriveOperationalTasks({
-        userRole: 'truck_owner',
+        userRole: 'truck_driver',
         bookings: mockBookings,
       })
 
@@ -126,7 +126,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
 
     it('should handle undefined bookings array gracefully', () => {
       const result = deriveOperationalTasks({
-        userRole: 'load_owner',
+        userRole: 'factory_owner',
         bookings: undefined,
       })
 
@@ -142,9 +142,9 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
       { id: 'load-3', status: 'Open', tonnageRequired: 8, loadingAddress: 'Bangalore' },
     ]
 
-    it('should generate a search reminder task when open loads exist for a load_owner', () => {
+    it('should generate a search reminder task when open loads exist for a factory_owner', () => {
       const result = deriveOperationalTasks({
-        userRole: 'load_owner',
+        userRole: 'factory_owner',
         loads: mockLoads,
       })
 
@@ -163,7 +163,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
 
     it('should NOT generate reminder task if there are no open loads', () => {
       const result = deriveOperationalTasks({
-        userRole: 'load_owner',
+        userRole: 'factory_owner',
         loads: [
           { id: 'load-2', status: 'Booked', tonnageRequired: 20, loadingAddress: 'Delhi' },
         ],
@@ -173,9 +173,9 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
       expect(reminderTask).toBeUndefined()
     })
 
-    it('should NOT generate reminder task if userRole is NOT load_owner', () => {
+    it('should NOT generate reminder task if userRole is NOT factory_owner', () => {
       const result = deriveOperationalTasks({
-        userRole: 'truck_owner',
+        userRole: 'truck_driver',
         loads: mockLoads,
       })
 
@@ -185,7 +185,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
 
     it('should handle undefined loads array gracefully', () => {
       const result = deriveOperationalTasks({
-        userRole: 'load_owner',
+        userRole: 'factory_owner',
         loads: undefined,
       })
 
@@ -197,7 +197,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
   describe('Multiple / Combined Scenarios', () => {
     it('should generate all relevant tasks simultaneously when multiple conditions match', () => {
       const result = deriveOperationalTasks({
-        userRole: 'load_owner',
+        userRole: 'factory_owner',
         hasSubscription: false,
         loads: [
           { id: 'load-1', status: 'Open', tonnageRequired: 15, loadingAddress: 'Mumbai' },

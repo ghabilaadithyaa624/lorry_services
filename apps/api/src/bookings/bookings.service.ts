@@ -1,13 +1,16 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, Optional } from '@nestjs/common'
 import { randomUUID } from 'crypto'
 import { 
   prisma, 
   Prisma,
   BookingStatus, 
-  LoadStatus, 
-  SubscriptionStatus 
+  LoadStatus,
+  SubscriptionStatus,
+  DisputeCategory,
+  DisputePriority,
 } from '@lorrycarry/database'
-import { GupshupService } from '../auth/gupshup.service'
+import { NotificationsService } from '../notifications/notifications.service'
+import { MatchingService } from '../matching/matching.service'
 
 export interface CreateBookingDto {
   loadId: string
@@ -19,7 +22,10 @@ export interface CreateBookingDto {
 
 @Injectable()
 export class BookingsService {
-  constructor(private gupshup: GupshupService) {}
+  constructor(
+    private readonly notifications: NotificationsService,
+    @Optional() private matchingService?: MatchingService,
+  ) {}
 
   /**
    * Create booking with commercial terms within an atomic database transaction
@@ -95,6 +101,8 @@ export class BookingsService {
           truckOwnerId: truck.userId,
           agreedPrice: dto.agreedPrice,
           ewayBillNumber: dto.ewayBillNumber,
+          ewayBillStatus: dto.ewayBillNumber ? 'Active' : 'Pending',
+          ewayBillUpdatedAt: dto.ewayBillNumber ? new Date() : null,
           liabilityAccepted: dto.liabilityAccepted,
           liabilityAcceptedAt: dto.liabilityAccepted ? new Date() : null,
           status: BookingStatus.Confirmed,
@@ -126,8 +134,15 @@ export class BookingsService {
       return createdBooking
     })
 
-    // Send WhatsApp notifications asynchronously outside the transaction
-    await this.sendBookingNotifications(booking)
+    // Send booking confirmation + in-app alerts outside the transaction
+    await this.notifications.sendBookingConfirmed(booking)
+
+    // Transition matching engine status: Pending → Booked (WhatsApp already triggered on match, now book)
+    try {
+      await this.matchingService?.handleBookingCreated(booking)
+    } catch {
+      // ignore matching transition errors
+    }
 
     return booking
   }
@@ -181,39 +196,6 @@ export class BookingsService {
   }
 
   /**
-   * Send booking confirmation WhatsApp messages
-   */
-  private async sendBookingNotifications(booking: any) {
-    // Notify truck owner
-    if (booking.truck?.user?.phone) {
-      await this.gupshup.sendNotification(
-        booking.truck.user.phone,
-        'booking_confirmed_driver',
-        [
-          booking.load?.loadingAddress || 'Loading Point',
-          booking.load?.unloadingAddress || 'Unloading Point',
-          booking.agreedPrice.toString(),
-          booking.id.slice(0, 8),
-        ]
-      )
-    }
-
-    // Notify load owner
-    if (booking.load?.user?.phone) {
-      await this.gupshup.sendNotification(
-        booking.load.user.phone,
-        'booking_confirmed_shipper',
-        [
-          booking.truck?.registrationNumber || 'Truck',
-          booking.truck?.user?.name || 'Transporter',
-          booking.agreedPrice.toString(),
-          booking.id.slice(0, 8),
-        ]
-      )
-    }
-  }
-
-  /**
    * Update booking status (advance paid, in transit, etc.)
    */
   async updateStatus(
@@ -226,6 +208,14 @@ export class BookingsService {
       where: {
         id: bookingId,
         OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
+      },
+      include: {
+        load: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+        truck: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
       },
     })
 
@@ -258,9 +248,80 @@ export class BookingsService {
       })
     }
 
-    return prisma.booking.update({
+    const updated = await prisma.booking.update({
       where: { id: bookingId },
       data,
+      include: {
+        load: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+        truck: {
+          include: { user: { select: { phone: true, name: true } } },
+        },
+      },
+    })
+
+    // WhatsApp + in-app dispatch alerts on meaningful status transitions,
+    // alongside matching-engine state transitions.
+    if (status === BookingStatus.InTransit) {
+      await this.notifications.sendDispatchUpdate(updated, 'InTransit')
+      try {
+        await this.matchingService?.handleBookingCreated(updated)
+      } catch {
+        // ignore
+      }
+    } else if (status === BookingStatus.Completed) {
+      await this.notifications.sendDeliveryCompleted(updated)
+      try {
+        await this.matchingService?.handleBookingCompleted(updated)
+      } catch {
+        // ignore
+      }
+    } else if (status === BookingStatus.Cancelled) {
+      await this.notifications.sendDispatchUpdate(updated, 'Cancelled')
+    }
+
+    return updated
+  }
+
+  /**
+   * Allow either booking counterparty to create a structured dispute for the
+   * admin resolution queue. The admin is deliberately not a party here.
+   */
+  async createDispute(
+    bookingId: string,
+    userId: string,
+    dto: {
+      category?: 'Payment' | 'CargoDamage' | 'Delay' | 'Document' | 'Other'
+      priority?: 'Low' | 'Medium' | 'High' | 'Critical'
+      description: string
+    },
+  ) {
+    const booking = await prisma.booking.findFirst({
+      where: {
+        id: bookingId,
+        OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
+      },
+      select: { id: true },
+    })
+    if (!booking) throw new NotFoundException('Booking not found')
+
+    const category = {
+      Payment: DisputeCategory.Payment,
+      CargoDamage: DisputeCategory.CargoDamage,
+      Delay: DisputeCategory.Delay,
+      Document: DisputeCategory.Document,
+      Other: DisputeCategory.Other,
+    }[dto.category || 'Other']
+
+    return prisma.bookingDispute.create({
+      data: {
+        bookingId,
+        raisedById: userId,
+        category,
+        priority: (dto.priority || 'Medium') as DisputePriority,
+        description: dto.description.trim(),
+      },
     })
   }
 

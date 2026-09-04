@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 interface OperationalEmptyStateProps {
   title: string
   description: string
-  role: 'load_owner' | 'truck_owner'
+  role: 'factory_owner' | 'truck_driver'
   actionLabel?: string
   actionHref?: string
   secondaryActionLabel?: string
@@ -36,21 +36,21 @@ export function OperationalEmptyState({
 }: OperationalEmptyStateProps) {
   const router = useRouter()
 
-  const loadOwnerWorkflow = [
+  const factoryOwnerWorkflow = [
     { step: '01', title: 'Post Cargo Requirements', desc: 'Specify tonnage, route, and vehicle type', icon: TruckIcon },
     { step: '02', title: 'Smart Proximity Match', desc: '50km radius matching finds verified trucks', icon: MapPinIcon },
     { step: '03', title: 'Direct WhatsApp Contact', desc: 'Call drivers directly without middleman fees', icon: ChatBubbleLeftRightIcon },
     { step: '04', title: 'Track 5-Stage Milestones', desc: 'Follow transit checkpoints along the highway', icon: CheckBadgeIcon },
   ]
 
-  const truckOwnerWorkflow = [
+  const truckDriverWorkflow = [
     { step: '01', title: 'Complete RC Verification', desc: 'Upload vehicle RC and insurance documents', icon: ShieldCheckIcon },
     { step: '02', title: 'Discover Nearby Loads', desc: 'Match with shippers requiring your lorry specs', icon: MagnifyingGlassIcon },
     { step: '03', title: 'Capture Return Loads', desc: 'Minimize empty return trips at destination', icon: MapPinIcon },
     { step: '04', title: 'Standard 50/50 Terms', desc: 'Receive advance and confirmed balance on POD', icon: CheckBadgeIcon },
   ]
 
-  const steps = role === 'load_owner' ? loadOwnerWorkflow : truckOwnerWorkflow
+  const steps = role === 'factory_owner' ? factoryOwnerWorkflow : truckDriverWorkflow
 
   return (
     <div className={cn('bg-panel rounded-[20px] border border-white/10 p-6 sm:p-8 shadow-modal text-center space-y-6 font-sans', className)}>

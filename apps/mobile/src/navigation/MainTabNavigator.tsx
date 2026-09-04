@@ -7,6 +7,7 @@ import { MyTripScreen } from '../screens/MyTripScreen'
 import { DriverTripScreen } from '../screens/DriverTripScreen'
 import { PaymentScreen } from '../screens/PaymentScreen'
 import { HelpScreen } from '../screens/HelpScreen'
+import { NotificationsScreen } from '../screens/NotificationsScreen'
 
 const Tab = createBottomTabNavigator()
 
@@ -31,6 +32,7 @@ export function MainTabNavigator() {
           else if (route.name === 'Driver Mode') icon = '🚚'
           else if (route.name === 'My Trips') icon = '📋'
           else if (route.name === 'Payments') icon = '💳'
+          else if (route.name === 'Notifications') icon = '🔔'
           else if (route.name === 'Help') icon = '❓'
 
           return <Text style={{ fontSize: size - 2 }}>{icon}</Text>
@@ -41,6 +43,7 @@ export function MainTabNavigator() {
       <Tab.Screen name="Driver Mode" component={DriverTripScreen} />
       <Tab.Screen name="My Trips" component={MyTripScreen} />
       <Tab.Screen name="Payments" component={PaymentScreen} />
+      <Tab.Screen name="Notifications" component={NotificationsScreen} />
       <Tab.Screen name="Help" component={HelpScreen} />
     </Tab.Navigator>
   )

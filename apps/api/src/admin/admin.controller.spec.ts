@@ -13,6 +13,7 @@ describe('AdminController', () => {
   beforeEach(async () => {
     const mockAdminService = {
       getDashboardStats: jest.fn(),
+      getAnalytics: jest.fn(),
       listUsers: jest.fn(),
       getPendingDocuments: jest.fn(),
       verifyDocument: jest.fn(),
@@ -54,6 +55,34 @@ describe('AdminController', () => {
     })
   })
 
+  describe('getAnalytics', () => {
+    it('should return analytics with default 30 day range', async () => {
+      const mockAnalytics = { rangeDays: 30, trips: {}, earnings: {}, bookings: {}, routes: {} }
+      adminService.getAnalytics.mockResolvedValue(mockAnalytics as any)
+
+      const result = await controller.getAnalytics(mockUserId)
+      expect(result).toEqual(mockAnalytics)
+      expect(adminService.getAnalytics).toHaveBeenCalledWith(mockUserId, 30)
+    })
+
+    it('should pass a valid requested range', async () => {
+      const mockAnalytics = { rangeDays: 90, trips: {}, earnings: {}, bookings: {}, routes: {} }
+      adminService.getAnalytics.mockResolvedValue(mockAnalytics as any)
+
+      const result = await controller.getAnalytics(mockUserId, '90')
+      expect(result).toEqual(mockAnalytics)
+      expect(adminService.getAnalytics).toHaveBeenCalledWith(mockUserId, 90)
+    })
+
+    it('should fall back to 30 days for an invalid range', async () => {
+      const mockAnalytics = { rangeDays: 30, trips: {}, earnings: {}, bookings: {}, routes: {} }
+      adminService.getAnalytics.mockResolvedValue(mockAnalytics as any)
+
+      const result = await controller.getAnalytics(mockUserId, '999')
+      expect(adminService.getAnalytics).toHaveBeenCalledWith(mockUserId, 30)
+    })
+  })
+
   describe('listUsers', () => {
     it('should list users with default pagination', async () => {
       const mockResult = { users: [], total: 0, page: 1, pages: 0 }
@@ -69,9 +98,9 @@ describe('AdminController', () => {
       adminService.listUsers.mockResolvedValue(mockResult as any)
       const pagination: PaginationDto = { page: 2, limit: 10 }
 
-      const result = await controller.listUsers(mockUserId, UserRole.load_owner, pagination)
+      const result = await controller.listUsers(mockUserId, UserRole.factory_owner, pagination)
       expect(result).toEqual(mockResult)
-      expect(adminService.listUsers).toHaveBeenCalledWith(mockUserId, UserRole.load_owner, 2, 10)
+      expect(adminService.listUsers).toHaveBeenCalledWith(mockUserId, UserRole.factory_owner, 2, 10)
     })
   })
 

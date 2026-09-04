@@ -15,15 +15,15 @@ interface UserItem {
   id: string
   phone: string
   name: string | null
-  role: 'load_owner' | 'truck_owner' | 'admin'
+  role: 'factory_owner' | 'truck_driver' | 'admin'
   createdAt: string
   updatedAt: string
   _count: { loads: number; trucks: number; subscriptions: number }
 }
 
 const ROLE_CONFIG: Record<string, { label: string; bg: string; text: string; border: string }> = {
-  load_owner: { label: 'Load Owner', bg: 'bg-info-500/15', text: 'text-info-400', border: 'border-info-500/30' },
-  truck_owner: { label: 'Truck Owner', bg: 'bg-success-500/15', text: 'text-success-400', border: 'border-success-500/30' },
+  factory_owner: { label: 'Factory Owner', bg: 'bg-info-500/15', text: 'text-info-400', border: 'border-info-500/30' },
+  truck_driver: { label: 'Truck Driver', bg: 'bg-success-500/15', text: 'text-success-400', border: 'border-success-500/30' },
   admin: { label: 'Admin', bg: 'bg-danger-500/15', text: 'text-danger-400', border: 'border-danger-500/30' },
 }
 
@@ -113,8 +113,8 @@ export function Users() {
               className="input py-1.5 px-3 text-sm w-auto min-w-[140px]"
             >
               <option value="">All Roles</option>
-              <option value="load_owner">Load Owner</option>
-              <option value="truck_owner">Truck Owner</option>
+              <option value="factory_owner">Factory Owner</option>
+              <option value="truck_driver">Truck Driver</option>
               <option value="admin">Admin</option>
             </select>
           </div>
