@@ -10,7 +10,7 @@ import {
   ArrowPathIcon,
   CurrencyRupeeIcon,
 } from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
+import { api, bookingsApi } from '@/lib/api'
 import { format } from 'date-fns'
 import { Navbar, Footer } from '@/components/layout'
 import { Badge, Button, Spinner } from '@/components/ui'
@@ -119,7 +119,7 @@ export default function BookingDetailPage() {
   const handleConfirmAdvance = async () => {
     try {
       setActionLoading('advance')
-      // Try the new payment endpoint first
+      // Try the payment gateway first; fall back to explicit milestone confirm.
       try {
         const response = await api.post('/payments/booking/initialize', {
           bookingId: id,
@@ -130,8 +130,7 @@ export default function BookingDetailPage() {
           window.open(response.data.shortUrl, '_blank')
         }
       } catch {
-        // Fallback to old endpoint
-        await api.patch(`/bookings/${id}/confirm-advance`)
+        await bookingsApi.confirmAdvance(id)
       }
       toast.success('50% Loading advance payment initiated!')
       loadBooking()
@@ -145,7 +144,7 @@ export default function BookingDetailPage() {
   const handleConfirmBalance = async () => {
     try {
       setActionLoading('balance')
-      await api.patch(`/bookings/${id}/confirm-balance`)
+      await bookingsApi.confirmBalance(id)
       toast.success('Delivery balance payment initiated!')
       loadBooking()
     } catch (err: any) {
@@ -346,7 +345,7 @@ export default function BookingDetailPage() {
                     </div>
                   </div>
 
-                  {action.actionType === 'CONFIRM_ADVANCE' && (
+                  {action.actionType === 'CONFIRM_ADVANCE' && isLoadOwner && (
                     <Button
                       variant="primary"
                       size="sm"
@@ -358,7 +357,7 @@ export default function BookingDetailPage() {
                     </Button>
                   )}
 
-                  {action.actionType === 'CONFIRM_BALANCE' && (
+                  {action.actionType === 'CONFIRM_BALANCE' && isLoadOwner && (
                     <Button
                       variant="primary"
                       size="sm"

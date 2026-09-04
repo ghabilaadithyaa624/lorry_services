@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException, Optional } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException, Optional } from '@nestjs/common'
 import { randomUUID } from 'crypto'
 import { 
   prisma, 
@@ -18,6 +18,15 @@ export interface CreateBookingDto {
   agreedPrice: number
   ewayBillNumber?: string
   liabilityAccepted: boolean
+}
+
+const BOOKING_PARTY_INCLUDE = {
+  load: {
+    include: { user: { select: { phone: true, name: true } } },
+  },
+  truck: {
+    include: { user: { select: { phone: true, name: true } } },
+  },
 }
 
 @Injectable()
@@ -193,6 +202,22 @@ export class BookingsService {
     } catch (err) {
       // PostGIS point update fallback
     }
+  }
+
+  /**
+   * Confirm 50% loading advance release. Only the cargo owner (factory owner)
+   * who is a party to the booking may confirm.
+   */
+  async confirmAdvance(bookingId: string, userId: string) {
+    return this.confirmPaymentMilestone(bookingId, userId, 'advance')
+  }
+
+  /**
+   * Confirm 50% delivery balance release on POD receipt. Only the cargo owner
+   * (factory owner) who is a party to the booking may confirm.
+   */
+  async confirmBalance(bookingId: string, userId: string) {
+    return this.confirmPaymentMilestone(bookingId, userId, 'balance')
   }
 
   /**
@@ -382,6 +407,82 @@ export class BookingsService {
         },
       },
       orderBy: { createdAt: 'desc' },
+    })
+  }
+
+  /**
+   * Load a booking only if the caller is one of its counterparties.
+   * Unknown / unrelated users get NotFound so we do not leak existence.
+   */
+  private async findBookingForParty(bookingId: string, userId: string) {
+    const booking = await prisma.booking.findFirst({
+      where: {
+        id: bookingId,
+        OR: [{ loadOwnerId: userId }, { truckOwnerId: userId }],
+      },
+      include: BOOKING_PARTY_INCLUDE,
+    })
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found')
+    }
+
+    return booking
+  }
+
+  /**
+   * Payment milestones are confirmed by the cargo owner (factory owner / load
+   * owner) who is releasing the 50/50 split. A truck driver who is a party
+   * still cannot confirm their own payout.
+   */
+  private assertPayerCanConfirm(booking: { loadOwnerId: string }, userId: string) {
+    if (booking.loadOwnerId !== userId) {
+      throw new ForbiddenException('Only the cargo owner can confirm payment milestones')
+    }
+  }
+
+  private async confirmPaymentMilestone(
+    bookingId: string,
+    userId: string,
+    milestone: 'advance' | 'balance',
+  ) {
+    const booking = await this.findBookingForParty(bookingId, userId)
+    this.assertPayerCanConfirm(booking, userId)
+
+    if (booking.status === BookingStatus.Cancelled) {
+      throw new BadRequestException('Cannot confirm payment on a cancelled booking')
+    }
+
+    if (milestone === 'advance') {
+      if (booking.advanceConfirmed) {
+        throw new BadRequestException('Advance payment already confirmed')
+      }
+
+      return prisma.booking.update({
+        where: { id: bookingId },
+        data: {
+          advanceConfirmed: true,
+          advanceConfirmedAt: new Date(),
+        },
+        include: BOOKING_PARTY_INCLUDE,
+      })
+    }
+
+    if (!booking.advanceConfirmed) {
+      throw new BadRequestException('Advance payment must be confirmed before balance')
+    }
+
+    if (booking.balanceConfirmed) {
+      throw new BadRequestException('Balance payment already confirmed')
+    }
+
+    return prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        balanceConfirmed: true,
+        balanceConfirmedAt: new Date(),
+      },
+      include: BOOKING_PARTY_INCLUDE,
     })
   }
 }

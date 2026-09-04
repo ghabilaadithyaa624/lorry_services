@@ -72,6 +72,26 @@ export class BookingsController {
     return this.bookingsService.findOne(id, userId)
   }
 
+  @Patch(':id/confirm-advance')
+  @Roles(UserRole.factory_owner)
+  @ApiOperation({ summary: 'Confirm 50% loading advance release' })
+  async confirmAdvance(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.bookingsService.confirmAdvance(id, userId)
+  }
+
+  @Patch(':id/confirm-balance')
+  @Roles(UserRole.factory_owner)
+  @ApiOperation({ summary: 'Confirm 50% delivery balance release on POD receipt' })
+  async confirmBalance(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.bookingsService.confirmBalance(id, userId)
+  }
+
   @Patch(':id/status')
   @ApiOperation({ summary: 'Update booking status' })
   async updateStatus(

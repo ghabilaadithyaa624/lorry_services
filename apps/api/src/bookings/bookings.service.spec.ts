@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common'
+import { NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common'
 import { BookingsService } from './bookings.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { prisma, BookingStatus, LoadStatus, SubscriptionStatus } from '@lorrycarry/database'
@@ -81,6 +81,10 @@ describe('BookingsService', () => {
 
     service = module.get<BookingsService>(BookingsService)
     notificationsService = module.get(NotificationsService)
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
   })
 
   describe('Create Booking', () => {
@@ -247,6 +251,173 @@ describe('BookingsService', () => {
     it('should throw NotFoundException when unauthorized user attempts status update', async () => {
       ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(null)
       await expect(service.updateStatus('booking-1001', 'unauthorized-user', BookingStatus.InTransit)).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('confirmAdvance', () => {
+    const booking = {
+      id: 'booking-1001',
+      loadId: 'load-1',
+      loadOwnerId: 'owner-1',
+      truckOwnerId: 'transporter-1',
+      agreedPrice: 25000,
+      status: BookingStatus.Confirmed,
+      advanceConfirmed: false,
+      balanceConfirmed: false,
+      load: {
+        loadingAddress: 'Pune',
+        unloadingAddress: 'Bangalore',
+        user: { phone: '+919876543210', name: 'Shipper' },
+      },
+      truck: {
+        registrationNumber: 'KA01AB1234',
+        user: { phone: '+919876543211', name: 'Transporter' },
+      },
+    }
+
+    it('should set advanceConfirmed and advanceConfirmedAt for the cargo owner', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(booking)
+      const confirmedAt = new Date('2026-09-04T10:00:00.000Z')
+      jest.useFakeTimers().setSystemTime(confirmedAt)
+      ;(prisma.booking.update as jest.Mock).mockResolvedValueOnce({
+        ...booking,
+        advanceConfirmed: true,
+        advanceConfirmedAt: confirmedAt,
+      })
+
+      const result = await service.confirmAdvance('booking-1001', 'owner-1')
+
+      expect(prisma.booking.update).toHaveBeenCalledWith({
+        where: { id: 'booking-1001' },
+        data: {
+          advanceConfirmed: true,
+          advanceConfirmedAt: confirmedAt,
+        },
+        include: expect.any(Object),
+      })
+      expect(result.advanceConfirmed).toBe(true)
+      expect(result.advanceConfirmedAt).toEqual(confirmedAt)
+      jest.useRealTimers()
+    })
+
+    it('should throw NotFoundException when the caller is not a booking party', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(null)
+      await expect(service.confirmAdvance('booking-1001', 'stranger')).rejects.toThrow(NotFoundException)
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+
+    it('should throw ForbiddenException when the truck driver tries to confirm advance', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(booking)
+      await expect(service.confirmAdvance('booking-1001', 'transporter-1')).rejects.toThrow(ForbiddenException)
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+
+    it('should throw BadRequestException if advance is already confirmed', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce({
+        ...booking,
+        advanceConfirmed: true,
+        advanceConfirmedAt: new Date(),
+      })
+      await expect(service.confirmAdvance('booking-1001', 'owner-1')).rejects.toThrow(BadRequestException)
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+
+    it('should throw BadRequestException if the booking is cancelled', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce({
+        ...booking,
+        status: BookingStatus.Cancelled,
+      })
+      await expect(service.confirmAdvance('booking-1001', 'owner-1')).rejects.toThrow(BadRequestException)
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('confirmBalance', () => {
+    const booking = {
+      id: 'booking-1001',
+      loadId: 'load-1',
+      loadOwnerId: 'owner-1',
+      truckOwnerId: 'transporter-1',
+      agreedPrice: 25000,
+      status: BookingStatus.Completed,
+      advanceConfirmed: true,
+      advanceConfirmedAt: new Date('2026-09-01T10:00:00.000Z'),
+      balanceConfirmed: false,
+      load: {
+        loadingAddress: 'Pune',
+        unloadingAddress: 'Bangalore',
+        user: { phone: '+919876543210', name: 'Shipper' },
+      },
+      truck: {
+        registrationNumber: 'KA01AB1234',
+        user: { phone: '+919876543211', name: 'Transporter' },
+      },
+    }
+
+    it('should set balanceConfirmed and balanceConfirmedAt for the cargo owner', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(booking)
+      const confirmedAt = new Date('2026-09-04T12:00:00.000Z')
+      jest.useFakeTimers().setSystemTime(confirmedAt)
+      ;(prisma.booking.update as jest.Mock).mockResolvedValueOnce({
+        ...booking,
+        balanceConfirmed: true,
+        balanceConfirmedAt: confirmedAt,
+      })
+
+      const result = await service.confirmBalance('booking-1001', 'owner-1')
+
+      expect(prisma.booking.update).toHaveBeenCalledWith({
+        where: { id: 'booking-1001' },
+        data: {
+          balanceConfirmed: true,
+          balanceConfirmedAt: confirmedAt,
+        },
+        include: expect.any(Object),
+      })
+      expect(result.balanceConfirmed).toBe(true)
+      expect(result.balanceConfirmedAt).toEqual(confirmedAt)
+      jest.useRealTimers()
+    })
+
+    it('should throw NotFoundException when the caller is not a booking party', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(null)
+      await expect(service.confirmBalance('booking-1001', 'stranger')).rejects.toThrow(NotFoundException)
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+
+    it('should throw ForbiddenException when the truck driver tries to confirm balance', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(booking)
+      await expect(service.confirmBalance('booking-1001', 'transporter-1')).rejects.toThrow(ForbiddenException)
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+
+    it('should throw BadRequestException if advance has not been confirmed yet', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce({
+        ...booking,
+        advanceConfirmed: false,
+        advanceConfirmedAt: null,
+      })
+      await expect(service.confirmBalance('booking-1001', 'owner-1')).rejects.toThrow(BadRequestException)
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+
+    it('should throw BadRequestException if balance is already confirmed', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce({
+        ...booking,
+        balanceConfirmed: true,
+        balanceConfirmedAt: new Date(),
+      })
+      await expect(service.confirmBalance('booking-1001', 'owner-1')).rejects.toThrow(BadRequestException)
+      expect(prisma.booking.update).not.toHaveBeenCalled()
+    })
+
+    it('should throw BadRequestException if the booking is cancelled', async () => {
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce({
+        ...booking,
+        status: BookingStatus.Cancelled,
+      })
+      await expect(service.confirmBalance('booking-1001', 'owner-1')).rejects.toThrow(BadRequestException)
+      expect(prisma.booking.update).not.toHaveBeenCalled()
     })
   })
 
