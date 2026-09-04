@@ -114,6 +114,12 @@ The platform operates on a normalized **Factory Owner ↔ Truck Driver** model:
 - `/dashboard/truck-owner` → 307 Redirect to `/dashboard/truck-driver`
 - `/dashboard/driver` → 307 Redirect to `/dashboard/truck-driver`
 
+**Database migration path.** The `UserRole` enum contains only the three canonical values. Existing rows are converted by [`20260904000000_canonicalize_user_roles`](packages/database/prisma/migrations/20260904000000_canonicalize_user_roles/migration.sql): `load_owner` → `factory_owner`, `truck_owner` → `truck_driver`, and `driver` → `truck_driver`. Legacy rows are backfilled *before* the old enum type is dropped, so no row is ever orphaned, and the `CASE` mapping makes the migration re-runnable against a database that skipped the earlier in-place rename.
+
+**Normalization at the boundary.** Deployed clients, cached cookies and long-lived JWTs may still carry a legacy label, so every entry point normalizes before use — `normalizeRole()` in [`apps/web/src/lib/roles.ts`](apps/web/src/lib/roles.ts), [`apps/mobile/src/lib/roles.ts`](apps/mobile/src/lib/roles.ts), [`packages/shared/src/types/index.ts`](packages/shared/src/types/index.ts) and [`apps/api/src/common/utils/roles.util.ts`](apps/api/src/common/utils/roles.util.ts) (used by `RolesGuard`). Legacy labels are **never persisted**: only canonical roles are written to the database, cookies or storage.
+
+> **Note:** the `bookings.load_owner_id` / `bookings.truck_owner_id` **columns** intentionally keep their original names — they are foreign keys, not role values, and are mapped in Prisma via `@relation("LoadOwnerBookings")` / `@relation("TruckOwnerBookings")`.
+
 ### Public vs Protected Web Routes
 
 Route visibility is defined **once** in [`apps/web/src/lib/publicRoutes.ts`](apps/web/src/lib/publicRoutes.ts) and enforced by

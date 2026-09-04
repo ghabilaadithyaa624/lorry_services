@@ -6,7 +6,7 @@ import { complianceApi, ComplianceChecklist } from '@/lib/api'
 import { ComplianceChecklist as ComplianceChecklistCard } from './ComplianceChecklist'
 import { Button } from '@/components/ui'
 import { toast } from '@/lib/toast'
-import { isFreightSideRole } from '@/lib/roles'
+import { isAdminRole, isFreightSideRole } from '@/lib/roles'
 
 interface BookingComplianceCardProps {
   bookingId: string
@@ -80,7 +80,7 @@ export function BookingComplianceCard({
     }
   }
 
-  const canEditEway = isFreightSideRole(viewerRole) || viewerRole === 'admin'
+  const canEditEway = isFreightSideRole(viewerRole) || isAdminRole(viewerRole)
 
   return (
     <ComplianceChecklistCard

@@ -24,7 +24,7 @@ describe('hasClientSession', () => {
   const store: Record<string, string> = {}
 
   beforeAll(() => {
-    ;(global as any).window = {
+    (global as any).window = {
       localStorage: {
         getItem: (k: string) => (k in store ? store[k] : null),
         setItem: (k: string, v: string) => {

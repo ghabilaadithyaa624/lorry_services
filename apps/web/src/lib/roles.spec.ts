@@ -4,6 +4,7 @@ import {
   REGISTRATION_ROLES,
   getDashboardForRole,
   getRoleLabel,
+  isAdminRole,
   isFreightSideRole,
   isVehicleSideRole,
   normalizeRole,
@@ -79,5 +80,47 @@ describe('web role helpers', () => {
     expect(isVehicleSideRole('driver')).toBe(true)
     expect(isFreightSideRole('load_owner')).toBe(true)
     expect(isFreightSideRole('driver')).toBe(false)
+  })
+
+  describe('isAdminRole', () => {
+    it('identifies platform operators', () => {
+      expect(isAdminRole('admin')).toBe(true)
+    })
+
+    it('never promotes a marketplace or legacy role to admin', () => {
+      for (const role of ['factory_owner', 'truck_driver', 'load_owner', 'truck_owner', 'driver']) {
+        expect(isAdminRole(role)).toBe(false)
+      }
+      expect(isAdminRole(undefined)).toBe(false)
+      expect(isAdminRole('administrator')).toBe(false)
+    })
+  })
+
+  /**
+   * Regression guard for the cleanup: a session cached before the role rename
+   * still holds a legacy label. Every side-classifier must agree with the
+   * canonical role so such a user keeps the exact same permissions.
+   */
+  describe('legacy sessions behave identically to canonical ones', () => {
+    const equivalents: Array<[string, string]> = [
+      ['load_owner', 'factory_owner'],
+      ['truck_owner', 'truck_driver'],
+      ['driver', 'truck_driver'],
+    ]
+
+    it.each(equivalents)('treats %s exactly like %s', (legacy, canonical) => {
+      expect(normalizeRole(legacy)).toBe(canonical)
+      expect(getDashboardForRole(legacy)).toBe(getDashboardForRole(canonical))
+      expect(getRoleLabel(legacy)).toBe(getRoleLabel(canonical))
+      expect(isVehicleSideRole(legacy)).toBe(isVehicleSideRole(canonical))
+      expect(isFreightSideRole(legacy)).toBe(isFreightSideRole(canonical))
+      expect(isAdminRole(legacy)).toBe(isAdminRole(canonical))
+    })
+
+    it('never resolves a legacy label back to a legacy value', () => {
+      for (const [legacy] of equivalents) {
+        expect(['factory_owner', 'truck_driver', 'admin']).toContain(normalizeRole(legacy))
+      }
+    })
   })
 })

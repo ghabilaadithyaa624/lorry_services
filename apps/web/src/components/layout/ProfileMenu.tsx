@@ -26,7 +26,7 @@ import { Avatar, Badge } from '@/components/ui'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import { authApi } from '@/lib/api'
 import { cn, formatPhone } from '@/lib/utils'
-import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
+import { getRoleLabel, isAdminRole, isVehicleSideRole } from '@/lib/roles'
 
 export interface ProfileMenuUser {
   id?: string
@@ -71,7 +71,7 @@ export function ProfileMenu({
   const menuRef = useRef<HTMLDivElement>(null)
 
   const isTruckOwner = isVehicleSideRole(user.role)
-  const isAdmin = user.role === 'admin'
+  const isAdmin = isAdminRole(user.role)
 
   const displayName = user.name?.trim() || (user.phone ? formatPhone(user.phone) : 'My account')
 

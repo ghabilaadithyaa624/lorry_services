@@ -21,7 +21,7 @@ import { usersApi } from '@/lib/api'
 import { Badge, GlassPanel, Skeleton } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { cn, formatPhone } from '@/lib/utils'
-import { getDashboardForRole, getRoleLabel, isVehicleSideRole } from '@/lib/roles'
+import { getDashboardForRole, getRoleLabel, isAdminRole, isVehicleSideRole } from '@/lib/roles'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null)
@@ -75,7 +75,7 @@ export default function ProfilePage() {
   }
 
   const isTruckOwner = isVehicleSideRole(profile?.role)
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = isAdminRole(profile?.role)
 
   const score = profile?.profileCompletion?.score || 50
   const missingSteps = profile?.profileCompletion?.missingSteps || []

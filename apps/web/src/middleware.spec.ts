@@ -178,6 +178,52 @@ describeWithMiddleware('web middleware', () => {
       expect(locationOf(response).pathname).toBe('/dashboard/factory-owner')
     })
 
+    it.each([
+      ['/dashboard/load-owner', '/dashboard/factory-owner'],
+      ['/dashboard/truck-owner', '/dashboard/truck-driver'],
+      ['/dashboard/driver', '/dashboard/truck-driver'],
+    ])('redirects legacy route %s to %s', async (legacy, canonical) => {
+      const response = await runMiddleware(
+        buildRequest(legacy, { accessToken: 'token', userRole: 'factory_owner' })
+      )
+
+      expect(response.status).toBe(307)
+      expect(locationOf(response).pathname).toBe(canonical)
+    })
+
+    it('routes a stale legacy session to the canonical dashboard', async () => {
+      // A cookie written before the role cleanup must not lock the user out or
+      // bounce them to a legacy URL.
+      for (const [legacyRole, canonical] of [
+        ['load_owner', '/dashboard/factory-owner'],
+        ['truck_owner', '/dashboard/truck-driver'],
+        ['driver', '/dashboard/truck-driver'],
+      ]) {
+        const response = await runMiddleware(
+          buildRequest('/dashboard', { accessToken: 'token', userRole: legacyRole })
+        )
+
+        expect(locationOf(response).pathname).toBe(canonical)
+      }
+    })
+
+    it('applies role-based protection using the normalized legacy role', async () => {
+      // `truck_owner` normalizes to truck_driver, so freight-side screens stay closed.
+      const response = await runMiddleware(
+        buildRequest('/my-loads', { accessToken: 'token', userRole: 'truck_owner' })
+      )
+
+      expect(response.status).toBe(307)
+      expect(locationOf(response).pathname).toBe('/dashboard/truck-driver')
+
+      // ...and the vehicle-side screen opens.
+      const allowed = await runMiddleware(
+        buildRequest('/my-trucks', { accessToken: 'token', userRole: 'truck_owner' })
+      )
+
+      expect(allowed.status).toBe(200)
+    })
+
     it('lets an authenticated user into shared app screens', async () => {
       for (const path of ['/documents', '/notifications', '/settings', '/profile', '/bookings']) {
         const response = await runMiddleware(

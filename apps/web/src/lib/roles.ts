@@ -93,3 +93,8 @@ export function isVehicleSideRole(role?: string | null): boolean {
 export function isFreightSideRole(role?: string | null): boolean {
   return normalizeRole(role) === 'factory_owner'
 }
+
+/** Platform operators. Normalized so stale sessions are evaluated consistently. */
+export function isAdminRole(role?: string | null): boolean {
+  return normalizeRole(role) === 'admin'
+}

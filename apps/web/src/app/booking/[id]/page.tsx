@@ -18,6 +18,7 @@ import { assessShipmentIntelligence } from '@/lib/intelligence'
 import { ReturnLoadOpportunityCard, DigitalDocumentChainCard } from '@/components/intelligence'
 import { BookingComplianceCard } from '@/components/compliance/BookingComplianceCard'
 import { evaluateBackhaulOpportunities, BackhaulOpportunity } from '@/lib/intelligence/matchingEngine'
+import { normalizeRole } from '@/lib/roles'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, whatsappLink } from '@/lib/utils'
 import { PaymentSplitCard } from '@/components/PaymentSplitCard'
@@ -61,7 +62,9 @@ export default function BookingDetailPage() {
       if (userStr) {
         const user = JSON.parse(userStr)
         setCurrentUserId(user.id || '')
-        setViewerRole(user.role)
+        // Normalize at the storage boundary: a session cached before the role
+        // cleanup may still hold `load_owner` / `truck_owner` / `driver`.
+        setViewerRole(normalizeRole(user.role))
       }
     } catch (err) {
       console.warn('Could not load current user')
