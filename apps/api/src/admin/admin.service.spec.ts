@@ -10,12 +10,13 @@ jest.mock('@lorrycarry/database', () => {
       count: jest.fn(),
       findMany: jest.fn(),
     },
-    load: { count: jest.fn() },
-    truck: { count: jest.fn(), update: jest.fn() },
+    load: { count: jest.fn(), findMany: jest.fn() },
+    truck: { count: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     booking: { count: jest.fn(), findMany: jest.fn(), groupBy: jest.fn(), aggregate: jest.fn() },
+    bookingDispute: { count: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     document: { count: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     subscription: { count: jest.fn(), findMany: jest.fn() },
-    payment: { findMany: jest.fn(), aggregate: jest.fn() },
+    payment: { count: jest.fn(), findMany: jest.fn(), aggregate: jest.fn() },
     $transaction: jest.fn((args) => Promise.all(args)),
   }
   return {
@@ -29,6 +30,13 @@ jest.mock('@lorrycarry/database', () => {
       Pending: 'Pending',
       Verified: 'Verified',
       Rejected: 'Rejected',
+    },
+    LoadStatus: {
+      Open: 'Open',
+      Matched: 'Matched',
+      InTransit: 'In-transit',
+      Completed: 'Completed',
+      Cancelled: 'Cancelled',
     },
     BookingStatus: {
       Pending: 'Pending',
@@ -47,6 +55,20 @@ jest.mock('@lorrycarry/database', () => {
       Success: 'Success',
       Failed: 'Failed',
       Refunded: 'Refunded',
+    },
+    DisputeStatus: {
+      Open: 'Open',
+      Investigating: 'Investigating',
+      Resolved: 'Resolved',
+      Rejected: 'Rejected',
+    },
+    VahanCheckStatus: {
+      NotChecked: 'NotChecked',
+      Pending: 'Pending',
+      Verified: 'Verified',
+      Mismatch: 'Mismatch',
+      Unavailable: 'Unavailable',
+      Error: 'Error',
     },
   }
 })
@@ -462,6 +484,215 @@ describe('AdminService', () => {
         include: expect.any(Object),
       })
       expect(result).toEqual({ bookings: [{ id: 'book-1' }], total: 5, page: 1, pages: 1 })
+    })
+  })
+
+  describe('getIntelligence', () => {
+    beforeEach(() => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.admin })
+    })
+
+    it('should throw ForbiddenException if user is not admin', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.factory_owner })
+
+      await expect(service.getIntelligence('user-id')).rejects.toThrow(
+        new ForbiddenException('Admin access required'),
+      )
+    })
+
+    it('should aggregate real platform data and classify into REAL, ESTIMATED, and PREDICTIVE metrics', async () => {
+      const now = Date.now()
+      const mockLoads = [
+        {
+          id: 'load-1',
+          loadingAddress: 'Guindy Industrial Estate, Chennai, Tamil Nadu 600032',
+          unloadingAddress: 'Peenya Industrial Area, Bengaluru, Karnataka 560058',
+          tonnageRequired: 20,
+          truckType: 'Open',
+          status: 'Completed',
+          urgent: false,
+          maxPrice: 45000,
+        },
+        {
+          id: 'load-2',
+          loadingAddress: 'Ambattur, Chennai, Tamil Nadu 600058',
+          unloadingAddress: 'Electronic City, Bengaluru, Karnataka 560100',
+          tonnageRequired: 18,
+          truckType: 'Container',
+          status: 'Open',
+          urgent: true,
+          maxPrice: 42000,
+        },
+      ]
+
+      const mockTrucks = [
+        {
+          id: 'truck-1',
+          registrationNumber: 'TN01AB1234',
+          bodyType: 'Open',
+          tonnageCapacity: 25,
+          verificationStatus: 'Verified',
+          vahanStatus: 'Verified',
+          fastagStatus: 'Active',
+          preferredDestinations: ['Bengaluru', 'Chennai'],
+        },
+        {
+          id: 'truck-2',
+          registrationNumber: 'KA01CD5678',
+          bodyType: 'Container',
+          tonnageCapacity: 20,
+          verificationStatus: 'Verified',
+          vahanStatus: 'Verified',
+          fastagStatus: 'Active',
+          preferredDestinations: ['Mumbai', 'Pune'],
+        },
+      ]
+
+      const mockBookings = [
+        {
+          id: 'booking-1',
+          status: 'Completed',
+          agreedPrice: 44000,
+          startedAt: new Date(now - 20 * 3600 * 1000),
+          completedAt: new Date(now - 5 * 3600 * 1000),
+          load: {
+            loadingAddress: 'Guindy, Chennai, Tamil Nadu',
+            unloadingAddress: 'Peenya, Bengaluru, Karnataka',
+            tonnageRequired: 20,
+            expectedDeliveryAt: new Date(now + 2 * 3600 * 1000),
+          },
+          truck: { registrationNumber: 'TN01AB1234' },
+        },
+        {
+          id: 'booking-2',
+          status: 'Completed',
+          agreedPrice: 40000,
+          startedAt: new Date(now - 15 * 3600 * 1000),
+          completedAt: new Date(now - 2 * 3600 * 1000),
+          load: {
+            loadingAddress: 'Chennai Port, Chennai',
+            unloadingAddress: 'Whitefield, Bengaluru',
+            tonnageRequired: 18,
+            expectedDeliveryAt: new Date(now - 4 * 3600 * 1000),
+          },
+          truck: { registrationNumber: 'TN01AB1234' },
+        },
+      ]
+
+      ;(prisma.$transaction as jest.Mock).mockResolvedValue([
+        20, // totalPlatformLoads
+        8,  // openLoads
+        4,  // inTransitLoads
+        8,  // completedLoads
+        10, // totalPlatformTrucks
+        8,  // verifiedTrucksCount
+        7,  // vahanVerifiedTrucksCount
+        6,  // fastagActiveTrucksCount
+        15, // totalBookings
+        10, // completedBookingsCount
+        3,  // inTransitBookingsCount
+        { _sum: { amount: 500000 } }, // grossPaymentSum
+        { _sum: { amount: 60000 } },  // subscriptionPaymentsSum
+        12, // totalSubscriptions
+        8,  // activeSubscriptions
+        4,  // activeTrials
+        5,  // totalDisputes
+        4,  // resolvedDisputes
+        1,  // openDisputes
+        20, // totalDocuments
+        16, // verifiedDocuments
+        mockLoads,
+        mockTrucks,
+        mockBookings,
+      ])
+
+      const result = await service.getIntelligence('admin-id')
+
+      expect(result).toBeDefined()
+      expect(result.realMetrics).toEqual({
+        totalPlatformLoads: 20,
+        openLoads: 8,
+        inTransitLoads: 4,
+        completedLoads: 8,
+        totalPlatformTrucks: 10,
+        verifiedTrucksCount: 8,
+        vahanVerifiedTrucksCount: 7,
+        fastagActiveTrucksCount: 6,
+        totalCompletedBookings: 10,
+        totalBookings: 15,
+        inTransitBookings: 3,
+        totalGrossPaymentVolumeINR: 500000,
+        kycApprovalRatePercent: 80,
+        documentComplianceRatePercent: 80,
+        vahanVerificationRatePercent: 70,
+        activeSubscriptionsCount: 8,
+        activeTrialsCount: 4,
+        totalDisputesCount: 5,
+        openDisputesCount: 1,
+        resolvedDisputesCount: 4,
+      })
+
+      expect(result.estimatedMetrics.nationalAvgRatePerTonKmINR).toBe(3.95)
+      expect(result.estimatedMetrics.avgTransitOnTimeRatePercent).toBe(50) // 1 out of 2 on-time
+      expect(result.estimatedMetrics.estimatedEmptyKmSavedTotal).toBe(10 * 320)
+      expect(result.estimatedMetrics.disputeResolutionRatePercent).toBe(80)
+
+      expect(result.predictiveMetrics.projectedMonthlyVolumeTons).toBe(20 * 18 * 4)
+      expect(result.predictiveMetrics.demandSupplyRatio).toBe(2)
+      expect(result.predictiveMetrics.emptyRunReductionPotentialKm).toBe(320)
+
+      // Chennai ➔ Bengaluru has 2 bookings + 2 loads -> SUFFICIENT_DATA
+      const maaBlr = result.corridors.find((c) => c.corridorId === 'corridor-maa-blr')
+      expect(maaBlr).toBeDefined()
+      expect(maaBlr?.dataStatus).toBe('SUFFICIENT_DATA')
+      expect(maaBlr?.realMetrics.totalBookings).toBe(2)
+      expect(maaBlr?.realMetrics.completedTrips).toBe(2)
+      expect(maaBlr?.realMetrics.grossBookingValueINR).toBe(84000)
+
+      // Mumbai ➔ Pune has 0 loads/bookings -> INSUFFICIENT_DATA
+      const bomPnq = result.corridors.find((c) => c.corridorId === 'corridor-bom-pnq')
+      expect(bomPnq).toBeDefined()
+      expect(bomPnq?.dataStatus).toBe('INSUFFICIENT_DATA')
+    })
+
+    it('should handle zero counts and empty data gracefully without runtime errors', async () => {
+      ;(prisma.$transaction as jest.Mock).mockResolvedValue([
+        0, // totalPlatformLoads
+        0, // openLoads
+        0, // inTransitLoads
+        0, // completedLoads
+        0, // totalPlatformTrucks
+        0, // verifiedTrucksCount
+        0, // vahanVerifiedTrucksCount
+        0, // fastagActiveTrucksCount
+        0, // totalBookings
+        0, // completedBookingsCount
+        0, // inTransitBookingsCount
+        { _sum: { amount: null } }, // grossPaymentSum
+        { _sum: { amount: null } }, // subscriptionPaymentsSum
+        0, // totalSubscriptions
+        0, // activeSubscriptions
+        0, // activeTrials
+        0, // totalDisputes
+        0, // resolvedDisputes
+        0, // openDisputes
+        0, // totalDocuments
+        0, // verifiedDocuments
+        [],
+        [],
+        [],
+      ])
+
+      const result = await service.getIntelligence('admin-id')
+
+      expect(result.realMetrics.totalPlatformLoads).toBe(0)
+      expect(result.realMetrics.totalPlatformTrucks).toBe(0)
+      expect(result.realMetrics.kycApprovalRatePercent).toBe(0)
+      expect(result.realMetrics.vahanVerificationRatePercent).toBe(0)
+      expect(result.realMetrics.documentComplianceRatePercent).toBe(0)
+      expect(result.realMetrics.totalGrossPaymentVolumeINR).toBe(0)
+      expect(result.predictiveMetrics.demandSupplyRatio).toBe(1.0)
+      expect(result.corridors.every((c) => c.dataStatus === 'INSUFFICIENT_DATA')).toBe(true)
     })
   })
 })

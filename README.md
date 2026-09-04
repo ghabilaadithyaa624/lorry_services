@@ -173,8 +173,9 @@ The Next.js Admin Portal is located at `/admin` (or `http://localhost:3010/admin
 | `/admin/bookings` | End-to-end booking records with route addresses, pricing, and lifecycle tracking |
 | `/admin/disputes` | Priority-sorted booking dispute queue with investigation and resolution actions |
 | `/admin/analytics` | Time-scoped trip, revenue, and checkpoint-based route efficiency analytics |
+| `/admin/intelligence` | National freight intelligence console with classified Real, Estimated, and Predictive metrics |
 
-Admin API additions: `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`, `PATCH /admin/disputes/:id/resolve`, and `GET /admin/analytics?range=30`. Authenticated booking parties can raise a case through `POST /bookings/:id/disputes`.
+Admin API additions: `GET /admin/intelligence`, `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`, `PATCH /admin/disputes/:id/resolve`, and `GET /admin/analytics?range=30`. Authenticated booking parties can raise a case through `POST /bookings/:id/disputes`.
 
 ### Verification & Compliance API
 

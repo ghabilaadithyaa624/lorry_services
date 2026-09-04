@@ -60,6 +60,7 @@ Based on our inspection of `packages/database/prisma/schema.prisma`:
 | `/matches/truck/:truckId/return-loads` | `GET` | Authenticated | **Return-load (backhaul) discovery.** Resolves the drop-off hub (destination override → latest booking destination → truck GPS → preferred corridor), queries open loads around it (PostGIS `ST_DWithin`, ≤300 km) and ranks them with the shared return-load engine. Shipper contacts masked without an active subscription/trial. |
 | `/admin/stats` | `GET` | Admin | Real database aggregates for total users, loads, trucks, bookings, revenue, and pending KYC. |
 | `/admin/analytics` | `GET` | Admin | Trip completion trend, earnings breakdown, active booking pipeline and route efficiency heatmap (`range` = 30/90/180/365 days). |
+| `/admin/intelligence` | `GET` | Admin | Empirical National Logistics Intelligence: aggregates loads, trucks, bookings, payments, subscriptions, disputes, and Vahan compliance with classified Real, Estimated, and Predictive metrics. |
 | `/admin/documents/pending` | `GET` | Admin | Fetches list of unverified vehicle documents. |
 | `/admin/documents/:id/verify` | `PATCH` | Admin | Approves or rejects RC/Insurance documents. |
 

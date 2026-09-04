@@ -117,5 +117,6 @@ export const adminApi = {
   resolveDispute: (disputeId: string, status: 'Investigating' | 'Resolved' | 'Rejected', resolution?: string) =>
     api.patch(`/admin/disputes/${disputeId}/resolve`, { status, resolution }),
   getAnalytics: (range = 30) => api.get(`/admin/analytics?range=${range}`),
+  getIntelligence: () => api.get('/admin/intelligence'),
 }
 

@@ -14,7 +14,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { Roles } from '../common/decorators/roles.decorator'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@lorrycarry/database'
 
 @ApiTags('Admin')
 @ApiBearerAuth()
@@ -38,6 +38,15 @@ export class AdminController {
   async getAnalytics(@CurrentUser('id') userId: string, @Query('range') range?: string) {
     const parsed = Number(range)
     return this.adminService.getAnalytics(userId, [30, 90, 180, 365].includes(parsed) ? parsed : 30)
+  }
+
+  @Get('intelligence')
+  @ApiOperation({
+    summary:
+      'National logistics intelligence — empirical platform metrics, derived benchmarks, and corridor supply/demand analysis',
+  })
+  async getIntelligence(@CurrentUser('id') userId: string) {
+    return this.adminService.getIntelligence(userId)
   }
 
   // ── Users ──────────────────────────────────────────────────────────────────

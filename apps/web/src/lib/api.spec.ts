@@ -260,4 +260,14 @@ describe('api Response Interceptor — Refresh Token Retry & Error Paths', () =>
     await mockResponseInterceptorReject(error401)
     expect(mockCookies['userRole']).toBe('truck_driver')
   })
+
+  it('should expose adminApi.getIntelligence endpoint caller', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { adminApi } = require('./api')
+    mockApiInstance.get = jest.fn().mockResolvedValueOnce({ data: { realMetrics: {} } })
+
+    const res = await adminApi.getIntelligence()
+    expect(mockApiInstance.get).toHaveBeenCalledWith('/admin/intelligence')
+    expect(res).toEqual({ data: { realMetrics: {} } })
+  })
 })
