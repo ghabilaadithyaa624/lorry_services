@@ -6,10 +6,6 @@ import {
   MapPinIcon,
   ScaleIcon,
   SparklesIcon,
-  ShieldCheckIcon,
-  TruckIcon,
-  ClipboardDocumentCheckIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { adminApi } from '@/lib/api'
 import { DashboardLayout } from '@/components/layout'
@@ -140,6 +136,107 @@ export default function AdminNationalIntelligencePage() {
                     {summary.realMetrics.openLoads ?? summary.realMetrics.totalPlatformLoads}
                   </span>
                   <span className="text-[10px] text-surface-400 block">Open freight board</span>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-mono font-black uppercase tracking-widest text-surface-400">
+                    1b. Platform Ledger &amp; Compliance Ledger
+                  </h3>
+                  <Badge variant="success" size="sm" className="font-mono text-[10px]">Direct DB</Badge>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 font-mono">
+                  <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
+                      Registered Users
+                    </span>
+                    <span className="text-2xl font-black text-white block">
+                      {summary.realMetrics.totalUsers ?? 0}
+                    </span>
+                    <span className="text-[10px] text-surface-400 block">Factory owners + operators</span>
+                  </div>
+
+                  <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
+                      Active Subscriptions
+                    </span>
+                    <span className="text-2xl font-black text-white block">
+                      {summary.realMetrics.activeSubscriptionsCount ?? 0} / {summary.realMetrics.totalSubscriptionsCount ?? 0}
+                    </span>
+                    <span className="text-[10px] text-surface-400 block">
+                      {summary.realMetrics.activeSubscriptionsCount ?? 0} Active · {summary.realMetrics.activeTrialsCount ?? 0} Trials · {summary.realMetrics.totalSubscriptionsCount ?? 0} Total
+                    </span>
+                  </div>
+
+                  <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
+                      Subscription Payments
+                    </span>
+                    <span className="text-2xl font-black text-white block">
+                      {formatINR(summary.realMetrics.subscriptionPaymentVolumeINR ?? 0)}
+                    </span>
+                    <span className="text-[10px] text-surface-400 block">Recognised subscription revenue</span>
+                  </div>
+
+                  <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
+                      Document Compliance
+                    </span>
+                    <span className="text-2xl font-black text-white block">
+                      {summary.realMetrics.documentComplianceRatePercent ?? 0}%
+                    </span>
+                    <span className="text-[10px] text-surface-400 block">KYC docs verified / total</span>
+                  </div>
+
+                  <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
+                      E-Way Bill Coverage
+                    </span>
+                    <span className="text-2xl font-black text-white block">
+                      {summary.realMetrics.ewayBillCoverageRatePercent ?? 0}%
+                    </span>
+                    <span className="text-[10px] text-surface-400 block">
+                      {summary.realMetrics.ewayBillActiveCount ?? 0} Active · {summary.realMetrics.ewayBillExpiredCount ?? 0} Expired · {summary.realMetrics.ewayBillPendingCount ?? 0} Pending
+                    </span>
+                  </div>
+
+                  <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
+                      Active FASTag
+                    </span>
+                    <span className="text-2xl font-black text-white block">
+                      {summary.realMetrics.fastagActiveTrucksCount ?? 0} / {summary.realMetrics.totalPlatformTrucks}
+                    </span>
+                    <span className="text-[10px] text-surface-400 block">
+                      {summary.realMetrics.fastagLowBalanceTrucksCount ?? 0} Low balance · {summary.realMetrics.fastagInactiveTrucksCount ?? 0} Inactive
+                    </span>
+                  </div>
+
+                  <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
+                      Open Disputes
+                    </span>
+                    <span className="text-2xl font-black text-white block">
+                      {summary.realMetrics.openDisputesCount ?? 0}
+                    </span>
+                    <span className="text-[10px] text-surface-400 block">
+                      {summary.realMetrics.investigatingDisputesCount ?? 0} Investigating · {summary.realMetrics.resolvedDisputesCount ?? 0} Resolved
+                    </span>
+                  </div>
+
+                  <div className="bg-panel p-5 rounded-[20px] border border-white/10 shadow-modal space-y-2">
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">
+                      Pending KYC Documents
+                    </span>
+                    <span className="text-2xl font-black text-white block">
+                      {summary.realMetrics.pendingDocumentsCount ?? 0}
+                    </span>
+                    <span className="text-[10px] text-surface-400 block">
+                      {summary.realMetrics.rejectedDocumentsCount ?? 0} Rejected · {summary.realMetrics.verifiedDocumentsCount ?? 0} Verified
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

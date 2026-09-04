@@ -89,7 +89,7 @@ All endpoints are hosted under `/api/v1`:
 | `/bookings/:id/disputes` | `POST` | Authenticated Party | Raise a counterparty commercial/transit dispute. | `[Implemented]` |
 | `/admin/stats` | `GET` | Admin | Real-time platform aggregates (users, trucks, loads, bookings, revenue, KYC). | `[Implemented]` |
 | `/admin/analytics` | `GET` | Admin | Time-scoped trip completion trend, revenue, and route efficiency heatmap. | `[Implemented]` |
-| `/admin/intelligence` | `GET` | Admin | Empirical National Logistics Intelligence console metrics. | `[Implemented]` |
+| `/admin/intelligence` | `GET` | Admin | National Logistics Intelligence console backed by real DB aggregates (users, loads, trucks, bookings, payments, subscriptions, disputes, KYC docs, Vahan/FASTag/E-Way Bill). | `[Implemented]` |
 | `/admin/disputes` | `GET` | Admin | Priority-sorted counterparty dispute queue. | `[Implemented]` |
 | `/admin/disputes/:id/resolve` | `PATCH` | Admin | Resolve or reject counterparty dispute with audit notes. | `[Implemented]` |
 | `/admin/booking-documents` | `GET` | Admin | Review queue of all trip documents across the marketplace. | `[Implemented]` |
@@ -149,6 +149,26 @@ Shared task derivation engine consumed across Next.js and Vite dashboards:
 - **Truck Driver Tasks**: Vehicle KYC document verification pending/rejected, expiring RC/Insurance documents, FASTag low balance alert, confirmed bookings awaiting advance payment from shipper, return-load opportunities.
 - **Admin Tasks**: Pending truck KYC document review queue, unresolved counterparty disputes, pending trip document review queue.
 - **Priority Sorting**: `HIGH` → `MEDIUM` → `LOW` with direct operational deep-links.
+
+### 5.6 National Admin Intelligence Aggregation (`GET /api/v1/admin/intelligence`)
+
+The admin intelligence console is a real-data dashboard, not a client-side approximation. It is consumed by `apps/web/src/app/admin/intelligence/page.tsx` through `adminApi.getIntelligence()` and is backed by `AdminService.getIntelligence()` in `apps/api/src/admin/admin.service.ts`.
+
+**Real metrics (direct DB measurement):**
+- **Users**: total registered platform users.
+- **Loads**: total, open, in-transit, and completed postings.
+- **Trucks**: total fleet, RTO/RC (`verificationStatus`) verified fleet, Vahan/Parivahan (`vahanStatus = Verified`) fleet, and FASTag (`fastagStatus`) breakdown (active / low-balance / inactive / unknown).
+- **Bookings**: total, completed, and in-transit counts plus per-booking E-Way Bill lifecycle (`ewayBillStatus`) as active / expired / invalid / pending and coverage rate.
+- **Payments**: gross successful payment volume and successful subscription payment volume.
+- **Subscriptions**: total, active, and active trial users.
+- **Disputes**: total, open, investigating, resolved, rejected.
+- **Documents / KYC**: total, verified, pending, rejected plus aggregate document compliance rate and truck KYC approval rate.
+
+**Estimated metrics (derived benchmarks):** national ₹/ton-km benchmark, on-time transit rate, average transit hours, empty-km saved estimate, and dispute resolution rate.
+
+**Predictive metrics (projected):** projected monthly freight volume, national demand-to-supply index, and empty-run reduction potential per trip.
+
+**Corridor rule:** corridor cards are rendered only with at least 2 matching load/booking records; otherwise the response marks the corridor `INSUFFICIENT_DATA` and the administrator UI keeps the transparency notice without manufacturing a number.
 
 ---
 

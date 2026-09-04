@@ -9,6 +9,9 @@ import {
   DisputeStatus,
   VahanCheckStatus,
   LoadStatus,
+  SubscriptionStatus,
+  FastagStatus,
+  EwayBillStatus,
 } from '@lorrycarry/database'
 import { normalizeRole } from '../common/utils/roles.util'
 
@@ -809,6 +812,11 @@ export class AdminService {
       allLoads,
       allTrucks,
       allBookings,
+      totalUsers,
+      pendingDocuments,
+      rejectedDocuments,
+      investigatingDisputes,
+      rejectedDisputes,
     ] = await prisma.$transaction([
       prisma.load.count(),
       prisma.load.count({ where: { status: LoadStatus.Open } }),
@@ -817,7 +825,7 @@ export class AdminService {
       prisma.truck.count(),
       prisma.truck.count({ where: { verificationStatus: VerificationStatus.Verified } }),
       prisma.truck.count({ where: { vahanStatus: VahanCheckStatus.Verified } }),
-      prisma.truck.count({ where: { fastagStatus: 'Active' as any } }),
+      prisma.truck.count({ where: { fastagStatus: FastagStatus.Active } }),
       prisma.booking.count(),
       prisma.booking.count({ where: { status: BookingStatus.Completed } }),
       prisma.booking.count({ where: { status: BookingStatus.InTransit } }),
@@ -830,7 +838,7 @@ export class AdminService {
         _sum: { amount: true },
       }),
       prisma.subscription.count(),
-      prisma.subscription.count({ where: { status: 'active', expiresAt: { gt: now } } }),
+      prisma.subscription.count({ where: { status: SubscriptionStatus.active, expiresAt: { gt: now } } }),
       prisma.user.count({
         where: {
           trialStartedAt: { not: null },
@@ -874,6 +882,7 @@ export class AdminService {
           agreedPrice: true,
           startedAt: true,
           completedAt: true,
+          ewayBillStatus: true,
           load: {
             select: {
               loadingAddress: true,
@@ -889,9 +898,15 @@ export class AdminService {
           },
         },
       }),
+      prisma.user.count(),
+      prisma.document.count({ where: { verificationStatus: VerificationStatus.Pending } }),
+      prisma.document.count({ where: { verificationStatus: VerificationStatus.Rejected } }),
+      prisma.bookingDispute.count({ where: { status: DisputeStatus.Investigating } }),
+      prisma.bookingDispute.count({ where: { status: DisputeStatus.Rejected } }),
     ])
 
     const totalGrossPaymentVolumeINR = Number(grossPaymentSum._sum.amount) || 0
+    const subscriptionPaymentVolumeINR = Number(subscriptionPaymentsSum._sum.amount) || 0
     const kycApprovalRatePercent =
       totalPlatformTrucks > 0 ? Math.round((verifiedTrucksCount / totalPlatformTrucks) * 100) : 0
     const documentComplianceRatePercent =
@@ -900,6 +915,25 @@ export class AdminService {
       totalPlatformTrucks > 0 ? Math.round((vahanVerifiedTrucksCount / totalPlatformTrucks) * 100) : 0
     const nationalDemandSupplyRatio =
       totalPlatformTrucks > 0 ? Number((totalPlatformLoads / totalPlatformTrucks).toFixed(2)) : 1.0
+
+    // FASTag breakdown is derived from the same truck snapshot used for the
+    // corridor and compliance aggregation so the administrative console never
+    // mixes two independent query sources for one dashboard read.
+    const fastagLowBalanceTrucksCount = allTrucks.filter(t => t.fastagStatus === FastagStatus.LowBalance).length
+    const fastagInactiveTrucksCount = allTrucks.filter(t => t.fastagStatus === FastagStatus.Inactive).length
+    const fastagUnknownTrucksCount = allTrucks.filter(t => t.fastagStatus === FastagStatus.Unknown).length
+
+    // E-Way Bill lifecycle is read from the booking snapshot. "Pending" is the
+    // schema default and means no E-Way Bill has been attached yet, so it is
+    // excluded from the coverage numerator while still reported as a real count.
+    const ewayBillActiveCount = allBookings.filter(b => b.ewayBillStatus === EwayBillStatus.Active).length
+    const ewayBillExpiredCount = allBookings.filter(b => b.ewayBillStatus === EwayBillStatus.Expired).length
+    const ewayBillInvalidCount = allBookings.filter(b => b.ewayBillStatus === EwayBillStatus.Invalid).length
+    const ewayBillPendingCount = allBookings.filter(b => b.ewayBillStatus === EwayBillStatus.Pending).length
+    const ewayBillTrackedCount = ewayBillActiveCount + ewayBillExpiredCount + ewayBillInvalidCount
+    const ewayBillCoverageRatePercent = allBookings.length > 0
+      ? Math.round((ewayBillTrackedCount / allBookings.length) * 1000) / 10
+      : 0
 
     // Compute empirical transit performance from completed trips
     const completedBookings = allBookings.filter(b => b.status === BookingStatus.Completed)
@@ -1023,6 +1057,7 @@ export class AdminService {
     return {
       generatedAt: now.toISOString(),
       realMetrics: {
+        totalUsers,
         totalPlatformLoads,
         openLoads,
         inTransitLoads,
@@ -1031,18 +1066,34 @@ export class AdminService {
         verifiedTrucksCount,
         vahanVerifiedTrucksCount,
         fastagActiveTrucksCount,
+        fastagLowBalanceTrucksCount,
+        fastagInactiveTrucksCount,
+        fastagUnknownTrucksCount,
         totalCompletedBookings: completedBookingsCount,
         totalBookings,
         inTransitBookings: inTransitBookingsCount,
         totalGrossPaymentVolumeINR,
+        subscriptionPaymentVolumeINR,
         kycApprovalRatePercent,
         documentComplianceRatePercent,
         vahanVerificationRatePercent,
+        totalSubscriptionsCount: totalSubscriptions,
         activeSubscriptionsCount: activeSubscriptions,
         activeTrialsCount: activeTrials,
         totalDisputesCount: totalDisputes,
         openDisputesCount: openDisputes,
+        investigatingDisputesCount: investigatingDisputes,
+        rejectedDisputesCount: rejectedDisputes,
         resolvedDisputesCount: resolvedDisputes,
+        totalDocumentsCount: totalDocuments,
+        pendingDocumentsCount: pendingDocuments,
+        rejectedDocumentsCount: rejectedDocuments,
+        verifiedDocumentsCount: verifiedDocuments,
+        ewayBillActiveCount,
+        ewayBillExpiredCount,
+        ewayBillInvalidCount,
+        ewayBillPendingCount,
+        ewayBillCoverageRatePercent,
       },
       estimatedMetrics: {
         nationalAvgRatePerTonKmINR: 3.95,
