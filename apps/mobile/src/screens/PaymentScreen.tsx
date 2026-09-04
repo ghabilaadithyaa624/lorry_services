@@ -1,40 +1,35 @@
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Modal,
   ActivityIndicator,
   Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { MMKV } from 'react-native-mmkv'
-import { api } from '../services/api'
+
+import { getApiErrorMessage, paymentsApi } from '../services/api'
+import {
+  getCheckoutStrategy,
+  getConfiguredProvider,
+  getWebCheckoutUrl,
+  startSubscriptionCheckout,
+} from '../services/checkout'
+import type { PaymentRecord, SubscriptionPlanId } from '../services/types'
 import { useAuth } from '../contexts/AuthContext'
 import { isVehicleSideRole } from '../lib/roles'
 
-const storage = new MMKV()
-const LOCAL_SUB_KEY = 'lorrycarry_local_subscription'
-const LOCAL_PAYMENTS_KEY = 'lorrycarry_local_payments'
-
-interface SubscriptionState {
-  hasSubscription: boolean
-  plan: string | null
-  expiresAt: string | null
-}
-
-interface PaymentItem {
-  id: string
-  amount: number
-  date: string
-  status: 'Success' | 'Failed' | 'Pending'
-  planLabel: string
-}
-
+/**
+ * Plan catalogue — prices and durations mirror `SUBSCRIPTION_PLANS` in
+ * `packages/shared`. The backend is the source of truth for the amount actually
+ * charged; these values are display copy only.
+ */
 interface PlanConfig {
-  id: 'monthly' | 'quarterly' | 'annual'
+  id: SubscriptionPlanId
   price: number
   durationDays: number
   durationLabel: string
@@ -44,30 +39,13 @@ interface PlanConfig {
   saving?: string
 }
 
-const DEFAULT_PAYMENTS: PaymentItem[] = [
-  {
-    id: 'TXN-94827103',
-    amount: 999,
-    date: '2025-01-15',
-    status: 'Success',
-    planLabel: 'Monthly Unlimited Pass',
-  },
-  {
-    id: 'TXN-83921048',
-    amount: 999,
-    date: '2024-12-16',
-    status: 'Success',
-    planLabel: 'Monthly Unlimited Pass',
-  },
-]
-
 const PLANS: PlanConfig[] = [
   {
     id: 'monthly',
     price: 999,
     durationDays: 30,
     durationLabel: 'Month',
-    label: 'Pro Monthly',
+    label: 'Monthly Unlimited',
     desc: 'Best for flexible short-term corridor runs',
   },
   {
@@ -75,7 +53,7 @@ const PLANS: PlanConfig[] = [
     price: 2499,
     durationDays: 90,
     durationLabel: '3 Months',
-    label: 'Pro Quarterly',
+    label: 'Quarterly Unlimited',
     desc: 'Our most popular value plan',
     popular: true,
   },
@@ -84,392 +62,448 @@ const PLANS: PlanConfig[] = [
     price: 7999,
     durationDays: 365,
     durationLabel: 'Year',
-    label: 'Pro Annual',
+    label: 'Annual Unlimited',
     desc: 'Maximize savings for year-round logistics',
     saving: 'Save 33%',
   },
 ]
 
+const PLAN_LABELS: Record<SubscriptionPlanId, string> = {
+  monthly: 'Monthly Unlimited',
+  quarterly: 'Quarterly Unlimited',
+  annual: 'Annual Unlimited',
+}
+
 type Tab = 'pass' | 'upgrade' | 'history'
 
-export function PaymentScreen() {
-  const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState<Tab>('pass')
-  const [loading, setLoading] = useState(false)
-  const [subscription, setSubscription] = useState<SubscriptionState>({
-    hasSubscription: false,
-    plan: null,
-    expiresAt: null,
-  })
-  const [payments, setPayments] = useState<PaymentItem[]>([])
+function formatDate(value?: string | null): string {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
-  // Modal State
+function formatAmount(amount: string | number): string {
+  const numeric = typeof amount === 'string' ? Number.parseFloat(amount) : amount
+  if (!Number.isFinite(numeric)) return '—'
+  return numeric.toLocaleString('en-IN', { maximumFractionDigits: 2 })
+}
+
+function describePayment(payment: PaymentRecord): string {
+  const planLabel = payment.metadata?.planLabel
+  if (typeof planLabel === 'string' && planLabel) return planLabel
+
+  switch (payment.purpose) {
+    case 'subscription':
+      return 'Access Pass'
+    case 'booking_advance':
+      return 'Booking Advance (50%)'
+    case 'booking_balance':
+      return 'Delivery Balance (50%)'
+    case 'penalty':
+      return 'Penalty'
+    case 'refund':
+      return 'Refund'
+    default:
+      return 'Payment'
+  }
+}
+
+export function PaymentScreen() {
+  const { user, entitlement, entitlementLoading, entitlementError, refreshEntitlement } = useAuth()
+
+  const [activeTab, setActiveTab] = useState<Tab>('pass')
+  const [refreshing, setRefreshing] = useState(false)
+
+  const [payments, setPayments] = useState<PaymentRecord[]>([])
+  const [paymentsLoading, setPaymentsLoading] = useState(true)
+  const [paymentsError, setPaymentsError] = useState<string | null>(null)
+
+  // Checkout state
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<PlanConfig | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card'>('upi')
-  const [processing, setProcessing] = useState(false)
+  const [checkoutStage, setCheckoutStage] = useState<'idle' | 'starting' | 'verifying'>('idle')
+  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadData()
+  const provider = getConfiguredProvider()
+  const strategy = getCheckoutStrategy(provider)
+  const processing = checkoutStage !== 'idle'
+
+  const fetchPayments = useCallback(async () => {
+    setPaymentsError(null)
+    try {
+      const { data } = await paymentsApi.getHistory()
+      setPayments(Array.isArray(data) ? data : [])
+    } catch (error) {
+      setPayments([])
+      setPaymentsError(getApiErrorMessage(error, 'Could not load your payment history.'))
+    } finally {
+      setPaymentsLoading(false)
+    }
   }, [])
 
-  const loadData = async () => {
-    setLoading(true)
-    await Promise.all([fetchSubscriptionStatus(), fetchPaymentHistory()])
-    setLoading(false)
-  }
+  const loadAll = useCallback(async () => {
+    await Promise.all([refreshEntitlement(), fetchPayments()])
+  }, [refreshEntitlement, fetchPayments])
 
-  const fetchSubscriptionStatus = async () => {
+  useEffect(() => {
+    void fetchPayments()
+  }, [fetchPayments])
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
     try {
-      const res = await api.get('/subscriptions/status')
-      if (res.data) {
-        const subData = {
-          hasSubscription: res.data.hasSubscription,
-          plan: res.data.plan,
-          expiresAt: res.data.expiresAt,
-        }
-        setSubscription(subData)
-        storage.set(LOCAL_SUB_KEY, JSON.stringify(subData))
-      }
-    } catch {
-      // Fallback to local MMKV storage
-      const cached = storage.getString(LOCAL_SUB_KEY)
-      if (cached) {
-        setSubscription(JSON.parse(cached))
-      }
+      await loadAll()
+    } finally {
+      setRefreshing(false)
     }
-  }
+  }, [loadAll])
 
-  const fetchPaymentHistory = async () => {
-    const localPaymentsStr = storage.getString(LOCAL_PAYMENTS_KEY)
-    let localPayments: PaymentItem[] = localPaymentsStr ? JSON.parse(localPaymentsStr) : []
+  const hasSubscription = entitlement?.hasSubscription === true
+  const isTrialActive = entitlement?.isTrialActive === true
+  const activePlan = entitlement?.plan ?? null
 
-    try {
-      // Attempt to load activities and extract payments
-      const res = await api.get('/users/activity')
-      if (res.data && Array.isArray(res.data)) {
-        const remotePayments: PaymentItem[] = res.data
-          .filter((act: any) => act.category === 'PAYMENT')
-          .map((act: any) => ({
-            id: act.id.replace('payment-', ''),
-            amount: act.metadata?.amount || 999,
-            date: new Date(act.timestamp).toISOString().split('T')[0],
-            status: act.status || 'Success',
-            planLabel: act.metadata?.purpose === 'subscription' ? 'Pro Access Pass' : 'Freight Payment',
-          }))
-
-        if (remotePayments.length > 0) {
-          // Merge remote and unique local payments
-          const merged = [...localPayments]
-          remotePayments.forEach((rp) => {
-            if (!merged.some((mp) => mp.id === rp.id)) {
-              merged.push(rp)
-            }
-          })
-          setPayments([...merged, ...DEFAULT_PAYMENTS])
-          return
-        }
-      }
-    } catch {
-      // Ignore and use local/default merge
-    }
-
-    setPayments([...localPayments, ...DEFAULT_PAYMENTS])
-  }
+  const subscriptionPayments = useMemo(
+    () => payments.filter((p) => p.purpose === 'subscription'),
+    [payments],
+  )
 
   const handleOpenCheckout = (plan: PlanConfig) => {
     setSelectedPlan(plan)
-    setPaymentMethod('upi')
+    setCheckoutNotice(null)
     setModalVisible(true)
   }
 
-  const handleSimulatePayment = async (success: boolean) => {
-    if (!selectedPlan) return
-    setProcessing(true)
+  const closeCheckout = () => {
+    if (processing) return
+    setModalVisible(false)
+    setSelectedPlan(null)
+    setCheckoutNotice(null)
+  }
 
-    try {
-      if (success) {
-        let backendSucceeded = false
-        let orderId = `sub_mob_${Date.now().toString().slice(-6)}`
+  /**
+   * Start a real checkout. Activation is decided exclusively by the backend —
+   * this handler never sets a local "subscribed" flag.
+   */
+  const handleStartCheckout = async () => {
+    if (!selectedPlan || processing) return
 
-        try {
-          // 1. Try to initiate with real backend API
-          const initRes = await api.post('/subscriptions/initiate', { plan: selectedPlan.id })
-          if (initRes.data?.orderId) {
-            orderId = initRes.data.orderId
-            // 2. Since this is sandbox verification, call backend callback or verify endpoint to trigger database activation
-            await api.get(`/subscriptions/verify/${orderId}`)
-            backendSucceeded = true
-          }
-        } catch {
-          // Fallback to local simulation if offline or backend unavailable
-        }
+    setCheckoutStage('starting')
+    setCheckoutNotice(null)
 
-        const now = new Date()
-        const expires = new Date()
-        expires.setDate(expires.getDate() + selectedPlan.durationDays)
+    const outcome = await startSubscriptionCheckout({
+      plan: selectedPlan.id,
+      provider,
+      onVerifyingChange: (verifying) => setCheckoutStage(verifying ? 'verifying' : 'starting'),
+    })
 
-        const updatedSub: SubscriptionState = {
-          hasSubscription: true,
-          plan: selectedPlan.id,
-          expiresAt: expires.toISOString(),
-        }
+    setCheckoutStage('idle')
 
-        // Set state & cache
-        setSubscription(updatedSub)
-        storage.set(LOCAL_SUB_KEY, JSON.stringify(updatedSub))
-
-        // Create local transaction record
-        const newPayment: PaymentItem = {
-          id: orderId,
-          amount: selectedPlan.price,
-          date: now.toISOString().split('T')[0],
-          status: 'Success',
-          planLabel: `${selectedPlan.label} Pass`,
-        }
-
-        const localPaymentsStr = storage.getString(LOCAL_PAYMENTS_KEY)
-        const localPayments: PaymentItem[] = localPaymentsStr ? JSON.parse(localPaymentsStr) : []
-        const updatedPayments = [newPayment, ...localPayments]
-
-        storage.set(LOCAL_PAYMENTS_KEY, JSON.stringify(updatedPayments))
-        setPayments([...updatedPayments, ...DEFAULT_PAYMENTS])
-
+    switch (outcome.result) {
+      case 'success': {
+        await fetchPayments()
         setModalVisible(false)
-        Alert.alert(
-          'Payment Successful 🎉',
-          backendSucceeded
-            ? `Your ${selectedPlan.label} is now active on LorryCarry cloud!`
-            : `Subscription mock-activated successfully! (Mode: Isolated Demo)`
-        )
+        setSelectedPlan(null)
         setActiveTab('pass')
-      } else {
-        // Failed simulation
-        Alert.alert('Payment Failed', 'The simulated payment was cancelled or declined.')
+        Alert.alert(
+          'Pass activated',
+          `Your ${PLAN_LABELS[outcome.entitlement.plan ?? selectedPlan.id]} pass is active until ${formatDate(
+            outcome.entitlement.expiresAt,
+          )}.`,
+        )
+        break
       }
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        Alert.alert('Error', err.message || 'An unexpected error occurred during simulation.')
-      } else {
-        Alert.alert('Error', 'An unexpected error occurred during simulation.')
+
+      case 'pending': {
+        await loadAll()
+        setCheckoutNotice(outcome.message)
+        Alert.alert('Payment not confirmed yet', outcome.message)
+        break
       }
-    } finally {
-      setProcessing(false)
+
+      case 'failed': {
+        await loadAll()
+        setCheckoutNotice(outcome.message)
+        Alert.alert('Payment failed', outcome.message)
+        break
+      }
+
+      case 'cancelled': {
+        setCheckoutNotice(outcome.message)
+        break
+      }
+
+      case 'error':
+      default: {
+        setCheckoutNotice(outcome.message)
+        Alert.alert('Checkout unavailable', outcome.message)
+        break
+      }
     }
   }
 
-  const renderActivePass = () => {
-    const planConfig = PLANS.find((p) => p.id === subscription.plan)
-    const formattedExpiry = subscription.expiresAt
-      ? new Date(subscription.expiresAt).toLocaleDateString('en-IN', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        })
-      : 'N/A'
+  // ── Tab: My Pass ─────────────────────────────────────────────────────────
+  const renderActivePass = () => (
+    <ScrollView
+      contentContainerStyle={styles.tabContent}
+      key="active-pass-tab"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      {entitlementError ? (
+        <View style={styles.errorCard}>
+          <Text style={styles.errorText}>{entitlementError}</Text>
+          <TouchableOpacity onPress={onRefresh} style={styles.retryBtn} accessibilityRole="button">
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
-    return (
-      <ScrollView contentContainerStyle={styles.tabContent} key="active-pass-tab">
-        {subscription.hasSubscription ? (
-          <View style={styles.passCard}>
-            <View style={styles.passHeader}>
-              <View>
-                <Text style={styles.passLabel}>ACTIVE DIRECT MARKETPLACE PASS</Text>
-                <Text style={styles.passTitle}>{planConfig?.label || 'Pro Pass Active'}</Text>
-              </View>
-              <View style={styles.pulseBadge}>
-                <View style={styles.pulseDot} />
-                <Text style={styles.pulseText}>LIVE</Text>
-              </View>
+      {hasSubscription ? (
+        <View style={styles.passCard}>
+          <View style={styles.passHeader}>
+            <View>
+              <Text style={styles.passLabel}>ACTIVE DIRECT MARKETPLACE PASS</Text>
+              <Text style={styles.passTitle}>
+                {activePlan ? PLAN_LABELS[activePlan] : 'Access Pass'}
+              </Text>
             </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.passMetaRow}>
-              <View>
-                <Text style={styles.metaLabel}>EXPIRES ON</Text>
-                <Text style={styles.metaValue}>{formattedExpiry}</Text>
-              </View>
-              <View style={styles.alignRight}>
-                <Text style={styles.metaLabel}>STATUS</Text>
-                <Text style={[styles.metaValue, { color: '#22C55E' }]}>UNLIMITED REVEAL</Text>
-              </View>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.noPassCard}>
-            <Text style={styles.noPassIcon}>🎫</Text>
-            <Text style={styles.noPassTitle}>No Active Transporter Pass</Text>
-            <Text style={styles.noPassDesc}>
-              {isVehicleSideRole(user?.role)
-                ? 'Contact details, direct phone calls, and direct load booking triggers are restricted. Get direct load logistics intelligence without third-party broker friction.'
-                : 'Contact details, direct phone calls, and direct truck booking triggers are restricted. Get direct truck logistics intelligence without third-party broker friction.'}
-            </Text>
-            <TouchableOpacity
-              style={styles.activateBtn}
-              onPress={() => setActiveTab('upgrade')}
-              accessibilityLabel="View pricing plans to activate transporter pass"
-              accessibilityRole="button"
-            >
-              <Text style={styles.activateBtnText}>Activate Access Pass Now</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <Text style={styles.sectionTitle}>PASS INCLUDED BENEFITS</Text>
-        <View style={styles.benefitsContainer}>
-          <View style={styles.benefitRow}>
-            <Text style={styles.benefitIcon}>📞</Text>
-            <View style={styles.benefitTextCol}>
-              <Text style={styles.benefitTitle}>Unlimited Phone Reveals</Text>
-              <Text style={styles.benefitDesc}>Reveal and call verified load owners or truck owners directly.</Text>
+            <View style={styles.pulseBadge}>
+              <View style={styles.pulseDot} />
+              <Text style={styles.pulseText}>LIVE</Text>
             </View>
           </View>
 
-          <View style={styles.benefitRow}>
-            <Text style={styles.benefitIcon}>💬</Text>
-            <View style={styles.benefitTextCol}>
-              <Text style={styles.benefitTitle}>Direct WhatsApp Connect</Text>
-              <Text style={styles.benefitDesc}>Initiate negotiations on WhatsApp with single-tap quick chat triggers.</Text>
-            </View>
-          </View>
+          <View style={styles.divider} />
 
-          <View style={styles.benefitRow}>
-            <Text style={styles.benefitIcon}>📋</Text>
-            <View style={styles.benefitTextCol}>
-              <Text style={styles.benefitTitle}>Unlimited Direct Bookings</Text>
-              <Text style={styles.benefitDesc}>Create contract commitments and confirm transit operations instantly.</Text>
+          <View style={styles.passMetaRow}>
+            <View>
+              <Text style={styles.metaLabel}>EXPIRES ON</Text>
+              <Text style={styles.metaValue}>{formatDate(entitlement?.expiresAt)}</Text>
             </View>
-          </View>
-
-          <View style={styles.benefitRow}>
-            <Text style={styles.benefitIcon}>📍</Text>
-            <View style={styles.benefitTextCol}>
-              <Text style={styles.benefitTitle}>Geofence Milestones</Text>
-              <Text style={styles.benefitDesc}>Real-time 5-stage automated highway checkpoint tracking alerts.</Text>
+            <View style={styles.alignRight}>
+              <Text style={styles.metaLabel}>STATUS</Text>
+              <Text style={[styles.metaValue, { color: '#22C55E' }]}>UNLIMITED REVEAL</Text>
             </View>
           </View>
         </View>
-      </ScrollView>
-    )
-  }
+      ) : isTrialActive ? (
+        <View style={styles.trialCard}>
+          <Text style={styles.passLabel}>FREE TRIAL ACTIVE</Text>
+          <Text style={styles.passTitle}>
+            {entitlement?.trialDaysRemaining ?? 0} days of full access left
+          </Text>
+          <View style={styles.divider} />
+          <Text style={styles.trialDesc}>
+            Your trial ends on {formatDate(entitlement?.trialEndsAt)}. Upgrade any time — your pass
+            starts the moment payment is confirmed.
+          </Text>
+          <TouchableOpacity
+            style={styles.activateBtn}
+            onPress={() => setActiveTab('upgrade')}
+            accessibilityRole="button"
+            accessibilityLabel="View pricing plans"
+          >
+            <Text style={styles.activateBtnText}>View Plans</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.noPassCard}>
+          <Text style={styles.noPassIcon}>🎫</Text>
+          <Text style={styles.noPassTitle}>No Active Transporter Pass</Text>
+          <Text style={styles.noPassDesc}>
+            {isVehicleSideRole(user?.role)
+              ? 'Contact details, direct phone calls, and direct load booking triggers are restricted. Get direct load logistics intelligence without third-party broker friction.'
+              : 'Contact details, direct phone calls, and direct truck booking triggers are restricted. Get direct truck logistics intelligence without third-party broker friction.'}
+          </Text>
+          <TouchableOpacity
+            style={styles.activateBtn}
+            onPress={() => setActiveTab('upgrade')}
+            accessibilityLabel="View pricing plans to activate transporter pass"
+            accessibilityRole="button"
+          >
+            <Text style={styles.activateBtnText}>Activate Access Pass Now</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-  const renderUpgradePlans = () => {
-    return (
-      <ScrollView contentContainerStyle={styles.tabContent} key="upgrade-plans-tab">
-        <Text style={styles.upgradeHeader}>Choose Your Direct Access Plan</Text>
-        <Text style={styles.upgradeSub}>Select a secure tier. High-performance freight intelligence.</Text>
+      <Text style={styles.sectionTitle}>PASS INCLUDED BENEFITS</Text>
+      <View style={styles.benefitsContainer}>
+        <View style={styles.benefitRow}>
+          <Text style={styles.benefitIcon}>📞</Text>
+          <View style={styles.benefitTextCol}>
+            <Text style={styles.benefitTitle}>Unlimited Phone Reveals</Text>
+            <Text style={styles.benefitDesc}>Reveal and call verified load owners or truck owners directly.</Text>
+          </View>
+        </View>
 
-        {PLANS.map((plan) => {
-          const isActive = subscription.hasSubscription && subscription.plan === plan.id
-          return (
-            <View
-              key={plan.id}
-              style={[
-                styles.planCard,
-                plan.popular && styles.popularPlanCard,
-                isActive && styles.activePlanCard,
-              ]}
-            >
-              {plan.popular && (
-                <View style={styles.popularBadge}>
-                  <Text style={styles.popularBadgeText}>MOST POPULAR</Text>
-                </View>
-              )}
-              {plan.saving && (
-                <View style={styles.savingBadge}>
-                  <Text style={styles.savingBadgeText}>{plan.saving}</Text>
-                </View>
-              )}
+        <View style={styles.benefitRow}>
+          <Text style={styles.benefitIcon}>💬</Text>
+          <View style={styles.benefitTextCol}>
+            <Text style={styles.benefitTitle}>Direct WhatsApp Connect</Text>
+            <Text style={styles.benefitDesc}>Initiate negotiations on WhatsApp with single-tap quick chat triggers.</Text>
+          </View>
+        </View>
 
-              <Text style={styles.planLabelText}>{plan.label}</Text>
-              <Text style={styles.planDescText}>{plan.desc}</Text>
+        <View style={styles.benefitRow}>
+          <Text style={styles.benefitIcon}>📋</Text>
+          <View style={styles.benefitTextCol}>
+            <Text style={styles.benefitTitle}>Unlimited Direct Bookings</Text>
+            <Text style={styles.benefitDesc}>Create contract commitments and confirm transit operations instantly.</Text>
+          </View>
+        </View>
 
-              <View style={styles.priceContainer}>
-                <Text style={styles.priceSymbol}>₹</Text>
-                <Text style={styles.priceAmount}>{plan.price.toLocaleString('en-IN')}</Text>
-                <Text style={styles.priceDuration}>/ {plan.durationLabel}</Text>
+        <View style={styles.benefitRow}>
+          <Text style={styles.benefitIcon}>📍</Text>
+          <View style={styles.benefitTextCol}>
+            <Text style={styles.benefitTitle}>Geofence Milestones</Text>
+            <Text style={styles.benefitDesc}>Real-time 5-stage automated highway checkpoint tracking alerts.</Text>
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+  )
+
+  // ── Tab: Upgrade ─────────────────────────────────────────────────────────
+  const renderUpgradePlans = () => (
+    <ScrollView
+      contentContainerStyle={styles.tabContent}
+      key="upgrade-plans-tab"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      <Text style={styles.upgradeHeader}>Choose Your Direct Access Plan</Text>
+      <Text style={styles.upgradeSub}>
+        Payment is processed by our secure gateway. Your pass activates only after the payment is
+        confirmed.
+      </Text>
+
+      {PLANS.map((plan) => {
+        const isActive = hasSubscription && activePlan === plan.id
+        return (
+          <View
+            key={plan.id}
+            style={[styles.planCard, plan.popular && styles.popularPlanCard, isActive && styles.activePlanCard]}
+          >
+            {plan.popular && (
+              <View style={styles.popularBadge}>
+                <Text style={styles.popularBadgeText}>MOST POPULAR</Text>
               </View>
+            )}
+            {plan.saving && (
+              <View style={styles.savingBadge}>
+                <Text style={styles.savingBadgeText}>{plan.saving}</Text>
+              </View>
+            )}
 
-              <TouchableOpacity
+            <Text style={styles.planLabelText}>{plan.label}</Text>
+            <Text style={styles.planDescText}>{plan.desc}</Text>
+
+            <View style={styles.priceContainer}>
+              <Text style={styles.priceSymbol}>₹</Text>
+              <Text style={styles.priceAmount}>{plan.price.toLocaleString('en-IN')}</Text>
+              <Text style={styles.priceDuration}>/ {plan.durationLabel}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.planBtn, plan.popular && styles.popularPlanBtn, isActive && styles.activePlanBtn]}
+              onPress={() => !isActive && handleOpenCheckout(plan)}
+              disabled={isActive || processing}
+              accessibilityLabel={
+                isActive ? `${plan.label} is currently active` : `Subscribe to ${plan.label} for rupees ${plan.price}`
+              }
+              accessibilityRole="button"
+            >
+              <Text
                 style={[
-                  styles.planBtn,
-                  plan.popular && styles.popularPlanBtn,
-                  isActive && styles.activePlanBtn,
+                  styles.planBtnText,
+                  plan.popular && styles.popularPlanBtnText,
+                  isActive && styles.activePlanBtnText,
                 ]}
-                onPress={() => !isActive && handleOpenCheckout(plan)}
-                disabled={isActive}
-                accessibilityLabel={isActive ? `${plan.label} is currently active` : `Subscribe to ${plan.label} for rupees ${plan.price}`}
-                accessibilityRole="button"
               >
-                <Text
+                {isActive ? 'CURRENT PLAN' : `Choose ${plan.label}`}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )
+      })}
+    </ScrollView>
+  )
+
+  // ── Tab: History ─────────────────────────────────────────────────────────
+  const renderHistory = () => (
+    <ScrollView
+      contentContainerStyle={styles.tabContent}
+      key="payment-history-tab"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      <Text style={styles.sectionTitle}>TRANSACTION LOGS</Text>
+
+      {paymentsError ? (
+        <View style={styles.errorCard}>
+          <Text style={styles.errorText}>{paymentsError}</Text>
+          <TouchableOpacity onPress={onRefresh} style={styles.retryBtn} accessibilityRole="button">
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : payments.length === 0 ? (
+        <View style={styles.emptyHistory}>
+          <Text style={styles.emptyHistoryIcon}>💸</Text>
+          <Text style={styles.emptyHistoryText}>
+            No payments recorded on your LorryCarry account yet.
+          </Text>
+        </View>
+      ) : (
+        payments.map((payment) => (
+          <View style={styles.historyCard} key={payment.id}>
+            <View style={styles.historyRow}>
+              <View style={styles.historyInfo}>
+                <Text style={styles.historyPlan}>{describePayment(payment)}</Text>
+                <Text style={styles.historyId}>Ref: {payment.providerOrderId || payment.id.slice(0, 12)}</Text>
+                <Text style={styles.historyDate}>{formatDate(payment.paidAt || payment.createdAt)}</Text>
+                {payment.status === 'Failed' && payment.failureReason ? (
+                  <Text style={styles.historyFailure}>{payment.failureReason}</Text>
+                ) : null}
+              </View>
+              <View style={styles.alignRight}>
+                <Text style={styles.historyAmount}>₹{formatAmount(payment.amount)}</Text>
+                <View
                   style={[
-                    styles.planBtnText,
-                    plan.popular && styles.popularPlanBtnText,
-                    isActive && styles.activePlanBtnText,
+                    styles.statusBadge,
+                    payment.status === 'Success' && styles.successBadge,
+                    payment.status === 'Failed' && styles.failedBadge,
+                    payment.status === 'Pending' && styles.pendingBadge,
+                    payment.status === 'Refunded' && styles.pendingBadge,
                   ]}
                 >
-                  {isActive ? 'CURRENT PLAN' : `Activate ${plan.label}`}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )
-        })}
-      </ScrollView>
-    )
-  }
-
-  const renderHistory = () => {
-    return (
-      <ScrollView contentContainerStyle={styles.tabContent} key="payment-history-tab">
-        <Text style={styles.sectionTitle}>TRANSACTION LOGS</Text>
-        {payments.length === 0 ? (
-          <View style={styles.emptyHistory}>
-            <Text style={styles.emptyHistoryIcon}>💸</Text>
-            <Text style={styles.emptyHistoryText}>No transactions logged on this device yet.</Text>
-          </View>
-        ) : (
-          payments.map((p) => (
-            <View style={styles.historyCard} key={p.id}>
-              <View style={styles.historyRow}>
-                <View>
-                  <Text style={styles.historyPlan}>{p.planLabel}</Text>
-                  <Text style={styles.historyId}>ID: {p.id}</Text>
-                  <Text style={styles.historyDate}>{p.date}</Text>
-                </View>
-                <View style={styles.alignRight}>
-                  <Text style={styles.historyAmount}>₹{p.amount.toLocaleString('en-IN')}</Text>
-                  <View
+                  <Text
                     style={[
-                      styles.statusBadge,
-                      p.status === 'Success' && styles.successBadge,
-                      p.status === 'Failed' && styles.failedBadge,
-                      p.status === 'Pending' && styles.pendingBadge,
+                      styles.statusText,
+                      payment.status === 'Success' && styles.successText,
+                      payment.status === 'Failed' && styles.failedText,
+                      payment.status === 'Pending' && styles.pendingText,
+                      payment.status === 'Refunded' && styles.pendingText,
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.statusText,
-                        p.status === 'Success' && styles.successText,
-                        p.status === 'Failed' && styles.failedText,
-                        p.status === 'Pending' && styles.pendingText,
-                      ]}
-                    >
-                      {p.status.toUpperCase()}
-                    </Text>
-                  </View>
+                    {payment.status.toUpperCase()}
+                  </Text>
                 </View>
               </View>
             </View>
-          ))
-        )}
-      </ScrollView>
-    )
-  }
+          </View>
+        ))
+      )}
+
+      {subscriptionPayments.length > 0 && (
+        <Text style={styles.historyFootnote}>
+          Pass renewals are listed here as soon as the gateway confirms them.
+        </Text>
+      )}
+    </ScrollView>
+  )
+
+  const initialLoading = paymentsLoading && entitlement === null && entitlementLoading
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Title block */}
       <View style={styles.headerBlock}>
         <View style={styles.headerRow}>
           <View style={styles.headerTitleContainer}>
@@ -478,13 +512,13 @@ export function PaymentScreen() {
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
-              onPress={loadData}
-              disabled={loading}
+              onPress={onRefresh}
+              disabled={refreshing}
               style={styles.refreshBtn}
               accessibilityLabel="Refresh payment records"
               accessibilityRole="button"
             >
-              <Text style={styles.refreshIcon}>{loading ? '⏳' : '🔄'}</Text>
+              <Text style={styles.refreshIcon}>{refreshing ? '⏳' : '🔄'}</Text>
             </TouchableOpacity>
             {user && (
               <View style={styles.userBadge}>
@@ -495,7 +529,6 @@ export function PaymentScreen() {
         </View>
       </View>
 
-      {/* Segmented Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'pass' && styles.tabButtonActive]}
@@ -534,11 +567,10 @@ export function PaymentScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Main Content Area */}
-      {loading ? (
+      {initialLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#F97316" />
-          <Text style={styles.loadingText}>Synchronizing billing records...</Text>
+          <Text style={styles.loadingText}>Loading your billing records…</Text>
         </View>
       ) : activeTab === 'pass' ? (
         renderActivePass()
@@ -548,92 +580,80 @@ export function PaymentScreen() {
         renderHistory()
       )}
 
-      {/* ── SANDBOX PAYMENTS SECURE MODAL ── */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
+      {/* ── Secure checkout handoff ── */}
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={closeCheckout}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalLock}>🔒</Text>
-              <View>
-                <Text style={styles.modalTitle}>CASHFREE SANDBOX CHECKOUT</Text>
-                <Text style={styles.modalSub}>LorryCarry Gateway Integration Simulation</Text>
+              <View style={styles.modalHeaderText}>
+                <Text style={styles.modalTitle}>SECURE CHECKOUT</Text>
+                <Text style={styles.modalSub}>
+                  Payment is handled by our PCI-compliant gateway. LorryCarry never sees your card
+                  or UPI credentials.
+                </Text>
               </View>
             </View>
 
             {selectedPlan && (
               <View style={styles.checkoutSummary}>
-                <Text style={styles.checkoutLabel}>Order Details</Text>
+                <Text style={styles.checkoutLabel}>ORDER DETAILS</Text>
                 <View style={styles.checkoutRow}>
-                  <Text style={styles.checkoutPlanName}>{selectedPlan.label} Pass Access</Text>
+                  <Text style={styles.checkoutPlanName}>{selectedPlan.label}</Text>
                   <Text style={styles.checkoutPrice}>₹{selectedPlan.price.toLocaleString('en-IN')}</Text>
                 </View>
-                <Text style={styles.checkoutValidity}>Valid for {selectedPlan.durationDays} Days</Text>
+                <Text style={styles.checkoutValidity}>
+                  Valid for {selectedPlan.durationDays} days from activation
+                </Text>
               </View>
             )}
 
-            <Text style={styles.inputLabel}>Simulated Payment Method</Text>
-            <View style={styles.methodRow}>
-              <TouchableOpacity
-                style={[styles.methodCard, paymentMethod === 'upi' && styles.methodCardActive]}
-                onPress={() => setPaymentMethod('upi')}
-                accessibilityLabel="Select UPI as simulated payment method"
-                accessibilityRole="radio"
-                accessibilityState={{ checked: paymentMethod === 'upi' }}
-              >
-                <Text style={styles.methodIcon}>📱</Text>
-                <Text style={styles.methodText}>UPI (GPay / PhonePe)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.methodCard, paymentMethod === 'card' && styles.methodCardActive]}
-                onPress={() => setPaymentMethod('card')}
-                accessibilityLabel="Select Debit or Credit Card as simulated payment method"
-                accessibilityRole="radio"
-                accessibilityState={{ checked: paymentMethod === 'card' }}
-              >
-                <Text style={styles.methodIcon}>💳</Text>
-                <Text style={styles.methodText}>Debit/Credit Card</Text>
-              </TouchableOpacity>
+            <View style={styles.browserNotice}>
+              <Text style={styles.browserNoticeTitle}>You will continue in your browser</Text>
+              <Text style={styles.browserNoticeText}>
+                {strategy === 'api-checkout-url'
+                  ? 'We will open the secure checkout page provided by the payment gateway. Come back to the app once you are done — we will confirm the payment with our servers.'
+                  : `We will open the LorryCarry secure checkout at ${getWebCheckoutUrl(
+                      selectedPlan?.id ?? 'monthly',
+                    ).replace(/^https?:\/\//, '')}. Return to the app after paying and we will confirm your pass.`}
+              </Text>
             </View>
+
+            {checkoutNotice ? <Text style={styles.checkoutNotice}>{checkoutNotice}</Text> : null}
 
             {processing ? (
               <View style={styles.processingBox}>
                 <ActivityIndicator size="small" color="#F97316" />
-                <Text style={styles.processingText}>Processing secure merchant handshakes...</Text>
+                <Text style={styles.processingText}>
+                  {checkoutStage === 'starting'
+                    ? 'Opening secure checkout…'
+                    : 'Confirming your payment with the gateway. Do not close the app.'}
+                </Text>
               </View>
             ) : (
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={styles.cancelModalBtn}
-                  onPress={() => setModalVisible(false)}
-                  accessibilityLabel="Cancel merchant checkout"
+                  onPress={closeCheckout}
+                  accessibilityLabel="Cancel checkout"
                   accessibilityRole="button"
                 >
                   <Text style={styles.cancelModalText}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.submitModalBtn, { backgroundColor: '#EF4444' }]}
-                  onPress={() => handleSimulatePayment(false)}
-                  accessibilityLabel="Simulate payment failure"
+                  style={[styles.submitModalBtn, { backgroundColor: '#F97316' }]}
+                  onPress={handleStartCheckout}
+                  accessibilityLabel="Continue to secure payment in browser"
                   accessibilityRole="button"
                 >
-                  <Text style={styles.submitModalText}>Fail Txn</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.submitModalBtn, { backgroundColor: '#16A34A' }]}
-                  onPress={() => handleSimulatePayment(true)}
-                  accessibilityLabel="Simulate payment success"
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.submitModalText}>Success</Text>
+                  <Text style={styles.submitModalText}>Continue in Browser</Text>
                 </TouchableOpacity>
               </View>
             )}
 
             <Text style={styles.pciDisclaimer}>
-              This simulated checkout runs within sandbox. Real funds will not be debited.
+              Your pass activates only after the payment gateway confirms the transaction.
             </Text>
           </View>
         </View>
@@ -687,6 +707,25 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: 16,
   },
+  errorCard: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    padding: 14,
+    gap: 10,
+  },
+  errorText: { fontSize: 13, color: '#B91C1C', lineHeight: 18 },
+  retryBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  retryBtnText: { fontSize: 12, fontWeight: '700', color: '#B91C1C' },
   passCard: {
     backgroundColor: '#1E293B',
     borderRadius: 16,
@@ -698,6 +737,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
+  },
+  trialCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#F97316',
+    gap: 4,
+  },
+  trialDesc: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    lineHeight: 18,
+    marginBottom: 12,
   },
   passHeader: {
     flexDirection: 'row',
@@ -849,6 +902,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
     marginBottom: 8,
+    lineHeight: 17,
   },
   planCard: {
     backgroundColor: '#FFFFFF',
@@ -976,8 +1030,9 @@ const styles = StyleSheet.create({
   historyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
+  historyInfo: { flex: 1, paddingRight: 12 },
   historyPlan: {
     fontSize: 13,
     fontWeight: '700',
@@ -992,6 +1047,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#94A3B8',
     marginTop: 2,
+  },
+  historyFailure: {
+    fontSize: 10,
+    color: '#DC2626',
+    marginTop: 4,
+    lineHeight: 14,
+  },
+  historyFootnote: {
+    fontSize: 11,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 4,
   },
   historyAmount: {
     fontSize: 14,
@@ -1026,9 +1093,10 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
   },
+  modalHeaderText: { flex: 1 },
   modalLock: {
     fontSize: 24,
   },
@@ -1040,6 +1108,8 @@ const styles = StyleSheet.create({
   modalSub: {
     fontSize: 11,
     color: '#64748B',
+    lineHeight: 16,
+    marginTop: 2,
   },
   checkoutSummary: {
     backgroundColor: '#F8FAFC',
@@ -1075,36 +1145,31 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
-  inputLabel: {
+  browserNotice: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 10,
+    padding: 12,
+    gap: 4,
+  },
+  browserNoticeTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#C2410C',
+  },
+  browserNoticeText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
+    color: '#9A3412',
+    lineHeight: 16,
   },
-  methodRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  methodCard: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
+  checkoutNotice: {
+    fontSize: 11,
+    color: '#B45309',
+    backgroundColor: '#FEF3C7',
     borderRadius: 8,
     padding: 10,
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  methodCardActive: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#F97316',
-  },
-  methodIcon: {
-    fontSize: 20,
-  },
-  methodText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
+    lineHeight: 16,
   },
   processingBox: {
     padding: 20,
@@ -1114,6 +1179,8 @@ const styles = StyleSheet.create({
   processingText: {
     fontSize: 11,
     color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 16,
   },
   modalActions: {
     flexDirection: 'row',
@@ -1133,7 +1200,7 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   submitModalBtn: {
-    flex: 1,
+    flex: 2,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',

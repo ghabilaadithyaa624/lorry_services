@@ -11,6 +11,8 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from '../config'
+
 interface FAQItem {
   id: string
   question: string
@@ -45,40 +47,59 @@ export function HelpScreen() {
     setExpandedFaqId(prev => (prev === id ? null : id))
   }
 
-  const handleContactSubmit = () => {
+  /**
+   * There is no support-ticket endpoint on the API yet, so the form composes a
+   * real email to the support desk rather than pretending a ticket was filed.
+   */
+  const handleContactSubmit = async () => {
     if (!subject.trim() || !message.trim()) {
-      Alert.alert('Validation Error', 'Please fill in both the Subject and Message fields.')
+      Alert.alert('Missing details', 'Please fill in both the Subject and Message fields.')
       return
     }
 
     setIsSubmitting(true)
-    // Simulate API request
-    setTimeout(() => {
-      setIsSubmitting(false)
-      Alert.alert(
-        'Inquiry Sent',
-        'Thank you for contacting us. Our support team will get back to you shortly!'
-      )
-      setSubject('')
-      setMessage('')
-    }, 1000)
-  }
-
-  const handleWhatsAppSupport = async () => {
-    const phoneNumber = '+919876543210' // Mock Support Number
-    const text = 'Hello LorryCarry Support, I need help with...'
-    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(text)}`
-    const fallbackUrl = `https://wa.me/${phoneNumber.replace('+', '')}?text=${encodeURIComponent(text)}`
+    const url =
+      `mailto:${SUPPORT_EMAIL}` +
+      `?subject=${encodeURIComponent(`[LorryCarry app] ${subject.trim()}`)}` +
+      `&body=${encodeURIComponent(message.trim())}`
 
     try {
       const supported = await Linking.canOpenURL(url)
-      if (supported) {
-        await Linking.openURL(url)
-      } else {
-        await Linking.openURL(fallbackUrl)
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Unable to open WhatsApp. Please contact support via the form below.')
+      if (!supported) throw new Error('unsupported')
+      await Linking.openURL(url)
+      setSubject('')
+      setMessage('')
+    } catch {
+      Alert.alert(
+        'Could not open your email app',
+        `Please email us directly at ${SUPPORT_EMAIL} and we will get back to you.`,
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleWhatsAppSupport = async () => {
+    if (!SUPPORT_PHONE) {
+      Alert.alert(
+        'WhatsApp support unavailable',
+        `WhatsApp support is not configured for this build. Please email ${SUPPORT_EMAIL} instead.`,
+      )
+      return
+    }
+
+    const text = 'Hello LorryCarry Support, I need help with...'
+    const deepLink = `whatsapp://send?phone=${SUPPORT_PHONE}&text=${encodeURIComponent(text)}`
+    const webLink = `https://wa.me/${SUPPORT_PHONE.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`
+
+    try {
+      const supported = await Linking.canOpenURL(deepLink)
+      await Linking.openURL(supported ? deepLink : webLink)
+    } catch {
+      Alert.alert(
+        'Could not open WhatsApp',
+        `WhatsApp is not available on this device. Please email ${SUPPORT_EMAIL} instead.`,
+      )
     }
   }
 
@@ -102,7 +123,9 @@ export function HelpScreen() {
           <Text style={styles.whatsappIcon}>💬</Text>
           <View style={styles.whatsappTextContainer}>
             <Text style={styles.whatsappTitle}>Chat on WhatsApp</Text>
-            <Text style={styles.whatsappDesc}>Get quick response from our 24/7 support agent</Text>
+            <Text style={styles.whatsappDesc}>
+              {SUPPORT_PHONE ? 'Get a quick response from our support desk' : `Not configured — email ${SUPPORT_EMAIL}`}
+            </Text>
           </View>
         </TouchableOpacity>
 
@@ -174,7 +197,7 @@ export function HelpScreen() {
               accessibilityState={{ disabled: isSubmitting }}
             >
               <Text style={styles.buttonText}>
-                {isSubmitting ? 'Sending...' : 'Submit Support Request'}
+                {isSubmitting ? 'Opening…' : 'Email Support Request'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -190,6 +213,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: 20 },
   title: { fontSize: 24, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#64748B' },
+  sectionHint: { fontSize: 12, color: '#64748B', marginBottom: 10, lineHeight: 17 },
   whatsappCard: {
     flexDirection: 'row',
     alignItems: 'center',

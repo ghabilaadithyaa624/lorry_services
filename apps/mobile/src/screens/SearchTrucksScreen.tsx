@@ -11,25 +11,21 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
 import { StackNavigationProp } from '@react-navigation/stack'
 import { RootStackParamList } from '../navigation/types'
-import { api } from '../services/api'
+import { getApiErrorMessage, searchApi } from '../services/api'
+import type { TruckSearchResult as Truck } from '../services/types'
 
 type SearchTrucksScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SearchTrucks'>
 
-interface Truck {
-  id: string
-  bodyType: string
-  lengthFt: number
-  heightFt: number
-  tonnageCapacity: number
-  distanceKm: number
-  verificationStatus: string
-}
+/** Default map centre (Pune) used only until the device reports a real fix. */
+const DEFAULT_LOCATION = { lat: 18.5204, lng: 73.8567 }
 
 export function SearchTrucksScreen({ navigation }: { navigation: SearchTrucksScreenNavigationProp }) {
   const [trucks, setTrucks] = useState<Truck[]>([])
   const [loading, setLoading] = useState(true)
-  const [radius, setRadius] = useState(50)
-  const [location, setLocation] = useState({ lat: 18.5204, lng: 73.8567 })
+  const [radius] = useState(50)
+  const [location, setLocation] = useState(DEFAULT_LOCATION)
+  const [error, setError] = useState<string | null>(null)
+  const [usingDefaultLocation, setUsingDefaultLocation] = useState(true)
 
   useEffect(() => {
     getLocation()
@@ -44,25 +40,25 @@ export function SearchTrucksScreen({ navigation }: { navigation: SearchTrucksScr
       const { status } = await Location.requestForegroundPermissionsAsync()
       if (status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({})
-        setLocation({
-          lat: loc.coords.latitude,
-          lng: loc.coords.longitude,
-        })
+        setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+        setUsingDefaultLocation(false)
       }
-    } catch (e) {
-      console.warn('Location permission error', e)
+    } catch {
+      // Keep the default centre; the banner tells the user results are not
+      // based on their real position.
+      setUsingDefaultLocation(true)
     }
   }
 
   const searchTrucks = async () => {
     setLoading(true)
+    setError(null)
     try {
-      const res = await api.get('/search/trucks', {
-        params: { lat: location.lat, lng: location.lng, radius },
-      })
-      setTrucks(res.data)
+      const res = await searchApi.trucks({ lat: location.lat, lng: location.lng, radius })
+      setTrucks(Array.isArray(res.data) ? res.data : [])
     } catch (err) {
-      console.error(err)
+      setTrucks([])
+      setError(getApiErrorMessage(err, 'Could not search for nearby trucks.'))
     } finally {
       setLoading(false)
     }
@@ -106,6 +102,11 @@ export function SearchTrucksScreen({ navigation }: { navigation: SearchTrucksScr
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.screenTitle}>Nearby Trucks ({radius}km)</Text>
+      {usingDefaultLocation && (
+        <Text style={styles.locationBanner}>
+          Showing results around a default city centre. Allow location access for trucks near you.
+        </Text>
+      )}
 
       {loading ? (
         <ActivityIndicator size="large" color="#F97316" style={styles.loader} />
@@ -116,7 +117,16 @@ export function SearchTrucksScreen({ navigation }: { navigation: SearchTrucksScr
           renderItem={renderTruck}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No trucks found in {radius}km radius.</Text>
+            error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={searchTrucks} accessibilityRole="button">
+                  <Text style={styles.retryText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={styles.emptyText}>No trucks found in {radius}km radius.</Text>
+            )
           }
         />
       )}
@@ -148,4 +158,9 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#F97316', paddingVertical: 12, borderRadius: 8, marginTop: 12, alignItems: 'center' },
   buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
   emptyText: { textAlign: 'center', marginTop: 40, color: '#64748B' },
+  locationBanner: { fontSize: 12, color: '#9A3412', backgroundColor: '#FFF7ED', paddingHorizontal: 16, paddingVertical: 10, lineHeight: 17 },
+  errorBox: { marginTop: 40, alignItems: 'center', gap: 12, paddingHorizontal: 24 },
+  errorText: { textAlign: 'center', color: '#B91C1C', fontSize: 14, lineHeight: 20 },
+  retryBtn: { backgroundColor: '#F97316', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  retryText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
 })
