@@ -34,8 +34,9 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
+  // Kinetic Command primary: orange gradient + glow (docs/LORRYCARRY_DESIGN_SYSTEM.md §9)
   primary:
-    'bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white border border-primary-600/20 shadow-sm hover:shadow-card-hover focus-visible:ring-primary-500',
+    'bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 active:from-primary-700 active:to-primary-800 text-white border border-primary-400/30 shadow-glow-primary hover:shadow-elevated focus-visible:ring-primary-500',
   secondary:
     'bg-panel hover:bg-sunken active:bg-sunken text-ink border border-hairline hover:border-hairline-strong shadow-xs focus-visible:ring-primary-500',
   outline:

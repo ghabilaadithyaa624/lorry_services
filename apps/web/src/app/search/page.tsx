@@ -12,18 +12,18 @@ import {
   ShieldCheck,
   Clock,
   Navigation,
-  ChevronDown,
   Sparkles,
   ArrowRight,
   Phone,
   ExternalLink,
-  RotateCw,
   CircleDollarSign,
 } from 'lucide-react'
 import { api, locationApi } from '@/lib/api'
 import { Footer, Navbar } from '@/components/layout'
 import { VerifiedBadge } from '@/components/VerifiedBadge'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
+import { Badge, Button, Card, EmptyState, Input, Select, Skeleton, Spinner } from '@/components/ui'
+import { MatchScoreBadge } from '@/components/intelligence'
 import {
   calculateMatchScore,
   estimateFreightRate,
@@ -88,6 +88,43 @@ function getRelativeTimestamp(id: string): string {
   const minutes = (hash % 45) + 3
   if (minutes < 60) return `${minutes}m ago`
   return `${Math.floor(minutes / 60)}h ago`
+}
+
+/**
+ * Monospace telemetry readout cell (docs/LORRYCARRY_DESIGN_SYSTEM.md §4, §8.3).
+ * Dense operational values render in a deep well with a mono uppercase label.
+ */
+function TelemetryCell({
+  label,
+  icon,
+  value,
+  valueClassName,
+}: {
+  label: string
+  icon?: React.ReactNode
+  value: React.ReactNode
+  valueClassName?: string
+}) {
+  return (
+    <div className="bg-sunken/60 rounded-xl p-3 border border-white/5">
+      <div className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-widest text-subtle">
+        {label}
+      </div>
+      <div
+        className={cn(
+          'text-sm sm:text-base font-bold text-ink font-mono mt-0.5 flex items-center gap-1',
+          valueClassName
+        )}
+      >
+        {icon && (
+          <span className="shrink-0 inline-flex" aria-hidden="true">
+            {icon}
+          </span>
+        )}
+        <span className="min-w-0">{value}</span>
+      </div>
+    </div>
+  )
 }
 
 function SearchPageContent() {
@@ -443,95 +480,98 @@ function SearchPageContent() {
       : null
 
   return (
-    <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
-      {/* JSON-LD structured data for search marketplace */}
-      <StructuredData data={breadcrumbLd} id="search-breadcrumb-ld" />
-      {itemListLd && <StructuredData data={itemListLd} id="search-itemlist-ld" />}
-      {/* ── 1. Fixed Top Navigation (shared redesigned header) ── */}
-      <Navbar />
+    <div className="relative isolate flex min-h-screen flex-col overflow-x-clip bg-canvas font-sans text-body selection:bg-primary-500 selection:text-white">
+      {/* ── Ambient Kinetic Command lighting: radial blur wash + grid pattern (decorative) ── */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-gradient-to-tr from-primary-600/20 via-sky-500/10 to-transparent rounded-full blur-[140px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgb(var(--lc-hairline)_/_0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgb(var(--lc-hairline)_/_0.05)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+      </div>
 
-      {/* ── Main Content Area ── */}
-      <main className="flex-1 py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
-        {/* ── 2. Page Header ── */}
-        <div>
-          <div className="flex flex-wrap items-center gap-2 mb-2.5">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-200 text-xs font-semibold tracking-wide">
-              <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-              <span>Smart Match Architecture</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold tracking-wide">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Geo-Proximity Verified</span>
-            </span>
+      <div className="relative z-10 flex flex-1 flex-col">
+        {/* JSON-LD structured data for search marketplace */}
+        <StructuredData data={breadcrumbLd} id="search-breadcrumb-ld" />
+        {itemListLd && <StructuredData data={itemListLd} id="search-itemlist-ld" />}
+        {/* ── 1. Fixed Top Navigation (shared redesigned header) ── */}
+        <Navbar />
+
+        {/* ── Main Content Area ── */}
+        <main className="flex-1 py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
+          {/* ── 2. Page Header ── */}
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-pill bg-primary-500/10 text-primary-300 border border-primary-500/30 text-[11px] sm:text-xs font-mono font-bold uppercase tracking-widest">
+                <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Smart Match Architecture</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-pill bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 text-[11px] sm:text-xs font-mono font-bold uppercase tracking-widest">
+                <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Geo-Proximity Verified</span>
+              </span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">
+              Marketplace Freight Discovery
+            </h1>
+            <p className="text-sm sm:text-base text-muted mt-1.5 max-w-3xl leading-relaxed">
+              Discover verified lorries and cargo requirements with transparent factor scoring, live proximity distance, and direct carrier unlocking.
+            </p>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">
-            Marketplace Freight Discovery
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1.5 max-w-3xl leading-relaxed">
-            Discover verified lorries and cargo requirements with transparent factor scoring, live proximity distance, and direct carrier unlocking.
-          </p>
-        </div>
+          {/* ── 3. Search Panel (Dark Glass Card) ── */}
+          <Card surface="glass" className="p-5 sm:p-7 space-y-6">
+            {/* Tab Toggle */}
+            <div role="tablist" aria-label="Marketplace search mode" className="flex items-center gap-6 border-b border-white/10">
+              <button
+                id="tab-trucks"
+                role="tab"
+                type="button"
+                aria-selected={mode === 'trucks'}
+                aria-controls="panel-marketplace-results"
+                onClick={() => {
+                  setMode('trucks')
+                  router.replace('/search?type=truck')
+                  setRawResults([])
+                }}
+                className={cn(
+                  'pb-3.5 text-sm sm:text-base font-bold flex items-center gap-2 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none',
+                  mode === 'trucks'
+                    ? 'border-b-2 border-primary-500 text-white'
+                    : 'border-b-2 border-transparent text-muted hover:text-ink font-medium'
+                )}
+              >
+                <Truck className={cn('w-4 h-4', mode === 'trucks' ? 'text-primary-400' : 'text-subtle')} aria-hidden="true" />
+                <span>Find Trucks Nearby</span>
+              </button>
 
-        {/* ── 3. Search Panel (White Card, Rounded-2xl, Border) ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-7 space-y-6">
-          {/* Tab Toggle */}
-          <div role="tablist" aria-label="Marketplace search mode" className="flex items-center gap-6 border-b border-gray-200">
-            <button
-              id="tab-trucks"
-              role="tab"
-              type="button"
-              aria-selected={mode === 'trucks'}
-              aria-controls="panel-marketplace-results"
-              onClick={() => {
-                setMode('trucks')
-                router.replace('/search?type=truck')
-                setRawResults([])
-              }}
-              className={cn(
-                'pb-3.5 text-sm sm:text-base font-bold flex items-center gap-2 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none -mb-px',
-                mode === 'trucks'
-                  ? 'border-b-2 border-orange-500 text-orange-600'
-                  : 'border-b-2 border-transparent text-gray-500 hover:text-gray-900 font-medium'
-              )}
-            >
-              <Truck className="w-4 h-4" />
-              <span>Find Trucks Nearby</span>
-            </button>
+              <button
+                id="tab-loads"
+                role="tab"
+                type="button"
+                aria-selected={mode === 'loads'}
+                aria-controls="panel-marketplace-results"
+                onClick={() => {
+                  setMode('loads')
+                  router.replace('/search?type=load')
+                  setRawResults([])
+                }}
+                className={cn(
+                  'pb-3.5 text-sm sm:text-base font-bold flex items-center gap-2 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none',
+                  mode === 'loads'
+                    ? 'border-b-2 border-primary-500 text-white'
+                    : 'border-b-2 border-transparent text-muted hover:text-ink font-medium'
+                )}
+              >
+                <Package className={cn('w-4 h-4', mode === 'loads' ? 'text-primary-400' : 'text-subtle')} aria-hidden="true" />
+                <span>Find Freight Loads</span>
+              </button>
+            </div>
 
-            <button
-              id="tab-loads"
-              role="tab"
-              type="button"
-              aria-selected={mode === 'loads'}
-              aria-controls="panel-marketplace-results"
-              onClick={() => {
-                setMode('loads')
-                router.replace('/search?type=load')
-                setRawResults([])
-              }}
-              className={cn(
-                'pb-3.5 text-sm sm:text-base font-bold flex items-center gap-2 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none -mb-px',
-                mode === 'loads'
-                  ? 'border-b-2 border-orange-500 text-orange-600'
-                  : 'border-b-2 border-transparent text-gray-500 hover:text-gray-900 font-medium'
-              )}
-            >
-              <Package className="w-4 h-4" />
-              <span>Find Freight Loads</span>
-            </button>
-          </div>
-
-          {/* Fields in a Row (Stack on mobile) */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-            {/* Loading Point */}
-            <div className="md:col-span-5 relative" ref={suggestionsRef}>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                {mode === 'trucks' ? 'Loading Point / Hub' : 'Consignment Origin'}
-              </label>
-              <div className="relative">
-                <MapPin className="w-4 h-4 text-orange-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
+            {/* Fields in a Row (Stack on mobile) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+              {/* Loading Point */}
+              <div className="md:col-span-5 relative" ref={suggestionsRef}>
+                <Input
+                  label={mode === 'trucks' ? 'Loading Point / Hub' : 'Consignment Origin'}
                   type="text"
                   value={locationLabel}
                   onChange={(e) => {
@@ -546,660 +586,588 @@ function SearchPageContent() {
                     if (suggestions.length > 0) setShowSuggestions(true)
                   }}
                   placeholder="Enter city, industrial hub, or use GPS"
-                  className="w-full pl-10 pr-20 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-500 focus-visible:ring-2 focus-visible:ring-orange-500/20 text-xs sm:text-sm font-medium transition-colors"
                   autoComplete="off"
+                  className="pr-24 font-medium text-xs sm:text-sm"
+                  leftElement={<MapPin className="w-4 h-4 text-primary-400" aria-hidden="true" />}
+                  rightElement={
+                    /* GPS Icon Button */
+                    <button
+                      type="button"
+                      onClick={detectLocation}
+                      disabled={gpsLoading}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary-500/15 hover:bg-primary-500/25 text-primary-300 border border-primary-500/30 text-[11px] font-mono font-bold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none disabled:opacity-60 cursor-pointer"
+                      title="Detect current GPS coordinates"
+                    >
+                      <Navigation className={cn('w-3.5 h-3.5', gpsLoading && 'animate-spin')} aria-hidden="true" />
+                      <span>{gpsLoading ? 'Locating...' : 'GPS'}</span>
+                    </button>
+                  }
                 />
 
-                {/* GPS Icon Button */}
-                <button
-                  type="button"
-                  onClick={detectLocation}
-                  disabled={gpsLoading}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-600 text-xs font-semibold border border-orange-200 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none disabled:opacity-60 cursor-pointer"
-                  title="Detect current GPS coordinates"
-                >
-                  <Navigation className={cn('w-3.5 h-3.5', gpsLoading && 'animate-spin')} />
-                  <span>{gpsLoading ? 'Locating...' : 'GPS'}</span>
-                </button>
+                {/* Autosuggestions Dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <ul className="absolute z-50 left-0 right-0 bottom-0 translate-y-[calc(100%+6px)] bg-overlay border border-white/10 rounded-xl shadow-modal max-h-60 overflow-y-auto divide-y divide-white/5">
+                    {suggestions.map((item, idx) => (
+                      <li
+                        key={item.placeId || idx}
+                        onClick={() => handleSelectSuggestion(item)}
+                        className="px-4 py-3 hover:bg-wash cursor-pointer transition-colors text-left"
+                      >
+                        <div className="text-xs sm:text-sm font-bold text-ink truncate">
+                          {item.address}
+                        </div>
+                        {(item.city || item.state) && (
+                          <div className="text-[11px] text-subtle truncate mt-0.5">
+                            {[item.city, item.state].filter(Boolean).join(', ')}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
-              {/* Autosuggestions Dropdown */}
-              {showSuggestions && suggestions.length > 0 && (
-                <ul className="absolute z-50 left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto divide-y divide-gray-100">
-                  {suggestions.map((item, idx) => (
-                    <li
-                      key={item.placeId || idx}
-                      onClick={() => handleSelectSuggestion(item)}
-                      className="px-4 py-3 hover:bg-orange-50/60 cursor-pointer transition-colors text-left"
-                    >
-                      <div className="text-xs sm:text-sm font-bold text-gray-900 truncate">
-                        {item.address}
-                      </div>
-                      {(item.city || item.state) && (
-                        <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                          {[item.city, item.state].filter(Boolean).join(', ')}
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Radius Dropdown */}
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                Search Radius
-              </label>
-              <div className="relative">
-                <select
+              {/* Radius Dropdown */}
+              <div className="md:col-span-2">
+                <Select
+                  label="Search Radius"
                   value={radius}
                   onChange={(e) => setRadius(e.target.value)}
-                  className="w-full px-3.5 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-orange-500 focus-visible:ring-2 focus-visible:ring-orange-500/20 text-xs sm:text-sm font-medium transition-colors appearance-none cursor-pointer"
+                  className="cursor-pointer font-medium text-xs sm:text-sm"
                 >
                   <option value="25">Within 25 km</option>
                   <option value="50">Within 50 km</option>
                   <option value="100">Within 100 km</option>
                   <option value="200">Within 200 km</option>
                   <option value="500">Within 500 km</option>
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </Select>
               </div>
-            </div>
 
-            {/* Vehicle Type Dropdown */}
-            <div className="md:col-span-3">
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                Vehicle Body Type
-              </label>
-              <div className="relative">
-                <select
+              {/* Vehicle Type Dropdown */}
+              <div className="md:col-span-3">
+                <Select
+                  label="Vehicle Body Type"
                   value={truckType}
                   onChange={(e) => setTruckType(e.target.value)}
-                  className="w-full px-3.5 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-orange-500 focus-visible:ring-2 focus-visible:ring-orange-500/20 text-xs sm:text-sm font-medium transition-colors appearance-none cursor-pointer"
+                  className="cursor-pointer font-medium text-xs sm:text-sm"
                 >
                   <option value="">All Vehicle Types</option>
                   <option value="Open">Open Body</option>
                   <option value="Container">Closed Container</option>
                   <option value="OpenBody">Open Body Trailer</option>
-                </select>
-                <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </Select>
               </div>
-            </div>
 
-            {/* Search Button */}
-            <div className="md:col-span-2">
-              <button
-                type="button"
-                onClick={handleSearch}
-                disabled={loading}
-                className="w-full py-3 px-5 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold rounded-xl text-xs sm:text-sm transition-colors duration-150 shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-              >
-                {loading ? (
-                  <>
-                    <RotateCw className="w-4 h-4 animate-spin" />
-                    <span>Searching...</span>
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-4 h-4" />
-                    <span>Search</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Secondary Weight / Tonnage Filter Row */}
-          <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="text-gray-500 font-medium">
-                {mode === 'trucks' ? 'Target Consignment Weight:' : 'Vehicle Capacity Fit:'}
-              </span>
-              <div className="inline-flex items-center gap-1.5">
-                <input
-                  type="number"
-                  value={tonnage}
-                  onChange={(e) => setTonnage(e.target.value)}
-                  placeholder="e.g. 15"
-                  className="w-20 px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-xs font-mono font-bold text-gray-900 focus:outline-none focus:border-orange-500 focus-visible:ring-2 focus-visible:ring-orange-500/20"
-                />
-                <span className="text-gray-500 font-semibold">Tons</span>
-              </div>
-            </div>
-
-            {/* Quick Weight Chips */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-gray-400 text-[11px] hidden sm:inline">Presets:</span>
-              {[5, 10, 16, 25, 40].map((t) => (
-                <button
-                  key={t}
+              {/* Search Button */}
+              <div className="md:col-span-2">
+                <Button
                   type="button"
-                  onClick={() => {
-                    setTonnage(t.toString())
-                  }}
-                  className={cn(
-                    'px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer',
-                    tonnage === t.toString()
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  )}
+                  onClick={handleSearch}
+                  loading={loading}
+                  loadingText="Searching freight marketplace"
+                  fullWidth
+                  leftIcon={<Search className="w-4 h-4" aria-hidden="true" />}
+                  className="text-xs sm:text-sm font-bold"
                 >
-                  {t}T
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── 4. Results Header & Sorting Controls ── */}
-        <div id="panel-marketplace-results" role="tabpanel" aria-labelledby={mode === 'trucks' ? 'tab-trucks' : 'tab-loads'} className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:px-6 rounded-2xl border border-gray-200 shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <p className="text-sm sm:text-base text-gray-700 font-medium">
-                Found{' '}
-                <strong className="text-gray-900 font-bold font-mono text-base sm:text-lg">
-                  {sortedResults.length}
-                </strong>{' '}
-                {mode === 'trucks' ? 'trucks' : 'loads'} within {radius} km
-              </p>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200/80 text-xs font-semibold">
-                <Sparkles className="w-3 h-3 text-orange-500" />
-                <span>Smart Ranked</span>
-              </span>
-            </div>
-
-            {/* Sort Control */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
-                <ArrowUpDown className="w-3.5 h-3.5 text-orange-500" />
-                <span>Sort by:</span>
-              </span>
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as MatchSortOption)}
-                  className="px-3 py-1.5 pr-8 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-orange-500 focus-visible:ring-2 focus-visible:ring-orange-500/20 appearance-none cursor-pointer"
-                >
-                  {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  {loading ? 'Searching...' : 'Search'}
+                </Button>
               </div>
             </div>
-          </div>
 
-          {/* Loading Skeleton State */}
-          {loading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((n) => (
-                <div
-                  key={n}
-                  className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm animate-pulse"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-gray-100" />
-                      <div className="space-y-2">
-                        <div className="w-36 h-4 bg-gray-200 rounded" />
-                        <div className="w-24 h-3 bg-gray-100 rounded" />
-                      </div>
-                    </div>
-                    <div className="w-20 h-6 bg-gray-200 rounded-full" />
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {[1, 2, 3, 4].map((s) => (
-                      <div key={s} className="h-16 bg-gray-50 rounded-xl border border-gray-100" />
-                    ))}
-                  </div>
+            {/* Secondary Weight / Tonnage Filter Row */}
+            <div className="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <label htmlFor="tonnage-target-input" className="text-muted font-medium">
+                  {mode === 'trucks' ? 'Target Consignment Weight:' : 'Vehicle Capacity Fit:'}
+                </label>
+                <div className="inline-flex items-center gap-1.5">
+                  <input
+                    id="tonnage-target-input"
+                    type="number"
+                    value={tonnage}
+                    onChange={(e) => setTonnage(e.target.value)}
+                    placeholder="e.g. 15"
+                    className="w-20 px-2.5 py-1 bg-sunken/60 border border-white/10 rounded-input text-xs font-mono font-bold text-ink placeholder:text-subtle focus:outline-none focus:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/25"
+                  />
+                  <span className="text-muted font-semibold">Tons</span>
                 </div>
-              ))}
-            </div>
-          ) : sortedResults.length === 0 ? (
-            /* ── Zero-Results Empty State ── */
-            <div className="bg-white rounded-2xl border border-gray-200 p-10 sm:p-14 text-center space-y-4 shadow-sm">
-              <div className="w-16 h-16 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto border border-orange-100">
-                {mode === 'trucks' ? (
-                  <Truck className="w-8 h-8 stroke-[1.8]" />
-                ) : (
-                  <Package className="w-8 h-8 stroke-[1.8]" />
-                )}
               </div>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">
-                No matching {mode === 'trucks' ? 'trucks' : 'freight loads'} found within {radius} km
-              </h3>
-              <p className="text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
-                Try expanding your search radius to 100 km or 200 km to discover more active freight
-                matches across the regional corridor.
-              </p>
-              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
+
+              {/* Quick Weight Chips */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-subtle text-[11px] font-mono uppercase tracking-widest hidden sm:inline">Presets:</span>
+                {[5, 10, 16, 25, 40].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={tonnage === t.toString()}
+                    onClick={() => {
+                      setTonnage(t.toString())
+                    }}
+                    className={cn(
+                      'px-2 py-0.5 rounded-badge text-[11px] font-mono font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer',
+                      tonnage === t.toString()
+                        ? 'bg-primary-500 text-white shadow-glow-primary'
+                        : 'bg-sunken text-muted hover:bg-wash-strong hover:text-ink border border-white/5'
+                    )}
+                  >
+                    {t}T
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          {/* ── 4. Results Header & Sorting Controls ── */}
+          <div id="panel-marketplace-results" role="tabpanel" aria-labelledby={mode === 'trucks' ? 'tab-trucks' : 'tab-loads'} className="space-y-4">
+            <Card padding="none" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:px-6">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <p className="text-sm sm:text-base text-body font-medium">
+                  Found{' '}
+                  <strong className="text-ink font-bold font-mono text-base sm:text-lg">
+                    {sortedResults.length}
+                  </strong>{' '}
+                  {mode === 'trucks' ? 'trucks' : 'loads'} within <span className="font-mono text-ink">{radius}</span> km
+                </p>
+                <Badge variant="primary" size="sm">
+                  <Sparkles className="w-3 h-3" aria-hidden="true" />
+                  <span>Smart Ranked</span>
+                </Badge>
+              </div>
+
+              {/* Sort Control */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="marketplace-sort" className="text-xs font-medium text-muted flex items-center gap-1">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-primary-400" aria-hidden="true" />
+                  <span>Sort by:</span>
+                </label>
+                <div className="w-full max-w-[220px]">
+                  <Select
+                    id="marketplace-sort"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as MatchSortOption)}
+                    className="py-1.5 text-xs font-semibold"
+                  >
+                    {SORT_OPTIONS.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+            </Card>
+
+            {/* Loading Skeleton State */}
+            {loading ? (
+              <div className="space-y-4" aria-hidden="true">
+                {[1, 2, 3].map((n) => (
+                  <Card key={n} padding="none" className="p-5 sm:p-6 space-y-4" surface="glass">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5">
+                        <Skeleton variant="rectangular" className="w-12 h-12 rounded-2xl shrink-0" />
+                        <div className="space-y-2">
+                          <Skeleton className="w-36 h-4" />
+                          <Skeleton className="w-24 h-3" />
+                        </div>
+                      </div>
+                      <Skeleton className="w-20 h-6 rounded-pill" />
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[1, 2, 3, 4].map((s) => (
+                        <Skeleton key={s} className="h-16 rounded-xl" />
+                      ))}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : sortedResults.length === 0 ? (
+              /* ── Zero-Results Empty State ── */
+              <EmptyState
+                icon={mode === 'trucks' ? Truck : Package}
+                title={`No matching ${mode === 'trucks' ? 'trucks' : 'freight loads'} found within ${radius} km`}
+                description="Try expanding your search radius to 100 km or 200 km to discover more active freight matches across the regional corridor."
+                primaryAction={{
+                  label: 'Expand Search to 200 km',
+                  onClick: () => {
                     setRadius('200')
                     handleSearch()
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 active:bg-orange-200 text-orange-700 border border-orange-200 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
-                >
-                  Expand Search to 200 km
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* ── 5. Result Cards Grid ── */
-            <div className="grid grid-cols-1 gap-4">
-              {mode === 'trucks'
-                ? (sortedResults as TruckResult[]).map((truck, idx) => {
-                    const match = truck.match!
-                    const isTopRecommendation = idx === 0 && match.score >= 75
+                  },
+                }}
+                className="py-10 sm:py-14"
+              />
+            ) : (
+              /* ── 5. Result Cards Grid ── */
+              <div className="grid grid-cols-1 gap-4">
+                {mode === 'trucks'
+                  ? (sortedResults as TruckResult[]).map((truck, idx) => {
+                      const match = truck.match!
+                      const isTopRecommendation = idx === 0 && match.score >= 75
 
-                    const rateEstimate = estimateFreightRate({
-                      tonnage: truck.tonnageCapacity || 10,
-                      truckType: truck.bodyType || 'Open',
-                      distanceKm: truck.distanceKm || 50,
-                    })
+                      const rateEstimate = estimateFreightRate({
+                        tonnage: truck.tonnageCapacity || 10,
+                        truckType: truck.bodyType || 'Open',
+                        distanceKm: truck.distanceKm || 50,
+                      })
 
-                    const isVerified = truck.verificationStatus === 'Verified'
-                    const etaMinutes = Math.max(12, Math.round((truck.distanceKm || 12) * 2.2))
-                    const relativeTime = getRelativeTimestamp(truck.id)
+                      const isVerified = truck.verificationStatus === 'Verified'
+                      const etaMinutes = Math.max(12, Math.round((truck.distanceKm || 12) * 2.2))
+                      const relativeTime = getRelativeTimestamp(truck.id)
 
-                    return (
-                      <div
-                        key={truck.id}
-                        className={cn(
-                          'bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow duration-200 space-y-5',
-                          isTopRecommendation && 'ring-1 ring-orange-500/30'
-                        )}
-                      >
-                        {/* Header: Identity, Vahan Badge, Match Score */}
-                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                          <div className="flex items-start gap-3.5">
-                            {/* Truck Icon Badge */}
-                            <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100 shrink-0">
-                              <Truck className="w-6 h-6 stroke-[2.2]" />
-                            </div>
+                      return (
+                        <Card
+                          key={truck.id}
+                          surface="glass"
+                          hover
+                          padding="none"
+                          className={cn(
+                            'p-5 sm:p-6 space-y-5',
+                            isTopRecommendation && 'border-primary-500/40 shadow-glow-primary'
+                          )}
+                        >
+                          {/* Header: Identity, Vahan Badge, Match Score */}
+                          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                            <div className="flex items-start gap-3.5">
+                              {/* Truck Icon Badge */}
+                              <div className="w-12 h-12 rounded-2xl bg-primary-500/10 text-primary-400 flex items-center justify-center border border-primary-500/20 shrink-0">
+                                <Truck className="w-6 h-6 stroke-[2.2]" aria-hidden="true" />
+                              </div>
 
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-mono font-bold text-gray-900 text-base sm:text-lg tracking-wide">
-                                  {truck.registrationNumber || 'MH-12-TRUCK'}
-                                </span>
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-mono font-bold text-ink text-base sm:text-lg tracking-wide">
+                                    {truck.registrationNumber || 'MH-12-TRUCK'}
+                                  </span>
 
-                                {/* Vahan Verification Badge (backed by the Vahan RC validation API) */}
-                                {isVerified ? (
+                                  {/* Vahan Verification Badge (backed by the Vahan RC validation API) */}
                                   <VerifiedBadge
-                                    verified
+                                    verified={isVerified}
                                     source="vahan"
                                     validatedAt={truck.vahanVerifiedAt}
-                                    variant="light"
+                                    variant="dark"
                                   />
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-200 text-xs font-medium">
-                                    <Clock className="w-3.5 h-3.5 text-gray-400" />
-                                    <span>Verification Pending</span>
-                                  </span>
-                                )}
 
-                                {isTopRecommendation && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-500 text-white text-[11px] font-bold uppercase tracking-wider shadow-xs">
-                                    <Sparkles className="w-3 h-3" />
-                                    <span>Recommended</span>
-                                  </span>
-                                )}
+                                  {isTopRecommendation && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill bg-gradient-to-r from-primary-500 to-amber-500 text-white text-[11px] font-bold uppercase tracking-wider shadow-glow-primary">
+                                      <Sparkles className="w-3 h-3" aria-hidden="true" />
+                                      <span>Recommended</span>
+                                    </span>
+                                  )}
 
-                                {/* FASTag readiness chip (compliance signal) */}
-                                {truck.fastagStatus === 'Active' && (
-                                  <span
-                                    title="FASTag is active with sufficient balance — toll-ready vehicle."
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80 text-[11px] font-semibold"
-                                  >
-                                    <CircleDollarSign className="w-3 h-3 text-blue-600" />
-                                    <span>FASTag Ready</span>
+                                  {/* FASTag readiness chip (compliance signal) */}
+                                  {truck.fastagStatus === 'Active' && (
+                                    <Badge
+                                      variant="info"
+                                      size="sm"
+                                      title="FASTag is active with sufficient balance — toll-ready vehicle."
+                                    >
+                                      <CircleDollarSign className="w-3 h-3" aria-hidden="true" />
+                                      <span>FASTag Ready</span>
+                                    </Badge>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-muted font-medium">
+                                  <span className="font-semibold text-body">
+                                    {truck.bodyType === 'Open'
+                                      ? 'Open Body'
+                                      : truck.bodyType === 'Container'
+                                      ? 'Closed Container'
+                                      : 'Open Body Trailer'}{' '}
+                                    Truck
                                   </span>
-                                )}
+                                  {truck.lengthFt && (
+                                    <span>
+                                      • <span className="font-mono text-ink">{truck.lengthFt}ft</span> Length
+                                    </span>
+                                  )}
+                                  <span>
+                                    • Updated <span className="font-mono text-subtle">{relativeTime}</span>
+                                  </span>
+                                </div>
                               </div>
+                            </div>
 
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 font-medium">
-                                <span className="font-semibold text-gray-700">
-                                  {truck.bodyType === 'Open'
-                                    ? 'Open Body'
-                                    : truck.bodyType === 'Container'
-                                    ? 'Closed Container'
-                                    : 'Open Body Trailer'}{' '}
-                                  Truck
+                            {/* Match Score */}
+                            <div className="flex items-center gap-2 self-start md:self-auto">
+                              <MatchScoreBadge match={match} />
+                            </div>
+                          </div>
+
+                          {/* 4-Stat Row (Compact Telemetry Readouts) */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {/* Distance */}
+                            <TelemetryCell
+                              label="Distance"
+                              icon={<MapPin className="w-3.5 h-3.5 text-primary-400" />}
+                              value={truck.distanceKm ? `${truck.distanceKm.toFixed(1)} km` : '12 km'}
+                            />
+
+                            {/* ETA to Load Point */}
+                            <TelemetryCell
+                              label="ETA to Load Point"
+                              icon={<Clock className="w-3.5 h-3.5 text-subtle" />}
+                              value={`${etaMinutes} mins`}
+                            />
+
+                            {/* Rate Benchmark */}
+                            <TelemetryCell
+                              label="Rate Benchmark"
+                              value={`₹${rateEstimate.ratePerTonKm.toFixed(2)}/T-km`}
+                              valueClassName="text-emerald-600 dark:text-emerald-400"
+                            />
+
+                            {/* Cargo Fit */}
+                            <TelemetryCell
+                              label="Cargo Fit"
+                              value={`${truck.tonnageCapacity || 16}T Cap (${Math.round((match.factors?.capacity?.fit ? 1 : 0.85) * 100)}%)`}
+                            />
+                          </div>
+
+                          {/* Preferred Corridors (if specified) */}
+                          {truck.preferredDestinations && truck.preferredDestinations.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-subtle">
+                                Corridors:
+                              </span>
+                              {truck.preferredDestinations.map((dest, i) => (
+                                <span
+                                  key={i}
+                                  className="px-2 py-0.5 rounded-badge bg-sunken text-muted border border-white/10 text-[11px] font-medium"
+                                >
+                                  {dest}
                                 </span>
-                                {truck.lengthFt && <span>• {truck.lengthFt}ft Length</span>}
-                                <span>• Updated {relativeTime}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Match Score Badge */}
-                          <div className="flex items-center gap-2 self-start md:self-auto">
-                            <span
-                              className={cn(
-                                'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono border',
-                                match.score >= 80
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  : match.score >= 60
-                                  ? 'bg-orange-50 text-orange-700 border-orange-200'
-                                  : 'bg-gray-50 text-gray-600 border-gray-200'
-                              )}
-                            >
-                              <Sparkles className="w-3.5 h-3.5" />
-                              <span>{match.score}% MATCH</span>
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* 4-Stat Row (Compact Telemetry Readouts) */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          {/* Distance */}
-                          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                              DISTANCE
-                            </div>
-                            <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5 flex items-center gap-1">
-                              <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                              <span>{truck.distanceKm ? truck.distanceKm.toFixed(1) : '12'} km</span>
-                            </div>
-                          </div>
-
-                          {/* ETA to Load Point */}
-                          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                              ETA TO LOAD POINT
-                            </div>
-                            <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5 flex items-center gap-1">
-                              <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                              <span>{etaMinutes} mins</span>
-                            </div>
-                          </div>
-
-                          {/* Rate Benchmark */}
-                          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                              RATE BENCHMARK
-                            </div>
-                            <div className="text-sm sm:text-base font-bold text-emerald-700 font-mono mt-0.5">
-                              ₹{rateEstimate.ratePerTonKm.toFixed(2)}/T-km
-                            </div>
-                          </div>
-
-                          {/* Cargo Fit */}
-                          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                              CARGO FIT
-                            </div>
-                            <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5">
-                              {truck.tonnageCapacity || 16}T Cap ({Math.round((match.factors?.capacity?.fit ? 1 : 0.85) * 100)}%)
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Preferred Corridors (if specified) */}
-                        {truck.preferredDestinations && truck.preferredDestinations.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                              Corridors:
-                            </span>
-                            {truck.preferredDestinations.map((dest, i) => (
-                              <span
-                                key={i}
-                                className="px-2 py-0.5 rounded-md bg-gray-50 text-gray-600 border border-gray-200 text-[11px] font-medium"
-                              >
-                                {dest}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* ── Contact Section (SEALED) ── */}
-                        <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          {truck.ownerPhone ? (
-                            /* Unlocked Contact state after paid subscription reveal */
-                            <div className="flex flex-wrap items-center gap-3">
-                              <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-800 font-mono font-bold text-xs border border-emerald-200">
-                                <Phone className="w-4 h-4 text-emerald-600" />
-                                <span>{formatPhone(truck.ownerPhone)}</span>
-                                {truck.ownerName && <span>({truck.ownerName})</span>}
-                              </span>
-
-                              <a
-                                href={whatsappLink(
-                                  truck.ownerPhone,
-                                  `Hi ${truck.ownerName || 'Transporter'}, I found your ${truck.bodyType} truck on LorryCarry and have a freight consignment.`
-                                )}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-500 focus:outline-none"
-                              >
-                                <span>Direct WhatsApp</span>
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </a>
-                            </div>
-                          ) : (
-                            /* Sealed Contact state per monetization model */
-                            <div className="flex items-center gap-2.5 text-xs sm:text-sm text-gray-500 font-medium">
-                              <div className="w-7 h-7 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
-                                <Lock className="w-3.5 h-3.5" />
-                              </div>
-                              <span>Contact details sealed until subscription unlock</span>
+                              ))}
                             </div>
                           )}
 
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
-                            {!truck.ownerPhone && (
-                              <button
-                                type="button"
-                                disabled={revealing === truck.id}
-                                onClick={() => handleReveal(truck.id, 'truck')}
-                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-orange-500 active:bg-orange-600 text-white text-xs sm:text-sm font-semibold transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none disabled:opacity-50 cursor-pointer shadow-sm"
-                              >
-                                <Lock className="w-3.5 h-3.5" />
-                                <span>{revealing === truck.id ? 'Unlocking...' : 'Unlock Contact'}</span>
-                              </button>
+                          {/* ── Contact Section (SEALED) ── */}
+                          <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            {truck.ownerPhone ? (
+                              /* Unlocked Contact state after paid subscription reveal */
+                              <div className="flex flex-wrap items-center gap-3">
+                                <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono font-bold text-xs border border-emerald-500/25">
+                                  <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                                  <span>{formatPhone(truck.ownerPhone)}</span>
+                                  {truck.ownerName && <span>({truck.ownerName})</span>}
+                                </span>
+
+                                <a
+                                  href={whatsappLink(
+                                    truck.ownerPhone,
+                                    `Hi ${truck.ownerName || 'Transporter'}, I found your ${truck.bodyType} truck on LorryCarry and have a freight consignment.`
+                                  )}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-button bg-whatsapp hover:bg-[#20bd5a] text-white text-xs font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-500 focus:outline-none"
+                                >
+                                  <span>Direct WhatsApp</span>
+                                  <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                                </a>
+                              </div>
+                            ) : (
+                              /* Sealed Contact state per monetization model */
+                              <div className="flex items-center gap-2.5 text-xs sm:text-sm text-muted font-medium">
+                                <div className="w-7 h-7 rounded-lg bg-sunken border border-white/10 text-subtle flex items-center justify-center shrink-0">
+                                  <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                                </div>
+                                <span>Contact details sealed until subscription unlock</span>
+                              </div>
                             )}
 
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTruckForBooking(truck)}
-                              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs sm:text-sm font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none cursor-pointer"
-                            >
-                              <span>Book Lorry</span>
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })
-                : /* Freight Loads View */
-                  (sortedResults as LoadResult[]).map((load, idx) => {
-                    const match = load.match!
-                    const isTopRecommendation = idx === 0 && match.score >= 75
-
-                    const priceEstimate = estimateFreightRate({
-                      tonnage: load.tonnageRequired,
-                      truckType: load.truckType,
-                    })
-
-                    return (
-                      <div
-                        key={load.id}
-                        className={cn(
-                          'bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow duration-200 space-y-5',
-                          isTopRecommendation && 'ring-1 ring-orange-500/30'
-                        )}
-                      >
-                        {/* Header: Route, Badges, Match Score */}
-                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                          <div className="flex items-start gap-3.5">
-                            <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100 shrink-0">
-                              <Package className="w-6 h-6 stroke-[2.2]" />
-                            </div>
-
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
-                                  <span>{load.loadingAddress}</span>
-                                  <ArrowRight className="w-4 h-4 text-orange-500 shrink-0" />
-                                  <span>{load.unloadingAddress}</span>
-                                </span>
-
-                                {load.urgent && (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 text-xs font-semibold">
-                                    Urgent Load
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 font-medium">
-                                <span className="font-semibold text-gray-700">
-                                  {load.tonnageRequired} Tons • {load.truckType} Body Required
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Match Score */}
-                          <div className="flex items-center gap-2 self-start md:self-auto">
-                            <span
-                              className={cn(
-                                'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono border',
-                                match.score >= 80
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  : 'bg-orange-50 text-orange-700 border-orange-200'
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
+                              {!truck.ownerPhone && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  loading={revealing === truck.id}
+                                  loadingText="Unlocking contact details"
+                                  leftIcon={<Lock className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() => handleReveal(truck.id, 'truck')}
+                                >
+                                  {revealing === truck.id ? 'Unlocking...' : 'Unlock Contact'}
+                                </Button>
                               )}
-                            >
-                              <Sparkles className="w-3.5 h-3.5" />
-                              <span>{match.score}% MATCH</span>
-                            </span>
-                          </div>
-                        </div>
 
-                        {/* 4-Stat Row */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                              DISTANCE
-                            </div>
-                            <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5">
-                              {load.distanceKm ? load.distanceKm.toFixed(1) : '15'} km
-                            </div>
-                          </div>
-
-                          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                              REQUIRED PAYLOAD
-                            </div>
-                            <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5">
-                              {load.tonnageRequired} Tons
-                            </div>
-                          </div>
-
-                          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                              RATE BENCHMARK
-                            </div>
-                            <div className="text-sm sm:text-base font-bold text-emerald-700 font-mono mt-0.5">
-                              {load.maxPrice
-                                ? formatINR(load.maxPrice)
-                                : `Est. ${formatINR(priceEstimate.recommendedTarget)}`}
-                            </div>
-                          </div>
-
-                          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                            <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                              BODY REQUIREMENT
-                            </div>
-                            <div className="text-sm sm:text-base font-bold text-gray-900 font-mono mt-0.5">
-                              {load.truckType}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Sealed Contact Row */}
-                        <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          {load.ownerPhone ? (
-                            <div className="flex flex-wrap items-center gap-3">
-                              <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-800 font-mono font-bold text-xs border border-emerald-200">
-                                <Phone className="w-4 h-4 text-emerald-600" />
-                                <span>{formatPhone(load.ownerPhone)}</span>
-                                {load.ownerName && <span>({load.ownerName})</span>}
-                              </span>
-
-                              <a
-                                href={whatsappLink(
-                                  load.ownerPhone,
-                                  `Hi ${load.ownerName || 'Shipper'}, I saw your freight requirement on LorryCarry and can provide a vehicle.`
-                                )}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-500 focus:outline-none"
+                              <Button
+                                type="button"
+                                variant="primary"
+                                size="sm"
+                                rightIcon={<ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />}
+                                onClick={() => setSelectedTruckForBooking(truck)}
                               >
-                                <span>Direct WhatsApp</span>
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </a>
+                                Book Lorry
+                              </Button>
                             </div>
-                          ) : (
-                            <div className="flex items-center gap-2.5 text-xs sm:text-sm text-gray-500 font-medium">
-                              <div className="w-7 h-7 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
-                                <Lock className="w-3.5 h-3.5" />
+                          </div>
+                        </Card>
+                      )
+                    })
+                  : /* Freight Loads View */
+                    (sortedResults as LoadResult[]).map((load, idx) => {
+                      const match = load.match!
+                      const isTopRecommendation = idx === 0 && match.score >= 75
+
+                      const priceEstimate = estimateFreightRate({
+                        tonnage: load.tonnageRequired,
+                        truckType: load.truckType,
+                      })
+
+                      return (
+                        <Card
+                          key={load.id}
+                          surface="glass"
+                          hover
+                          padding="none"
+                          className={cn(
+                            'p-5 sm:p-6 space-y-5',
+                            isTopRecommendation && 'border-primary-500/40 shadow-glow-primary'
+                          )}
+                        >
+                          {/* Header: Route, Badges, Match Score */}
+                          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                            <div className="flex items-start gap-3.5">
+                              <div className="w-12 h-12 rounded-2xl bg-primary-500/10 text-primary-400 flex items-center justify-center border border-primary-500/20 shrink-0">
+                                <Package className="w-6 h-6 stroke-[2.2]" aria-hidden="true" />
                               </div>
-                              <span>Contact details sealed until subscription unlock</span>
+
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-bold text-ink text-base sm:text-lg flex items-center gap-2">
+                                    <span>{load.loadingAddress}</span>
+                                    <ArrowRight className="w-4 h-4 text-primary-400 shrink-0" aria-hidden="true" />
+                                    <span>{load.unloadingAddress}</span>
+                                  </span>
+
+                                  {load.urgent && (
+                                    <Badge variant="danger" size="sm">
+                                      <span>Urgent Load</span>
+                                    </Badge>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-muted font-medium">
+                                  <span className="font-semibold text-body">
+                                    <span className="font-mono text-ink">{load.tonnageRequired}T</span> • {load.truckType} Body Required
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                          )}
 
-                          {!load.ownerPhone && (
-                            <button
-                              type="button"
-                              disabled={revealing === load.id}
-                              onClick={() => handleReveal(load.id, 'load')}
-                              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-orange-500 active:bg-orange-600 text-white text-xs sm:text-sm font-semibold transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none disabled:opacity-50 cursor-pointer shadow-sm self-end sm:self-auto"
-                            >
-                              <Lock className="w-3.5 h-3.5" />
-                              <span>{revealing === load.id ? 'Unlocking...' : 'Unlock Contact'}</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-            </div>
-          )}
-        </div>
-      </main>
+                            {/* Match Score */}
+                            <div className="flex items-center gap-2 self-start md:self-auto">
+                              <MatchScoreBadge match={match} />
+                            </div>
+                          </div>
 
-      {/* Booking Terms Modal Integration */}
-      {selectedTruckForBooking && (
-        <BookingTermsModal
-          loadId="quick-match"
-          truckId={selectedTruckForBooking.id}
-          truckInfo={{
-            registrationNumber: selectedTruckForBooking.registrationNumber || 'MH-12-TRUCK',
-            bodyType: selectedTruckForBooking.bodyType || 'Open Body',
-            ownerName: selectedTruckForBooking.ownerName || 'Verified Transporter',
-          }}
-          onClose={() => setSelectedTruckForBooking(null)}
-          onSuccess={(bookingId) => {
-            setSelectedTruckForBooking(null)
-            toast.success('Booking initiated successfully!')
-            if (bookingId) {
-              router.push(`/booking/${bookingId}`)
-            } else {
-              router.push('/my-loads')
-            }
-          }}
-        />
-      )}
+                          {/* 4-Stat Row */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <TelemetryCell
+                              label="Distance"
+                              value={load.distanceKm ? `${load.distanceKm.toFixed(1)} km` : '15 km'}
+                            />
 
-      {/* Footer */}
-      <Footer />
+                            <TelemetryCell
+                              label="Required Payload"
+                              value={`${load.tonnageRequired} Tons`}
+                            />
+
+                            <TelemetryCell
+                              label="Rate Benchmark"
+                              value={
+                                load.maxPrice
+                                  ? formatINR(load.maxPrice)
+                                  : `Est. ${formatINR(priceEstimate.recommendedTarget)}`
+                              }
+                              valueClassName="text-emerald-600 dark:text-emerald-400"
+                            />
+
+                            <TelemetryCell label="Body Requirement" value={load.truckType} />
+                          </div>
+
+                          {/* Sealed Contact Row */}
+                          <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            {load.ownerPhone ? (
+                              <div className="flex flex-wrap items-center gap-3">
+                                <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono font-bold text-xs border border-emerald-500/25">
+                                  <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                                  <span>{formatPhone(load.ownerPhone)}</span>
+                                  {load.ownerName && <span>({load.ownerName})</span>}
+                                </span>
+
+                                <a
+                                  href={whatsappLink(
+                                    load.ownerPhone,
+                                    `Hi ${load.ownerName || 'Shipper'}, I saw your freight requirement on LorryCarry and can provide a vehicle.`
+                                  )}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-button bg-whatsapp hover:bg-[#20bd5a] text-white text-xs font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-500 focus:outline-none"
+                                >
+                                  <span>Direct WhatsApp</span>
+                                  <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                                </a>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2.5 text-xs sm:text-sm text-muted font-medium">
+                                <div className="w-7 h-7 rounded-lg bg-sunken border border-white/10 text-subtle flex items-center justify-center shrink-0">
+                                  <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                                </div>
+                                <span>Contact details sealed until subscription unlock</span>
+                              </div>
+                            )}
+
+                            {!load.ownerPhone && (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="self-end sm:self-auto"
+                                loading={revealing === load.id}
+                                loadingText="Unlocking contact details"
+                                leftIcon={<Lock className="w-3.5 h-3.5" aria-hidden="true" />}
+                                onClick={() => handleReveal(load.id, 'load')}
+                              >
+                                {revealing === load.id ? 'Unlocking...' : 'Unlock Contact'}
+                              </Button>
+                            )}
+                          </div>
+                        </Card>
+                      )
+                    })}
+              </div>
+            )}
+          </div>
+        </main>
+
+        {/* Booking Terms Modal Integration */}
+        {selectedTruckForBooking && (
+          <BookingTermsModal
+            loadId="quick-match"
+            truckId={selectedTruckForBooking.id}
+            truckInfo={{
+              registrationNumber: selectedTruckForBooking.registrationNumber || 'MH-12-TRUCK',
+              bodyType: selectedTruckForBooking.bodyType || 'Open Body',
+              ownerName: selectedTruckForBooking.ownerName || 'Verified Transporter',
+            }}
+            onClose={() => setSelectedTruckForBooking(null)}
+            onSuccess={(bookingId) => {
+              setSelectedTruckForBooking(null)
+              toast.success('Booking initiated successfully!')
+              if (bookingId) {
+                router.push(`/booking/${bookingId}`)
+              } else {
+                router.push('/my-loads')
+              }
+            }}
+          />
+        )}
+
+        {/* Footer */}
+        <Footer />
+      </div>
     </div>
   )
 }
@@ -1208,10 +1176,13 @@ export default function SearchPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="min-h-screen bg-canvas flex items-center justify-center">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs font-mono font-bold text-gray-500 uppercase tracking-wider">
+            <Spinner size="lg" className="text-primary-500" label="Loading freight marketplace" />
+            <span
+              aria-hidden="true"
+              className="text-xs font-mono font-bold text-muted uppercase tracking-widest"
+            >
               Loading Freight Marketplace...
             </span>
           </div>
