@@ -18,6 +18,9 @@ jobs:
   test_and_build:
     name: Build & Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     env:
       # DATABASE_URL was declared twice here (a `/db` value and the
       # `?schema=public` value), which is invalid YAML. Kept the schema-qualified
@@ -62,7 +65,25 @@ jobs:
         run: npm run lint
 
       - name: Run API Tests
-        run: npm --prefix apps/api test
+        id: api_tests
+        run: |
+          set -o pipefail
+          npm --prefix apps/api test 2>&1 | tee /tmp/api-tests.log
+
+      - name: Report API test failure to PR
+        if: failure() && steps.api_tests.outcome == 'failure' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo '<!-- ci-api-test-diagnostic -->'
+            echo '### :x: `Run API Tests` failed'
+            echo
+            echo '```text'
+            tail -c 60000 /tmp/api-tests.log | sed 's/\x1b\[[0-9;]*m//g'
+            echo '```'
+          } > /tmp/comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/comment.md
 
       - name: Run Web Tests
         run: npm --prefix apps/web test
