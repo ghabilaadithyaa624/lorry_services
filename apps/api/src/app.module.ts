@@ -8,6 +8,7 @@ import { LoadsModule } from './loads/loads.module'
 import { TrucksModule } from './trucks/trucks.module'
 import { SearchModule } from './search/search.module'
 import { BookingsModule } from './bookings/bookings.module'
+import { BookingDocumentsModule } from './booking-documents/booking-documents.module'
 import { SubscriptionsModule } from './subscriptions/subscriptions.module'
 import { PaymentsModule } from './payments/payments.module'
 import { PaymentsController } from './payments/payments.controller'
@@ -42,6 +43,7 @@ import { RedisModule } from './common/redis/redis.module'
     TrucksModule,
     SearchModule,
     BookingsModule,
+    BookingDocumentsModule,
     SubscriptionsModule,
     PaymentsModule,
     WebhooksModule,

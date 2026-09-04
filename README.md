@@ -15,6 +15,7 @@ LorryCarry is a high-performance monorepo platform connecting factory owners and
   - **Verified Transporter Badges**: Search results and marketplace cards render a "Vahan Verified" badge backed by the live validation timestamp, plus a "FASTag Ready" chip when the tag is active.
   - **Compliance Checklist**: Truck- and trip-level checklists (`/compliance/trucks/:id`, `/compliance/bookings/:id`) covering RC status, insurance validity, fitness certificate, national permit, PUC, FASTag readiness and E-Way Bill lifecycle (12-digit format validation, expiry tracking).
   - **Admin KYC Cross-Check**: The verification queue surfaces the Vahan snapshot (registration status, insurance/fitness validity) next to each pending document.
+- **Booking Digital Document Chain**: Server-backed 7-stage freight document chain (booking advice → e-way bill → loading slip → transit pass → gate pass → POD → balance invoice) on every booking. Files upload straight to private S3/MinIO through 5-minute pre-signed PUT URLs and are downloaded via on-demand 1-hour links — no storage credentials or fake links in the browser. Both booking counterparties can attach documents; admins read and verify via the review queue (see `docs/booking-document-chain-api.md`).
 - **Production Admin Dashboard**:
   - **Overview & KPI Analytics**: Real-time stats on users, trucks, loads, bookings, conversion rates, and revenue.
   - **Dashboard Analytics**: Trip completion, earnings summary, active booking pipeline and a route efficiency heatmap (corridor × month) with CSV/PDF report export.
@@ -196,6 +197,20 @@ Admin API additions: `POST /admin/trucks/:id/vahan-check`, `GET /admin/disputes`
 | `/api/v1/bookings/:id/confirm-advance` | PATCH | Factory owner confirms 50% loading advance release |
 | `/api/v1/bookings/:id/confirm-balance` | PATCH | Factory owner confirms 50% delivery balance release on POD receipt |
 | `/api/v1/bookings/:id/disputes` | POST | Raise a counterparty dispute |
+
+### Booking Document Chain API
+
+Stages: `BOOKING`, `EWAY_BILL`, `LOADING`, `TRANSIT`, `DELIVERY`, `POD`, `BALANCE`.
+Full flow, authorization matrix and storage notes: [`docs/booking-document-chain-api.md`](docs/booking-document-chain-api.md).
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/api/v1/bookings/:id/documents` | GET | List chain documents (booking parties & admins) |
+| `/api/v1/bookings/:id/documents/upload-url` | POST | Issue a 5-min pre-signed S3 PUT URL for a stage (parties only) |
+| `/api/v1/bookings/:id/documents` | POST | Register a completed direct-to-storage upload (verifies object existence) |
+| `/api/v1/bookings/:id/documents/:documentId/download-url` | GET | Mint a 1-hour pre-signed download URL (parties & admins) |
+| `/api/v1/admin/booking-documents` | GET | Admin review queue (`status`, `bookingId`, pagination filters) |
+| `/api/v1/admin/booking-documents/:id/verify` | PATCH | Admin verify / reject with notes |
 
 ### Matching & Return Load Intelligence API
 

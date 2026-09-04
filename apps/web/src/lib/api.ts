@@ -354,6 +354,107 @@ export const trucksApi = {
   },
 }
 
+/**
+ * Booking digital freight document chain API.
+ *
+ * The chain covers the seven trip stages: BOOKING → EWAY_BILL → LOADING →
+ * TRANSIT → DELIVERY → POD → BALANCE. Files are stored in private object
+ * storage (AWS S3 / MinIO); this client only ever exchanges short-lived
+ * pre-signed URLs with the API — no storage credentials or permanent links.
+ *
+ * Upload flow (3 steps):
+ *   1. requestUploadUrl()   → { uploadUrl, key }
+ *   2. PUT the file bytes to `uploadUrl` (plain fetch — no auth headers)
+ *   3. register()           → persisted chain document (verified by admins)
+ */
+export type BookingDocumentStage =
+  | 'BOOKING'
+  | 'EWAY_BILL'
+  | 'LOADING'
+  | 'TRANSIT'
+  | 'DELIVERY'
+  | 'POD'
+  | 'BALANCE'
+
+export type BookingDocumentVerificationStatus = 'Pending' | 'Verified' | 'Rejected'
+
+export interface BookingDocumentRecord {
+  id: string
+  bookingId: string
+  stage: BookingDocumentStage
+  docNumber?: string | null
+  originalFilename?: string | null
+  mimeType?: string | null
+  fileSize?: number | null
+  signedBy?: string | null
+  uploadedAt: string
+  uploadedBy?: { id: string; name?: string | null } | null
+  verificationStatus: BookingDocumentVerificationStatus
+  verificationNotes?: string | null
+  verifiedById?: string | null
+  verifiedAt?: string | null
+  verifiedBy?: { id: string; name?: string | null } | null
+}
+
+export interface BookingDocumentUploadUrlRequest {
+  stage: BookingDocumentStage
+  fileName: string
+  contentType: 'image/jpeg' | 'image/png' | 'application/pdf'
+  docNumber?: string
+  signedBy?: string
+}
+
+export interface BookingDocumentUploadUrl {
+  bookingId: string
+  stage: BookingDocumentStage
+  key: string
+  uploadUrl: string
+  contentType: string
+  expiresIn: number
+}
+
+export interface BookingDocumentRegisterRequest {
+  stage: BookingDocumentStage
+  key: string
+  contentType: 'image/jpeg' | 'image/png' | 'application/pdf'
+  fileName?: string
+  docNumber?: string
+  signedBy?: string
+  fileSize?: number
+}
+
+export interface BookingDocumentDownloadUrl {
+  bookingId: string
+  documentId: string
+  stage: BookingDocumentStage
+  fileName: string
+  downloadUrl: string
+  expiresIn: number
+  expiresAt: string
+}
+
+export const bookingDocumentsApi = {
+  /** List chain documents for a booking (parties & admins only). */
+  list: (bookingId: string) =>
+    api.get<{ bookingId: string; documents: BookingDocumentRecord[] }>(
+      `/bookings/${bookingId}/documents`
+    ),
+
+  /** Step 1 — request a pre-signed PUT URL for a chain stage. */
+  requestUploadUrl: (bookingId: string, body: BookingDocumentUploadUrlRequest) =>
+    api.post<BookingDocumentUploadUrl>(`/bookings/${bookingId}/documents/upload-url`, body),
+
+  /** Step 3 — register a completed direct-to-storage upload. */
+  register: (bookingId: string, body: BookingDocumentRegisterRequest) =>
+    api.post<BookingDocumentRecord>(`/bookings/${bookingId}/documents`, body),
+
+  /** Get a fresh, time-limited pre-signed download URL for one document. */
+  getDownloadUrl: (bookingId: string, documentId: string) =>
+    api.get<BookingDocumentDownloadUrl>(
+      `/bookings/${bookingId}/documents/${documentId}/download-url`
+    ),
+}
+
 // Matching Engine — Need Load ↔ Need Vehicle
 export type MatchStatus = 'Pending' | 'Booked' | 'Completed' | 'Cancelled'
 export interface MatchRecord {

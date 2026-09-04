@@ -255,6 +255,32 @@ Per-recipient log of every WhatsApp/SMS/push message actually sent (granular —
 Related: `notification_receipts` (per-user read state — covers both persisted `Notification` rows and
 notifications derived at request time, e.g. "KYC pending" banners, via an opaque `notification_key`).
 
+### 3.10 `booking_documents` — Booking Freight Document Chain
+
+One row per file attached to a **booking** at one of the seven chain stages
+(`BOOKING`, `EWAY_BILL`, `LOADING`, `TRANSIT`, `DELIVERY`, `POD`, `BALANCE`). Distinct from the
+truck-scoped KYC `documents` table: this chain is a per-trip audit trail shared by both
+counterparties (factory owner & truck driver), with admin verify/reject mirroring KYC semantics.
+Files are stored in private S3/MinIO; only the object key is persisted, and every read/download
+goes through a fresh server-issued pre-signed URL.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `booking_id` | uuid FK → `bookings.id`, `ON DELETE CASCADE` | chain dies with the booking |
+| `stage` | enum `BookingDocumentStage` | `BOOKING` \\| `EWAY_BILL` \\| `LOADING` \\| `TRANSIT` \\| `DELIVERY` \\| `POD` \\| `BALANCE` |
+| `doc_number` | text, nullable | LR/EWB/POD reference entered by uploader — never auto-fabricated |
+| `s3_key` | text | private object key (`booking-documents/<booking_id>/<STAGE>/<uuid>.<ext>`) |
+| `original_filename` / `file_size` / `mime_type` | text / int / text, nullable | upload metadata |
+| `signed_by` | text, nullable | sign-off authority (e.g. consignee for POD) |
+| `uploaded_by_id` | uuid FK → `users.id` | the booking counterparty who uploaded |
+| `verification_status` | enum `VerificationStatus` | `Pending` \\| `Verified` \\| `Rejected` — set by admin review |
+| `verified_by_id` / `verification_notes` / `verified_at` | uuid FK / text / timestamp, nullable | admin action trail |
+| `uploaded_at` / `created_at` / `updated_at` | timestamps | `uploaded_at` = confirmed upload time |
+
+Indexes: `booking_id`, `(booking_id, stage)`, `stage`, `uploaded_by_id`, `verification_status`.
+Multiple rows per stage are allowed (e.g. several loading slips); the chain UI groups by stage.
+
 ---
 
 ## 4. WhatsApp Trigger Status — Design Rationale
@@ -366,6 +392,8 @@ The schema is in **3NF**:
 | **User (factory_owner) → Booking** | **1\:N** | `bookings.load_owner_id` | `ON DELETE RESTRICT` |
 | **User (truck_driver) → Booking** | **1\:N** | `bookings.truck_owner_id` | `ON DELETE RESTRICT` |
 | Booking → Checkpoint | 1\:N | `checkpoints.booking_id` | `ON DELETE CASCADE` |
+| Booking → BookingDocument | 1\:N | `booking_documents.booking_id` | `ON DELETE CASCADE` |
+| User → BookingDocument (uploader / verifier) | 1\:N | `booking_documents.uploaded_by_id` / `verified_by_id` | `RESTRICT` / `SET NULL` |
 | User → Subscription | 1\:N | `subscriptions.user_id` | `ON DELETE CASCADE` |
 | User → Payment | 1\:N | `payments.user_id` | `ON DELETE CASCADE` |
 | User → Notification | 1\:N | `notifications.user_id` | `ON DELETE CASCADE` |

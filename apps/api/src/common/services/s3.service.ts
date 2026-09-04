@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { v4 as uuidv4 } from 'uuid'
 import { LRUCache } from 'lru-cache'
@@ -103,6 +103,51 @@ export class S3Service {
     })
 
     return url
+  }
+
+  /**
+   * Generate pre-signed PUT URL so the browser can upload straight to object
+   * storage (never through the API). Valid for a short window by default.
+   */
+  async generatePresignedPutUrl(
+    key: string,
+    contentType: string,
+    expiresIn: number = 300
+  ): Promise<string> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: contentType,
+    })
+
+    return getSignedUrl(this.s3Client, command, { expiresIn })
+  }
+
+  /**
+   * Verify that an object really exists in storage. Used when a client claims
+   * an upload completed, so the chain never records phantom documents.
+   */
+  async objectExists(key: string): Promise<boolean> {
+    try {
+      await this.s3Client.send(
+        new HeadObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+        })
+      )
+      return true
+    } catch (error: any) {
+      // 404 / NotFound / NoSuchKey surface when the object does not exist
+      // (AWS S3 uses NoSuchKey, MinIO uses NotFound — both send HTTP 404).
+      if (
+        error?.name === 'NotFound' ||
+        error?.name === 'NoSuchKey' ||
+        error?.$metadata?.httpStatusCode === 404
+      ) {
+        return false
+      }
+      throw error
+    }
   }
 
   /**
