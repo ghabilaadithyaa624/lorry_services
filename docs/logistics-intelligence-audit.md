@@ -71,7 +71,7 @@ Based on our inspection of `packages/database/prisma/schema.prisma`:
 2. **Transparent Freight Rate Estimator**: No rule-based calculation estimating price bands based on distance, tonnage, truck type, and fuel benchmarks.
 3. **Empty-Run & Return Load Intelligence** *(delivered)*: Transporters dropping off cargo in destination cities could not see incoming loads available for their return trip. Now served end-to-end by `GET /matches/truck/:truckId/return-loads` (`apps/api/src/matching/return-loads.service.ts`) on top of the shared `evaluateBackhaulOpportunities` + `rankReturnLoadOpportunities` engines, and consumed by the truck-driver dashboard, the booking detail return-load section and the AI Freight Assistant.
 4. **Shipment Risk & Attention Analyzer**: Bookings lack risk classification (e.g. `ON TRACK`, `DELAYED`, `MISSING E-WAY BILL`, `PENDING ADVANCE`).
-5. **Operational Action Center**: No unified notification/action drawer highlighting required user actions (e.g. KYC missing, payment confirmation pending, unverified documents).
+5. **Operational Action Center** *(delivered)*: There was no unified notification/action surface highlighting required user actions. Now served by the shared `deriveOperationalTasks` engine (`packages/shared/src/intelligence/actionCenterEngine.ts`) plus the web adapter `apps/web/src/lib/intelligence/actionCenterEngine.ts`, rendered by `ActionCenterCard` on the unified dashboard / admin command tower and by `ActionCenterMenu` in the dashboard shell top bar. Tasks are derived only from live API data: pending vehicle KYC, unverified / missing RC & Insurance, pending 50% advance, missing E-Way Bill, delivered trips with an unpaid balance, open unmatched loads, expired or expiring subscription/trial, failed WhatsApp triggers and (for admins) the KYC, dispute and upgrade queues.
 6. **Smart Empty State Guidance**: Default views showed simple "No data" texts without interactive steps on how to initiate freight matching.
 
 ---
@@ -108,8 +108,12 @@ Using existing database fields and REST endpoints:
      - `ATTENTION REQUIRED`: More than 6 hours since last checkpoint update while in-transit.
      - `COMPLETED`: 5/5 checkpoints crossed and balance confirmed.
 
-5. **Operational Action Center**:
-   - Aggregate pending tasks from real models (truck document status, pending booking payments, open unassigned loads).
+5. **Operational Action Center** *(delivered)*:
+   - Aggregates pending tasks from real models only — truck verification & document status (`/trucks/my-trucks`, `/users/documents`),
+     booking payment milestones and E-Way Bill compliance (`/bookings/my-bookings`), open unassigned loads (`/loads/my-loads`),
+     subscription/trial expiry (`/subscriptions/status`), WhatsApp delivery failures (`/notifications`) and admin moderation
+     queues (`/admin/stats`).
+   - Tasks are sorted `HIGH → MEDIUM → LOW`; a data source that failed to load is skipped rather than replaced by sample tasks.
 
 6. **Enhanced Admin & Operations Intelligence**:
    - Display verified vs pending ratio, conversion velocity, and real payment breakdowns.
@@ -147,8 +151,10 @@ Using existing database fields and REST endpoints:
 5. **Step 5: Shipment & Booking Risk Intelligence**
    - Upgrade `apps/web/src/app/booking/[id]/page.tsx` with operational health badges (`ON TRACK`, `ACTION REQUIRED`), automated action alerts, and milestone timeline analytics.
 
-6. **Step 6: Operational Action Center**
-   - Inject the Action Center into the shared dashboard shell and navbar.
+6. **Step 6: Operational Action Center** *(delivered)*
+   - Injected into the shared dashboard shell and navbar: `ActionCenterCard` renders inside `UnifiedDashboard`
+     (factory owner + truck driver) and the admin command tower, while `ActionCenterMenu` adds the counter/popover to the
+     `DashboardLayout` and admin top bars (desktop and mobile).
 
 7. **Step 7: Admin Operations Intelligence Upgrade**
    - Upgrade `apps/web/src/app/admin/page.tsx` with live conversion metrics and compliance health indicators.

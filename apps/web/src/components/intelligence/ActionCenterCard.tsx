@@ -8,6 +8,7 @@ import {
   CreditCardIcon,
   TruckIcon,
   ArrowRightIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline'
 import { OperationalTask } from '@/lib/intelligence/actionCenterEngine'
 import { Badge } from '@/components/ui'
@@ -16,10 +17,63 @@ import { cn } from '@/lib/utils'
 interface ActionCenterCardProps {
   tasks: OperationalTask[]
   className?: string
+  /** Show only the N most urgent tasks with a "+N more" footer. */
+  maxVisible?: number
+  /** Renders a lightweight skeleton while the dashboard data is in flight. */
+  loading?: boolean
+  /** Render a positive "all clear" panel instead of nothing when idle. */
+  showWhenEmpty?: boolean
 }
 
-export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
-  if (!tasks || tasks.length === 0) return null
+export function ActionCenterCard({
+  tasks,
+  className,
+  maxVisible,
+  loading = false,
+  showWhenEmpty = false,
+}: ActionCenterCardProps) {
+  if (loading) {
+    return (
+      <div
+        className={cn(
+          'bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal space-y-3 font-sans',
+          className
+        )}
+        aria-busy="true"
+        aria-label="Loading operational action center"
+      >
+        <div className="h-3 w-48 rounded bg-white/10 animate-pulse" />
+        <div className="h-16 rounded-2xl bg-white/5 animate-pulse" />
+        <div className="h-16 rounded-2xl bg-white/5 animate-pulse" />
+      </div>
+    )
+  }
+
+  if (!tasks || tasks.length === 0) {
+    if (!showWhenEmpty) return null
+
+    return (
+      <div
+        className={cn(
+          'bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal font-sans flex items-start gap-3',
+          className
+        )}
+      >
+        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shrink-0">
+          <CheckCircleIcon className="w-4 h-4" aria-hidden="true" />
+        </div>
+        <div className="space-y-0.5">
+          <h3 className="text-xs font-mono font-bold text-ink uppercase tracking-widest">
+            Operational Action Center
+          </h3>
+          <p className="text-[11px] text-surface-300 leading-relaxed">
+            No pending compliance, payment or dispatch actions. Your documents, trips and
+            subscription are all clear.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   const getTaskIcon = (category: OperationalTask['category']) => {
     switch (category) {
@@ -34,6 +88,10 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
     }
   }
 
+  const visibleTasks =
+    typeof maxVisible === 'number' && maxVisible > 0 ? tasks.slice(0, maxVisible) : tasks
+  const hiddenCount = tasks.length - visibleTasks.length
+
   return (
     <div className={cn('bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal space-y-4 font-sans', className)}>
       <div className="flex items-center justify-between pb-3 border-b border-white/10">
@@ -41,7 +99,7 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
           <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
             <BellAlertIcon className="w-4 h-4" aria-hidden="true" />
           </div>
-          <h3 className="text-xs font-mono font-bold text-white uppercase tracking-widest">
+          <h3 className="text-xs font-mono font-bold text-ink uppercase tracking-widest">
             Operational Action Center
           </h3>
         </div>
@@ -51,7 +109,7 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
       </div>
 
       <div className="space-y-3">
-        {tasks.map((task) => {
+        {visibleTasks.map((task) => {
           const Icon = getTaskIcon(task.category)
           return (
             <div
@@ -68,11 +126,22 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
                   <Icon className="w-4 h-4" aria-hidden="true" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white">
+                  <h4 className="text-xs font-bold text-ink">
                     {task.title}
                   </h4>
                   <p className="text-[11px] text-surface-300 mt-0.5 leading-relaxed">
                     {task.description}
+                  </p>
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-surface-400 mt-1.5">
+                    <span
+                      className={cn(
+                        task.urgency === 'HIGH' ? 'text-danger-400' : 'text-primary-400'
+                      )}
+                    >
+                      {task.urgency}
+                    </span>
+                    <span aria-hidden="true"> · </span>
+                    <span>{task.category}</span>
                   </p>
                 </div>
               </div>
@@ -89,6 +158,12 @@ export function ActionCenterCard({ tasks, className }: ActionCenterCardProps) {
           )
         })}
       </div>
+
+      {hiddenCount > 0 && (
+        <p className="text-[10px] font-mono uppercase tracking-widest text-surface-400 pt-1">
+          +{hiddenCount} more action{hiddenCount > 1 ? 's' : ''} pending
+        </p>
+      )}
     </div>
   )
 }
