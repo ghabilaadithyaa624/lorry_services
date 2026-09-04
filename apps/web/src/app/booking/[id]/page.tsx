@@ -335,12 +335,20 @@ export default function BookingDetailPage() {
                 <span>Why: </span>
                 <span className={cn(
                   intelligence.statusTier === 'ACTION REQUIRED' && 'text-danger-400 font-black',
+                  intelligence.statusTier === 'DELAYED' && 'text-danger-400 font-black',
                   intelligence.statusTier === 'ATTENTION REQUIRED' && 'text-amber-400 font-black',
-                  intelligence.statusTier === 'ON TRACK' && 'text-emerald-400 font-black'
+                  intelligence.statusTier === 'LOW RISK' && 'text-sky-400 font-black',
+                  intelligence.statusTier === 'ON TRACK' && 'text-emerald-400 font-black',
+                  intelligence.statusTier === 'COMPLETED' && 'text-emerald-400 font-black'
                 )}>
                   {intelligence.whyReason}
                 </span>
               </p>
+              {intelligence.riskSummary && (
+                <p className="text-xs text-surface-400 mt-1">
+                  {intelligence.riskSummary}
+                </p>
+              )}
             </div>
             <span className="text-xs font-mono font-bold text-primary-400 bg-primary-500/10 px-3 py-1 rounded-full border border-primary-500/20">
               {intelligence.progressPercent}% Corridor Completed
@@ -383,13 +391,24 @@ export default function BookingDetailPage() {
               {intelligence.requiredActions.map((action, idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  className={cn(
+                    "p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs",
+                    action.urgency === 'HIGH'
+                      ? "bg-danger-950/40 border-danger-500/30 text-danger-200"
+                      : "bg-amber-950/40 border-amber-500/30 text-amber-200"
+                  )}
                 >
                   <div className="flex items-start gap-3">
-                    <ExclamationTriangleIcon className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                    <ExclamationTriangleIcon className={cn(
+                      "w-5 h-5 shrink-0 mt-0.5",
+                      action.urgency === 'HIGH' ? "text-danger-400" : "text-amber-400"
+                    )} />
                     <div>
-                      <span className="font-bold text-amber-200">{action.title}</span>
-                      <p className="text-amber-300/80 text-[11px] mt-0.5">{action.description}</p>
+                      <span className="font-bold">{action.title}</span>
+                      <p className={cn(
+                        "text-[11px] mt-0.5",
+                        action.urgency === 'HIGH' ? "text-danger-300/80" : "text-amber-300/80"
+                      )}>{action.description}</p>
                     </div>
                   </div>
 
@@ -415,6 +434,20 @@ export default function BookingDetailPage() {
                     >
                       Pay Final Balance
                     </Button>
+                  )}
+
+                  {action.actionType === 'WHATSAPP_RETRY' && booking.truck?.user?.phone && (
+                    <a
+                      href={whatsappLink(
+                        booking.truck.user.phone,
+                        `Hi ${booking.truck.user.name || 'Transporter'}, regarding Booking #${booking.id}: please update your trip status.`
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 px-3.5 py-2 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-glow-primary"
+                    >
+                      <span>💬 Direct WhatsApp</span>
+                    </a>
                   )}
                 </div>
               ))}

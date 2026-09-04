@@ -3,10 +3,10 @@ import { AIFreightAssistantDrawer } from './AIFreightAssistantDrawer'
 
 describe('AIFreightAssistantDrawer', () => {
   beforeEach(() => {
-    jest.spyOn(React, 'useState').mockImplementation((initial: any) => [
+    jest.spyOn(React, 'useState').mockImplementation(((initial: any) => [
       typeof initial === 'function' ? initial() : initial,
       jest.fn(),
-    ])
+    ]) as any)
     jest.spyOn(React, 'useEffect').mockImplementation(() => {})
     jest.spyOn(React, 'useRef').mockImplementation((initial: any) => ({ current: initial }))
   })

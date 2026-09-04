@@ -6,6 +6,7 @@ export { assessShipmentIntelligence, summarizeActiveShipmentsControlTower } from
 export type {
   CheckpointData,
   BookingData,
+  AssessShipmentOptions,
   ShipmentRiskAssessment,
   ControlTowerSummary,
 } from '@lorrycarry/shared'
