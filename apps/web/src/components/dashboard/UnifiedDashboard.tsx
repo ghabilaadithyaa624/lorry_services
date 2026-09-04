@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
@@ -18,7 +18,16 @@ import {
   X,
   Menu,
 } from 'lucide-react'
-import { api, usersApi, authApi, matchesApi, type ReturnLoadOpportunity, type ReturnLoadAnchor } from '@/lib/api'
+import {
+  api,
+  usersApi,
+  authApi,
+  matchesApi,
+  notificationsApi,
+  type NotificationFeedItem,
+  type ReturnLoadOpportunity,
+  type ReturnLoadAnchor,
+} from '@/lib/api'
 import { Footer } from '@/components/layout'
 import { AnalyticsSnapshot } from '@/components/dashboard/AnalyticsSnapshot'
 import { DashboardSummaryCards } from '@/components/dashboard/DashboardSummaryCards'
@@ -28,6 +37,8 @@ import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBa
 import { getRoleLabel, isVehicleSideRole, normalizeRole, type AnyUserRole, type AppUserRole } from '@/lib/roles'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
+import { ActionCenterCard } from '@/components/intelligence'
+import { deriveDashboardActionTasks } from '@/lib/intelligence/actionCenterEngine'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo } from '@/lib/utils'
 import { getEntitlement, type SubscriptionEntitlement } from '@/lib/subscription'
@@ -134,6 +145,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [tripTab, setTripTab] = useState<'active' | 'completed'>('active')
 
+  // Operational Action Center inputs (real API data only)
+  const [fleetDocuments, setFleetDocuments] = useState<Array<Record<string, any>> | undefined>(undefined)
+  const [alertFeed, setAlertFeed] = useState<NotificationFeedItem[] | undefined>(undefined)
+
   // Return-load (backhaul) intelligence for vehicle-side operators
   const [returnLoads, setReturnLoads] = useState<ReturnLoadOpportunity[]>([])
   const [returnLoadHub, setReturnLoadHub] = useState<ReturnLoadAnchor | null>(null)
@@ -170,11 +185,12 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
     try {
       setLoading(true)
 
-      const [subRes, entRes, docRes, activityRes] = await Promise.allSettled([
+      const [subRes, entRes, docRes, activityRes, alertRes] = await Promise.allSettled([
         api.get<TrialStatus>('/subscriptions/status'),
         getEntitlement(),
         usersApi.getDocuments(),
         usersApi.getActivity(),
+        notificationsApi.getNotifications(),
       ])
 
       if (subRes.status === 'fulfilled') {
@@ -189,6 +205,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
       // Check KYC status
       if (docRes.status === 'fulfilled') {
         const docs = docRes.value.data || []
+        setFleetDocuments(Array.isArray(docs) ? docs : [])
         // Incomplete if no docs uploaded or any document is pending/rejected
         if (!Array.isArray(docs) || docs.length === 0) {
           setKycComplete(false)
@@ -199,6 +216,12 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
         }
       } else {
         setKycComplete(false)
+      }
+
+      // WhatsApp / in-app alert feed — powers failed-trigger action items.
+      if (alertRes.status === 'fulfilled') {
+        const feed = alertRes.value.data
+        setAlertFeed(Array.isArray(feed?.notifications) ? feed.notifications : [])
       }
 
       // Load Role-Specific Data
@@ -356,6 +379,30 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const earnings = trips
     .filter((trip) => trip.status === 'Completed')
     .reduce((sum, trip) => sum + Number(trip.agreedPrice || 0), 0)
+
+  /**
+   * Operational Action Center — pending KYC, unverified/missing RC & Insurance,
+   * pending advance, missing E-Way Bill, unpaid balance on delivered trips,
+   * unmatched open loads, subscription expiry and failed WhatsApp triggers.
+   *
+   * Everything is derived from the API payloads already loaded above; sources
+   * that failed to load stay `undefined` so no placeholder task is invented.
+   */
+  const actionCenterTasks = useMemo(
+    () =>
+      deriveDashboardActionTasks({
+        role: effectiveRole,
+        // Only the vehicle side owns trucks/documents — for shippers the
+        // `trucks` state holds nearby search results, not a fleet.
+        trucks: isTruckDriver ? trucks : undefined,
+        documents: isTruckDriver ? fleetDocuments : undefined,
+        loads: isTruckDriver ? undefined : loads,
+        bookings: trips,
+        notifications: alertFeed,
+        entitlement: entitlement ?? undefined,
+      }),
+    [effectiveRole, isTruckDriver, trucks, fleetDocuments, loads, trips, alertFeed, entitlement]
+  )
 
   return (
     <div className="min-h-screen bg-canvas text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
@@ -530,6 +577,9 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
         {/* ── 2b. Subscription & 3-Month Free Trial Banner (live countdown) ── */}
         <TrialCountdownBanner entitlement={entitlement} />
+
+        {/* ── 2c. Operational Action Center — real pending work, no samples ── */}
+        <ActionCenterCard tasks={actionCenterTasks} loading={loading} maxVisible={6} />
 
         {/* ── 4. Quick Actions Header & Role Greeting ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">

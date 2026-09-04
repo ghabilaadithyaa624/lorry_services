@@ -29,7 +29,7 @@ import { notificationsApi, usersApi } from '@/lib/api'
 import { Avatar } from '@/components/ui'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { LanguageToggle } from './LanguageToggle'
-import { AIFreightAssistantDrawer } from '@/components/intelligence'
+import { AIFreightAssistantDrawer, ActionCenterMenu } from '@/components/intelligence'
 import { useI18n } from '@/lib/i18n'
 import { cn, formatPhone } from '@/lib/utils'
 import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
@@ -255,6 +255,9 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
             {/* Top-bar language selector — தமிழ் | हिन्दी | English */}
             <LanguageToggle compact className="hidden lg:inline-flex" />
 
+            {/* Operational Action Center — pending KYC, payments, E-Way Bill… */}
+            <ActionCenterMenu role={user?.role} />
+
             <Link
               href="/notifications"
               className="relative p-2.5 rounded-xl text-muted hover:text-ink hover:bg-wash transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
@@ -296,6 +299,9 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
           </Link>
 
           <div className="flex items-center gap-1.5">
+            {/* Operational Action Center — compact popover on small screens */}
+            <ActionCenterMenu role={user?.role} maxVisible={3} />
+
             <Link
               href="/notifications"
               className="relative p-2 rounded-lg text-muted hover:text-ink hover:bg-wash min-h-[44px] min-w-[44px] flex items-center justify-center"

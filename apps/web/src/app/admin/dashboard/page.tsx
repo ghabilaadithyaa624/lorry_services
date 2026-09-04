@@ -15,6 +15,8 @@ import { toast } from '@/lib/toast'
 import { formatINR } from '@/lib/utils'
 
 import { FreightNetworkDiagram } from '@/components/ui/FreightNetworkDiagram'
+import { ActionCenterCard } from '@/components/intelligence'
+import { deriveDashboardActionTasks } from '@/lib/intelligence/actionCenterEngine'
 
 interface Stats {
   totalUsers: number
@@ -97,6 +99,15 @@ export default function AdminDashboardPage() {
 
   const verifiedTrucksCount = Math.max(0, stats.totalTrucks - stats.pendingDocuments)
 
+  // Operational Action Center — moderation work derived from real aggregates.
+  const actionCenterTasks = deriveDashboardActionTasks({
+    role: 'admin',
+    adminStats: {
+      pendingDocuments: stats.pendingDocuments,
+      expiredTrials: stats.expiredTrials,
+    },
+  })
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans">
       
@@ -138,6 +149,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── OPERATIONAL ACTION CENTER (real moderation queues) ── */}
+      <ActionCenterCard tasks={actionCenterTasks} />
 
       {/* ── 7 PRIMARY REQUIRED KPI CARDS ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 font-mono">

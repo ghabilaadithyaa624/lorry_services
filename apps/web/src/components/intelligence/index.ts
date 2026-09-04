@@ -1,6 +1,7 @@
 export * from './MatchScoreBadge'
 export * from './FreightRateEstimatorCard'
 export * from './ActionCenterCard'
+export * from './ActionCenterMenu'
 export * from './OperationalEmptyState'
 export * from './ReturnLoadOpportunityCard'
 export * from './AIFreightAssistantDrawer'
