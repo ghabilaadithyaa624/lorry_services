@@ -12,9 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { RouteProp } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import { AuthStackParamList } from '../navigation/types'
-import { authApi, setTokens } from '../services/api'
+import { authApi, getApiErrorMessage } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
-import axios from 'axios'
 
 type RoleSelectScreenRouteProp = RouteProp<AuthStackParamList, 'RoleSelect'>
 type RoleSelectScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'RoleSelect'>
@@ -55,14 +54,9 @@ export function RoleSelectScreen({ route }: RoleSelectProps) {
     try {
       const res = await authApi.verifyOtp(phone, otp, selectedRole)
       const { accessToken, refreshToken, user } = res.data
-      setTokens(accessToken, refreshToken)
       login(accessToken, refreshToken, user)
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        Alert.alert('Could not create account', err.response?.data?.message || 'Please request a new code and try again.')
-      } else {
-        Alert.alert('Could not create account', 'Please request a new code and try again.')
-      }
+      Alert.alert('Could not create account', getApiErrorMessage(err, 'Please request a new code and try again.'))
     } finally {
       setLoading(false)
     }

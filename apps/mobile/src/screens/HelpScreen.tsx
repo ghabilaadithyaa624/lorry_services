@@ -1,15 +1,9 @@
-import React, { useState } from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  Linking,
-  Alert,
-} from 'react-native'
+import React, { useCallback, useState } from 'react'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useNavigation } from '@react-navigation/native'
+import { SUPPORT_EMAIL, SUPPORT_PHONE, WEB_APP_URL } from '../lib/env'
+import { useAuth } from '../contexts/AuthContext'
 
 interface FAQItem {
   id: string
@@ -19,97 +13,150 @@ interface FAQItem {
 
 const FAQ_DATA: FAQItem[] = [
   {
-    id: '1',
-    question: 'How do I book a trip/truck?',
-    answer: 'Go to the Home tab, tap on Quick Actions to "Find Trucks" or "Find Loads" depending on your role, choose your destination/truck, and proceed with the booking instructions.',
+    id: 'booking',
+    question: 'How does a booking work?',
+    answer:
+      'A cargo owner books a truck at an agreed price. 50% is paid as a loading advance and the remaining 50% is released after delivery is confirmed. Both milestones are visible under My Trips.',
   },
   {
-    id: '2',
-    question: 'How is payment processed?',
-    answer: 'Payments can be securely handled via our integrated payment system on the Payments tab. We support cards, UPI, and bank transfers.',
+    id: 'payments',
+    question: 'How are subscription payments processed?',
+    answer:
+      'Subscription payments are handled by a secure payment gateway. Card, UPI and net-banking details are entered on the gateway page, never inside this app. Your plan activates only after the gateway confirms the payment.',
   },
   {
-    id: '3',
-    question: 'Are the drivers/trucks verified?',
-    answer: 'Yes, all drivers, carriers, and trucks are thoroughly vetted through our comprehensive KYC process before they can accept listings on LorryCarry.',
+    id: 'trial',
+    question: 'What does the free trial include?',
+    answer:
+      'Every new account gets a 90-day trial with full marketplace access, including contact reveals and bookings. When it ends you can keep browsing, but reveals and new bookings need an active plan.',
+  },
+  {
+    id: 'tracking',
+    question: 'How does checkpoint tracking work?',
+    answer:
+      'Each trip has five geofenced checkpoints from loading point to unloading point. The driver records a crossing from Driver Mode when physically inside the geofence; the cargo owner is notified at every milestone.',
+  },
+  {
+    id: 'verification',
+    question: 'Are drivers and trucks verified?',
+    answer:
+      'Trucks go through document verification (RC, insurance, permits) before they appear in search results, and every account is verified by phone OTP.',
   },
 ]
 
+async function openLink(url: string, failureMessage: string) {
+  try {
+    await Linking.openURL(url)
+  } catch {
+    Alert.alert('Could not open', failureMessage)
+  }
+}
+
 export function HelpScreen() {
+  const { user } = useAuth()
+  const navigation = useNavigation<any>()
   const [expandedFaqId, setExpandedFaqId] = useState<string | null>(null)
-  const [subject, setSubject] = useState('')
-  const [message, setMessage] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const toggleFaq = (id: string) => {
-    setExpandedFaqId(prev => (prev === id ? null : id))
-  }
+  const toggleFaq = (id: string) => setExpandedFaqId((prev) => (prev === id ? null : id))
 
-  const handleContactSubmit = () => {
-    if (!subject.trim() || !message.trim()) {
-      Alert.alert('Validation Error', 'Please fill in both the Subject and Message fields.')
-      return
-    }
+  const supportContext = `\n\n—\nAccount: ${user?.phone ?? 'not signed in'}${user?.id ? `\nUser ID: ${user.id}` : ''}`
 
-    setIsSubmitting(true)
-    // Simulate API request
-    setTimeout(() => {
-      setIsSubmitting(false)
-      Alert.alert(
-        'Inquiry Sent',
-        'Thank you for contacting us. Our support team will get back to you shortly!'
-      )
-      setSubject('')
-      setMessage('')
-    }, 1000)
-  }
-
-  const handleWhatsAppSupport = async () => {
-    const phoneNumber = '+919876543210' // Mock Support Number
-    const text = 'Hello LorryCarry Support, I need help with...'
-    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(text)}`
-    const fallbackUrl = `https://wa.me/${phoneNumber.replace('+', '')}?text=${encodeURIComponent(text)}`
-
+  const handleWhatsApp = useCallback(async () => {
+    if (!SUPPORT_PHONE) return
+    const text = `Hello LorryCarry support, I need help with ${supportContext}`
+    const digits = SUPPORT_PHONE.replace(/[^\d]/g, '')
+    const appUrl = `whatsapp://send?phone=${digits}&text=${encodeURIComponent(text)}`
+    const webUrl = `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
     try {
-      const supported = await Linking.canOpenURL(url)
-      if (supported) {
-        await Linking.openURL(url)
-      } else {
-        await Linking.openURL(fallbackUrl)
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Unable to open WhatsApp. Please contact support via the form below.')
+      const canOpenApp = await Linking.canOpenURL(appUrl)
+      await Linking.openURL(canOpenApp ? appUrl : webUrl)
+    } catch {
+      await openLink(webUrl, `WhatsApp is not available on this device. You can message ${SUPPORT_PHONE} directly.`)
     }
-  }
+  }, [supportContext])
+
+  const handleCall = useCallback(() => {
+    if (!SUPPORT_PHONE) return
+    openLink(`tel:${SUPPORT_PHONE}`, `Calling is not available on this device. Dial ${SUPPORT_PHONE} from your phone.`)
+  }, [])
+
+  const handleEmail = useCallback(() => {
+    if (!SUPPORT_EMAIL) return
+    const subject = encodeURIComponent('LorryCarry support request')
+    const body = encodeURIComponent(`Describe your issue here.${supportContext}`)
+    openLink(
+      `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`,
+      `No mail app is configured. You can email ${SUPPORT_EMAIL} from any device.`
+    )
+  }, [supportContext])
+
+  const handleWebsite = useCallback(() => {
+    openLink(`${WEB_APP_URL}/help`, 'Could not open the LorryCarry website.')
+  }, [])
+
+  const hasAnyContact = Boolean(SUPPORT_PHONE || SUPPORT_EMAIL)
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Help & Support</Text>
-          <Text style={styles.subtitle}>Contact us for assistance or read through our FAQs</Text>
+          <Text style={styles.subtitle}>Reach the LorryCarry team or read the FAQs</Text>
         </View>
 
-        {/* WhatsApp Quick Support Link */}
-        <TouchableOpacity
-          style={styles.whatsappCard}
-          onPress={handleWhatsAppSupport}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="Chat on WhatsApp"
-          accessibilityHint="Opens WhatsApp to start a conversation with our 24/7 support team."
-        >
-          <Text style={styles.whatsappIcon}>💬</Text>
-          <View style={styles.whatsappTextContainer}>
-            <Text style={styles.whatsappTitle}>Chat on WhatsApp</Text>
-            <Text style={styles.whatsappDesc}>Get quick response from our 24/7 support agent</Text>
-          </View>
-        </TouchableOpacity>
+        {SUPPORT_PHONE ? (
+          <TouchableOpacity
+            style={styles.whatsappCard}
+            onPress={handleWhatsApp}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Chat on WhatsApp"
+            accessibilityHint="Opens WhatsApp with a message to LorryCarry support."
+          >
+            <Text style={styles.whatsappIcon}>💬</Text>
+            <View style={styles.flex1}>
+              <Text style={styles.whatsappTitle}>Chat on WhatsApp</Text>
+              <Text style={styles.whatsappDesc}>{SUPPORT_PHONE}</Text>
+            </View>
+          </TouchableOpacity>
+        ) : null}
 
-        {/* FAQs Section */}
+        <View style={styles.contactGrid}>
+          {SUPPORT_PHONE ? (
+            <TouchableOpacity style={styles.contactCard} onPress={handleCall} accessibilityRole="button" accessibilityLabel="Call support">
+              <Text style={styles.contactIcon}>📞</Text>
+              <Text style={styles.contactTitle}>Call</Text>
+              <Text style={styles.contactValue}>{SUPPORT_PHONE}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {SUPPORT_EMAIL ? (
+            <TouchableOpacity style={styles.contactCard} onPress={handleEmail} accessibilityRole="button" accessibilityLabel="Email support">
+              <Text style={styles.contactIcon}>✉️</Text>
+              <Text style={styles.contactTitle}>Email</Text>
+              <Text style={styles.contactValue} numberOfLines={1}>
+                {SUPPORT_EMAIL}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity style={styles.contactCard} onPress={handleWebsite} accessibilityRole="button" accessibilityLabel="Open help centre on the website">
+            <Text style={styles.contactIcon}>🌐</Text>
+            <Text style={styles.contactTitle}>Help centre</Text>
+            <Text style={styles.contactValue}>Open on the web</Text>
+          </TouchableOpacity>
+        </View>
+
+        {!hasAnyContact ? (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeText}>
+              Direct support contacts are not configured in this build. Use the web help centre above or contact your
+              LorryCarry account manager.
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
-          {FAQ_DATA.map(item => {
+          <Text style={styles.sectionTitle}>Frequently asked questions</Text>
+          {FAQ_DATA.map((item) => {
             const isExpanded = expandedFaqId === item.id
             return (
               <View key={item.id} style={styles.faqCard}>
@@ -118,64 +165,38 @@ export function HelpScreen() {
                   onPress={() => toggleFaq(item.id)}
                   activeOpacity={0.7}
                   accessibilityRole="button"
-                  accessibilityLabel={`FAQ Question: ${item.question}`}
-                  accessibilityHint="Double tap to expand or collapse the answer."
+                  accessibilityLabel={item.question}
                   accessibilityState={{ expanded: isExpanded }}
                 >
                   <Text style={styles.faqQuestion}>{item.question}</Text>
                   <Text style={styles.faqToggleIcon}>{isExpanded ? '▲' : '▼'}</Text>
                 </TouchableOpacity>
-                {isExpanded && (
+                {isExpanded ? (
                   <View style={styles.faqAnswerContainer}>
                     <Text style={styles.faqAnswer}>{item.answer}</Text>
                   </View>
-                )}
+                ) : null}
               </View>
             )
           })}
         </View>
 
-        {/* Contact Us Form Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Support Form</Text>
-          <View style={styles.formCard}>
-            <Text style={styles.label}>Subject</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="What do you need help with?"
-              placeholderTextColor="#94A3B8"
-              value={subject}
-              onChangeText={setSubject}
-              accessibilityLabel="Subject Input"
-              accessibilityHint="Enter the main subject of your help request."
-            />
-
-            <Text style={styles.label}>Message</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Please describe your issue in detail..."
-              placeholderTextColor="#94A3B8"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              value={message}
-              onChangeText={setMessage}
-              accessibilityLabel="Message Input"
-              accessibilityHint="Enter the details of your inquiry or problem."
-            />
-
-            <TouchableOpacity
-              style={[styles.button, isSubmitting && styles.buttonDisabled]}
-              onPress={handleContactSubmit}
-              disabled={isSubmitting}
-              accessibilityRole="button"
-              accessibilityLabel="Submit Support Request"
-              accessibilityHint="Submits your inquiry to LorryCarry support team."
-              accessibilityState={{ disabled: isSubmitting }}
-            >
-              <Text style={styles.buttonText}>
-                {isSubmitting ? 'Sending...' : 'Submit Support Request'}
-              </Text>
+          <Text style={styles.sectionTitle}>Quick links</Text>
+          <View style={styles.linkCard}>
+            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Payments')} accessibilityRole="button">
+              <Text style={styles.linkText}>Plans, trial status & payment history</Text>
+              <Text style={styles.linkChevron}>›</Text>
+            </TouchableOpacity>
+            <View style={styles.linkDivider} />
+            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('My Trips')} accessibilityRole="button">
+              <Text style={styles.linkText}>My trips & payment milestones</Text>
+              <Text style={styles.linkChevron}>›</Text>
+            </TouchableOpacity>
+            <View style={styles.linkDivider} />
+            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Notifications')} accessibilityRole="button">
+              <Text style={styles.linkText}>Notifications</Text>
+              <Text style={styles.linkChevron}>›</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -186,6 +207,7 @@ export function HelpScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
+  flex1: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 32 },
   header: { marginBottom: 20 },
   title: { fontSize: 24, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
@@ -196,88 +218,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCF8C6',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#C7E5AE',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   whatsappIcon: { fontSize: 32, marginRight: 12 },
-  whatsappTextContainer: { flex: 1 },
   whatsappTitle: { fontSize: 16, fontWeight: '700', color: '#075E54' },
   whatsappDesc: { fontSize: 12, color: '#128C7E', marginTop: 2 },
-  section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#0F172A', marginBottom: 12 },
-  faqCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  faqHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  faqQuestion: { fontSize: 14, fontWeight: '600', color: '#1E293B', flex: 1, paddingRight: 8 },
-  faqToggleIcon: { fontSize: 12, color: '#64748B' },
-  faqAnswerContainer: {
-    padding: 16,
-    paddingTop: 0,
-    backgroundColor: '#F8FAFC',
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  faqAnswer: { fontSize: 14, color: '#475569', lineHeight: 20 },
-  formCard: {
+  contactGrid: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  contactCard: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  label: { fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 6 },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#0F172A',
-    backgroundColor: '#FFFFFF',
-    marginBottom: 16,
-  },
-  textArea: {
-    height: 100,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  button: {
-    backgroundColor: '#F97316',
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
+    padding: 12,
     alignItems: 'center',
-    marginTop: 4,
-    shadowColor: '#F97316',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 1,
+    gap: 4,
   },
-  buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  contactIcon: { fontSize: 22 },
+  contactTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  contactValue: { fontSize: 10, color: '#64748B', textAlign: 'center' },
+  noticeCard: { backgroundColor: '#FFFBEB', borderColor: '#FDE68A', borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 24 },
+  noticeText: { fontSize: 12, color: '#92400E', lineHeight: 17 },
+  section: { marginBottom: 24 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#0F172A', marginBottom: 12 },
+  faqCard: { backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 8, overflow: 'hidden' },
+  faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#FFFFFF' },
+  faqQuestion: { fontSize: 14, fontWeight: '600', color: '#1E293B', flex: 1, paddingRight: 8 },
+  faqToggleIcon: { fontSize: 12, color: '#64748B' },
+  faqAnswerContainer: { padding: 16, paddingTop: 0, backgroundColor: '#F8FAFC', borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  faqAnswer: { fontSize: 14, color: '#475569', lineHeight: 20, paddingTop: 12 },
+  linkCard: { backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
+  linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 },
+  linkText: { fontSize: 14, fontWeight: '600', color: '#1E293B' },
+  linkChevron: { fontSize: 20, color: '#94A3B8' },
+  linkDivider: { height: 1, backgroundColor: '#F1F5F9' },
 })

@@ -11,23 +11,15 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
 import { StackNavigationProp } from '@react-navigation/stack'
 import { RootStackParamList } from '../navigation/types'
-import { api } from '../services/api'
+import { getApiErrorMessage, searchApi } from '../services/api'
+import type { TruckSearchResult as Truck } from '../services/types'
 
 type SearchTrucksScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SearchTrucks'>
-
-interface Truck {
-  id: string
-  bodyType: string
-  lengthFt: number
-  heightFt: number
-  tonnageCapacity: number
-  distanceKm: number
-  verificationStatus: string
-}
 
 export function SearchTrucksScreen({ navigation }: { navigation: SearchTrucksScreenNavigationProp }) {
   const [trucks, setTrucks] = useState<Truck[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [radius, setRadius] = useState(50)
   const [location, setLocation] = useState({ lat: 18.5204, lng: 73.8567 })
 
@@ -56,13 +48,13 @@ export function SearchTrucksScreen({ navigation }: { navigation: SearchTrucksScr
 
   const searchTrucks = async () => {
     setLoading(true)
+    setError(null)
     try {
-      const res = await api.get('/search/trucks', {
-        params: { lat: location.lat, lng: location.lng, radius },
-      })
-      setTrucks(res.data)
+      const res = await searchApi.trucks({ lat: location.lat, lng: location.lng, radius })
+      setTrucks(Array.isArray(res.data) ? res.data : [])
     } catch (err) {
-      console.error(err)
+      setTrucks([])
+      setError(getApiErrorMessage(err, 'Could not search for trucks right now.'))
     } finally {
       setLoading(false)
     }
@@ -116,7 +108,9 @@ export function SearchTrucksScreen({ navigation }: { navigation: SearchTrucksScr
           renderItem={renderTruck}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No trucks found in {radius}km radius.</Text>
+            <Text style={styles.emptyText}>
+              {error ?? `No trucks found in ${radius}km radius.`}
+            </Text>
           }
         />
       )}

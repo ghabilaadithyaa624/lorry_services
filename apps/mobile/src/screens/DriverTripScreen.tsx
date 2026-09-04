@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -9,708 +9,812 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  RefreshControl,
+  Linking,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useFocusEffect } from '@react-navigation/native'
 import * as Location from 'expo-location'
-import { api } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
+import { isVehicleSideRole } from '../lib/roles'
+import { SUPPORT_PHONE } from '../lib/env'
+import { formatDateTime, formatInr } from '../lib/plans'
+import { bookingsApi, getApiErrorMessage, paymentsApi, trackingApi } from '../services/api'
+import type { BookingStatus, BookingSummary, TrackingStatus } from '../services/types'
 
-export interface DriverTripDetails {
-  id: string
-  bookingNumber: string
-  pickupAddress: string
-  destinationAddress: string
-  status: 'Confirmed' | 'InTransit' | 'ReachedPickup' | 'LoadingComplete' | 'ReachedDestination' | 'Completed'
-  nextCheckpointName: string
-  etaMinutes: number
-  checkpointSeq: number
-  totalCheckpoints: number
-  agreedPrice?: number
-  advanceConfirmed?: boolean
-  balanceConfirmed?: boolean
+const INCIDENT_CATEGORIES = ['Traffic Delay', 'Breakdown', 'Weather', 'RTO Check', 'Other'] as const
+
+const STATUS_LABELS: Record<BookingStatus, string> = {
+  Pending: 'Awaiting confirmation',
+  Confirmed: 'Confirmed',
+  InTransit: 'In transit',
+  Completed: 'Completed',
+  Cancelled: 'Cancelled',
+}
+
+function isActiveStatus(status: BookingStatus): boolean {
+  return status === 'Confirmed' || status === 'InTransit' || status === 'Pending'
+}
+
+function shortRef(id: string): string {
+  return id.replace(/-/g, '').slice(0, 8).toUpperCase()
 }
 
 export function DriverTripScreen() {
-  const [trip, setTrip] = useState<DriverTripDetails | null>(null)
+  const { user } = useAuth()
+  const vehicleSide = isVehicleSideRole(user?.role)
+
+  const [bookings, setBookings] = useState<BookingSummary[] | null>(null)
+  const [bookingsError, setBookingsError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const [tracking, setTracking] = useState<TrackingStatus | null>(null)
+  const [trackingError, setTrackingError] = useState<string | null>(null)
+  const [trackingLoading, setTrackingLoading] = useState(false)
+
   const [actionLoading, setActionLoading] = useState(false)
   const [locationPermission, setLocationPermission] = useState<boolean | null>(null)
 
-  // POD Modal State
-  const [podModalVisible, setPodModalVisible] = useState(false)
-  const [consigneeName, setConsigneeName] = useState('')
-  const [podPhotoAttached, setPodPhotoAttached] = useState(false)
-  const [podNotes, setPodNotes] = useState('')
-
-  // Incident Modal State
-  const [incidentModalVisible, setIncidentModalVisible] = useState(false)
-  const [incidentCategory, setIncidentCategory] = useState('Traffic Delay')
-  const [incidentDesc, setIncidentDesc] = useState('')
-  const [impactMinutes, setImpactMinutes] = useState('30')
-
-  // Trip Completion Modal State
+  // POD / completion modal
   const [completionModalVisible, setCompletionModalVisible] = useState(false)
+  const [consigneeName, setConsigneeName] = useState('')
+  const [podNotes, setPodNotes] = useState('')
   const [completionLoading, setCompletionLoading] = useState(false)
 
+  // Incident modal
+  const [incidentModalVisible, setIncidentModalVisible] = useState(false)
+  const [incidentCategory, setIncidentCategory] = useState<string>(INCIDENT_CATEGORIES[0])
+  const [incidentDesc, setIncidentDesc] = useState('')
+  const [impactMinutes, setImpactMinutes] = useState('30')
+  const [incidentLoading, setIncidentLoading] = useState(false)
+
+  const mounted = useRef(true)
   useEffect(() => {
-    checkLocationPermission()
-    fetchActiveTrip()
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
   }, [])
 
-  const checkLocationPermission = async () => {
+  // ── Location permission ───────────────────────────────────────────────────
+
+  const checkLocationPermission = useCallback(async () => {
     try {
       const { status } = await Location.getForegroundPermissionsAsync()
-      setLocationPermission(status === 'granted')
+      if (mounted.current) setLocationPermission(status === 'granted')
     } catch {
-      setLocationPermission(false)
+      if (mounted.current) setLocationPermission(false)
     }
-  }
+  }, [])
 
-  const requestLocationPermission = async () => {
+  const requestLocationPermission = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync()
       setLocationPermission(status === 'granted')
-      if (status === 'granted') {
-        Alert.alert('Permission Granted', 'Geofence checkpoint location access enabled.')
-      } else {
-        Alert.alert('Permission Required', 'Location access is needed to record geofence checkpoints.')
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location permission needed',
+          'Checkpoint crossings are verified against your GPS position. Enable location access for LorryCarry in your device settings.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open settings', onPress: () => Linking.openSettings() },
+          ]
+        )
       }
     } catch {
-      Alert.alert('Error', 'Could not request location permission.')
+      Alert.alert('Location unavailable', 'Could not request location permission on this device.')
     }
-  }
+  }, [])
 
-  const fetchActiveTrip = async () => {
+  // ── Data loading ──────────────────────────────────────────────────────────
+
+  const activeBookings = useMemo(
+    () => (bookings ?? []).filter((booking) => isActiveStatus(booking.status)),
+    [bookings]
+  )
+
+  const trip = useMemo(() => {
+    if (!bookings) return null
+    if (selectedId) {
+      const found = bookings.find((booking) => booking.id === selectedId)
+      if (found) return found
+    }
+    return activeBookings[0] ?? null
+  }, [bookings, activeBookings, selectedId])
+
+  const loadBookings = useCallback(async () => {
     try {
-      setLoading(true)
-      const res = await api.get('/bookings')
-      const bookingsList: any[] = res.data || []
-      const active = bookingsList.find((b) => b.status !== 'Completed' && b.status !== 'Cancelled')
-
-      if (active) {
-        setTrip({
-          id: active.id,
-          bookingNumber: active.id.slice(0, 8).toUpperCase(),
-          pickupAddress: active.load?.loadingAddress || 'Chennai Central Freight Yard, TN',
-          destinationAddress: active.load?.unloadingAddress || 'Bengaluru Inland Container Depot, KA',
-          status: (active.status as any) || 'InTransit',
-          nextCheckpointName: 'Krishnagiri Toll Plaza (Checkpoint 3/5)',
-          etaMinutes: 145,
-          checkpointSeq: 3,
-          totalCheckpoints: 5,
-          agreedPrice: Number(active.agreedPrice) || 25000,
-          advanceConfirmed: active.advanceConfirmed || false,
-          balanceConfirmed: active.balanceConfirmed || false,
-        })
-      } else {
-        // Sample active driver trip for preview
-        setTrip({
-          id: 'b-active-driver-101',
-          bookingNumber: 'LC-8492-MAA',
-          pickupAddress: 'Chennai Industrial Zone, Sriperumbudur Hub',
-          destinationAddress: 'Peenya Industrial Area, Bengaluru, KA',
-          status: 'InTransit',
-          nextCheckpointName: 'Hosur Border Checkpoint (Checkpoint 4/5)',
-          etaMinutes: 90,
-          checkpointSeq: 4,
-          totalCheckpoints: 5,
-          agreedPrice: 25000,
-          advanceConfirmed: true,
-          balanceConfirmed: false,
-        })
-      }
-    } catch {
-      // Fallback preview trip
-      setTrip({
-        id: 'b-active-driver-101',
-        bookingNumber: 'LC-8492-MAA',
-        pickupAddress: 'Chennai Port Container Terminal, TN',
-        destinationAddress: 'Electronic City Warehouse 4, Bengaluru, KA',
-        status: 'InTransit',
-        nextCheckpointName: 'Krishnagiri Highway Checkpoint (Checkpoint 3/5)',
-        etaMinutes: 120,
-        checkpointSeq: 3,
-        totalCheckpoints: 5,
-        agreedPrice: 25000,
-        advanceConfirmed: true,
-        balanceConfirmed: false,
-      })
+      const response = await bookingsApi.getMyBookings()
+      const list = Array.isArray(response.data) ? response.data : []
+      if (!mounted.current) return
+      // Most recent first; InTransit trips before Confirmed ones.
+      const rank: Record<BookingStatus, number> = { InTransit: 0, Confirmed: 1, Pending: 2, Completed: 3, Cancelled: 4 }
+      list.sort((a, b) => rank[a.status] - rank[b.status] || (a.createdAt < b.createdAt ? 1 : -1))
+      setBookings(list)
+      setBookingsError(null)
+    } catch (err) {
+      if (!mounted.current) return
+      setBookingsError(getApiErrorMessage(err, 'Could not load your trips.'))
     } finally {
-      setLoading(false)
+      if (mounted.current) setLoading(false)
     }
-  }
+  }, [])
 
-  // Driver Trip Actions
-  const handleUpdateTripStatus = async (newStatus: DriverTripDetails['status']) => {
-    if (!trip) return
+  const loadTracking = useCallback(async (bookingId: string) => {
+    setTrackingLoading(true)
     try {
-      setActionLoading(true)
-      await api.patch(`/bookings/${trip.id}/status`, { status: newStatus })
-      setTrip((prev) => (prev ? { ...prev, status: newStatus } : null))
-      Alert.alert('Status Updated', `Trip status changed to: ${newStatus}`)
-    } catch {
-      // Optimistic state update for driver responsiveness
-      setTrip((prev) => (prev ? { ...prev, status: newStatus } : null))
-      Alert.alert('Status Updated', `Trip status updated: ${newStatus}`)
+      const response = await trackingApi.getStatus(bookingId)
+      if (!mounted.current) return
+      setTracking(response.data)
+      setTrackingError(null)
+    } catch (err) {
+      if (!mounted.current) return
+      setTracking(null)
+      setTrackingError(getApiErrorMessage(err, 'Could not load checkpoint progress.'))
     } finally {
-      setActionLoading(false)
+      if (mounted.current) setTrackingLoading(false)
     }
-  }
+  }, [])
 
-  const handleRecordCheckpoint = async () => {
-    if (!trip) return
-    try {
-      setActionLoading(true)
-      let coords = { lat: 12.9716, lng: 77.5946 }
-      if (locationPermission) {
-        const loc = await Location.getCurrentPositionAsync({})
-        coords = { lat: loc.coords.latitude, lng: loc.coords.longitude }
-      }
+  useFocusEffect(
+    useCallback(() => {
+      checkLocationPermission()
+      loadBookings()
+    }, [checkLocationPermission, loadBookings])
+  )
 
-      await api.post(`/tracking/${trip.id}/checkpoint`, {
-        checkpointSeq: trip.checkpointSeq,
-        lat: coords.lat,
-        lng: coords.lng,
-      })
+  useEffect(() => {
+    if (trip?.id) {
+      loadTracking(trip.id)
+    } else {
+      setTracking(null)
+      setTrackingError(null)
+    }
+  }, [trip?.id, loadTracking])
 
-      const nextSeq = Math.min(trip.checkpointSeq + 1, trip.totalCheckpoints)
-      setTrip((prev) =>
-        prev
-          ? {
-              ...prev,
-              checkpointSeq: nextSeq,
-              nextCheckpointName: nextSeq === 5 ? 'Bengaluru Unloading Terminal' : `Highway Checkpoint ${nextSeq}/5`,
-              etaMinutes: Math.max(0, prev.etaMinutes - 45),
-            }
-          : null
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true)
+    await loadBookings()
+    if (trip?.id) await loadTracking(trip.id)
+    setRefreshing(false)
+  }, [loadBookings, loadTracking, trip?.id])
+
+  // ── Derived trip state ────────────────────────────────────────────────────
+
+  const nextCheckpoint = useMemo(() => tracking?.checkpoints.find((cp) => !cp.crossed) ?? null, [tracking])
+  const agreedPrice = trip ? Number(trip.agreedPrice) : 0
+  const halfAmount = Math.round(agreedPrice * 0.5)
+  const isDriverForTrip = Boolean(trip && user && trip.truckOwnerId === user.id)
+
+  // ── Actions ───────────────────────────────────────────────────────────────
+
+  const handleRecordCheckpoint = useCallback(async () => {
+    if (!trip || !nextCheckpoint) return
+    if (!locationPermission) {
+      Alert.alert(
+        'Location required',
+        'Checkpoints can only be recorded from your current GPS position. Grant location access to continue.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Grant access', onPress: requestLocationPermission },
+        ]
       )
-      Alert.alert('Checkpoint Recorded', `Passed ${trip.nextCheckpointName}!`)
-    } catch {
-      Alert.alert('Checkpoint Recorded', `Geofence checkpoint event logged.`)
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  // 🚚 TRIP COMPLETION - Complete trip and release payment
-  const handleTripCompletion = async () => {
-    if (!trip) return
-
-    if (!trip.advanceConfirmed) {
-      Alert.alert('Payment Required', 'Factory owner must confirm the 50% loading advance before completing the trip.')
       return
     }
 
-    setCompletionModalVisible(true)
-  }
-
-  const confirmTripCompletion = async () => {
-    if (!trip) return
-    if (!consigneeName.trim()) {
-      Alert.alert('Required Field', 'Please enter the consignee receiver name.')
-      return
-    }
-
+    setActionLoading(true)
     try {
-      setCompletionLoading(true)
+      let position: Location.LocationObject
+      try {
+        position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
+      } catch {
+        Alert.alert('GPS unavailable', 'Could not read your current location. Move to open sky and try again.')
+        return
+      }
 
-      // Call trip completion API which will:
-      // 1. Complete the booking
-      // 2. Release the balance payment to driver
-      // 3. Notify factory owner for rating
-      const response = await api.post('/payments/trip/complete', {
+      const response = await trackingApi.recordCheckpoint(trip.id, {
+        checkpointSeq: nextCheckpoint.seq,
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      })
+
+      // The API answers 200 with success=false when the driver is outside the
+      // geofence or the checkpoint was already crossed — do not treat as done.
+      if (!response.data?.success) {
+        Alert.alert(
+          'Checkpoint not recorded',
+          response.data?.message || `You are not within the geofence for ${nextCheckpoint.name} yet.`
+        )
+        return
+      }
+
+      Alert.alert('Checkpoint recorded', response.data.message || `${nextCheckpoint.name} marked as crossed.`)
+      await Promise.all([loadTracking(trip.id), loadBookings()])
+    } catch (err) {
+      Alert.alert('Checkpoint not recorded', getApiErrorMessage(err, 'Could not record the checkpoint. Please try again.'))
+    } finally {
+      if (mounted.current) setActionLoading(false)
+    }
+  }, [trip, nextCheckpoint, locationPermission, requestLocationPermission, loadTracking, loadBookings])
+
+  const handleStartTrip = useCallback(async () => {
+    if (!trip) return
+    setActionLoading(true)
+    try {
+      await bookingsApi.updateStatus(trip.id, 'InTransit')
+      Alert.alert('Trip started', 'The cargo owner has been notified that the truck is on its way.')
+      await loadBookings()
+    } catch (err) {
+      Alert.alert('Could not start trip', getApiErrorMessage(err))
+    } finally {
+      if (mounted.current) setActionLoading(false)
+    }
+  }, [trip, loadBookings])
+
+  const openCompletionModal = useCallback(() => {
+    if (!trip) return
+    if (!trip.advanceConfirmed) {
+      Alert.alert(
+        'Advance not confirmed',
+        'The cargo owner must confirm the 50% loading advance before the trip can be completed and the balance released.'
+      )
+      return
+    }
+    setCompletionModalVisible(true)
+  }, [trip])
+
+  const confirmTripCompletion = useCallback(async () => {
+    if (!trip) return
+    const name = consigneeName.trim()
+    if (!name) {
+      Alert.alert('Consignee name required', 'Enter the name of the person who received the goods.')
+      return
+    }
+
+    setCompletionLoading(true)
+    try {
+      const response = await paymentsApi.completeTrip({
         bookingId: trip.id,
         podDetails: {
-          consigneeName,
-          podPhotoUrl: podPhotoAttached ? `https://storage.lorrycarry.com/pod/${trip.id}.jpg` : undefined,
-          deliveryNotes: podNotes,
+          consigneeName: name,
+          deliveryNotes: podNotes.trim() || undefined,
         },
       })
 
-      setTrip((prev) => (prev ? { ...prev, status: 'Completed', balanceConfirmed: true } : null))
+      if (!response.data?.success) {
+        Alert.alert('Trip not completed', 'The server did not confirm the completion. Please try again.')
+        return
+      }
+
       setCompletionModalVisible(false)
-      setPodModalVisible(false)
       setConsigneeName('')
       setPodNotes('')
-      setPodPhotoAttached(false)
 
-      const balanceAmount = response.data?.balanceAmount || 0
+      const { balanceReleased, balanceAmount } = response.data
       Alert.alert(
-        '🎉 Trip Completed Successfully!',
-        balanceAmount > 0
-          ? `Balance payment of ₹${balanceAmount.toLocaleString('en-IN')} has been released to your account. The factory owner has been notified to submit their rating.`
-          : 'Trip completed! The factory owner has been notified to submit their rating.',
-        [{ text: 'OK' }]
+        'Trip completed',
+        balanceReleased
+          ? `Balance of ${formatInr(balanceAmount)} has been released. The cargo owner has been asked to rate this trip.`
+          : 'Delivery recorded. The balance will be released once the cargo owner confirms receipt.'
       )
-    } catch (err: any) {
-      // Fallback to old behavior for demo
-      setTrip((prev) => (prev ? { ...prev, status: 'Completed', balanceConfirmed: true } : null))
-      setCompletionModalVisible(false)
-      setPodModalVisible(false)
-      Alert.alert(
-        'Trip Completed!',
-        'Balance payment has been released. Factory owner will now be prompted to submit a rating.',
-        [{ text: 'OK' }]
-      )
+      await Promise.all([loadBookings(), loadTracking(trip.id)])
+    } catch (err) {
+      Alert.alert('Trip not completed', getApiErrorMessage(err, 'Could not complete the trip. Please try again.'))
     } finally {
-      setCompletionLoading(false)
+      if (mounted.current) setCompletionLoading(false)
     }
-  }
+  }, [trip, consigneeName, podNotes, loadBookings, loadTracking])
 
-  const handleSubmitPOD = async () => {
+  const handleSubmitIncident = useCallback(async () => {
     if (!trip) return
-    if (!consigneeName.trim()) {
-      Alert.alert('Required Field', 'Please enter the consignee receiver name.')
+    const description = incidentDesc.trim()
+    if (description.length < 5) {
+      Alert.alert('Details required', 'Describe the delay or incident in a few words.')
       return
     }
+    const minutes = parseInt(impactMinutes, 10)
 
+    setIncidentLoading(true)
     try {
-      setActionLoading(true)
-      await api.post(`/tracking/${trip.id}/pod`, {
-        consigneeName,
-        podUrl: podPhotoAttached ? 'https://storage.lorrycarry.com/pod/proof-8492.jpg' : undefined,
-        notes: podNotes,
-      })
-
-      setTrip((prev) => (prev ? { ...prev, status: 'Completed' } : null))
-      setPodModalVisible(false)
-      Alert.alert('POD Submitted', 'Proof of delivery successfully verified by cargo owner!')
-    } catch {
-      setTrip((prev) => (prev ? { ...prev, status: 'Completed' } : null))
-      setPodModalVisible(false)
-      Alert.alert('POD Submitted', 'Delivery complete sign-off logged.')
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const handleSubmitIncident = async () => {
-    if (!trip) return
-    if (!incidentDesc.trim()) {
-      Alert.alert('Required Field', 'Please describe the delay or incident.')
-      return
-    }
-
-    try {
-      setActionLoading(true)
-      await api.post(`/tracking/${trip.id}/incident`, {
+      const response = await trackingApi.reportIncident(trip.id, {
         category: incidentCategory,
-        description: incidentDesc,
-        impactMinutes: parseInt(impactMinutes, 10) || 30,
+        description,
+        impactMinutes: Number.isFinite(minutes) && minutes > 0 ? minutes : undefined,
       })
-
+      if (!response.data?.success) {
+        Alert.alert('Report not sent', response.data?.message || 'The server did not accept the report.')
+        return
+      }
       setIncidentModalVisible(false)
       setIncidentDesc('')
-      Alert.alert('Incident Reported', 'Fleet Dispatch Control Tower has been notified of the delay.')
-    } catch {
-      setIncidentModalVisible(false)
-      Alert.alert('Report Logged', 'Incident report recorded for dispatch audit.')
+      setImpactMinutes('30')
+      Alert.alert('Incident reported', response.data.message || 'The cargo owner has been notified of the delay.')
+    } catch (err) {
+      Alert.alert('Report not sent', getApiErrorMessage(err, 'Could not send the incident report.'))
     } finally {
-      setActionLoading(false)
+      if (mounted.current) setIncidentLoading(false)
     }
+  }, [trip, incidentCategory, incidentDesc, impactMinutes])
+
+  const callSupport = useCallback(() => {
+    if (!SUPPORT_PHONE) {
+      Alert.alert('Support line not configured', 'Use the Help tab to reach LorryCarry support.')
+      return
+    }
+    Linking.openURL(`tel:${SUPPORT_PHONE}`).catch(() =>
+      Alert.alert('Cannot place call', `Dial ${SUPPORT_PHONE} from your phone app.`)
+    )
+  }, [])
+
+  // ── Render helpers ────────────────────────────────────────────────────────
+
+  const renderTripPicker = () => {
+    if (activeBookings.length <= 1) return null
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pickerRow}>
+        {activeBookings.map((booking) => {
+          const selected = booking.id === trip?.id
+          return (
+            <TouchableOpacity
+              key={booking.id}
+              style={[styles.pickerChip, selected && styles.pickerChipActive]}
+              onPress={() => setSelectedId(booking.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+            >
+              <Text style={[styles.pickerChipText, selected && styles.pickerChipTextActive]}>
+                #{shortRef(booking.id)} · {STATUS_LABELS[booking.status]}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
+    )
   }
 
-  const balanceAmount = trip?.agreedPrice ? trip.agreedPrice * 0.5 : 0
-
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Driver Mode</Text>
-          <Text style={styles.headerSub}>Operational Trip Dispatch Center</Text>
+  const renderCheckpoints = () => {
+    if (trackingLoading && !tracking) {
+      return (
+        <View style={styles.checkpointBox}>
+          <ActivityIndicator size="small" color="#C2410C" />
         </View>
-        <TouchableOpacity style={styles.supportBadge} onPress={() => Alert.alert('Support Helpline', 'Call 24/7 Dispatch: +91 1800-LORRY-CARRY')}>
-          <Text style={styles.supportBadgeText}>📞 Dispatch Support</Text>
-        </TouchableOpacity>
-      </View>
+      )
+    }
+    if (trackingError && !tracking) {
+      return (
+        <View style={styles.checkpointBox}>
+          <Text style={styles.checkpointHeader}>Checkpoint progress unavailable</Text>
+          <Text style={styles.checkpointDisclaimer}>{trackingError}</Text>
+          <TouchableOpacity onPress={() => trip && loadTracking(trip.id)} accessibilityRole="button">
+            <Text style={styles.linkText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+    if (!tracking) return null
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Location Permission Status Card */}
-        <View style={[styles.card, locationPermission ? styles.locationGranted : styles.locationWarning]}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.locationTitle}>
-              {locationPermission ? '📍 Geofence Checkpoints Active' : '⚠️ Location Permission Needed'}
-            </Text>
-            {!locationPermission && (
-              <TouchableOpacity style={styles.grantBtn} onPress={requestLocationPermission}>
-                <Text style={styles.grantBtnText}>Grant Access</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          <Text style={styles.locationDesc}>
-            {locationPermission
-              ? 'Device GPS is used exclusively for geofence checkpoint crossing events.'
-              : 'Allow location access to record checkpoint crossings along national corridors.'}
+    return (
+      <View style={styles.checkpointBox}>
+        <View style={styles.rowBetween}>
+          <Text style={styles.checkpointHeader}>
+            Checkpoints {tracking.crossedCount}/{tracking.totalCheckpoints}
           </Text>
+          {tracking.nextCheckpoint?.etaMinutes != null ? (
+            <Text style={styles.etaText}>⏱ ETA ~{tracking.nextCheckpoint.etaMinutes} min</Text>
+          ) : null}
+        </View>
+        {nextCheckpoint ? (
+          <Text style={styles.checkpointName}>Next: {nextCheckpoint.name}</Text>
+        ) : (
+          <Text style={styles.checkpointName}>All checkpoints crossed</Text>
+        )}
+        <View style={styles.checkpointList}>
+          {tracking.checkpoints.map((cp) => (
+            <View key={cp.seq} style={styles.checkpointItem}>
+              <Text style={[styles.checkpointDot, cp.crossed ? styles.checkpointDotDone : styles.checkpointDotPending]}>
+                {cp.crossed ? '✓' : String(cp.seq)}
+              </Text>
+              <View style={styles.flex1}>
+                <Text style={[styles.checkpointItemName, cp.crossed && styles.checkpointItemDone]}>{cp.name}</Text>
+                {cp.crossedAt ? <Text style={styles.checkpointItemMeta}>{formatDateTime(cp.crossedAt)}</Text> : null}
+              </View>
+            </View>
+          ))}
+        </View>
+        <Text style={styles.checkpointDisclaimer}>
+          Crossings are verified against your GPS position inside each geofence.
+        </Text>
+      </View>
+    )
+  }
+
+  const renderTrip = () => {
+    if (!trip) return null
+    const completed = trip.status === 'Completed'
+    const cancelled = trip.status === 'Cancelled'
+
+    return (
+      <View style={styles.tripCard}>
+        <View style={styles.rowBetween}>
+          <Text style={styles.bookingNumber}>Trip #{shortRef(trip.id)}</Text>
+          <View style={[styles.statusChip, completed && styles.statusChipCompleted, cancelled && styles.statusChipCancelled]}>
+            <Text
+              style={[
+                styles.statusChipText,
+                completed && styles.statusChipTextCompleted,
+                cancelled && styles.statusChipTextCancelled,
+              ]}
+            >
+              {STATUS_LABELS[trip.status]}
+            </Text>
+          </View>
         </View>
 
-        {loading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color="#F97316" />
-            <Text style={styles.loadingText}>Fetching active trip details...</Text>
+        {/* Payment status — mirrors server flags, never assumed */}
+        <View style={styles.paymentStatusBox}>
+          <Text style={styles.paymentStatusTitle}>Payment status</Text>
+          <View style={styles.paymentRow}>
+            <View style={styles.paymentItem}>
+              <Text style={styles.paymentLabel}>Total freight</Text>
+              <Text style={styles.paymentValue}>{formatInr(agreedPrice)}</Text>
+            </View>
+            <View style={styles.paymentItem}>
+              <Text style={styles.paymentLabel}>Advance (50%)</Text>
+              <Text style={[styles.paymentValue, trip.advanceConfirmed ? styles.paidText : styles.pendingText]}>
+                {formatInr(halfAmount)} {trip.advanceConfirmed ? '✓' : '⏳'}
+              </Text>
+            </View>
+            <View style={styles.paymentItem}>
+              <Text style={styles.paymentLabel}>Balance (50%)</Text>
+              <Text style={[styles.paymentValue, trip.balanceConfirmed ? styles.paidText : styles.pendingText]}>
+                {formatInr(halfAmount)} {trip.balanceConfirmed ? '✓' : '⏳'}
+              </Text>
+            </View>
           </View>
-        ) : trip ? (
+          {!trip.advanceConfirmed && !completed && !cancelled ? (
+            <Text style={styles.paymentHint}>Waiting for the cargo owner to confirm the loading advance.</Text>
+          ) : null}
+        </View>
+
+        {/* Route */}
+        <View style={styles.routeContainer}>
+          <View style={styles.routeRow}>
+            <Text style={styles.routeIcon}>🟢</Text>
+            <View style={styles.routeTextCol}>
+              <Text style={styles.routeLabel}>PICKUP</Text>
+              <Text style={styles.routeVal}>{trip.load?.loadingAddress || 'Address not available'}</Text>
+            </View>
+          </View>
+          <View style={styles.routeDivider} />
+          <View style={styles.routeRow}>
+            <Text style={styles.routeIcon}>🔴</Text>
+            <View style={styles.routeTextCol}>
+              <Text style={styles.routeLabel}>DESTINATION</Text>
+              <Text style={styles.routeVal}>{trip.load?.unloadingAddress || 'Address not available'}</Text>
+            </View>
+          </View>
+          {trip.truck ? (
+            <Text style={styles.routeMeta}>
+              {trip.truck.registrationNumber} · {trip.truck.bodyType}
+              {trip.load?.tonnageRequired ? ` · ${trip.load.tonnageRequired} T` : ''}
+            </Text>
+          ) : null}
+        </View>
+
+        {renderCheckpoints()}
+
+        {!isDriverForTrip ? (
+          <View style={styles.noticeBox}>
+            <Text style={styles.noticeText}>
+              You are viewing this trip as the cargo owner. Driver actions are available to the truck owner only.
+            </Text>
+          </View>
+        ) : null}
+
+        {isDriverForTrip && !completed && !cancelled ? (
           <>
-            {/* TRIP CARD */}
-            <View style={styles.tripCard}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.bookingNumber}>Trip #{trip.bookingNumber}</Text>
-                <View style={[styles.statusChip, trip.status === 'Completed' && styles.statusChipCompleted]}>
-                  <Text style={[styles.statusChipText, trip.status === 'Completed' && styles.statusChipTextCompleted]}>
-                    {trip.status}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Payment Status */}
-              {trip.agreedPrice && (
-                <View style={styles.paymentStatusBox}>
-                  <Text style={styles.paymentStatusTitle}>💰 Payment Status</Text>
-                  <View style={styles.paymentRow}>
-                    <View style={styles.paymentItem}>
-                      <Text style={styles.paymentLabel}>Total Freight</Text>
-                      <Text style={styles.paymentValue}>₹{(trip.agreedPrice || 0).toLocaleString('en-IN')}</Text>
-                    </View>
-                    <View style={styles.paymentItem}>
-                      <Text style={styles.paymentLabel}>Advance (50%)</Text>
-                      <Text style={[styles.paymentValue, trip.advanceConfirmed ? styles.paidText : styles.pendingText]}>
-                        ₹{Math.round((trip.agreedPrice || 0) * 0.5).toLocaleString('en-IN')} {trip.advanceConfirmed ? '✓' : '⏳'}
-                      </Text>
-                    </View>
-                    <View style={styles.paymentItem}>
-                      <Text style={styles.paymentLabel}>Balance (50%)</Text>
-                      <Text style={[styles.paymentValue, trip.balanceConfirmed ? styles.paidText : styles.pendingText]}>
-                        ₹{Math.round((trip.agreedPrice || 0) * 0.5).toLocaleString('en-IN')} {trip.balanceConfirmed ? '✓' : '⏳'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-
-              {/* Route */}
-              <View style={styles.routeContainer}>
-                <View style={styles.routeRow}>
-                  <Text style={styles.routeIcon}>🟢</Text>
-                  <View style={styles.routeTextCol}>
-                    <Text style={styles.routeLabel}>PICKUP LOCATION</Text>
-                    <Text style={styles.routeVal}>{trip.pickupAddress}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.routeDivider} />
-
-                <View style={styles.routeRow}>
-                  <Text style={styles.routeIcon}>🔴</Text>
-                  <View style={styles.routeTextCol}>
-                    <Text style={styles.routeLabel}>DESTINATION</Text>
-                    <Text style={styles.routeVal}>{trip.destinationAddress}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Checkpoint & ETA info */}
-              <View style={styles.checkpointBox}>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.checkpointHeader}>Next Geofence Checkpoint</Text>
-                  <Text style={styles.etaText}>⏱ ETA ~{trip.etaMinutes} mins</Text>
-                </View>
-                <Text style={styles.checkpointName}>📍 {trip.nextCheckpointName}</Text>
-                <Text style={styles.checkpointDisclaimer}>
-                  Checkpoints update automatically upon entering highway geofences.
-                </Text>
-              </View>
-
-              {/* ACTION PROGRESSION BUTTONS */}
-              <Text style={styles.sectionHeading}>DRIVER TRIP ACTIONS</Text>
-              
-              <View style={styles.actionGrid}>
+            <Text style={styles.sectionHeading}>DRIVER ACTIONS</Text>
+            <View style={styles.actionGrid}>
+              {trip.status === 'Confirmed' ? (
                 <TouchableOpacity
-                  style={[styles.actionBtn, trip.status === 'Confirmed' && styles.actionBtnActive]}
-                  onPress={() => handleUpdateTripStatus('InTransit')}
-                  disabled={actionLoading || trip.status !== 'Confirmed'}
-                >
-                  <Text style={styles.actionBtnText}>🚀 Start Trip</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.actionBtn, trip.status === 'InTransit' && styles.actionBtnActive]}
-                  onPress={() => handleUpdateTripStatus('ReachedPickup')}
-                  disabled={actionLoading || trip.status === 'InTransit'}
-                >
-                  <Text style={styles.actionBtnText}>🏭 Reached Pickup</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => handleUpdateTripStatus('LoadingComplete')}
+                  style={[styles.actionBtn, styles.actionBtnActive]}
+                  onPress={handleStartTrip}
                   disabled={actionLoading}
+                  accessibilityRole="button"
                 >
-                  <Text style={styles.actionBtnText}>📦 Loading Complete</Text>
+                  <Text style={styles.actionBtnText}>🚀 Start trip</Text>
                 </TouchableOpacity>
+              ) : null}
 
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.checkpointBtn]}
-                  onPress={handleRecordCheckpoint}
-                  disabled={actionLoading}
-                >
-                  <Text style={styles.actionBtnText}>📍 Checkpoint Reached</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => handleUpdateTripStatus('ReachedDestination')}
-                  disabled={actionLoading}
-                >
-                  <Text style={styles.actionBtnText}>🏁 Reached Destination</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => setPodModalVisible(true)}
-                  disabled={actionLoading}
-                >
-                  <Text style={styles.actionBtnText}>📄 Capture POD</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 🚚 TRIP COMPLETION BUTTON - NEW FEATURE */}
-              {trip.status !== 'Completed' && (
-                <View style={styles.completionSection}>
-                  <Text style={styles.sectionHeading}>TRIP COMPLETION</Text>
-                  <TouchableOpacity
-                    style={[styles.completionBtn, !trip.advanceConfirmed && styles.completionBtnDisabled]}
-                    onPress={handleTripCompletion}
-                    disabled={!trip.advanceConfirmed || actionLoading}
-                  >
-                    <Text style={styles.completionBtnText}>🚚 Complete Trip & Release Payment</Text>
-                    {trip.advanceConfirmed && (
-                      <Text style={styles.completionBtnSubtext}>
-                        Balance ₹{balanceAmount.toLocaleString('en-IN')} will be released
-                      </Text>
-                    )}
-                    {!trip.advanceConfirmed && (
-                      <Text style={styles.completionBtnSubtext}>
-                        Waiting for advance payment confirmation
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Completed State */}
-              {trip.status === 'Completed' && (
-                <View style={styles.completedBanner}>
-                  <Text style={styles.completedTitle}>✅ Trip Completed</Text>
-                  <Text style={styles.completedSubtext}>
-                    Balance payment of ₹{balanceAmount.toLocaleString('en-IN')} has been released.{'\n'}
-                    Factory owner has been notified for rating.
-                  </Text>
-                </View>
-              )}
-
-              {/* INCIDENT REPORT BUTTON */}
               <TouchableOpacity
-                style={styles.incidentBtn}
-                onPress={() => setIncidentModalVisible(true)}
+                style={[styles.actionBtn, styles.checkpointBtn, (!nextCheckpoint || actionLoading) && styles.actionBtnDisabled]}
+                onPress={handleRecordCheckpoint}
+                disabled={actionLoading || !nextCheckpoint}
+                accessibilityRole="button"
+                accessibilityLabel={nextCheckpoint ? `Record checkpoint ${nextCheckpoint.name}` : 'All checkpoints crossed'}
               >
-                <Text style={styles.incidentBtnText}>🚨 Report Incident / Delay</Text>
+                {actionLoading ? (
+                  <ActivityIndicator size="small" color="#92400E" />
+                ) : (
+                  <Text style={styles.actionBtnText}>
+                    📍 {nextCheckpoint ? `I'm at ${nextCheckpoint.name}` : 'All checkpoints done'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.incidentActionBtn]}
+                onPress={() => setIncidentModalVisible(true)}
+                disabled={actionLoading}
+                accessibilityRole="button"
+              >
+                <Text style={styles.incidentBtnText}>🚨 Report delay</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.completionSection}>
+              <Text style={styles.sectionHeading}>DELIVERY</Text>
+              <TouchableOpacity
+                style={[styles.completionBtn, !trip.advanceConfirmed && styles.completionBtnDisabled]}
+                onPress={openCompletionModal}
+                disabled={actionLoading}
+                accessibilityRole="button"
+              >
+                <Text style={styles.completionBtnText}>Submit POD & complete trip</Text>
+                <Text style={styles.completionBtnSubtext}>
+                  {trip.advanceConfirmed
+                    ? `Requests release of the ${formatInr(halfAmount)} balance`
+                    : 'Available once the advance is confirmed'}
+                </Text>
               </TouchableOpacity>
             </View>
           </>
-        ) : (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyIcon}>🚛</Text>
-            <Text style={styles.emptyTitle}>No Active Driver Trip</Text>
-            <Text style={styles.emptySub}>
-              Assigned trips from your fleet manager will appear here for dispatch status tracking.
+        ) : null}
+
+        {completed ? (
+          <View style={styles.completedBanner}>
+            <Text style={styles.completedTitle}>✅ Trip completed</Text>
+            <Text style={styles.completedSubtext}>
+              {trip.completedAt ? `Delivered ${formatDateTime(trip.completedAt)}. ` : ''}
+              {trip.balanceConfirmed
+                ? `Balance of ${formatInr(halfAmount)} confirmed.`
+                : 'Balance release is pending confirmation from the cargo owner.'}
             </Text>
           </View>
-        )}
+        ) : null}
+      </View>
+    )
+  }
+
+  const renderEmpty = () => (
+    <View style={styles.emptyCard}>
+      <Text style={styles.emptyIcon}>🚛</Text>
+      <Text style={styles.emptyTitle}>No active trip</Text>
+      <Text style={styles.emptySub}>
+        {vehicleSide
+          ? 'Confirmed bookings for your trucks will appear here with checkpoint tracking and delivery actions.'
+          : 'Driver Mode is for truck owners. Your bookings are listed under My Trips.'}
+      </Text>
+      {bookings && bookings.length > 0 ? (
+        <Text style={styles.emptyHint}>
+          {bookings.length} past {bookings.length === 1 ? 'trip is' : 'trips are'} listed under My Trips.
+        </Text>
+      ) : null}
+    </View>
+  )
+
+  // ── Screen ────────────────────────────────────────────────────────────────
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Driver Mode</Text>
+          <Text style={styles.headerSub}>Live trip, checkpoints and delivery</Text>
+        </View>
+        <TouchableOpacity style={styles.supportBadge} onPress={callSupport} accessibilityRole="button">
+          <Text style={styles.supportBadgeText}>📞 Support</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAll} tintColor="#F97316" />}
+      >
+        <View style={[styles.card, locationPermission ? styles.locationGranted : styles.locationWarning]}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.locationTitle}>
+              {locationPermission ? '📍 Location access enabled' : '⚠️ Location permission needed'}
+            </Text>
+            {!locationPermission ? (
+              <TouchableOpacity style={styles.grantBtn} onPress={requestLocationPermission} accessibilityRole="button">
+                <Text style={styles.grantBtnText}>Grant access</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          <Text style={styles.locationDesc}>
+            {locationPermission
+              ? 'Your GPS position is used only when you record a checkpoint.'
+              : 'Checkpoint crossings are verified against your GPS position and cannot be recorded without it.'}
+          </Text>
+        </View>
+
+        {loading && !bookings ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#F97316" />
+            <Text style={styles.loadingText}>Loading your trips…</Text>
+          </View>
+        ) : null}
+
+        {bookingsError && !bookings ? (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorTitle}>Trips unavailable</Text>
+            <Text style={styles.errorText}>{bookingsError}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={loadBookings} accessibilityRole="button">
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {bookings ? (
+          <>
+            {renderTripPicker()}
+            {trip ? renderTrip() : renderEmpty()}
+          </>
+        ) : null}
       </ScrollView>
 
-      {/* ── POD CAPTURE MODAL ── */}
-      <Modal visible={podModalVisible} animationType="slide" transparent>
+      {/* Completion / POD modal */}
+      <Modal
+        visible={completionModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => !completionLoading && setCompletionModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Proof of Delivery (POD)</Text>
-            <Text style={styles.modalSub}>Complete delivery sign-off and capture receiver proof.</Text>
-
-            <Text style={styles.inputLabel}>Consignee Receiver Name *</Text>
-            <TextInput
-              style={styles.textInput}
-              value={consigneeName}
-              onChangeText={setConsigneeName}
-              placeholder="e.g. Ramesh Kumar (Warehouse Manager)"
-            />
-
-            <TouchableOpacity
-              style={[styles.photoAttachBtn, podPhotoAttached && styles.photoAttachedBtn]}
-              onPress={() => {
-                setPodPhotoAttached(!podPhotoAttached)
-                Alert.alert('Photo Captured', 'POD Document photo attached successfully.')
-              }}
-            >
-              <Text style={styles.photoAttachText}>
-                {podPhotoAttached ? '✓ POD Photo Attached (Tap to re-capture)' : '📷 Capture / Upload POD Photo'}
-              </Text>
-            </TouchableOpacity>
-
-            <Text style={styles.inputLabel}>Delivery Notes / Remarks</Text>
-            <TextInput
-              style={[styles.textInput, { height: 60 }]}
-              value={podNotes}
-              onChangeText={setPodNotes}
-              placeholder="Seal intact, zero damage observed..."
-              multiline
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setPodModalVisible(false)}>
-                <Text style={styles.cancelModalText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.submitModalBtn} onPress={handleSubmitPOD}>
-                <Text style={styles.submitModalText}>Submit POD</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── TRIP COMPLETION MODAL ── */}
-      <Modal visible={completionModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>🚚 Complete Trip & Release Payment</Text>
+            <Text style={styles.modalTitle}>Proof of delivery</Text>
             <Text style={styles.modalSub}>
-              Submit POD details to complete the trip. Balance payment will be released to your account and the factory owner will be notified to submit their rating.
+              Recording the delivery completes the trip and asks the cargo owner to release the balance.
             </Text>
 
-            {/* Payment Summary */}
             <View style={styles.paymentSummaryBox}>
-              <Text style={styles.paymentSummaryTitle}>💰 Payment Summary</Text>
               <View style={styles.paymentSummaryRow}>
-                <Text style={styles.paymentSummaryLabel}>Total Freight:</Text>
-                <Text style={styles.paymentSummaryValue}>₹{(trip?.agreedPrice || 0).toLocaleString('en-IN')}</Text>
+                <Text style={styles.paymentSummaryLabel}>Total freight</Text>
+                <Text style={styles.paymentSummaryValue}>{formatInr(agreedPrice)}</Text>
               </View>
               <View style={styles.paymentSummaryRow}>
-                <Text style={styles.paymentSummaryLabel}>Advance (50%):</Text>
-                <Text style={[styles.paymentSummaryValue, styles.paidText]}>
-                  ✓ ₹{Math.round((trip?.agreedPrice || 0) * 0.5).toLocaleString('en-IN')}
-                </Text>
+                <Text style={styles.paymentSummaryLabel}>Advance (50%)</Text>
+                <Text style={[styles.paymentSummaryValue, styles.paidText]}>✓ {formatInr(halfAmount)}</Text>
               </View>
               <View style={styles.paymentSummaryRow}>
-                <Text style={styles.paymentSummaryLabel}>Balance to Release (50%):</Text>
-                <Text style={[styles.paymentSummaryValue, styles.releaseText]}>
-                  ₹{balanceAmount.toLocaleString('en-IN')}
-                </Text>
+                <Text style={styles.paymentSummaryLabel}>Balance to release</Text>
+                <Text style={[styles.paymentSummaryValue, styles.releaseText]}>{formatInr(halfAmount)}</Text>
               </View>
             </View>
 
-            <Text style={styles.inputLabel}>Consignee Receiver Name *</Text>
+            <Text style={styles.inputLabel}>Consignee (receiver) name *</Text>
             <TextInput
               style={styles.textInput}
               value={consigneeName}
               onChangeText={setConsigneeName}
-              placeholder="e.g. Ramesh Kumar (Warehouse Manager)"
+              placeholder="e.g. Ramesh Kumar, warehouse manager"
+              placeholderTextColor="#94A3B8"
+              editable={!completionLoading}
             />
 
-            <TouchableOpacity
-              style={[styles.photoAttachBtn, podPhotoAttached && styles.photoAttachedBtn]}
-              onPress={() => {
-                setPodPhotoAttached(!podPhotoAttached)
-                Alert.alert('Photo Captured', 'POD Document photo attached successfully.')
-              }}
-            >
-              <Text style={styles.photoAttachText}>
-                {podPhotoAttached ? '✓ POD Photo Attached' : '📷 Capture / Upload POD Photo'}
-              </Text>
-            </TouchableOpacity>
-
-            <Text style={styles.inputLabel}>Delivery Notes (Optional)</Text>
+            <Text style={styles.inputLabel}>Delivery notes (optional)</Text>
             <TextInput
-              style={[styles.textInput, { height: 60 }]}
+              style={[styles.textInput, styles.textArea]}
               value={podNotes}
               onChangeText={setPodNotes}
-              placeholder="Seal intact, zero damage observed..."
+              placeholder="Seal intact, no damage observed…"
+              placeholderTextColor="#94A3B8"
               multiline
+              editable={!completionLoading}
             />
 
-            {/* What happens next */}
-            <View style={styles.nextStepsBox}>
-              <Text style={styles.nextStepsTitle}>📋 What Happens Next:</Text>
-              <Text style={styles.nextStepsText}>• Balance payment of ₹{balanceAmount.toLocaleString('en-IN')} released to your account</Text>
-              <Text style={styles.nextStepsText}>• Factory owner receives notification for rating</Text>
-              <Text style={styles.nextStepsText}>• Trip marked as completed</Text>
+            <Text style={styles.helperText}>
+              Photo upload for POD is not available in this version. Keep a photo of the signed challan on your phone.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setCompletionModalVisible(false)}
+                disabled={completionLoading}
+                accessibilityRole="button"
+              >
+                <Text style={styles.cancelModalText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitModalBtn, completionLoading && styles.submitModalBtnDisabled]}
+                onPress={confirmTripCompletion}
+                disabled={completionLoading}
+                accessibilityRole="button"
+              >
+                {completionLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitModalText}>Complete trip</Text>
+                )}
+              </TouchableOpacity>
             </View>
-
-            {completionLoading ? (
-              <View style={styles.loadingBox}>
-                <ActivityIndicator size="small" color="#16A34A" />
-                <Text style={styles.loadingText}>Completing trip...</Text>
-              </View>
-            ) : (
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setCompletionModalVisible(false)}>
-                  <Text style={styles.cancelModalText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.submitModalBtn, styles.completeTripBtn]} onPress={confirmTripCompletion}>
-                  <Text style={styles.submitModalText}>Complete & Release</Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         </View>
       </Modal>
 
-      {/* ── INCIDENT REPORT MODAL ── */}
-      <Modal visible={incidentModalVisible} animationType="slide" transparent>
+      {/* Incident modal */}
+      <Modal
+        visible={incidentModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => !incidentLoading && setIncidentModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Report Delay / Incident</Text>
-            <Text style={styles.modalSub}>Notify fleet dispatch tower of highway delays.</Text>
+            <Text style={styles.modalTitle}>Report a delay or incident</Text>
+            <Text style={styles.modalSub}>The cargo owner is notified immediately.</Text>
 
-            <Text style={styles.inputLabel}>Incident Category</Text>
+            <Text style={styles.inputLabel}>Category</Text>
             <View style={styles.categoryRow}>
-              {['Traffic Delay', 'Breakdown', 'Weather', 'RTO Check'].map((cat) => (
+              {INCIDENT_CATEGORIES.map((cat) => (
                 <TouchableOpacity
                   key={cat}
                   style={[styles.catChip, incidentCategory === cat && styles.catChipActive]}
                   onPress={() => setIncidentCategory(cat)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: incidentCategory === cat }}
                 >
-                  <Text style={[styles.catChipText, incidentCategory === cat && styles.catChipTextActive]}>
-                    {cat}
-                  </Text>
+                  <Text style={[styles.catChipText, incidentCategory === cat && styles.catChipTextActive]}>{cat}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>Impacted Delay (Minutes)</Text>
+            <Text style={styles.inputLabel}>Expected delay (minutes)</Text>
             <TextInput
               style={styles.textInput}
               value={impactMinutes}
               onChangeText={setImpactMinutes}
-              keyboardType="numeric"
+              keyboardType="number-pad"
               placeholder="30"
+              placeholderTextColor="#94A3B8"
+              editable={!incidentLoading}
             />
 
-            <Text style={styles.inputLabel}>Incident Details *</Text>
+            <Text style={styles.inputLabel}>What happened? *</Text>
             <TextInput
-              style={[styles.textInput, { height: 70 }]}
+              style={[styles.textInput, styles.textArea]}
               value={incidentDesc}
               onChangeText={setIncidentDesc}
-              placeholder="Describe highway situation or maintenance delay..."
+              placeholder="Describe the situation…"
+              placeholderTextColor="#94A3B8"
               multiline
+              editable={!incidentLoading}
             />
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelModalBtn} onPress={() => setIncidentModalVisible(false)}>
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setIncidentModalVisible(false)}
+                disabled={incidentLoading}
+                accessibilityRole="button"
+              >
                 <Text style={styles.cancelModalText}>Cancel</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.submitModalBtn, { backgroundColor: '#EF4444' }]} onPress={handleSubmitIncident}>
-                <Text style={styles.submitModalText}>Submit Incident</Text>
+              <TouchableOpacity
+                style={[styles.submitModalBtn, styles.incidentSubmitBtn, incidentLoading && styles.submitModalBtnDisabled]}
+                onPress={handleSubmitIncident}
+                disabled={incidentLoading}
+                accessibilityRole="button"
+              >
+                {incidentLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitModalText}>Send report</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -722,6 +826,7 @@ export function DriverTripScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
+  flex1: { flex: 1 },
   header: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -734,31 +839,66 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
   headerSub: { fontSize: 11, color: '#64748B' },
-  supportBadge: { backgroundColor: '#FFF7ED', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#FFEDD5' },
+  supportBadge: {
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+  },
   supportBadgeText: { fontSize: 11, fontWeight: '700', color: '#C2410C' },
-  scrollContent: { padding: 16, gap: 14 },
+  scrollContent: { padding: 16, gap: 14, paddingBottom: 40 },
+
   card: { padding: 14, borderRadius: 12, borderWidth: 1, gap: 4 },
   locationGranted: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
   locationWarning: { backgroundColor: '#FEFCE8', borderColor: '#FEF08A' },
-  locationTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
-  locationDesc: { fontSize: 11, color: '#475569' },
+  locationTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A', flex: 1 },
+  locationDesc: { fontSize: 11, color: '#475569', lineHeight: 15 },
   grantBtn: { backgroundColor: '#EAB308', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   grantBtnText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+
+  errorCard: { backgroundColor: '#FEF2F2', borderColor: '#FECACA', borderWidth: 1, borderRadius: 12, padding: 14, gap: 6 },
+  errorTitle: { fontSize: 14, fontWeight: '700', color: '#991B1B' },
+  errorText: { fontSize: 13, color: '#B91C1C', lineHeight: 18 },
+  retryBtn: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  retryBtnText: { fontSize: 12, fontWeight: '700', color: '#991B1B' },
+
+  pickerRow: { gap: 8, paddingVertical: 2 },
+  pickerChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#E2E8F0' },
+  pickerChipActive: { backgroundColor: '#F97316' },
+  pickerChipText: { fontSize: 12, fontWeight: '700', color: '#475569' },
+  pickerChipTextActive: { color: '#FFFFFF' },
+
   tripCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, borderColor: '#E2E8F0', borderWidth: 1, gap: 14 },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   bookingNumber: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
   statusChip: { backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   statusChipCompleted: { backgroundColor: '#DCFCE7' },
+  statusChipCancelled: { backgroundColor: '#FEE2E2' },
   statusChipText: { fontSize: 11, fontWeight: '700', color: '#2563EB' },
   statusChipTextCompleted: { color: '#16A34A' },
-  paymentStatusBox: { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' },
-  paymentStatusTitle: { fontSize: 12, fontWeight: '800', color: '#0F172A', marginBottom: 8 },
+  statusChipTextCancelled: { color: '#DC2626' },
+
+  paymentStatusBox: { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', gap: 8 },
+  paymentStatusTitle: { fontSize: 12, fontWeight: '800', color: '#0F172A' },
   paymentRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  paymentItem: { alignItems: 'center' },
+  paymentItem: { alignItems: 'center', flex: 1 },
   paymentLabel: { fontSize: 9, color: '#64748B', marginBottom: 2 },
   paymentValue: { fontSize: 12, fontWeight: '700', color: '#0F172A' },
+  paymentHint: { fontSize: 11, color: '#B45309' },
   paidText: { color: '#16A34A' },
   pendingText: { color: '#F59E0B' },
+
   routeContainer: { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, gap: 8 },
   routeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   routeIcon: { fontSize: 14, marginTop: 2 },
@@ -766,36 +906,95 @@ const styles = StyleSheet.create({
   routeLabel: { fontSize: 9, fontWeight: '800', color: '#94A3B8' },
   routeVal: { fontSize: 12, fontWeight: '700', color: '#0F172A' },
   routeDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 2 },
-  checkpointBox: { backgroundColor: '#FFF7ED', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#FFEDD5', gap: 4 },
+  routeMeta: { fontSize: 11, color: '#64748B' },
+
+  checkpointBox: { backgroundColor: '#FFF7ED', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#FFEDD5', gap: 6 },
   checkpointHeader: { fontSize: 11, fontWeight: '800', color: '#C2410C' },
   etaText: { fontSize: 11, fontWeight: '700', color: '#9A3412' },
   checkpointName: { fontSize: 13, fontWeight: '800', color: '#431407' },
-  checkpointDisclaimer: { fontSize: 10, color: '#9A3412' },
+  checkpointList: { gap: 6, marginTop: 4 },
+  checkpointItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  checkpointDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    textAlign: 'center',
+    lineHeight: 22,
+    fontSize: 11,
+    fontWeight: '800',
+    overflow: 'hidden',
+  },
+  checkpointDotDone: { backgroundColor: '#16A34A', color: '#FFFFFF' },
+  checkpointDotPending: { backgroundColor: '#FFFFFF', color: '#9A3412', borderWidth: 1, borderColor: '#FDBA74' },
+  checkpointItemName: { fontSize: 12, fontWeight: '700', color: '#431407' },
+  checkpointItemDone: { color: '#166534' },
+  checkpointItemMeta: { fontSize: 10, color: '#9A3412' },
+  checkpointDisclaimer: { fontSize: 10, color: '#9A3412', lineHeight: 14 },
+  linkText: { fontSize: 12, fontWeight: '800', color: '#C2410C', marginTop: 4 },
+
+  noticeBox: { backgroundColor: '#F1F5F9', borderRadius: 10, padding: 12 },
+  noticeText: { fontSize: 12, color: '#475569', lineHeight: 17 },
+
   sectionHeading: { fontSize: 11, fontWeight: '800', color: '#64748B', marginTop: 4 },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  actionBtn: { width: '48%', backgroundColor: '#F1F5F9', paddingVertical: 10, paddingHorizontal: 8, borderRadius: 8, alignItems: 'center' },
+  actionBtn: {
+    flexGrow: 1,
+    flexBasis: '48%',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
   actionBtnActive: { backgroundColor: '#DBEAFE', borderWidth: 1, borderColor: '#3B82F6' },
+  actionBtnDisabled: { opacity: 0.5 },
   checkpointBtn: { backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#F59E0B' },
-  podBtn: { width: '100%', backgroundColor: '#16A34A', paddingVertical: 12 },
-  actionBtnText: { fontSize: 11, fontWeight: '700', color: '#1E293B' },
-  podBtnText: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
-  incidentBtn: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', borderWidth: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  incidentBtnText: { fontSize: 12, fontWeight: '700', color: '#DC2626' },
+  incidentActionBtn: { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5' },
+  actionBtnText: { fontSize: 11, fontWeight: '700', color: '#1E293B', textAlign: 'center' },
+  incidentBtnText: { fontSize: 11, fontWeight: '700', color: '#DC2626' },
+
+  completionSection: { gap: 8 },
+  completionBtn: {
+    backgroundColor: '#059669',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  completionBtnDisabled: { backgroundColor: '#9CA3AF' },
+  completionBtnText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  completionBtnSubtext: { fontSize: 11, fontWeight: '600', color: '#D1FAE5', marginTop: 2, textAlign: 'center' },
+  completedBanner: { backgroundColor: '#DCFCE7', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#86EFAC' },
+  completedTitle: { fontSize: 14, fontWeight: '800', color: '#15803D', marginBottom: 4 },
+  completedSubtext: { fontSize: 11, color: '#166534', lineHeight: 16 },
+
   loadingBox: { padding: 20, alignItems: 'center', gap: 8 },
   loadingText: { fontSize: 12, color: '#64748B' },
   emptyCard: { backgroundColor: '#FFFFFF', padding: 32, borderRadius: 16, alignItems: 'center', gap: 8 },
   emptyIcon: { fontSize: 40 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
-  emptySub: { fontSize: 12, color: '#64748B', textAlign: 'center' },
+  emptySub: { fontSize: 12, color: '#64748B', textAlign: 'center', lineHeight: 17 },
+  emptyHint: { fontSize: 11, color: '#94A3B8', textAlign: 'center' },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 12 },
   modalTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
-  modalSub: { fontSize: 11, color: '#64748B' },
+  modalSub: { fontSize: 11, color: '#64748B', lineHeight: 15 },
   inputLabel: { fontSize: 11, fontWeight: '700', color: '#334155', marginTop: 4 },
-  textInput: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 12, color: '#0F172A' },
-  photoAttachBtn: { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#CBD5E1', borderStyle: 'dashed', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  photoAttachedBtn: { backgroundColor: '#DCFCE7', borderColor: '#22C55E', borderStyle: 'solid' },
-  photoAttachText: { fontSize: 11, fontWeight: '700', color: '#334155' },
+  textInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  textArea: { height: 72, textAlignVertical: 'top' },
+  helperText: { fontSize: 10, color: '#94A3B8', lineHeight: 14 },
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   catChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: '#F1F5F9' },
   catChipActive: { backgroundColor: '#F97316' },
@@ -804,59 +1003,14 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
   cancelModalBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#F1F5F9', alignItems: 'center' },
   cancelModalText: { fontSize: 12, fontWeight: '700', color: '#475569' },
-  submitModalBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#16A34A', alignItems: 'center' },
+  submitModalBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
+  submitModalBtnDisabled: { opacity: 0.7 },
   submitModalText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
-  completeTripBtn: { backgroundColor: '#16A34A' },
-  
-  // Trip Completion Styles
-  completionSection: { gap: 8 },
-  completionBtn: { 
-    backgroundColor: '#059669', 
-    paddingVertical: 14, 
-    paddingHorizontal: 16, 
-    borderRadius: 12, 
-    alignItems: 'center',
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  completionBtnDisabled: { backgroundColor: '#9CA3AF' },
-  completionBtnText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
-  completionBtnSubtext: { fontSize: 11, fontWeight: '600', color: '#D1FAE5', marginTop: 2 },
-  completedBanner: { 
-    backgroundColor: '#DCFCE7', 
-    padding: 14, 
-    borderRadius: 10, 
-    borderWidth: 1, 
-    borderColor: '#86EFAC' 
-  },
-  completedTitle: { fontSize: 14, fontWeight: '800', color: '#15803D', marginBottom: 4 },
-  completedSubtext: { fontSize: 11, color: '#166534', lineHeight: 16 },
-  
-  // Payment Summary Box
-  paymentSummaryBox: { 
-    backgroundColor: '#F0FDF4', 
-    padding: 12, 
-    borderRadius: 10, 
-    borderWidth: 1, 
-    borderColor: '#BBF7D0' 
-  },
-  paymentSummaryTitle: { fontSize: 12, fontWeight: '800', color: '#166534', marginBottom: 8 },
-  paymentSummaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  incidentSubmitBtn: { backgroundColor: '#EF4444' },
+
+  paymentSummaryBox: { backgroundColor: '#F0FDF4', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0', gap: 4 },
+  paymentSummaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
   paymentSummaryLabel: { fontSize: 11, color: '#475569' },
   paymentSummaryValue: { fontSize: 11, fontWeight: '700', color: '#0F172A' },
   releaseText: { color: '#16A34A' },
-  
-  // Next Steps Box
-  nextStepsBox: { 
-    backgroundColor: '#EFF6FF', 
-    padding: 12, 
-    borderRadius: 10, 
-    borderWidth: 1, 
-    borderColor: '#BFDBFE' 
-  },
-  nextStepsTitle: { fontSize: 12, fontWeight: '800', color: '#1E40AF', marginBottom: 6 },
-  nextStepsText: { fontSize: 11, color: '#1E3A8A', marginBottom: 2 },
 })

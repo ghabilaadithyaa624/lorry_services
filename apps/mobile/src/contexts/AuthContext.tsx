@@ -1,23 +1,19 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
-import { MMKV } from 'react-native-mmkv'
-import type { AnyUserRole } from '../lib/roles'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { authApi, onSessionExpired, tokenStorage } from '../services/api'
+import type { AuthUser } from '../services/types'
 
-const storage = new MMKV()
-
-interface User {
-  id: string
-  phone: string
-  name: string | null
-  role: AnyUserRole
-}
+export type User = AuthUser
 
 interface AuthContextType {
   user: User | null
   accessToken: string | null
   refreshToken: string | null
-  login: (token: string, refreshToken: string, user: User) => void
-  logout: () => void
   isLoading: boolean
+  login: (token: string, refreshToken: string, user: User) => void
+  /** Clears local credentials and best-effort revokes the refresh token. */
+  logout: () => Promise<void>
+  /** Persist a profile change (e.g. name update) without re-authenticating. */
+  updateUser: (patch: Partial<User>) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -28,49 +24,76 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [refreshToken, setRefreshToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  const clearSession = useCallback(() => {
+    tokenStorage.clear()
+    setAccessToken(null)
+    setRefreshToken(null)
+    setUser(null)
+  }, [])
+
+  // Hydrate from MMKV. Storage is shared with the API client, so the axios
+  // interceptor can refresh tokens without going through React state.
   useEffect(() => {
     try {
-      const storedToken = storage.getString('accessToken')
-      const storedRefresh = storage.getString('refreshToken')
-      const storedUser = storage.getString('user')
+      const storedToken = tokenStorage.getAccessToken()
+      const storedRefresh = tokenStorage.getRefreshToken()
+      const storedUser = tokenStorage.getUser()
 
       if (storedToken && storedUser) {
         setAccessToken(storedToken)
-        setRefreshToken(storedRefresh || null)
-        setUser(JSON.parse(storedUser))
+        setRefreshToken(storedRefresh)
+        setUser(storedUser)
+      } else if (storedToken || storedUser) {
+        // Half-written session — do not trust it.
+        tokenStorage.clear()
       }
     } catch (e) {
       console.error('Failed to load auth state', e)
+      tokenStorage.clear()
     } finally {
       setIsLoading(false)
     }
   }, [])
 
-  const login = (token: string, refresh: string, user: User) => {
-    storage.set('accessToken', token)
-    storage.set('refreshToken', refresh)
-    storage.set('user', JSON.stringify(user))
+  // When the API client fails to refresh an expired token it clears storage
+  // and notifies us so the navigator falls back to the login stack.
+  useEffect(() => onSessionExpired(clearSession), [clearSession])
+
+  const login = useCallback((token: string, refresh: string, nextUser: User) => {
+    tokenStorage.setTokens(token, refresh)
+    tokenStorage.setUser(nextUser)
 
     setAccessToken(token)
     setRefreshToken(refresh)
-    setUser(user)
-  }
+    setUser(nextUser)
+  }, [])
 
-  const logout = () => {
-    storage.delete('accessToken')
-    storage.delete('refreshToken')
-    storage.delete('user')
+  const logout = useCallback(async () => {
+    const hadRefreshToken = Boolean(tokenStorage.getRefreshToken())
+    try {
+      if (hadRefreshToken) await authApi.logout()
+    } catch {
+      // Offline or already revoked — local sign-out still proceeds.
+    } finally {
+      clearSession()
+    }
+  }, [clearSession])
 
-    setAccessToken(null)
-    setRefreshToken(null)
-    setUser(null)
-  }
+  const updateUser = useCallback((patch: Partial<User>) => {
+    setUser((current) => {
+      if (!current) return current
+      const next = { ...current, ...patch }
+      tokenStorage.setUser(next)
+      return next
+    })
+  }, [])
 
-  return (
-    <AuthContext.Provider value={{ user, accessToken, refreshToken, login, logout, isLoading }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user, accessToken, refreshToken, isLoading, login, logout, updateUser }),
+    [user, accessToken, refreshToken, isLoading, login, logout, updateUser]
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => {

@@ -14,9 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { StackNavigationProp } from '@react-navigation/stack'
 import { AuthStackParamList } from '../navigation/types'
-import { authApi, setTokens } from '../services/api'
+import { authApi, getApiErrorMessage } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
-import axios from 'axios'
 
 type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>
 
@@ -61,13 +60,7 @@ export function LoginScreen({ navigation }: LoginProps) {
         Alert.alert('Error', res.data.message || 'Failed to send OTP')
       }
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        Alert.alert('Error', err.response?.data?.message || 'Failed to send OTP')
-      } else if (err instanceof Error) {
-        Alert.alert('Error', err.message || 'Failed to send OTP')
-      } else {
-        Alert.alert('Error', 'Failed to send OTP')
-      }
+      Alert.alert('Could not send code', getApiErrorMessage(err, 'Failed to send OTP. Please try again.'))
     } finally {
       setLoading(false)
     }
@@ -88,16 +81,9 @@ export function LoginScreen({ navigation }: LoginProps) {
       const res = await authApi.verifyOtp(formattedPhone, otp)
       const { accessToken, refreshToken, user } = res.data
 
-      setTokens(accessToken, refreshToken)
       login(accessToken, refreshToken, user)
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        Alert.alert('Error', err.response?.data?.message || 'Invalid OTP')
-      } else if (err instanceof Error) {
-        Alert.alert('Error', err.message || 'Invalid OTP')
-      } else {
-        Alert.alert('Error', 'Invalid OTP')
-      }
+      Alert.alert('Could not verify code', getApiErrorMessage(err, 'Invalid or expired OTP. Please try again.'))
     } finally {
       setLoading(false)
     }
