@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   SparklesIcon,
   XMarkIcon,
@@ -34,6 +34,7 @@ export function AIFreightAssistantDrawer() {
   const [inputQuery, setInputQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
   const [messages, setMessages] = useState<MessageItem[]>([
     {
       id: 'welcome',
@@ -50,6 +51,15 @@ export function AIFreightAssistantDrawer() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen])
+
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus()
+      }, 50)
+      return () => clearTimeout(timer)
+    }
   }, [isOpen])
 
   const handleSendQuery = async (queryText?: string) => {
@@ -201,7 +211,11 @@ export function AIFreightAssistantDrawer() {
             </div>
 
             {/* Chat Body */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-4">
+            <div
+              aria-live="polite"
+              aria-atomic="false"
+              className="flex-1 p-4 overflow-y-auto space-y-4"
+            >
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -291,6 +305,7 @@ export function AIFreightAssistantDrawer() {
                 className="flex items-center gap-2"
               >
                 <input
+                  ref={inputRef}
                   type="text"
                   value={inputQuery}
                   onChange={(e) => setInputQuery(e.target.value)}
