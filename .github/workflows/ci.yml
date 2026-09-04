@@ -19,7 +19,9 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/db"
+      # DATABASE_URL was declared twice here (a `/db` value and the
+      # `?schema=public` value), which is invalid YAML. Kept the schema-qualified
+      # URL that matches the workflow-level env and the Prisma schema.
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/lorrycarry?schema=public"
       DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/lorrycarry?schema=public"
     steps:
@@ -36,8 +38,10 @@ jobs:
         run: npm install -g npm@11.12.1
 
       - name: Install Dependencies
-        run: npm install --no-audit --no-fund
-        run: npm install --legacy-peer-deps
+        # Single `run:` block — this step previously declared two `run:` keys,
+        # which is invalid YAML and made every workflow run fail with
+        # "workflow file issue" before any step executed.
+        run: npm install --no-audit --no-fund || npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Validate Prisma Schema
         run: npx prisma validate --schema=packages/database/prisma/schema.prisma
