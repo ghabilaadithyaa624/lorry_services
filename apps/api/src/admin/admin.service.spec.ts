@@ -12,7 +12,7 @@ jest.mock('@lorrycarry/database', () => {
     },
     load: { count: jest.fn() },
     truck: { count: jest.fn(), update: jest.fn() },
-    booking: { count: jest.fn(), findMany: jest.fn() },
+    booking: { count: jest.fn(), findMany: jest.fn(), groupBy: jest.fn(), aggregate: jest.fn() },
     document: { count: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     subscription: { count: jest.fn(), findMany: jest.fn() },
     payment: { findMany: jest.fn(), aggregate: jest.fn() },
@@ -21,14 +21,32 @@ jest.mock('@lorrycarry/database', () => {
   return {
     prisma: mockPrisma,
     UserRole: {
-      truck_owner: 'truck_owner',
-      load_owner: 'load_owner',
+      truck_driver: 'truck_driver',
+      factory_owner: 'factory_owner',
       admin: 'admin',
     },
     VerificationStatus: {
       Pending: 'Pending',
       Verified: 'Verified',
       Rejected: 'Rejected',
+    },
+    BookingStatus: {
+      Pending: 'Pending',
+      Confirmed: 'Confirmed',
+      InTransit: 'In-transit',
+      Completed: 'Completed',
+      Cancelled: 'Cancelled',
+    },
+    PaymentPurpose: {
+      subscription: 'subscription',
+      booking_advance: 'booking_advance',
+      booking_balance: 'booking_balance',
+    },
+    PaymentStatus: {
+      Pending: 'Pending',
+      Success: 'Success',
+      Failed: 'Failed',
+      Refunded: 'Refunded',
     },
   }
 })
@@ -56,7 +74,7 @@ describe('AdminService', () => {
     })
 
     it('should throw ForbiddenException if user is not admin', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.truck_owner })
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.truck_driver })
 
       await expect(service.getDashboardStats('admin-id')).rejects.toThrow(
         new ForbiddenException('Admin access required'),
@@ -126,6 +144,119 @@ describe('AdminService', () => {
     })
   })
 
+  describe('getAnalytics', () => {
+    const queueAnalyticsMocks = () => {
+      ;(prisma.booking.count as jest.Mock)
+        .mockResolvedValueOnce(12) // total completed
+        .mockResolvedValueOnce(5) // this period
+        .mockResolvedValueOnce(3) // previous period
+      ;(prisma.booking.groupBy as jest.Mock).mockResolvedValue([
+        { status: 'Completed', _count: { _all: 12 } },
+        { status: 'Pending', _count: { _all: 4 } },
+        { status: 'Confirmed', _count: { _all: 3 } },
+        { status: 'In-transit', _count: { _all: 2 } },
+      ])
+      ;(prisma.booking.aggregate as jest.Mock)
+        .mockResolvedValueOnce({ _sum: { agreedPrice: 120000 }, _avg: { agreedPrice: 10000 } })
+        .mockResolvedValueOnce({ _sum: { agreedPrice: 60000 } })
+        .mockResolvedValueOnce({ _sum: { agreedPrice: 55000 } })
+      ;(prisma.payment.aggregate as jest.Mock)
+        .mockResolvedValueOnce({ _sum: { amount: 25000 } })
+        .mockResolvedValueOnce({ _sum: { amount: 20000 } })
+        .mockResolvedValueOnce({ _sum: { amount: 5000 } })
+    }
+
+    beforeEach(() => {
+      ;(prisma.booking.count as jest.Mock).mockReset()
+      ;(prisma.booking.groupBy as jest.Mock).mockReset()
+      ;(prisma.booking.aggregate as jest.Mock).mockReset()
+      ;(prisma.payment.aggregate as jest.Mock).mockReset()
+      ;(prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.admin })
+    })
+
+    it('should throw ForbiddenException if user is not admin', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.truck_owner })
+      await expect(service.getAnalytics('user-id')).rejects.toThrow(
+        new ForbiddenException('Admin access required'),
+      )
+    })
+
+    it('should return aggregated totals with zero route data', async () => {
+      queueAnalyticsMocks()
+      ;(prisma.booking.findMany as jest.Mock).mockResolvedValue([])
+
+      const result = await service.getAnalytics('admin-id', 30)
+
+      expect(result.rangeDays).toBe(30)
+      expect(result.trips.totalCompleted).toBe(12)
+      expect(result.trips.periodCompleted).toBe(5)
+      expect(result.trips.changePercent).toBe(66.7)
+      expect(result.earnings.grossBookingValue).toBe(120000)
+      expect(result.earnings.averageTripEarnings).toBe(10000)
+      expect(result.earnings.platformRevenue).toBe(25000)
+      expect(result.earnings.subscriptionRevenue).toBe(20000)
+      expect(result.earnings.bookingPaymentRevenue).toBe(5000)
+      expect(result.bookings.active).toBe(9)
+      expect(result.bookings.pending).toBe(4)
+      expect(result.bookings.confirmed).toBe(3)
+      expect(result.bookings.inTransit).toBe(2)
+      expect(result.bookings.completionRate).toBe(100)
+      expect(result.routes.totalRoutes).toBe(0)
+      expect(result.routes.averageEfficiency).toBe(0)
+      expect(result.trips.completedByMonth).toHaveLength(6)
+    })
+
+    it('should build route efficiency heatmap with monthly traffic', async () => {
+      queueAnalyticsMocks()
+      const now = Date.now()
+      ;(prisma.booking.findMany as jest.Mock).mockResolvedValue([
+        {
+          agreedPrice: '50000',
+          startedAt: new Date(now - 30 * 60 * 60 * 1000),
+          completedAt: new Date(now - 5 * 60 * 60 * 1000),
+          load: {
+            loadingAddress: 'Plot 12, Baner, Pune, Maharashtra 411001',
+            loadingPin: '411001',
+            unloadingAddress: 'CST Road, Kalina, Mumbai, Maharashtra 400098',
+            unloadingPin: '400098',
+            expectedDeliveryAt: new Date(now + 12 * 60 * 60 * 1000),
+          },
+          checkpoints: [
+            { seq: 1, crossedAt: new Date(now - 22 * 60 * 60 * 1000), etaMinutes: null },
+            { seq: 2, crossedAt: new Date(now - 18 * 60 * 60 * 1000), etaMinutes: null },
+            { seq: 3, crossedAt: new Date(now - 12 * 60 * 60 * 1000), etaMinutes: null },
+            { seq: 4, crossedAt: new Date(now - 8 * 60 * 60 * 1000), etaMinutes: null },
+            { seq: 5, crossedAt: new Date(now - 5 * 60 * 60 * 1000), etaMinutes: null },
+          ],
+        },
+      ])
+
+      const result = await service.getAnalytics('admin-id', 90)
+
+      expect(result.earnings.periodEarnings).toBe(50000)
+      expect(result.routes.totalRoutes).toBe(1)
+      expect(result.routes.heatmap).toHaveLength(1)
+      expect(result.routes.heatmap[0].origin).toBe('Pune')
+      expect(result.routes.heatmap[0].destination).toBe('Mumbai')
+      expect(result.routes.heatmap[0].trips).toBe(1)
+      expect(result.routes.heatmap[0].efficiencyScore).toBeGreaterThan(0)
+      // 25h trip: transit 98 (100 - (25-24)*2), all 5 checkpoints crossed,
+      // on-time → composite 0.5*98 + 0.3*100 + 0.2*100 = 99.
+      expect(result.routes.heatmap[0].efficiencyScore).toBe(99)
+      expect(result.routes.heatmap[0].months).toHaveLength(6)
+      expect(result.routes.heatmap[0].months.reduce((a, m) => a + m.trips, 0)).toBe(1)
+    })
+
+    it('should fall back to default 30 day range for invalid ranges', async () => {
+      queueAnalyticsMocks()
+      ;(prisma.booking.findMany as jest.Mock).mockResolvedValue([])
+
+      const result = await service.getAnalytics('admin-id', 7)
+
+      expect(result.rangeDays).toBe(30)
+    })
+  })
+
   describe('listUsers', () => {
     beforeEach(() => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: UserRole.admin })
@@ -153,13 +284,13 @@ describe('AdminService', () => {
       (prisma.user.findMany as jest.Mock).mockResolvedValue([{ id: 1 }])
       ;(prisma.user.count as jest.Mock).mockResolvedValue(15)
 
-      const result = await service.listUsers('admin-id', UserRole.truck_owner, 1, 10)
+      const result = await service.listUsers('admin-id', UserRole.truck_driver, 1, 10)
 
       expect(prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: { role: UserRole.truck_owner },
+        where: { role: UserRole.truck_driver },
         skip: 0,
       }))
-      expect(prisma.user.count).toHaveBeenCalledWith({ where: { role: UserRole.truck_owner } })
+      expect(prisma.user.count).toHaveBeenCalledWith({ where: { role: UserRole.truck_driver } })
 
       expect(result.pages).toBe(2)
     })

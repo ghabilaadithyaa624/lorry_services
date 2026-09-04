@@ -20,6 +20,9 @@ import {
 } from 'lucide-react'
 import { Navbar, Footer } from '@/components/layout'
 import { FreightNetworkDiagram } from '@/components/ui'
+import HeroSection from '@/components/HeroSection'
+import { StructuredData } from '@/components/seo/StructuredData'
+import { getFaqStructuredData, getBreadcrumbStructuredData } from '@/lib/seo/structuredData'
 import { cn } from '@/lib/utils'
 
 export default function HomePage() {
@@ -241,94 +244,28 @@ export default function HomePage() {
     {
       question: 'Is there any broker commission or platform fee per trip?',
       answer:
-        'There is zero per-trip broker commission. LorryCarry is a direct marketplace — shippers and truck owners negotiate and settle freight charges directly between themselves.',
+        'There is zero per-trip broker commission. LorryCarry is a direct marketplace — shippers and truck drivers negotiate and settle freight charges directly between themselves.',
     },
   ]
 
+  // Structured data for SEO — FAQ and Breadcrumbs (rendered as JSON-LD for rich results)
+  const faqStructuredData = getFaqStructuredData(faqItems)
+  const breadcrumbStructuredData = getBreadcrumbStructuredData([
+    { name: 'Home', url: '/' },
+    { name: 'Search Trucks', url: '/search?type=truck' },
+    { name: 'Search Loads', url: '/search?type=load' },
+  ])
+
   return (
     <div className="min-h-screen bg-slate-50 text-gray-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+      {/* JSON-LD Structured Data for freight services — helps search engines surface rich results */}
+      <StructuredData data={faqStructuredData} id="faq-ld" />
+      <StructuredData data={breadcrumbStructuredData} id="breadcrumb-ld" />
       <Navbar />
 
       <main className="flex-1 overflow-x-hidden">
-        {/* ── SECTION 1: ENTERPRISE HERO ── */}
-        <section className="relative pt-12 pb-16 sm:pt-16 sm:pb-20 border-b border-gray-200 overflow-hidden bg-slate-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-              {/* Left Column: Hero Value Proposition */}
-              <div className="lg:col-span-5 space-y-6 text-left">
-                {/* Enterprise Badge */}
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-xs font-mono font-bold text-orange-700 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
-                  <span>DIRECT FREIGHT DISPATCH PLATFORM</span>
-                </div>
-
-                {/* Requirement Headline */}
-                <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 leading-[1.08] font-sans">
-                  INDIA&apos;S LIVE <br />
-                  <span className="text-orange-500">
-                    FREIGHT OPERATING NETWORK
-                  </span>
-                </h1>
-
-                {/* Requirement Subheading */}
-                <p className="text-xs sm:text-sm text-gray-600 max-w-xl leading-relaxed font-sans">
-                  Direct freight dispatch connecting shippers with verified carriers across India&apos;s major freight corridors within a 50km loading radius.
-                </p>
-
-                {/* Hero CTAs - Preserved exact primary labels */}
-                <div className="flex flex-wrap items-center gap-3.5 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => router.push('/post-load')}
-                    className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-xs sm:text-sm font-bold transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus:outline-none cursor-pointer uppercase tracking-wider"
-                  >
-                    <Truck className="w-4 h-4 shrink-0" />
-                    <span>POST FREIGHT LOAD</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => router.push('/search?type=truck')}
-                    className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-slate-100 border border-gray-200 text-gray-900 text-xs sm:text-sm font-bold transition-colors shadow-2xs focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer uppercase tracking-wider"
-                  >
-                    <Search className="w-4 h-4 shrink-0 text-orange-500" />
-                    <span>EXPLORE VERIFIED FLEET</span>
-                  </button>
-                </div>
-
-                {/* Hero Proof Metrics */}
-                <div className="pt-6 grid grid-cols-3 gap-3 border-t border-gray-200">
-                  <div>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 block font-sans">
-                      VERIFIED FLEET
-                    </span>
-                    <span className="text-base sm:text-lg font-mono font-black text-gray-900">2,480+</span>
-                    <span className="text-[10px] text-gray-500 block font-sans">Vahan Authenticated</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 block font-sans">
-                      PROXIMITY MATCH
-                    </span>
-                    <span className="text-base sm:text-lg font-mono font-black text-orange-600">50 KM</span>
-                    <span className="text-[10px] text-gray-500 block font-sans">Loading Radius</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 block font-sans">
-                      BROKER MARGIN
-                    </span>
-                    <span className="text-base sm:text-lg font-mono font-black text-emerald-700">₹0</span>
-                    <span className="text-[10px] text-gray-500 block font-sans">100% Direct Deal</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Consolidated Hero Dispatch & Corridor Telemetry Widget */}
-              <div className="lg:col-span-7">
-                <FreightNetworkDiagram />
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* ── SECTION 1: HERO SECTION ── */}
+        <HeroSection />
 
         {/* ── CAPABILITY TELEMETRY RAIL ── */}
         <section className="bg-white border-b border-gray-200 py-6">
@@ -994,7 +931,7 @@ export default function HomePage() {
 
                 <button
                   type="button"
-                  onClick={() => router.push('/login?redirect=/dashboard/truck-owner')}
+                  onClick={() => router.push('/login?redirect=/dashboard/truck-driver')}
                   className="font-bold px-8 py-4 text-xs sm:text-sm bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl shadow-2xs uppercase tracking-wider font-mono transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
                 >
                   REGISTER YOUR LORRY

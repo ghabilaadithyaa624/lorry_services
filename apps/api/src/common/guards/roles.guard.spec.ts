@@ -50,7 +50,7 @@ describe('RolesGuard (Admin Authorization)', () => {
       getHandler: jest.fn(),
       getClass: jest.fn(),
       switchToHttp: jest.fn().mockReturnValue({
-        getRequest: jest.fn().mockReturnValue({ user: { role: 'load_owner' } }),
+        getRequest: jest.fn().mockReturnValue({ user: { role: 'factory_owner' } }),
       }),
     } as unknown as ExecutionContext
 

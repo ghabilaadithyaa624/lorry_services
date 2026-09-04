@@ -241,7 +241,7 @@ export default function DocumentsPage() {
                 </Button>
               ) : (
                 <Link
-                  href="/dashboard/truck-owner"
+                  href="/dashboard/truck-driver"
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-sans font-semibold hover:bg-primary-500 transition-colors shadow-glow-primary"
                 >
                   <TruckIcon className="w-4 h-4" />
@@ -328,7 +328,7 @@ export default function DocumentsPage() {
         <DigitalDocumentChainCard
           bookingId="b-freight-active-8492"
           bookingNumber="LC-8492-MAA"
-          loadOwnerName="Shipper Enterprise Depot"
+          factoryOwnerName="Shipper Enterprise Depot"
           truckRegNumber={trucks[0]?.registrationNumber || 'MH 12 QT 8492'}
           consigneeName="Depot Receiving Manager"
           status="InTransit"

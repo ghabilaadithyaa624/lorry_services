@@ -10,8 +10,18 @@ import type { NextRequest } from 'next/server'
 
 const PUBLIC_EXACT_PATHS = ['/']
 const PUBLIC_PREFIXES = ['/login', '/role-select', '/search', '/subscribe', '/subscription', '/api']
-const LOAD_OWNER_PATHS = ['/dashboard/load-owner', '/post-load', '/my-loads']
-const TRUCK_OWNER_PATHS = ['/dashboard/truck-owner', '/register-truck', '/my-trucks']
+const LOAD_OWNER_PATHS = ['/dashboard/load-owner', '/post-load', '/need-load', '/my-loads']
+const TRUCK_OWNER_PATHS = ['/dashboard/truck-owner', '/register-truck', '/need-vehicle', '/my-trucks']
+const DRIVER_PATHS = ['/dashboard/driver']
+
+const dashboardForRole = (role?: string) =>
+  role === 'admin'
+    ? '/admin'
+    : role === 'driver'
+      ? '/dashboard/driver'
+      : role === 'truck_owner' || role === 'truck_driver'
+        ? '/dashboard/truck-owner'
+        : '/dashboard/load-owner'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -24,9 +34,7 @@ export async function middleware(request: NextRequest) {
   if (isPublic) {
     // If logged in and trying to access login, redirect to dashboard
     if (token && pathname === '/login') {
-      const dashboard = userRole === 'load_owner' 
-        ? '/dashboard/load-owner' 
-        : '/dashboard/truck-owner'
+      const dashboard = dashboardForRole(userRole)
       return NextResponse.redirect(new URL(dashboard, request.url))
     }
     return NextResponse.next()
@@ -41,12 +49,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect /dashboard to appropriate role dashboard
   if (pathname === '/dashboard') {
-    const dashboard = userRole === 'admin'
-      ? '/admin'
-      : userRole === 'truck_owner'
-      ? '/dashboard/truck-owner'
-      : '/dashboard/load-owner'
-    return NextResponse.redirect(new URL(dashboard, request.url))
+    return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
   }
 
   // Admin-only paths — Server-side token & role verification against NestJS API
@@ -66,9 +69,7 @@ export async function middleware(request: NextRequest) {
       }
       const data = await res.json()
       if (data?.role !== 'admin') {
-        const fallback = data?.role === 'truck_owner'
-          ? '/dashboard/truck-owner'
-          : '/dashboard/load-owner'
+        const fallback = dashboardForRole(data?.role)
         return NextResponse.redirect(new URL(fallback, request.url))
       }
     } catch {
@@ -80,14 +81,20 @@ export async function middleware(request: NextRequest) {
 
   // Role-based access control
   if (LOAD_OWNER_PATHS.some(path => pathname.startsWith(path))) {
-    if (userRole !== 'load_owner') {
-      return NextResponse.redirect(new URL('/dashboard/truck-owner', request.url))
+    if (userRole !== 'load_owner' && userRole !== 'factory_owner') {
+      return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
     }
   }
 
   if (TRUCK_OWNER_PATHS.some(path => pathname.startsWith(path))) {
-    if (userRole !== 'truck_owner') {
-      return NextResponse.redirect(new URL('/dashboard/load-owner', request.url))
+    if (userRole !== 'truck_owner' && userRole !== 'driver' && userRole !== 'truck_driver') {
+      return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
+    }
+  }
+
+  if (DRIVER_PATHS.some(path => pathname.startsWith(path))) {
+    if (userRole !== 'driver') {
+      return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
     }
   }
 

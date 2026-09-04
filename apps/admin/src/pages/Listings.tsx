@@ -351,9 +351,9 @@ export function Listings() {
                       <span
                         className={cn(
                           'badge font-semibold',
-                          u.role === 'load_owner'
+                          u.role === 'factory_owner'
                             ? 'bg-info-500/10 text-info-400 border border-info-500/20'
-                            : u.role === 'truck_owner'
+                            : u.role === 'truck_driver'
                             ? 'bg-success-500/10 text-success-400 border border-success-500/20'
                             : 'bg-danger-500/10 text-danger-400 border border-danger-500/20'
                         )}

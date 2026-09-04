@@ -16,8 +16,8 @@ interface BookingItem {
   id: string
   loadId: string
   truckId: string
-  loadOwnerId: string
-  truckOwnerId: string
+  factoryOwnerId: string
+  truckDriverId: string
   agreedPrice: number | string
   advanceConfirmed: boolean
   balanceConfirmed: boolean
@@ -28,8 +28,8 @@ interface BookingItem {
   completedAt: string | null
   createdAt: string
   updatedAt: string
-  loadOwner: { name: string | null; phone: string }
-  truckOwner: { name: string | null; phone: string }
+  factoryOwner: { name: string | null; phone: string }
+  truckDriver: { name: string | null; phone: string }
   load: { loadingAddress: string; unloadingAddress: string }
   truck: { registrationNumber: string }
 }
@@ -132,7 +132,7 @@ export function Bookings() {
                   <th className="text-left px-6 py-3.5">Booking ID</th>
                   <th className="text-left px-6 py-3.5">Route</th>
                   <th className="text-left px-6 py-3.5">Vehicle</th>
-                  <th className="text-left px-6 py-3.5">Load Owner</th>
+                  <th className="text-left px-6 py-3.5">Factory Owner</th>
                   <th className="text-left px-6 py-3.5">Transporter</th>
                   <th className="text-right px-6 py-3.5">Agreed Price</th>
                   <th className="text-left px-6 py-3.5">Status</th>
@@ -175,13 +175,13 @@ export function Bookings() {
                       </td>
 
                       <td className="px-6 py-3.5">
-                        <p className="font-semibold text-white text-xs">{b.loadOwner.name || '—'}</p>
-                        <p className="text-[11px] text-surface-400 font-mono">{formatPhone(b.loadOwner.phone)}</p>
+                        <p className="font-semibold text-white text-xs">{b.factoryOwner.name || '—'}</p>
+                        <p className="text-[11px] text-surface-400 font-mono">{formatPhone(b.factoryOwner.phone)}</p>
                       </td>
 
                       <td className="px-6 py-3.5">
-                        <p className="font-semibold text-white text-xs">{b.truckOwner.name || '—'}</p>
-                        <p className="text-[11px] text-surface-400 font-mono">{formatPhone(b.truckOwner.phone)}</p>
+                        <p className="font-semibold text-white text-xs">{b.truckDriver.name || '—'}</p>
+                        <p className="text-[11px] text-surface-400 font-mono">{formatPhone(b.truckDriver.phone)}</p>
                       </td>
 
                       <td className="px-6 py-3.5 text-right font-bold text-success-400 text-xs">

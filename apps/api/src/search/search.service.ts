@@ -45,6 +45,9 @@ export class SearchService {
         t.serviceable_radius_km as "serviceableRadiusKm",
         t.preferred_destinations as "preferredDestinations",
         t.verification_status as "verificationStatus",
+        -- Verification & Compliance signals for the transporter card badge
+        t.vahan_validated_at as "vahanVerifiedAt",
+        t.fastag_status as "fastagStatus",
         ST_Distance(t.current_location::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography) / 1000 as "distanceKm",
         -- MASKED: user_id, registration_number hidden for non-subscribers
         NULL as "registrationNumber",
@@ -56,7 +59,7 @@ export class SearchService {
       LIMIT 50
     `
     
-    const trucks = await prisma.$queryRaw<any[]>(query)
+    const trucks = await (prisma.$queryRaw as any)(query)
     return trucks
   }
 
@@ -118,32 +121,48 @@ export class SearchService {
       LIMIT 50
     `
     
-    const loads = await prisma.$queryRaw<any[]>(query)
+    const loads = await (prisma.$queryRaw as any)(query)
     return loads
   }
 
   /**
-   * Reveal full contact details (requires active subscription)
+   * Premium access = paid active subscription OR an active 3-month free trial.
+   */
+  async hasPremiumAccess(userId: string): Promise<boolean> {
+    const now = new Date()
+    const [subscription, user] = await Promise.all([
+      prisma.subscription.findFirst({
+        where: { userId, status: 'active', expiresAt: { gt: now } },
+        select: { id: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { trialStartedAt: true, trialEndsAt: true },
+      }),
+    ])
+    if (subscription) return true
+    return (
+      !!user?.trialStartedAt &&
+      !!user?.trialEndsAt &&
+      user.trialEndsAt.getTime() > now.getTime()
+    )
+  }
+
+  /**
+   * Reveal full contact details (requires active subscription OR trial)
    */
   async revealContact(userId: string, listingId: string, type: 'truck' | 'load') {
-    // Check subscription
-    const subscription = await prisma.subscription.findFirst({
-      where: {
-        userId,
-        status: 'active',
-        expiresAt: { gt: new Date() },
-      },
-    })
-    
-    if (!subscription) {
+    const allowed = await this.hasPremiumAccess(userId)
+
+    if (!allowed) {
       this.logger.warn(
-        `Contact reveal denied (no active subscription): userId=${userId}, type=${type}, listingId=${listingId}`,
+        `Contact reveal denied (no premium access): userId=${userId}, type=${type}, listingId=${listingId}`,
       )
       throw new HttpException(
         {
           statusCode: HttpStatus.PAYMENT_REQUIRED,
           error: 'Payment Required',
-          message: 'An active subscription is required to view contact details.',
+          message: 'An active subscription or free trial is required to view contact details.',
         },
         HttpStatus.PAYMENT_REQUIRED,
       )

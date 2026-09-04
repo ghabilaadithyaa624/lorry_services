@@ -15,7 +15,7 @@ export function ContactRevealModal({ onClose, onSubscribe }: ContactRevealModalP
       open={true}
       onClose={onClose}
       title="Unlock Contact Details"
-      description="Subscribe to view phone numbers and connect directly with truck/load owners via WhatsApp."
+      description="Subscribe to view phone numbers and connect directly with truck/factory owners via WhatsApp."
       size="md"
     >
       <div className="space-y-5">
@@ -38,7 +38,7 @@ export function ContactRevealModal({ onClose, onSubscribe }: ContactRevealModalP
             </li>
             <li className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium">
               <CheckIcon className="w-4 h-4 mr-2 shrink-0 stroke-[2.5]" aria-hidden="true" />
-              Verified truck owner details
+              Verified truck driver details
             </li>
             <li className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium">
               <CheckIcon className="w-4 h-4 mr-2 shrink-0 stroke-[2.5]" aria-hidden="true" />

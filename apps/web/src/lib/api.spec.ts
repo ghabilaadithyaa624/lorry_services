@@ -100,9 +100,9 @@ describe('api Response Interceptor — Refresh Token Retry & Error Paths', () =>
     // 1. Arrange
     mockLocalStorage['refreshToken'] = 'existing-refresh-token'
     mockLocalStorage['accessToken'] = 'expired-access-token'
-    mockLocalStorage['user'] = JSON.stringify({ role: 'load_owner' })
+    mockLocalStorage['user'] = JSON.stringify({ role: 'factory_owner' })
     mockCookies['accessToken'] = 'expired-access-token'
-    mockCookies['userRole'] = 'load_owner'
+    mockCookies['userRole'] = 'factory_owner'
 
     const refreshError = new Error('Invalid refresh token')
     mockPost.mockRejectedValueOnce(refreshError)
@@ -140,7 +140,7 @@ describe('api Response Interceptor — Refresh Token Retry & Error Paths', () =>
   it('should fail immediately when no refresh token is present in localStorage', async () => {
     // 1. Arrange
     mockCookies['accessToken'] = 'expired-access-token'
-    mockCookies['userRole'] = 'load_owner'
+    mockCookies['userRole'] = 'factory_owner'
 
     const originalRequest: any = {
       url: '/users/me',
@@ -173,7 +173,7 @@ describe('api Response Interceptor — Refresh Token Retry & Error Paths', () =>
     // 1. Arrange
     mockLocalStorage['refreshToken'] = 'valid-refresh-token'
     mockLocalStorage['accessToken'] = 'expired-access-token'
-    mockLocalStorage['user'] = JSON.stringify({ role: 'load_owner' })
+    mockLocalStorage['user'] = JSON.stringify({ role: 'factory_owner' })
 
     const newAccessToken = 'newly-acquired-access-token'
     const newRefreshToken = 'newly-acquired-refresh-token'
@@ -213,7 +213,7 @@ describe('api Response Interceptor — Refresh Token Retry & Error Paths', () =>
     expect(mockLocalStorage['refreshToken']).toBe(newRefreshToken)
 
     expect(mockCookies['accessToken']).toBe(newAccessToken)
-    expect(mockCookies['userRole']).toBe('load_owner')
+    expect(mockCookies['userRole']).toBe('factory_owner')
 
     expect(originalRequest._retry).toBe(true)
     expect(originalRequest.headers.Authorization).toBe(`Bearer ${newAccessToken}`)
@@ -244,7 +244,7 @@ describe('api Response Interceptor — Refresh Token Retry & Error Paths', () =>
   it('should set userRole cookie when user JSON contains a role during refresh', async () => {
     mockLocalStorage['refreshToken'] = 'valid-refresh-token'
     mockLocalStorage['accessToken'] = 'expired-access-token'
-    mockLocalStorage['user'] = JSON.stringify({ role: 'truck_owner' })
+    mockLocalStorage['user'] = JSON.stringify({ role: 'truck_driver' })
 
     mockPost.mockResolvedValueOnce({
       data: {
@@ -258,6 +258,6 @@ describe('api Response Interceptor — Refresh Token Retry & Error Paths', () =>
     mockApiInstance.mockResolvedValueOnce({ data: 'success-data' })
 
     await mockResponseInterceptorReject(error401)
-    expect(mockCookies['userRole']).toBe('truck_owner')
+    expect(mockCookies['userRole']).toBe('truck_driver')
   })
 })

@@ -300,7 +300,7 @@ export function PaymentScreen() {
             <Text style={styles.noPassIcon}>🎫</Text>
             <Text style={styles.noPassTitle}>No Active Transporter Pass</Text>
             <Text style={styles.noPassDesc}>
-              {user?.role === 'truck_owner'
+              {user?.role === 'truck_owner' || user?.role === 'driver'
                 ? 'Contact details, direct phone calls, and direct load booking triggers are restricted. Get direct load logistics intelligence without third-party broker friction.'
                 : 'Contact details, direct phone calls, and direct truck booking triggers are restricted. Get direct truck logistics intelligence without third-party broker friction.'}
             </Text>

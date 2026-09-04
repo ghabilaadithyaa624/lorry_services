@@ -21,6 +21,7 @@ import { usersApi } from '@/lib/api'
 import { Badge, GlassPanel, Skeleton } from '@/components/ui'
 import { toast } from '@/lib/toast'
 import { cn, formatPhone } from '@/lib/utils'
+import { getDashboardForRole, getRoleLabel, isVehicleSideRole } from '@/lib/roles'
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null)
@@ -73,7 +74,7 @@ export default function ProfilePage() {
     }
   }
 
-  const isTruckOwner = profile?.role === 'truck_owner'
+  const isTruckOwner = isVehicleSideRole(profile?.role)
   const isAdmin = profile?.role === 'admin'
 
   const score = profile?.profileCompletion?.score || 50
@@ -146,7 +147,7 @@ export default function ProfilePage() {
                     size="sm"
                     className="capitalize"
                   >
-                    {isTruckOwner ? 'Truck owner' : isAdmin ? 'Administrator' : 'Load owner'}
+                    {getRoleLabel(profile?.role)}
                   </Badge>
                 </div>
 
@@ -289,7 +290,7 @@ export default function ProfilePage() {
                 </h2>
               </div>
               <Link
-                href={isTruckOwner ? '/dashboard/truck-owner' : '/my-loads'}
+                href={isTruckOwner ? getDashboardForRole(profile?.role) : '/my-loads'}
                 className="text-xs font-bold text-primary-400 hover:text-primary-300 flex items-center gap-1"
               >
                 <span>View Dashboard</span>

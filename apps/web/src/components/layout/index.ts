@@ -2,6 +2,7 @@
  * Layout Components
  */
 export * from './Navbar'
+export * from './LanguageToggle'
 export * from './Footer'
 export * from './DashboardLayout'
 export * from './MobileBottomNav'

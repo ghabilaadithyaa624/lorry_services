@@ -29,6 +29,17 @@ interface PendingDoc {
     id: string
     registrationNumber: string
     bodyType: string
+    /** Vahan RC cross-check snapshot (present when the RC has been validated). */
+    vahanValidatedAt: string | null
+    vahanDetails: {
+      registrationStatus?: string
+      makerModel?: string | null
+      fuelType?: string | null
+      fitnessValidUpto?: string | null
+      insuranceValidUpto?: string | null
+      source?: string
+    } | null
+    fastagStatus?: string | null
     user: { name: string | null; phone: string }
   }
 }
@@ -45,6 +56,8 @@ export default function KycQueuePage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [rejectionNote, setRejectionNote] = useState('')
+  const [vahanLoading, setVahanLoading] = useState<string | null>(null)
+  const [vahanResults, setVahanResults] = useState<Record<string, { status: string; message: string; checkedAt?: string }>>({})
 
   const fetchDocs = useCallback(async () => {
     setLoading(true)
@@ -79,6 +92,27 @@ export default function KycQueuePage() {
       setActionLoading(null)
       setConfirm(null)
       setRejectionNote('')
+    }
+  }
+
+  const handleVahanCheck = async (truckId: string, registrationNumber: string) => {
+    setVahanLoading(truckId)
+    try {
+      const response = await adminApi.checkVahan(truckId)
+      const result = response.data
+      setVahanResults((current) => ({
+        ...current,
+        [truckId]: { status: result.status, message: result.message, checkedAt: result.checkedAt },
+      }))
+      if (result.success) {
+        toast.success(`${registrationNumber} matched the Vahan provider response`)
+      } else {
+        toast.info(result.message || 'Vahan check needs manual review')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Vahan lookup failed')
+    } finally {
+      setVahanLoading(null)
     }
   }
 
@@ -138,6 +172,11 @@ export default function KycQueuePage() {
           <p className="text-xs font-mono text-surface-400 mt-1">
             Review submitted RTO RC books and commercial insurance policies before approving fleet capacity.
           </p>
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <Badge variant="info" size="sm" className="font-mono text-[10px]">RC document review</Badge>
+            <Badge variant="success" size="sm" className="font-mono text-[10px]">Vahan / Parivahan lookup</Badge>
+            <span className="text-[10px] text-surface-500 font-mono">Provider results never replace manual approval.</span>
+          </div>
         </div>
 
         <button
@@ -190,9 +229,51 @@ export default function KycQueuePage() {
                       <p className="text-[11px] text-surface-400">{formatPhone(doc.truck.user.phone)}</p>
                     </td>
 
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 min-w-[190px]">
                       <p className="font-bold text-white">🆔 {doc.truck.registrationNumber}</p>
                       <Badge variant="default" size="sm" className="font-mono text-[10px]">{doc.truck.bodyType}</Badge>
+                      {(() => {
+                        const vahan = vahanResults[doc.truck.id]
+                        const vahanStatus = vahan?.status || doc.truck.vahanStatus || 'NotChecked'
+                        const isVerified = vahanStatus === 'Verified'
+                        const isPending = vahanStatus === 'Pending' || vahanLoading === doc.truck.id
+                        return (
+                          <div className="mt-2 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant={isVerified ? 'success' : isPending ? 'info' : vahanStatus === 'Mismatch' || vahanStatus === 'Error' ? 'danger' : 'warning'} size="sm" className="font-mono text-[9px]">
+                                {isPending ? 'CHECKING...' : `VAHAN ${vahanStatus.toUpperCase()}`}
+                              </Badge>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleVahanCheck(doc.truck.id, doc.truck.registrationNumber)}
+                              disabled={vahanLoading !== null}
+                              className="text-[10px] font-mono font-bold text-primary-300 hover:text-primary-200 disabled:opacity-40 inline-flex items-center gap-1"
+                            >
+                              <ArrowPathIcon className={`w-3 h-3 ${isPending ? 'animate-spin' : ''}`} />
+                              {vahanStatus === 'NotChecked' ? 'Run Vahan check' : 'Run again'}
+                            </button>
+                            {(vahan?.checkedAt || doc.truck.vahanLastCheckedAt) && <span className="block text-[9px] text-surface-500 font-mono">Checked {new Date(vahan?.checkedAt || doc.truck.vahanLastCheckedAt || '').toLocaleDateString('en-IN')}</span>}
+                          </div>
+                        )
+                      })()}
+                      {/* Vahan RC cross-check for the reviewer */}
+                      {doc.truck.vahanValidatedAt && doc.truck.vahanDetails ? (
+                        <p
+                          className="mt-1 text-[10px] font-mono text-emerald-400"
+                          title={`Vahan snapshot (${doc.truck.vahanDetails.source || 'vahan_api'}): ${
+                            doc.truck.vahanDetails.registrationStatus || 'ACTIVE'
+                          }${doc.truck.vahanDetails.makerModel ? ` · ${doc.truck.vahanDetails.makerModel}` : ''}${
+                            doc.truck.vahanDetails.insuranceValidUpto ? ` · insurance till ${doc.truck.vahanDetails.insuranceValidUpto}` : ''
+                          }`}
+                        >
+                          ✓ Vahan: {doc.truck.vahanDetails.registrationStatus || 'ACTIVE'}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-[10px] font-mono text-surface-500" title="RC not yet validated against the Vahan database">
+                          Vahan: not validated
+                        </p>
+                      )}
                     </td>
 
                     <td className="py-3.5 px-4">
@@ -293,7 +374,7 @@ export default function KycQueuePage() {
             <p className="text-surface-300 leading-relaxed">
               {confirm.action === 'Verified'
                 ? 'Are you sure you want to mark this document as VERIFIED? If all vehicle documents are verified, the truck status will update to Verified.'
-                : 'Are you sure you want to REJECT this document? The truck owner will be notified to upload a new document.'}
+                : 'Are you sure you want to REJECT this document? The truck driver will be notified to upload a new document.'}
             </p>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-white/10">

@@ -7,6 +7,8 @@ import { Listings } from './pages/Listings'
 import { Subscriptions } from './pages/Subscriptions'
 import { Users } from './pages/Users'
 import { Bookings } from './pages/Bookings'
+import { Disputes } from './pages/Disputes'
+import { Analytics } from './pages/Analytics'
 import { Login } from './pages/Login'
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
@@ -29,6 +31,8 @@ function ProtectedLayout() {
           <Route path="/subscriptions" element={<PageTransition><Subscriptions /></PageTransition>} />
           <Route path="/users" element={<PageTransition><Users /></PageTransition>} />
           <Route path="/bookings" element={<PageTransition><Bookings /></PageTransition>} />
+          <Route path="/disputes" element={<PageTransition><Disputes /></PageTransition>} />
+          <Route path="/analytics" element={<PageTransition><Analytics /></PageTransition>} />
         </Routes>
       </AnimatePresence>
     </Layout>

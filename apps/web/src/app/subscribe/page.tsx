@@ -7,12 +7,18 @@ import {
   ShieldCheckIcon,
   LockClosedIcon,
 } from '@heroicons/react/24/outline'
-import { api } from '@/lib/api'
-import { load } from '@cashfreepayments/cashfree-js'
 import { Navbar, Footer } from '@/components/layout'
+import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
 import { Button, Badge, GlassPanel, Spinner } from '@/components/ui'
+import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
 import { toast } from '@/lib/toast'
 import { cn, formatINR } from '@/lib/utils'
+import {
+  getEntitlement,
+  initiateSubscription,
+  openCheckout,
+  SubscriptionEntitlement,
+} from '@/lib/subscription'
 
 const PLANS = [
   {
@@ -72,41 +78,34 @@ function SubscribeContent() {
   const [selectedPlan, setSelectedPlan] = useState('quarterly')
   const [loading, setLoading] = useState(false)
   const [hasSubscription, setHasSubscription] = useState<boolean | null>(null)
+  const [subscriptionStatus, setSubscriptionStatus] = useState<TrialStatus | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     api
-      .get('/search/subscription-status')
-      .then((res) => setHasSubscription(res.data.hasSubscription))
+      .get<TrialStatus>('/subscriptions/status')
+      .then((res) => {
+        setSubscriptionStatus(res.data)
+        setHasSubscription(res.data.hasSubscription)
+      })
       .catch(() => setHasSubscription(false))
   }, [])
+
+  const isTrial = subscriptionStatus?.isTrial === true
+  const hasPaidSubscription = hasSubscription === true && !isTrial
 
   const handleSubscribe = async () => {
     setLoading(true)
     setError('')
 
     try {
-      const res = await api.post('/subscriptions/initiate', {
-        plan: selectedPlan,
-      })
+      const result = await initiateSubscription(selectedPlan as 'monthly' | 'quarterly' | 'annual')
+      const gatewayOrderId = await openCheckout(result)
 
-      const paymentSessionId = res.data?.paymentSessionId
-      if (!paymentSessionId) {
-        throw new Error('Payment session was not created')
+      // Razorpay's in-page checkout resolves after payment: verify server-side.
+      if (gatewayOrderId) {
+        router.push(`/subscribe/callback?provider=razorpay&order_id=${encodeURIComponent(gatewayOrderId)}`)
       }
-
-      const cashfree = await load({
-        mode: 'sandbox',
-      })
-
-      if (!cashfree) {
-        throw new Error('Unable to load Cashfree checkout gateway')
-      }
-
-      await cashfree.checkout({
-        paymentSessionId,
-        redirectTarget: '_self',
-      })
     } catch (err: any) {
       const msg =
         err.response?.data?.message ||
@@ -126,6 +125,11 @@ function SubscribeContent() {
 
       <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full space-y-8">
         
+        {/* Trial countdown + expired upgrade CTA */}
+        {entitlement && !entitlement.hasSubscription && (
+          <TrialCountdownBanner entitlement={entitlement} />
+        )}
+
         {/* Paywall Alert Banner if redirected from contact reveal */}
         {reason === 'reveal' && (
           <GlassPanel padding="lg" className="border-amber-500/30 bg-amber-950/40 font-sans">
@@ -145,8 +149,9 @@ function SubscribeContent() {
           </GlassPanel>
         )}
 
-        {/* Already Subscribed Banner */}
-        {hasSubscription === true && (
+        {/* The trial stays actionable; a paid pass simply confirms access. */}
+        {isTrial && <TrialAccessBanner status={subscriptionStatus} />}
+        {hasPaidSubscription && (
           <GlassPanel padding="lg" className="border-emerald-500/30 bg-emerald-950/40 font-sans">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -184,7 +189,7 @@ function SubscribeContent() {
             Direct Freight Intelligence Passes
           </h1>
           <p className="text-xs sm:text-sm text-surface-400 max-w-lg mx-auto">
-            Direct freight intelligence without broker friction. Connect directly with verified truck owners and shippers.
+            Direct freight intelligence without broker friction. Connect directly with verified truck drivers and shippers.
           </p>
         </div>
 
@@ -291,17 +296,23 @@ function SubscribeContent() {
             variant="primary"
             size="lg"
             loading={loading}
-            disabled={hasSubscription === true}
+            disabled={hasPaidSubscription}
             onClick={handleSubscribe}
             className="px-10 py-4 text-base font-bold mx-auto shadow-glow-primary font-mono"
           >
-            {loading ? 'Initializing payment gateway...' : `💳 COMPLETE PAYMENT — ${formatINR(activePlan.price)}`}
+            {loading
+              ? 'Initializing payment gateway...'
+              : hasPaidSubscription
+                ? 'YOUR PASS IS ACTIVE'
+                : isTrial
+                  ? `UPGRADE TO ${activePlan.label.toUpperCase()} — ${formatINR(activePlan.price)}`
+                  : `COMPLETE PAYMENT — ${formatINR(activePlan.price)}`}
           </Button>
 
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-xs font-mono text-surface-400">
             <span className="flex items-center gap-1.5">
               <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
-              <span>256-bit Encrypted Cashfree Gateway</span>
+              <span>256-bit Encrypted Cashfree • Razorpay • Stripe Gateways</span>
             </span>
             <span>⚡ Instant Pass Activation</span>
             <span>↩️ Transparent Direct Terms</span>

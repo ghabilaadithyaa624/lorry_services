@@ -72,7 +72,7 @@ const STATUS_LABEL: Record<BookingStatus, string> = {
  *
  * Consolidated list of every booking the signed-in user participates in,
  * sourced from GET /bookings/my-bookings. The API already scopes results by
- * role (load owner vs truck owner), so no client-side authorization is implied.
+ * role (factory owner vs truck driver), so no client-side authorization is implied.
  */
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<BookingRow[]>([])

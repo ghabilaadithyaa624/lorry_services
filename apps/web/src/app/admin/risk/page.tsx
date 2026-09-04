@@ -45,7 +45,7 @@ export default function AdminTrustRiskConsolePage() {
       const fetchedTrucks: any[] = trucksRes.status === 'fulfilled' ? (trucksRes.value as any)?.data || [] : []
 
       const evaluated = fetchedUsers.map((u) => {
-        const userBks = fetchedBookings.filter((b) => b.loadOwnerId === u.id || b.truckOwnerId === u.id || b.userId === u.id)
+        const userBks = fetchedBookings.filter((b) => b.factoryOwnerId === u.id || b.truckDriverId === u.id || b.userId === u.id)
         const userPmts = fetchedPayments.filter((p) => p.userId === u.id)
         const userTrks = fetchedTrucks.filter((t) => t.userId === u.id)
 

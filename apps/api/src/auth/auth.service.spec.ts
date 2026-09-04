@@ -22,6 +22,9 @@ jest.mock('@lorrycarry/database', () => {
     UserRole: {
       load_owner: 'load_owner',
       truck_owner: 'truck_owner',
+      driver: 'driver',
+      factory_owner: 'factory_owner',
+      truck_driver: 'truck_driver',
       admin: 'admin',
     },
   }
@@ -38,6 +41,7 @@ interface RedisClientMock {
   get: jest.Mock
   set: jest.Mock
   del: jest.Mock
+  mget: jest.Mock
   sadd: jest.Mock
   srem: jest.Mock
   smembers: jest.Mock
@@ -70,6 +74,7 @@ describe('AuthService', () => {
       get: jest.fn(),
       set: jest.fn(),
       del: jest.fn(),
+      mget: jest.fn(),
       sadd: jest.fn(),
       srem: jest.fn(),
       smembers: jest.fn(),
@@ -188,7 +193,7 @@ describe('AuthService', () => {
       ;(prisma.user.create as jest.Mock).mockResolvedValueOnce({
         id: 'usr-1',
         phone: '+919876543210',
-        role: UserRole.load_owner,
+        role: UserRole.factory_owner,
         name: null,
       })
       configService.get.mockImplementation((key: string, defaultVal?: any) => {
@@ -196,7 +201,7 @@ describe('AuthService', () => {
         return defaultVal
       })
 
-      const res = await service.verifyOtp('+919876543210', '123456', UserRole.load_owner)
+      const res = await service.verifyOtp('+919876543210', '123456', UserRole.factory_owner)
       expect(res.user.id).toBe('usr-1')
       expect(otpStorageService.deleteOtp).toHaveBeenCalledWith('+919876543210')
     })
@@ -209,7 +214,7 @@ describe('AuthService', () => {
       })
       otpStorageService.verifyOtp.mockResolvedValueOnce({ valid: false, message: 'Invalid OTP' })
 
-      await expect(service.verifyOtp('+919876543210', '123456', UserRole.load_owner)).rejects.toThrow(UnauthorizedException)
+      await expect(service.verifyOtp('+919876543210', '123456', UserRole.factory_owner)).rejects.toThrow(UnauthorizedException)
       expect(otpStorageService.verifyOtp).toHaveBeenCalledWith('+919876543210', '123456')
     })
 
@@ -223,7 +228,7 @@ describe('AuthService', () => {
 
     it('should reject OTP verification with invalid OTP', async () => {
       otpStorageService.verifyOtp.mockResolvedValueOnce({ valid: false, message: 'Invalid OTP' })
-      await expect(service.verifyOtp('+919876543210', '000000', UserRole.load_owner)).rejects.toThrow(UnauthorizedException)
+      await expect(service.verifyOtp('+919876543210', '000000', UserRole.factory_owner)).rejects.toThrow(UnauthorizedException)
     })
 
     it('should register new user with role and return tokens', async () => {
@@ -231,13 +236,27 @@ describe('AuthService', () => {
       ;(prisma.user.create as jest.Mock).mockResolvedValueOnce({
         id: 'usr-1',
         phone: '+919876543210',
-        role: UserRole.load_owner,
+        role: UserRole.factory_owner,
         name: null,
       })
 
-      const res = await service.verifyOtp('+919876543210', '123456', UserRole.load_owner)
+      const res = await service.verifyOtp('+919876543210', '123456', UserRole.factory_owner)
       expect(res.user.id).toBe('usr-1')
       expect(res.user.isNewUser).toBe(true)
+      expect(res.user.trial?.durationDays).toBe(90)
+      expect(res.user.trial?.expiresAt.getTime()).toBeGreaterThan(res.user.trial?.startedAt.getTime() || 0)
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            subscriptions: expect.objectContaining({
+              create: expect.objectContaining({
+                plan: 'free_trial',
+                status: 'active',
+              }),
+            }),
+          }),
+        }),
+      )
       expect(redisClient.set).toHaveBeenCalled()
     })
   })
@@ -254,7 +273,7 @@ describe('AuthService', () => {
       ;(prisma.user.findUnique as jest.Mock).mockResolvedValueOnce({
         id: 'usr-1',
         phone: '+919876543210',
-        role: UserRole.load_owner,
+        role: UserRole.factory_owner,
       })
 
       const res = await service.refreshToken('valid-refresh-token')

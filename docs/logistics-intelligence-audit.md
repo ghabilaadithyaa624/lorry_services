@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-LorryCarry is an open, direct truck-load marketplace for Indian freight connecting cargo owners (shippers/traders) and verified lorry operators (truck owners/fleet operators) without broker commissions. 
+LorryCarry is an open, direct truck-load marketplace for Indian freight connecting cargo owners (shippers/traders) and verified lorry operators (truck drivers/fleet operators) without broker commissions. 
 
 The core infrastructure—including PostGIS geospatial indexing, SMS/WhatsApp OTP authentication, AWS S3 KYC verification, Cashfree subscription payments, and 5-stage checkpoint tracking—is solid and operationally stable. However, the application currently functions primarily as a transactional CRUD tool.
 
@@ -27,11 +27,11 @@ Based on our inspection of `packages/database/prisma/schema.prisma`:
 
 | Model | Available Fields & Capabilities | Intelligence Potential |
 |---|---|---|
-| **User** | `id`, `phone`, `name`, `role` (`load_owner`, `truck_owner`, `admin`), timestamps | Role-based permissioning, user identity verification, account maturity. |
+| **User** | `id`, `phone`, `name`, `role` (`factory_owner`, `truck_driver`, `admin`), timestamps | Role-based permissioning, user identity verification, account maturity. |
 | **Load** | `tonnageRequired`, `loadingAddress`, `loadingPin`, `loadingLat`, `loadingLng`, `loadingPoint` (PostGIS), `unloadingAddress`, `unloadingPin`, `unloadingLat`, `unloadingLng`, `unloadingPoint` (PostGIS), `truckType`, `minLengthFt`, `minHeightFt`, `urgent`, `maxPrice`, `advancePayable`, `expectedDeliveryAt`, `status` (`Open`, `Matched`, `InTransit`, `Completed`, `Cancelled`) | Distance calculations, vehicle compatibility, budget constraints, urgency matching, delivery timeline adherence. |
 | **Truck** | `registrationNumber`, `bodyType` (`Open`, `Container`, `OpenBody`), `lengthFt`, `heightFt`, `tonnageCapacity`, `currentLat`, `currentLng`, `currentLocation` (PostGIS), `serviceableRadiusKm`, `preferredDestinations` (JSON array of cities), `verificationStatus` (`Pending`, `Verified`, `Rejected`), `verifiedAt` | Proximity scoring, route matching, capacity utilization, compliance scoring, return-corridor matching. |
 | **Document** | `truckId`, `type` (`RC`, `Insurance`), `docNumber`, `s3Url`, `verificationStatus`, `verifiedAt`, `verifiedBy` | KYC completeness index, vehicle compliance verification badge. |
-| **Booking** | `loadId`, `truckId`, `loadOwnerId`, `truckOwnerId`, `agreedPrice`, `advanceConfirmed`, `balanceConfirmed`, `ewayBillNumber`, `liabilityAccepted`, `status` (`Pending`, `Confirmed`, `InTransit`, `Completed`, `Cancelled`), `startedAt`, `completedAt` | Commercial terms tracking, payment milestone state, E-Way bill compliance, transit duration analytics. |
+| **Booking** | `loadId`, `truckId`, `factoryOwnerId`, `truckDriverId`, `agreedPrice`, `advanceConfirmed`, `balanceConfirmed`, `ewayBillNumber`, `liabilityAccepted`, `status` (`Pending`, `Confirmed`, `InTransit`, `Completed`, `Cancelled`), `startedAt`, `completedAt` | Commercial terms tracking, payment milestone state, E-Way bill compliance, transit duration analytics. |
 | **Checkpoint** | `bookingId`, `seq` (1 to 5), `name`, `lat`, `lng`, `radiusM`, `crossedAt`, `crossedBy`, `etaMinutes`, `notifiedAt` | Milestone progression, transit delay detection, geofenced ETA tracking, shipment risk scoring. |
 | **Payment** | `amount`, `currency`, `purpose` (`subscription`, `booking_advance`, `booking_balance`), `status` (`Success`, `Pending`, `Failed`), `providerOrderId`, `providerTxnId`, `paymentMethod`, `paidAt` | Revenue analytics, subscription monetization, cashflow health. |
 | **Subscription** | `plan`, `status` (`active`, `expired`, `cancelled`), `startedAt`, `expiresAt` | Paywall status, feature access gating, transporter contact reveal eligibility. |
@@ -46,17 +46,18 @@ Based on our inspection of `packages/database/prisma/schema.prisma`:
 | `/search/loads` | `GET` | Authenticated | PostGIS radius search for open freight loads (`lat`, `lng`, `radiusKm`, `truckType`, `maxTonnage`). |
 | `/search/:type/:id/reveal` | `POST` | Authenticated + Subscribed | Unlocks transporter/shipper phone and direct WhatsApp contact. |
 | `/search/subscription-status` | `GET` | Authenticated | Checks if requesting user has an active contact reveal subscription. |
-| `/loads/my-loads` | `GET` | Load Owner | Fetches all posted loads created by current user with status and booking counts. |
-| `/loads/:id` | `GET` | Load Owner | Fetches single load details with contact info. |
-| `/loads` | `POST` | Load Owner | Creates new load with automated MapmyIndia geocoding & PostGIS point generation. |
-| `/trucks/my-trucks` | `GET` | Truck Owner | Fetches registered trucks with document KYC statuses. |
-| `/trucks` | `POST` | Truck Owner | Registers truck with geocoding, PostGIS location, and preferred destination corridors. |
-| `/trucks/:id/documents` | `POST` | Truck Owner | Uploads RC / Insurance documents to AWS S3 private bucket. |
-| `/bookings` | `POST` | Load Owner | Creates formal commercial booking (50/50 terms, liability, E-Way bill). |
+| `/loads/my-loads` | `GET` | Factory Owner | Fetches all posted loads created by current user with status and booking counts. |
+| `/loads/:id` | `GET` | Factory Owner | Fetches single load details with contact info. |
+| `/loads` | `POST` | Factory Owner | Creates new load with automated MapmyIndia geocoding & PostGIS point generation. |
+| `/trucks/my-trucks` | `GET` | Truck Driver | Fetches registered trucks with document KYC statuses. |
+| `/trucks` | `POST` | Truck Driver | Registers truck with geocoding, PostGIS location, and preferred destination corridors. |
+| `/trucks/:id/documents` | `POST` | Truck Driver | Uploads RC / Insurance documents to AWS S3 private bucket. |
+| `/bookings` | `POST` | Factory Owner | Creates formal commercial booking (50/50 terms, liability, E-Way bill). |
 | `/bookings/:id` | `GET` | Authenticated Party | Returns booking details, 5-stage checkpoints, agreed price, payment flags. |
-| `/bookings/:id/confirm-advance` | `PATCH` | Load Owner | Confirms 50% loading advance release. |
-| `/bookings/:id/confirm-balance` | `PATCH` | Load Owner | Confirms 50% delivery balance release on POD receipt. |
+| `/bookings/:id/confirm-advance` | `PATCH` | Factory Owner | Confirms 50% loading advance release. |
+| `/bookings/:id/confirm-balance` | `PATCH` | Factory Owner | Confirms 50% delivery balance release on POD receipt. |
 | `/admin/stats` | `GET` | Admin | Real database aggregates for total users, loads, trucks, bookings, revenue, and pending KYC. |
+| `/admin/analytics` | `GET` | Admin | Trip completion trend, earnings breakdown, active booking pipeline and route efficiency heatmap (`range` = 30/90/180/365 days). |
 | `/admin/documents/pending` | `GET` | Admin | Fetches list of unverified vehicle documents. |
 | `/admin/documents/:id/verify` | `PATCH` | Admin | Approves or rejects RC/Insurance documents. |
 
@@ -131,11 +132,11 @@ Using existing database fields and REST endpoints:
    - Implement `shipmentIntelligence.ts` (Shipment health, risk classifier & milestone analytics).
    - Implement `actionCenterEngine.ts` (Dynamic operational task aggregator).
 
-2. **Step 2: Load Owner Freight Intelligence Dashboard**
-   - Upgrade `apps/web/src/app/dashboard/load-owner/page.tsx` with live matching trucks feed, match scores, rate benchmarks, and intelligent workflow empty states.
+2. **Step 2: Factory Owner Freight Intelligence Dashboard**
+   - Upgrade `apps/web/src/app/dashboard/factory-owner/page.tsx` with live matching trucks feed, match scores, rate benchmarks, and intelligent workflow empty states.
 
-3. **Step 3: Truck Owner Earnings & Return-Load Intelligence Dashboard**
-   - Upgrade `apps/web/src/app/dashboard/truck-owner/page.tsx` with "Where to earn next", nearby matching freight, return-load opportunities, and compliance reminders.
+3. **Step 3: Truck Driver Earnings & Return-Load Intelligence Dashboard**
+   - Upgrade `apps/web/src/app/dashboard/truck-driver/page.tsx` with "Where to earn next", nearby matching freight, return-load opportunities, and compliance reminders.
 
 4. **Step 4: Smart Marketplace Search & Bid Intelligence**
    - Upgrade `apps/web/src/app/search/page.tsx` with match score badges, explainable match dropdowns, rate comparisons, and transporter recommendations.
