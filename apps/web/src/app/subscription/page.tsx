@@ -13,7 +13,9 @@ import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBa
 import { toast } from '@/lib/toast'
 import { formatINR } from '@/lib/utils'
 import {
+  checkoutLoginUrl,
   getEntitlement,
+  hasClientSession,
   initiateSubscription,
   openCheckout,
   SubscriptionEntitlement,
@@ -25,8 +27,20 @@ export default function SubscriptionPage() {
   const [subStatus, setSubStatus] = useState<any>(null)
   const [entitlement, setEntitlement] = useState<SubscriptionEntitlement | null>(null)
   const [error, setError] = useState('')
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
 
   useEffect(() => {
+    /**
+     * Public plans page: anonymous visitors see pricing only. Private
+     * subscription/profile data is fetched exclusively for a logged-in session.
+     */
+    if (!hasClientSession()) {
+      setIsAuthenticated(false)
+      setFetching(false)
+      return
+    }
+    setIsAuthenticated(true)
+
     const fetchStatus = async () => {
       try {
         setFetching(true)
@@ -52,6 +66,12 @@ export default function SubscriptionPage() {
   }, [])
 
   const handleSubscribe = async () => {
+    // Checkout is protected: send anonymous visitors to login and back here.
+    if (!hasClientSession()) {
+      window.location.href = checkoutLoginUrl('/subscription')
+      return
+    }
+
     setLoading(true)
     setError('')
 
@@ -79,7 +99,7 @@ export default function SubscriptionPage() {
       <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto w-full space-y-8">
         
         {/* Trial countdown + expired upgrade CTA */}
-        {entitlement && !entitlement.hasSubscription && (
+        {isAuthenticated === true && entitlement && !entitlement.hasSubscription && (
           <TrialCountdownBanner entitlement={entitlement} />
         )}
 
@@ -96,8 +116,31 @@ export default function SubscriptionPage() {
           </p>
         </div>
 
+        {/* Public plan facts — readable without a session */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <GlassPanel padding="md" className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-white font-sans">90-Day Free Trial</h3>
+            <p className="text-xs text-surface-400 leading-relaxed font-sans">
+              New accounts get a 90-day free trial with full access before any payment is required.
+            </p>
+          </GlassPanel>
+          <GlassPanel padding="md" className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-white font-sans">Unlocks Direct Contact</h3>
+            <p className="text-xs text-surface-400 leading-relaxed font-sans">
+              A pass reveals verified operators&apos; direct phone and WhatsApp details for
+              shipper-to-transporter negotiation.
+            </p>
+          </GlassPanel>
+          <GlassPanel padding="md" className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-white font-sans">No Broker Commission</h3>
+            <p className="text-xs text-surface-400 leading-relaxed font-sans">
+              A flat access pass only — no per-trip broker commission and no cut of your freight value.
+            </p>
+          </GlassPanel>
+        </div>
+
         {/* Current Active Status Card */}
-        {fetching ? (
+        {isAuthenticated === false ? null : fetching ? (
           <Skeleton.Card />
         ) : isTrial ? (
           <TrialAccessBanner status={subStatus} />
@@ -171,7 +214,13 @@ export default function SubscriptionPage() {
 
             <div className="pt-6 font-mono">
               <button disabled className="w-full py-3 rounded-xl bg-surface-950 text-surface-500 text-xs font-mono font-bold cursor-default border border-white/5">
-                {isTrial ? 'TRIAL ACTIVE' : isSubscribed ? 'BASIC LEVEL' : 'CURRENT LEVEL'}
+                {isAuthenticated === false
+                  ? 'FREE TO BROWSE'
+                  : isTrial
+                    ? 'TRIAL ACTIVE'
+                    : isSubscribed
+                      ? 'BASIC LEVEL'
+                      : 'CURRENT LEVEL'}
               </button>
             </div>
           </GlassPanel>
@@ -221,7 +270,7 @@ export default function SubscriptionPage() {
               <Button
                 onClick={handleSubscribe}
                 loading={loading}
-                disabled={isSubscribed && !isTrial}
+                disabled={isAuthenticated === true && isSubscribed && !isTrial}
                 variant="primary"
                 size="lg"
                 fullWidth
@@ -229,11 +278,13 @@ export default function SubscriptionPage() {
               >
                 {loading
                   ? 'Initializing Payment Gateway...'
-                  : isSubscribed && !isTrial
-                    ? 'PASS ACTIVE'
-                    : isTrial
-                      ? `Upgrade from trial — ${formatINR(999)}`
-                      : `Subscribe Now — ${formatINR(999)}`}
+                  : isAuthenticated !== true
+                    ? `Log in to subscribe — ${formatINR(999)}`
+                    : isSubscribed && !isTrial
+                      ? 'PASS ACTIVE'
+                      : isTrial
+                        ? `Upgrade from trial — ${formatINR(999)}`
+                        : `Subscribe Now — ${formatINR(999)}`}
               </Button>
             </div>
           </GlassPanel>

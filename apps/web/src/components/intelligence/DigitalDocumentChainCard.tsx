@@ -15,6 +15,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { Button, Badge, Spinner } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { isFreightSideRole, isVehicleSideRole } from '@/lib/roles'
 import { toast } from '@/lib/toast'
 import {
   bookingDocumentsApi,
@@ -161,7 +162,7 @@ export function DigitalDocumentChainCard({
 
   // Only booking counterparties upload; admins (and unknown roles) are read-only.
   const canUpload =
-    (viewerRole === 'factory_owner' || viewerRole === 'truck_driver') && !loading && !loadError
+    (isFreightSideRole(viewerRole) || isVehicleSideRole(viewerRole)) && !loading && !loadError
 
   const stagePhase = (docs: BookingDocumentRecord[] | undefined): RowPhase => {
     if (!docs || docs.length === 0) return 'NOT_UPLOADED'

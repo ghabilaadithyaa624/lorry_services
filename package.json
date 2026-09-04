@@ -6,6 +6,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
+    "test": "turbo run test",
     "db:migrate": "npx prisma migrate dev --schema=packages/database/prisma/schema.prisma",
     "db:seed": "npx ts-node packages/database/prisma/seed.ts",
     "db:studio": "npx prisma studio --schema=packages/database/prisma/schema.prisma",

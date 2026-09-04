@@ -32,7 +32,7 @@ import { LanguageToggle } from './LanguageToggle'
 import { AIFreightAssistantDrawer, ActionCenterMenu } from '@/components/intelligence'
 import { useI18n } from '@/lib/i18n'
 import { cn, formatPhone } from '@/lib/utils'
-import { getRoleLabel, isVehicleSideRole } from '@/lib/roles'
+import { getRoleLabel, isAdminRole, isVehicleSideRole } from '@/lib/roles'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -104,7 +104,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
   }, [pathname])
 
   const isTruckDriver = isVehicleSideRole(user?.role)
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = isAdminRole(user?.role)
 
   const factoryOwnerNav: NavItem[] = [
     { name: t('dash.overview'), href: '/dashboard/factory-owner', icon: HomeIcon },

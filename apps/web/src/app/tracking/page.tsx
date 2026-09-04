@@ -25,6 +25,7 @@ import {
   BookingData,
 } from '@/lib/intelligence'
 import { formatINR, cn, whatsappLink } from '@/lib/utils'
+import { isFreightSideRole } from '@/lib/roles'
 import { toast } from '@/lib/toast'
 
 export default function ControlTowerTrackingPage() {
@@ -107,7 +108,7 @@ export default function ControlTowerTrackingPage() {
     return true
   })
 
-  const isShipper = user?.role === 'factory_owner' || !user?.role
+  const isShipper = isFreightSideRole(user?.role) || !user?.role
 
   return (
     <div className="min-h-screen bg-canvas text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">

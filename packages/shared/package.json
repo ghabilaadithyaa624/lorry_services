@@ -25,7 +25,10 @@
     "testEnvironment": "node",
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
-    "moduleFileExtensions": ["ts", "js", "json"]
+    "moduleFileExtensions": ["ts", "js", "json"],
+    "transform": {
+      "^.+\\.ts$": ["ts-jest", { "tsconfig": "<rootDir>/../tsconfig.spec.json" }]
+    }
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

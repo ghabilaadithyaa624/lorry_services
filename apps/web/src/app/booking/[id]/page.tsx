@@ -18,6 +18,7 @@ import { assessShipmentIntelligence } from '@/lib/intelligence'
 import { ReturnLoadOpportunityCard, DigitalDocumentChainCard } from '@/components/intelligence'
 import { BookingComplianceCard } from '@/components/compliance/BookingComplianceCard'
 import { evaluateBackhaulOpportunities, BackhaulOpportunity } from '@/lib/intelligence/matchingEngine'
+import { normalizeRole } from '@/lib/roles'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, whatsappLink } from '@/lib/utils'
 import { PaymentSplitCard } from '@/components/PaymentSplitCard'
@@ -61,7 +62,9 @@ export default function BookingDetailPage() {
       if (userStr) {
         const user = JSON.parse(userStr)
         setCurrentUserId(user.id || '')
-        setViewerRole(user.role)
+        // Normalize at the storage boundary: a session cached before the role
+        // cleanup may still hold `load_owner` / `truck_owner` / `driver`.
+        setViewerRole(normalizeRole(user.role))
       }
     } catch (err) {
       console.warn('Could not load current user')
@@ -164,43 +167,59 @@ export default function BookingDetailPage() {
     }
   }
 
-  const handleConfirmAdvance = async () => {
+  /**
+   * Confirm a payment milestone.
+   *
+   * The gateway link is best-effort: if a payment link is configured we open
+   * it, but the authoritative record of the milestone is the explicit
+   * `PATCH /bookings/:id/confirm-advance|confirm-balance` endpoint.
+   *
+   * Only a *gateway* failure falls through to the milestone confirm. An error
+   * from the milestone endpoint itself (403 not the cargo owner, 400 advance
+   * already confirmed / balance before advance / cancelled booking) is surfaced
+   * to the user rather than being reported as success.
+   */
+  const confirmMilestone = async (milestone: 'advance' | 'balance') => {
+    setActionLoading(milestone)
     try {
-      setActionLoading('advance')
-      // Try the payment gateway first; fall back to explicit milestone confirm.
       try {
         const response = await api.post('/payments/booking/initialize', {
           bookingId: id,
-          paymentType: 'advance',
+          paymentType: milestone,
           paymentMethod: 'upi',
         })
         if (response.data?.shortUrl) {
           window.open(response.data.shortUrl, '_blank')
         }
       } catch {
-        await bookingsApi.confirmAdvance(id)
+        // Gateway unavailable / not configured — fall through to the explicit
+        // milestone endpoint, whose errors are intentionally NOT swallowed.
       }
-      toast.success('50% Loading advance payment initiated!')
+
+      if (milestone === 'advance') {
+        await bookingsApi.confirmAdvance(id)
+      } else {
+        await bookingsApi.confirmBalance(id)
+      }
+
+      toast.success(
+        milestone === 'advance'
+          ? '50% loading advance confirmed.'
+          : 'Final balance confirmed on POD.'
+      )
       loadBooking()
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Could not initiate advance payment')
+      toast.error(
+        err.response?.data?.message ||
+          `Could not confirm the ${milestone === 'advance' ? 'advance' : 'balance'} payment`
+      )
     } finally {
       setActionLoading(null)
     }
   }
 
-  const handleConfirmBalance = async () => {
-    try {
-      setActionLoading('balance')
-      await bookingsApi.confirmBalance(id)
-      toast.success('Delivery balance payment initiated!')
-      loadBooking()
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Could not initiate balance payment')
-    } finally {
-      setActionLoading(null)
-    }
-  }
+  const handleConfirmAdvance = () => confirmMilestone('advance')
+  const handleConfirmBalance = () => confirmMilestone('balance')
 
   const handleRaiseDispute = async (event: React.FormEvent) => {
     event.preventDefault()

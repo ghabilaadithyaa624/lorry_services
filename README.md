@@ -68,6 +68,34 @@ lorry-services/
 
 ---
 
+## 🧠 Shared Intelligence Layer (`@lorrycarry/shared`)
+
+All deterministic logistics maths lives in **one** place — [`packages/shared/src/intelligence/`](packages/shared/src/intelligence) — so the API, web, admin and mobile surfaces can never disagree on a number.
+
+| Module | Exports |
+| :--- | :--- |
+| `geo.ts` | `calculateGeoDistance` (Haversine) |
+| `pricingEngine.ts` | `estimateFreightRate`, `normalizeTruckType` |
+| `matchingEngine.ts` | `calculateMatchScore`, `evaluateBackhaulOpportunities`, `evaluateBudgetFit`, `sortMarketplaceItems`, `rateMatchScore` |
+| `returnLoadEngine.ts` | Backhaul / return-load ranking |
+| `shipmentIntelligence.ts` | `assessShipmentIntelligence`, `summarizeActiveShipmentsControlTower` |
+| `actionCenterEngine.ts` | `deriveOperationalTasks`, `summarizeOperationalTasks` |
+
+**Purity rules** (enforced by review): no DOM/`window`, React, Next.js, Prisma or Node-only APIs; deterministic for a given input; presentation concerns (Tailwind classes, icons) stay in the consuming app, which receives neutral tokens such as `tone` / `badgeVariant` instead.
+
+**Consumers.** `apps/api/src/matching/matching.service.ts` calls `calculateMatchScore` / `calculateGeoDistance` directly and keeps only its Prisma queries, PostGIS radius filtering, persistence and WhatsApp dispatch. The web modules under `apps/web/src/lib/intelligence/` are thin re-export shims plus browser-only adapters (REST payload mapping, Tailwind tone → class), so existing `@/lib/intelligence` imports keep working.
+
+**Budget compatibility.** `calculateMatchScore` scores **Capacity 35 + BodyType 25 + Proximity 20 + Verification 15 + Corridor 5 = 100**. The budget check is an *optional gate* (`MatchScoringOptions.budget`), not a score component:
+
+- **API passes `budget: true`** — it is the system of record for the persisted `matches.budget_compatible` column and for the WhatsApp alerts sent to transporters, so a match must be commercially viable before it is stored or broadcast.
+- **Clients default to the ungated score** — a shipper still sees physically compatible trucks when their stated budget is below benchmark, rather than an empty result set. Clients can opt into the same gate by passing `budget: true`.
+
+Both paths run the identical scoring function, so the gate changes *which* matches surface, never *how* they are scored.
+
+Run the suite with `npm test` (Turborepo) or `npm --prefix packages/shared test` — **163 tests** covering scoring weights, budget gating, pricing economics, backhaul ranking, shipment risk and action-center derivation.
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer | Technologies |
@@ -114,6 +142,12 @@ The platform operates on a normalized **Factory Owner ↔ Truck Driver** model:
 - `/dashboard/truck-owner` → 307 Redirect to `/dashboard/truck-driver`
 - `/dashboard/driver` → 307 Redirect to `/dashboard/truck-driver`
 
+**Database migration path.** The `UserRole` enum contains only the three canonical values. Existing rows are converted by [`20260904000000_canonicalize_user_roles`](packages/database/prisma/migrations/20260904000000_canonicalize_user_roles/migration.sql): `load_owner` → `factory_owner`, `truck_owner` → `truck_driver`, and `driver` → `truck_driver`. Legacy rows are backfilled *before* the old enum type is dropped, so no row is ever orphaned, and the `CASE` mapping makes the migration re-runnable against a database that skipped the earlier in-place rename.
+
+**Normalization at the boundary.** Deployed clients, cached cookies and long-lived JWTs may still carry a legacy label, so every entry point normalizes before use — `normalizeRole()` in [`apps/web/src/lib/roles.ts`](apps/web/src/lib/roles.ts), [`apps/mobile/src/lib/roles.ts`](apps/mobile/src/lib/roles.ts), [`packages/shared/src/types/index.ts`](packages/shared/src/types/index.ts) and [`apps/api/src/common/utils/roles.util.ts`](apps/api/src/common/utils/roles.util.ts) (used by `RolesGuard`). Legacy labels are **never persisted**: only canonical roles are written to the database, cookies or storage.
+
+> **Note:** the `bookings.load_owner_id` / `bookings.truck_owner_id` **columns** intentionally keep their original names — they are foreign keys, not role values, and are mapped in Prisma via `@relation("LoadOwnerBookings")` / `@relation("TruckOwnerBookings")`.
+
 ### Public vs Protected Web Routes
 
 Route visibility is defined **once** in [`apps/web/src/lib/publicRoutes.ts`](apps/web/src/lib/publicRoutes.ts) and enforced by
@@ -127,6 +161,8 @@ never pointed at a URL that answers with a login redirect.
 | **Default-deny** | Every other path (`/tracking`, `/analytics`, `/post-load`, …) requires a session unless it is added to the public allowlist |
 
 Prefix matching is segment-aware: `/terms` and `/terms/archive` are public, `/terms-of-service` is not.
+
+**Pricing pages are public, checkout is not.** `/subscribe` and `/subscription` render plans, prices, the 90-day free trial terms and what a pass unlocks to anonymous visitors — no authenticated request is made and no private subscription status is rendered until a session exists. Clicking **Subscribe / Upgrade / Pay** without a session redirects to `/login?redirect=/subscribe?plan=<plan>` and returns the user to the pricing page with their plan preselected so they can complete checkout. Payment initiation itself stays protected: `POST /api/v1/subscriptions/initiate` requires a valid bearer token, so the client-side gate is UX only and not the enforcement boundary.
 
 Covered by `publicRoutes.spec.ts`, `middleware.spec.ts` and `seo.spec.ts` (`npm --prefix apps/web test`).
 
@@ -218,6 +254,8 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 | `PATCH` | `/api/v1/bookings/:id/confirm-advance` | Factory Owner | Confirm 50% loading advance release milestone |
 | `PATCH` | `/api/v1/bookings/:id/confirm-balance` | Factory Owner | Confirm 50% delivery balance release milestone upon POD sign-off |
 | `POST` | `/api/v1/bookings/:id/disputes` | Authenticated Party | Raise a counterparty dispute against a booking |
+
+**Payment milestone rules.** `confirm-advance` / `confirm-balance` are the authoritative way to record the 50/50 split; `PATCH /bookings/:id/status` is retained for lifecycle transitions and backward compatibility. Both milestone endpoints enforce, in order: the caller must be a party to the booking (otherwise `404`, so booking existence is not leaked), the caller must be the **cargo owner** releasing the money (`403` — a truck driver cannot confirm their own payout), the booking must not be `Cancelled` (`400`), the milestone must not already be confirmed (`400`), and the **advance must be confirmed before the balance** (`400`). On success the endpoint sets `advanceConfirmed`/`advanceConfirmedAt` or `balanceConfirmed`/`balanceConfirmedAt`.
 
 ### 7. Booking Digital Document Chain (`/api/v1/bookings/:bookingId/documents` & `/api/v1/admin/booking-documents`)
 | Method | Endpoint | Access | Description |

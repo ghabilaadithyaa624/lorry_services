@@ -94,15 +94,20 @@ export class AuthService {
 
     const isDev = this.config.get('NODE_ENV') !== 'production'
     const hasSmsProvider = !!(this.config.get('MSG91_API_KEY') || this.config.get('GUPSHUP_APP_TOKEN'))
-    const isTestPhone = phone === '+918072025106' || this.config.get('ALLOW_TEST_OTP') === 'true' || !hasSmsProvider
+    // The static-OTP escape hatch must never be reachable in production. Falling
+    // back on `!hasSmsProvider` used to enable it implicitly whenever the SMS
+    // credentials were missing, which would let anyone sign in as any phone
+    // number on a misconfigured production deploy.
+    const allowStaticOtp =
+      isDev && (phone === '+918072025106' || this.config.get('ALLOW_TEST_OTP') === 'true' || !hasSmsProvider)
 
     return {
       success: result.success,
       message: result.message,
       channel: usedChannel,
       isExistingUser,
-      // Dev mode, test phone, or unconfigured SMS gateway: return static mock OTP '123456' for free testing
-      ...((isDev || isTestPhone) && { devOtp: '123456' }),
+      // Non-production only: return the static mock OTP '123456' for free testing
+      ...(allowStaticOtp && { devOtp: '123456' }),
     }
   }
 
@@ -162,8 +167,13 @@ export class AuthService {
     let verification: { valid: boolean; message: string }
     const isDev = this.config.get('NODE_ENV') !== 'production'
     const hasSmsProvider = !!(this.config.get('MSG91_API_KEY') || this.config.get('GUPSHUP_APP_TOKEN'))
-    const isTestPhone = phone === '+918072025106' || this.config.get('ALLOW_TEST_OTP') === 'true' || !hasSmsProvider
-    if ((isDev || isTestPhone) && inputOtp === '123456') {
+    // The static-OTP escape hatch must never be reachable in production. Falling
+    // back on `!hasSmsProvider` used to enable it implicitly whenever the SMS
+    // credentials were missing, which would let anyone sign in as any phone
+    // number on a misconfigured production deploy.
+    const allowStaticOtp =
+      isDev && (phone === '+918072025106' || this.config.get('ALLOW_TEST_OTP') === 'true' || !hasSmsProvider)
+    if (allowStaticOtp && inputOtp === '123456') {
       verification = { valid: true, message: 'OTP verified successfully (Dev/Test Mode)' }
       await this.otpStorage.deleteOtp(phone)
     } else {
