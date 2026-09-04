@@ -56,6 +56,8 @@ Based on our inspection of `packages/database/prisma/schema.prisma`:
 | `/bookings/:id` | `GET` | Authenticated Party | Returns booking details, 5-stage checkpoints, agreed price, payment flags. |
 | `/bookings/:id/confirm-advance` | `PATCH` | Factory Owner | Confirms 50% loading advance release. |
 | `/bookings/:id/confirm-balance` | `PATCH` | Factory Owner | Confirms 50% delivery balance release on POD receipt. |
+| `/matches/truck/:truckId` | `GET` | Authenticated | Open loads matching a vehicle within the 50 km live-match filter (shared match engine). |
+| `/matches/truck/:truckId/return-loads` | `GET` | Authenticated | **Return-load (backhaul) discovery.** Resolves the drop-off hub (destination override → latest booking destination → truck GPS → preferred corridor), queries open loads around it (PostGIS `ST_DWithin`, ≤300 km) and ranks them with the shared return-load engine. Shipper contacts masked without an active subscription/trial. |
 | `/admin/stats` | `GET` | Admin | Real database aggregates for total users, loads, trucks, bookings, revenue, and pending KYC. |
 | `/admin/analytics` | `GET` | Admin | Trip completion trend, earnings breakdown, active booking pipeline and route efficiency heatmap (`range` = 30/90/180/365 days). |
 | `/admin/documents/pending` | `GET` | Admin | Fetches list of unverified vehicle documents. |
@@ -67,7 +69,7 @@ Based on our inspection of `packages/database/prisma/schema.prisma`:
 
 1. **Deterministic Match Scoring Engine**: No structured score evaluating vehicle capacity fit, body type, proximity radius, preferred corridors, and verification status.
 2. **Transparent Freight Rate Estimator**: No rule-based calculation estimating price bands based on distance, tonnage, truck type, and fuel benchmarks.
-3. **Empty-Run & Return Load Intelligence**: Transporters dropping off cargo in destination cities cannot currently see incoming loads available for their return trip.
+3. **Empty-Run & Return Load Intelligence** *(delivered)*: Transporters dropping off cargo in destination cities could not see incoming loads available for their return trip. Now served end-to-end by `GET /matches/truck/:truckId/return-loads` (`apps/api/src/matching/return-loads.service.ts`) on top of the shared `evaluateBackhaulOpportunities` + `rankReturnLoadOpportunities` engines, and consumed by the truck-driver dashboard, the booking detail return-load section and the AI Freight Assistant.
 4. **Shipment Risk & Attention Analyzer**: Bookings lack risk classification (e.g. `ON TRACK`, `DELAYED`, `MISSING E-WAY BILL`, `PENDING ADVANCE`).
 5. **Operational Action Center**: No unified notification/action drawer highlighting required user actions (e.g. KYC missing, payment confirmation pending, unverified documents).
 6. **Smart Empty State Guidance**: Default views showed simple "No data" texts without interactive steps on how to initiate freight matching.
@@ -94,9 +96,10 @@ Using existing database fields and REST endpoints:
      - Distance derived from coordinates or MapmyIndia routing.
      - Display transparent breakdown and explicit "Estimated rate" badge.
 
-3. **Transporter Empty-Run & Return Load Scanner**:
-   - Filter available open loads whose `loadingPoint` is within 50km of the truck's destination or current location.
-   - Rank by match score and return potential.
+3. **Transporter Empty-Run & Return Load Scanner** *(delivered as a backend API)*:
+   - Filter available open loads whose `loadingPoint` is within the discovery radius (default 150 km, max 300 km) of the truck's drop-off hub — the latest booking destination, the truck's current location, or a declared preferred corridor.
+   - Rank deterministically on match score (55) · pickup deadhead (15) · payload utilisation (12) · body type (6) · rate vs benchmark (7) · preferred corridor (5).
+   - Exclude the operator's own freight and mask shipper contact details behind the subscription/trial paywall.
 
 4. **Shipment Risk & Attention Classifier**:
    - Compute real-time operational risk status for active bookings:
