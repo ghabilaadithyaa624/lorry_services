@@ -277,6 +277,8 @@ export function TruckCard({
                 type="button"
                 onClick={handleViewContact}
                 disabled={revealing}
+                aria-label={`Unlock Contact - ${truck.registrationNumber || 'truck'}${truck.owner?.companyName ? ` by ${truck.owner.companyName}` : ''}`}
+                aria-busy={revealing}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-900/80 hover:bg-surface-800 border border-white/10 text-white text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none disabled:opacity-50 cursor-pointer shadow-card"
               >
                 <Lock className="w-3.5 h-3.5 text-primary-400" />
@@ -288,6 +290,7 @@ export function TruckCard({
               <button
                 type="button"
                 onClick={() => onBook(truck)}
+                aria-label={`Book Lorry - ${truck.registrationNumber || 'truck'}`}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer border border-primary-400/30"
               >
                 <span>Book Lorry</span>
