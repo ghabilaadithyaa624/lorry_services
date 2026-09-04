@@ -1,47 +1,118 @@
-import React, { useEffect, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native'
+import React, { useCallback, useEffect, useState } from 'react'
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
+
 import { useAuth } from '../contexts/AuthContext'
-import { api } from '../services/api'
+import { bookingsApi, getApiErrorMessage } from '../services/api'
+import type { BookingSummary } from '../services/types'
+import { WEB_URL } from '../config'
 import { getRoleLabel, isVehicleSideRole } from '../lib/roles'
 
-interface TrialStatus {
-  hasSubscription: boolean
-  isTrial?: boolean
-  trialDaysTotal?: number | null
-  trialDaysLeft?: number | null
-  trialProgressPercent?: number | null
-  expiresAt?: string | null
+interface BookingStats {
+  active: number
+  completed: number
+  cancelled: number
 }
 
+const EMPTY_STATS: BookingStats = { active: 0, completed: 0, cancelled: 0 }
 
+function summarise(bookings: BookingSummary[]): BookingStats {
+  return bookings.reduce<BookingStats>((acc, booking) => {
+    if (booking.status === 'Completed') acc.completed += 1
+    else if (booking.status === 'Cancelled') acc.cancelled += 1
+    else acc.active += 1
+    return acc
+  }, { ...EMPTY_STATS })
+}
 
 export function HomeScreen() {
-  const { user, logout } = useAuth()
+  const { user, logout, entitlement, entitlementLoading, entitlementError, refreshEntitlement } = useAuth()
   const navigation = useNavigation<any>()
-  const [trial, setTrial] = useState<TrialStatus | null>(null)
   const vehicleSide = isVehicleSideRole(user?.role)
 
-  useEffect(() => {
-    api.get('/subscriptions/status')
-      .then((response) => setTrial(response.data))
-      .catch(() => setTrial(null))
+  const [stats, setStats] = useState<BookingStats | null>(null)
+  const [statsError, setStatsError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const fetchStats = useCallback(async () => {
+    setStatsError(null)
+    try {
+      const { data } = await bookingsApi.getMyBookings()
+      setStats(summarise(Array.isArray(data) ? data : []))
+    } catch (error) {
+      setStats(null)
+      setStatsError(getApiErrorMessage(error, 'Could not load your booking activity.'))
+    }
   }, [])
 
-  const daysLeft = Math.max(0, trial?.trialDaysLeft ?? 90)
-  const trialProgress = Math.max(0, Math.min(100, trial?.trialProgressPercent ?? 100))
+  useEffect(() => {
+    void fetchStats()
+  }, [fetchStats])
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    try {
+      await Promise.all([refreshEntitlement(), fetchStats()])
+    } finally {
+      setRefreshing(false)
+    }
+  }, [refreshEntitlement, fetchStats])
+
+  const handleLogout = () => {
+    Alert.alert('Log out', 'You will need your OTP to sign back in.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log out', style: 'destructive', onPress: () => { void logout() } },
+    ])
+  }
+
+  /**
+   * Load posting and truck registration are web-only workflows today. Rather
+   * than showing a dead button, hand the user off to the LorryCarry web app.
+   */
+  const openOnWeb = async (path: string, label: string) => {
+    const url = `${WEB_URL}${path}`
+    try {
+      const supported = await Linking.canOpenURL(url)
+      if (!supported) throw new Error('unsupported')
+      await Linking.openURL(url)
+    } catch {
+      Alert.alert(
+        `${label} unavailable`,
+        'We could not open your browser. Please visit the LorryCarry web app to continue.',
+      )
+    }
+  }
+
+  const trialActive = entitlement?.isTrialActive === true
+  const daysLeft = Math.max(0, entitlement?.trialDaysRemaining ?? 0)
+  const trialDuration = entitlement?.trialDurationDays || 90
+  const trialProgress = Math.max(0, Math.min(100, Math.round((daysLeft / trialDuration) * 100)))
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Hello,</Text>
             <Text style={styles.name}>{user?.name || user?.phone || 'Guest'}</Text>
           </View>
-          <TouchableOpacity onPress={logout} style={styles.logoutBtn} accessibilityRole="button" accessibilityLabel="Log out">
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} accessibilityRole="button" accessibilityLabel="Log out">
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -50,12 +121,21 @@ export function HomeScreen() {
           <Text style={styles.roleText}>{getRoleLabel(user?.role)}</Text>
         </View>
 
-        {trial?.hasSubscription && trial.isTrial && (
-          <View style={styles.trialCard} accessibilityLabel={`${daysLeft} days left in your 90 day free trial`}>
+        {entitlementError ? (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeText}>{entitlementError}</Text>
+            <TouchableOpacity onPress={onRefresh} accessibilityRole="button">
+              <Text style={styles.noticeAction}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {trialActive && (
+          <View style={styles.trialCard} accessibilityLabel={`${daysLeft} days left in your free trial`}>
             <View style={styles.trialHeader}>
-              <View>
+              <View style={styles.trialHeaderText}>
                 <Text style={styles.trialEyebrow}>FULL MARKETPLACE ACCESS</Text>
-                <Text style={styles.trialTitle}>Your 3-month trial is active</Text>
+                <Text style={styles.trialTitle}>Your free trial is active</Text>
               </View>
               <View style={styles.daysBadge}>
                 <Text style={styles.daysNumber}>{daysLeft}</Text>
@@ -63,12 +143,40 @@ export function HomeScreen() {
               </View>
             </View>
             <Text style={styles.trialDescription}>Explore every workflow before choosing a plan. No card required today.</Text>
-            <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 90, now: daysLeft }}>
+            <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: trialDuration, now: daysLeft }}>
               <View style={[styles.progressFill, { width: `${trialProgress}%` }]} />
             </View>
             <TouchableOpacity style={styles.upgradeButton} onPress={() => navigation.navigate('Payments')} accessibilityRole="button" accessibilityLabel="View plans and upgrade when ready">
-              <Text style={styles.upgradeButtonText}>Upgrade when you're ready  →</Text>
+              <Text style={styles.upgradeButtonText}>Upgrade when you&apos;re ready  →</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {!entitlementLoading && entitlement?.upgradeRequired && (
+          <View style={styles.expiredCard}>
+            <Text style={styles.trialEyebrow}>ACCESS RESTRICTED</Text>
+            <Text style={styles.expiredTitle}>Your free trial has ended</Text>
+            <Text style={styles.trialDescription}>
+              Contact reveals, direct calls and booking triggers need an active pass.
+            </Text>
+            <TouchableOpacity style={styles.upgradeButton} onPress={() => navigation.navigate('Payments')} accessibilityRole="button">
+              <Text style={styles.upgradeButtonText}>See plans  →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {entitlement?.hasSubscription && (
+          <View style={styles.activePassCard}>
+            <Text style={styles.trialEyebrow}>ACTIVE PASS</Text>
+            <Text style={styles.expiredTitle}>
+              {entitlement.plan ? entitlement.plan.charAt(0).toUpperCase() + entitlement.plan.slice(1) : 'Unlimited'} access
+            </Text>
+            <Text style={styles.trialDescription}>
+              Valid until{' '}
+              {entitlement.expiresAt
+                ? new Date(entitlement.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                : '—'}
+            </Text>
           </View>
         )}
 
@@ -76,11 +184,19 @@ export function HomeScreen() {
         <View style={styles.actionsContainer}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionGrid}>
-            <TouchableOpacity style={styles.actionCard} accessibilityRole="button">
+            <TouchableOpacity
+              style={styles.actionCard}
+              accessibilityRole="button"
+              onPress={() => openOnWeb(vehicleSide ? '/need-load' : '/search', vehicleSide ? 'Find loads' : 'Find transporters')}
+            >
               <Text style={styles.actionIcon}>🔍</Text>
               <Text style={styles.actionText}>{vehicleSide ? 'Find Loads' : 'Find Transporters'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard} accessibilityRole="button">
+            <TouchableOpacity
+              style={styles.actionCard}
+              accessibilityRole="button"
+              onPress={() => openOnWeb(vehicleSide ? '/my-trucks' : '/post-load', vehicleSide ? 'Register vehicle' : 'Post load')}
+            >
               <Text style={styles.actionIcon}>➕</Text>
               <Text style={styles.actionText}>{vehicleSide ? 'Register Vehicle' : 'Post Load'}</Text>
             </TouchableOpacity>
@@ -90,20 +206,31 @@ export function HomeScreen() {
         {/* Stats */}
         <View style={styles.statsContainer}>
           <Text style={styles.sectionTitle}>Your Activity</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Active</Text>
+          {statsError ? (
+            <View style={styles.noticeCard}>
+              <Text style={styles.noticeText}>{statsError}</Text>
+              <TouchableOpacity onPress={onRefresh} accessibilityRole="button">
+                <Text style={styles.noticeAction}>Retry</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Completed</Text>
+          ) : stats === null ? (
+            <ActivityIndicator color="#F97316" style={styles.statsLoader} />
+          ) : (
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>{stats.active}</Text>
+                <Text style={styles.statLabel}>Active</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>{stats.completed}</Text>
+                <Text style={styles.statLabel}>Completed</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>{stats.cancelled}</Text>
+                <Text style={styles.statLabel}>Cancelled</Text>
+              </View>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Cancelled</Text>
-            </View>
-          </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -121,6 +248,14 @@ const styles = StyleSheet.create({
   logoutText: { color: '#F97316', fontSize: 14, fontWeight: '600' },
   roleBadge: { backgroundColor: '#FFF7ED', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignSelf: 'flex-start', marginBottom: 18 },
   roleText: { color: '#C2410C', fontSize: 13, fontWeight: '700' },
+  noticeCard: { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 12, padding: 12, marginBottom: 16, gap: 6 },
+  noticeText: { fontSize: 12, color: '#B91C1C', lineHeight: 17 },
+  noticeAction: { fontSize: 12, fontWeight: '800', color: '#B91C1C' },
+  trialHeaderText: { flex: 1 },
+  expiredCard: { borderRadius: 18, padding: 17, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', marginBottom: 24 },
+  expiredTitle: { fontSize: 17, color: '#7C2D12', fontWeight: '800', marginTop: 4 },
+  activePassCard: { borderRadius: 18, padding: 17, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0', marginBottom: 24 },
+  statsLoader: { marginVertical: 16 },
   trialCard: { borderRadius: 18, padding: 17, backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FED7AA', marginBottom: 24 },
   trialHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   trialEyebrow: { fontSize: 9, color: '#C2410C', letterSpacing: 1, fontWeight: '800' },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -9,36 +9,58 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  Linking,
+  RefreshControl,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
-import { api } from '../services/api'
 
+import { bookingsApi, getApiErrorMessage, paymentsApi, trackingApi } from '../services/api'
+import { SUPPORT_PHONE } from '../config'
+import type { BookingStatus, BookingSummary } from '../services/types'
+
+/**
+ * Driver-facing view of the single active booking.
+ *
+ * All state shown here comes from the API (`/bookings/my-bookings`,
+ * `/tracking/:bookingId`). Nothing is fabricated: when there is no active trip
+ * or a request fails, the screen says so instead of rendering a sample trip.
+ */
 export interface DriverTripDetails {
   id: string
   bookingNumber: string
   pickupAddress: string
   destinationAddress: string
-  status: 'Confirmed' | 'InTransit' | 'ReachedPickup' | 'LoadingComplete' | 'ReachedDestination' | 'Completed'
-  nextCheckpointName: string
-  etaMinutes: number
+  status: BookingStatus
+  /** Checkpoint progress from the tracking API; null when unavailable. */
+  nextCheckpointName: string | null
+  etaMinutes: number | null
   checkpointSeq: number
   totalCheckpoints: number
-  agreedPrice?: number
-  advanceConfirmed?: boolean
-  balanceConfirmed?: boolean
+  agreedPrice: number | null
+  advanceConfirmed: boolean
+  balanceConfirmed: boolean
+}
+
+const ACTIVE_STATUSES: BookingStatus[] = ['Pending', 'Confirmed', 'InTransit']
+
+function toNumber(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null
+  const numeric = typeof value === 'string' ? Number.parseFloat(value) : value
+  return Number.isFinite(numeric) ? numeric : null
 }
 
 export function DriverTripScreen() {
   const [trip, setTrip] = useState<DriverTripDetails | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [locationPermission, setLocationPermission] = useState<boolean | null>(null)
 
   // POD Modal State
   const [podModalVisible, setPodModalVisible] = useState(false)
   const [consigneeName, setConsigneeName] = useState('')
-  const [podPhotoAttached, setPodPhotoAttached] = useState(false)
   const [podNotes, setPodNotes] = useState('')
 
   // Incident Modal State
@@ -51,106 +73,108 @@ export function DriverTripScreen() {
   const [completionModalVisible, setCompletionModalVisible] = useState(false)
   const [completionLoading, setCompletionLoading] = useState(false)
 
-  useEffect(() => {
-    checkLocationPermission()
-    fetchActiveTrip()
-  }, [])
-
-  const checkLocationPermission = async () => {
+  const checkLocationPermission = useCallback(async () => {
     try {
       const { status } = await Location.getForegroundPermissionsAsync()
       setLocationPermission(status === 'granted')
     } catch {
       setLocationPermission(false)
     }
-  }
+  }, [])
 
   const requestLocationPermission = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync()
       setLocationPermission(status === 'granted')
-      if (status === 'granted') {
-        Alert.alert('Permission Granted', 'Geofence checkpoint location access enabled.')
-      } else {
-        Alert.alert('Permission Required', 'Location access is needed to record geofence checkpoints.')
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission required',
+          'Location access is needed to record geofence checkpoints. You can enable it later in your device settings.',
+        )
       }
     } catch {
-      Alert.alert('Error', 'Could not request location permission.')
+      Alert.alert('Permission error', 'Could not request location permission on this device.')
     }
   }
 
-  const fetchActiveTrip = async () => {
+  const mapBooking = useCallback(async (booking: BookingSummary): Promise<DriverTripDetails> => {
+    let nextCheckpointName: string | null = null
+    let etaMinutes: number | null = null
+    let checkpointSeq = 1
+    let totalCheckpoints = 0
+
+    // Checkpoint progress is optional context — never block the trip card on it.
     try {
-      setLoading(true)
-      const res = await api.get('/bookings')
-      const bookingsList: any[] = res.data || []
-      const active = bookingsList.find((b) => b.status !== 'Completed' && b.status !== 'Cancelled')
-
-      if (active) {
-        setTrip({
-          id: active.id,
-          bookingNumber: active.id.slice(0, 8).toUpperCase(),
-          pickupAddress: active.load?.loadingAddress || 'Chennai Central Freight Yard, TN',
-          destinationAddress: active.load?.unloadingAddress || 'Bengaluru Inland Container Depot, KA',
-          status: (active.status as any) || 'InTransit',
-          nextCheckpointName: 'Krishnagiri Toll Plaza (Checkpoint 3/5)',
-          etaMinutes: 145,
-          checkpointSeq: 3,
-          totalCheckpoints: 5,
-          agreedPrice: Number(active.agreedPrice) || 25000,
-          advanceConfirmed: active.advanceConfirmed || false,
-          balanceConfirmed: active.balanceConfirmed || false,
-        })
-      } else {
-        // Sample active driver trip for preview
-        setTrip({
-          id: 'b-active-driver-101',
-          bookingNumber: 'LC-8492-MAA',
-          pickupAddress: 'Chennai Industrial Zone, Sriperumbudur Hub',
-          destinationAddress: 'Peenya Industrial Area, Bengaluru, KA',
-          status: 'InTransit',
-          nextCheckpointName: 'Hosur Border Checkpoint (Checkpoint 4/5)',
-          etaMinutes: 90,
-          checkpointSeq: 4,
-          totalCheckpoints: 5,
-          agreedPrice: 25000,
-          advanceConfirmed: true,
-          balanceConfirmed: false,
-        })
+      const { data } = await trackingApi.get(booking.id)
+      const checkpoints = data?.checkpoints ?? []
+      totalCheckpoints = checkpoints.length
+      const nextCheckpoint = checkpoints.find((c) => !c.reachedAt)
+      if (nextCheckpoint) {
+        nextCheckpointName = nextCheckpoint.name ?? `Checkpoint ${nextCheckpoint.checkpointSeq}`
+        checkpointSeq = nextCheckpoint.checkpointSeq
+      } else if (totalCheckpoints > 0) {
+        checkpointSeq = totalCheckpoints
       }
+      etaMinutes = data?.etaMinutes ?? null
     } catch {
-      // Fallback preview trip
-      setTrip({
-        id: 'b-active-driver-101',
-        bookingNumber: 'LC-8492-MAA',
-        pickupAddress: 'Chennai Port Container Terminal, TN',
-        destinationAddress: 'Electronic City Warehouse 4, Bengaluru, KA',
-        status: 'InTransit',
-        nextCheckpointName: 'Krishnagiri Highway Checkpoint (Checkpoint 3/5)',
-        etaMinutes: 120,
-        checkpointSeq: 3,
-        totalCheckpoints: 5,
-        agreedPrice: 25000,
-        advanceConfirmed: true,
-        balanceConfirmed: false,
-      })
-    } finally {
-      setLoading(false)
+      // Tracking unavailable — the card renders without checkpoint details.
     }
-  }
 
-  // Driver Trip Actions
-  const handleUpdateTripStatus = async (newStatus: DriverTripDetails['status']) => {
+    return {
+      id: booking.id,
+      bookingNumber: booking.id.slice(0, 8).toUpperCase(),
+      pickupAddress: booking.load?.loadingAddress || 'Pickup address not available',
+      destinationAddress: booking.load?.unloadingAddress || 'Destination address not available',
+      status: booking.status,
+      nextCheckpointName,
+      etaMinutes,
+      checkpointSeq,
+      totalCheckpoints,
+      agreedPrice: toNumber(booking.agreedPrice),
+      advanceConfirmed: booking.advanceConfirmed === true,
+      balanceConfirmed: booking.balanceConfirmed === true,
+    }
+  }, [])
+
+  const fetchActiveTrip = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true)
+      else setLoading(true)
+      setLoadError(null)
+
+      try {
+        const { data } = await bookingsApi.getMyBookings()
+        const bookings = Array.isArray(data) ? data : []
+        const active = bookings.find((b) => ACTIVE_STATUSES.includes(b.status))
+
+        setTrip(active ? await mapBooking(active) : null)
+      } catch (error) {
+        setTrip(null)
+        setLoadError(getApiErrorMessage(error, 'Could not load your active trip.'))
+      } finally {
+        setLoading(false)
+        setRefreshing(false)
+      }
+    },
+    [mapBooking],
+  )
+
+  useEffect(() => {
+    void checkLocationPermission()
+    void fetchActiveTrip()
+  }, [checkLocationPermission, fetchActiveTrip])
+
+  // ── Driver actions — every one reflects the server response only ─────────
+
+  const handleUpdateTripStatus = async (newStatus: BookingStatus) => {
     if (!trip) return
     try {
       setActionLoading(true)
-      await api.patch(`/bookings/${trip.id}/status`, { status: newStatus })
+      await bookingsApi.updateStatus(trip.id, newStatus)
       setTrip((prev) => (prev ? { ...prev, status: newStatus } : null))
-      Alert.alert('Status Updated', `Trip status changed to: ${newStatus}`)
-    } catch {
-      // Optimistic state update for driver responsiveness
-      setTrip((prev) => (prev ? { ...prev, status: newStatus } : null))
-      Alert.alert('Status Updated', `Trip status updated: ${newStatus}`)
+      Alert.alert('Status updated', `Trip status is now: ${newStatus}`)
+    } catch (error) {
+      Alert.alert('Could not update status', getApiErrorMessage(error, 'The trip status was not changed. Please try again.'))
     } finally {
       setActionLoading(false)
     }
@@ -158,45 +182,39 @@ export function DriverTripScreen() {
 
   const handleRecordCheckpoint = async () => {
     if (!trip) return
+
+    if (!locationPermission) {
+      Alert.alert(
+        'Location required',
+        'Grant location access so the checkpoint can be recorded with verified GPS coordinates.',
+      )
+      return
+    }
+
     try {
       setActionLoading(true)
-      let coords = { lat: 12.9716, lng: 77.5946 }
-      if (locationPermission) {
-        const loc = await Location.getCurrentPositionAsync({})
-        coords = { lat: loc.coords.latitude, lng: loc.coords.longitude }
-      }
+      const loc = await Location.getCurrentPositionAsync({})
 
-      await api.post(`/tracking/${trip.id}/checkpoint`, {
+      await trackingApi.recordCheckpoint(trip.id, {
         checkpointSeq: trip.checkpointSeq,
-        lat: coords.lat,
-        lng: coords.lng,
+        lat: loc.coords.latitude,
+        lng: loc.coords.longitude,
       })
 
-      const nextSeq = Math.min(trip.checkpointSeq + 1, trip.totalCheckpoints)
-      setTrip((prev) =>
-        prev
-          ? {
-              ...prev,
-              checkpointSeq: nextSeq,
-              nextCheckpointName: nextSeq === 5 ? 'Bengaluru Unloading Terminal' : `Highway Checkpoint ${nextSeq}/5`,
-              etaMinutes: Math.max(0, prev.etaMinutes - 45),
-            }
-          : null
-      )
-      Alert.alert('Checkpoint Recorded', `Passed ${trip.nextCheckpointName}!`)
-    } catch {
-      Alert.alert('Checkpoint Recorded', `Geofence checkpoint event logged.`)
+      Alert.alert('Checkpoint recorded', 'Your position has been logged against this trip.')
+      await fetchActiveTrip(true)
+    } catch (error) {
+      Alert.alert('Checkpoint not recorded', getApiErrorMessage(error, 'The checkpoint could not be saved. Please try again.'))
     } finally {
       setActionLoading(false)
     }
   }
 
-  // 🚚 TRIP COMPLETION - Complete trip and release payment
-  const handleTripCompletion = async () => {
+  const handleTripCompletion = () => {
     if (!trip) return
 
     if (!trip.advanceConfirmed) {
-      Alert.alert('Payment Required', 'Factory owner must confirm the 50% loading advance before completing the trip.')
+      Alert.alert('Payment required', 'The factory owner must confirm the 50% loading advance before the trip can be completed.')
       return
     }
 
@@ -206,50 +224,41 @@ export function DriverTripScreen() {
   const confirmTripCompletion = async () => {
     if (!trip) return
     if (!consigneeName.trim()) {
-      Alert.alert('Required Field', 'Please enter the consignee receiver name.')
+      Alert.alert('Required field', 'Please enter the consignee receiver name.')
       return
     }
 
     try {
       setCompletionLoading(true)
 
-      // Call trip completion API which will:
-      // 1. Complete the booking
-      // 2. Release the balance payment to driver
-      // 3. Notify factory owner for rating
-      const response = await api.post('/payments/trip/complete', {
+      // Completes the booking, releases the balance payment and notifies the
+      // factory owner for rating — all server-side.
+      const { data } = await paymentsApi.completeTrip({
         bookingId: trip.id,
         podDetails: {
-          consigneeName,
-          podPhotoUrl: podPhotoAttached ? `https://storage.lorrycarry.com/pod/${trip.id}.jpg` : undefined,
-          deliveryNotes: podNotes,
+          consigneeName: consigneeName.trim(),
+          deliveryNotes: podNotes.trim() || undefined,
         },
       })
 
-      setTrip((prev) => (prev ? { ...prev, status: 'Completed', balanceConfirmed: true } : null))
       setCompletionModalVisible(false)
       setPodModalVisible(false)
       setConsigneeName('')
       setPodNotes('')
-      setPodPhotoAttached(false)
 
-      const balanceAmount = response.data?.balanceAmount || 0
+      const releasedAmount = typeof data?.balanceAmount === 'number' ? data.balanceAmount : null
       Alert.alert(
-        '🎉 Trip Completed Successfully!',
-        balanceAmount > 0
-          ? `Balance payment of ₹${balanceAmount.toLocaleString('en-IN')} has been released to your account. The factory owner has been notified to submit their rating.`
-          : 'Trip completed! The factory owner has been notified to submit their rating.',
-        [{ text: 'OK' }]
+        'Trip completed',
+        releasedAmount
+          ? `Balance payment of ₹${releasedAmount.toLocaleString('en-IN')} has been released. The factory owner has been notified to submit their rating.`
+          : 'Trip completed. The factory owner has been notified to submit their rating.',
       )
-    } catch (err: any) {
-      // Fallback to old behavior for demo
-      setTrip((prev) => (prev ? { ...prev, status: 'Completed', balanceConfirmed: true } : null))
-      setCompletionModalVisible(false)
-      setPodModalVisible(false)
+
+      await fetchActiveTrip(true)
+    } catch (error) {
       Alert.alert(
-        'Trip Completed!',
-        'Balance payment has been released. Factory owner will now be prompted to submit a rating.',
-        [{ text: 'OK' }]
+        'Trip not completed',
+        getApiErrorMessage(error, 'We could not complete the trip. Your booking is unchanged — please try again.'),
       )
     } finally {
       setCompletionLoading(false)
@@ -259,25 +268,22 @@ export function DriverTripScreen() {
   const handleSubmitPOD = async () => {
     if (!trip) return
     if (!consigneeName.trim()) {
-      Alert.alert('Required Field', 'Please enter the consignee receiver name.')
+      Alert.alert('Required field', 'Please enter the consignee receiver name.')
       return
     }
 
     try {
       setActionLoading(true)
-      await api.post(`/tracking/${trip.id}/pod`, {
-        consigneeName,
-        podUrl: podPhotoAttached ? 'https://storage.lorrycarry.com/pod/proof-8492.jpg' : undefined,
-        notes: podNotes,
+      await trackingApi.submitPod(trip.id, {
+        consigneeName: consigneeName.trim(),
+        notes: podNotes.trim() || undefined,
       })
 
-      setTrip((prev) => (prev ? { ...prev, status: 'Completed' } : null))
       setPodModalVisible(false)
-      Alert.alert('POD Submitted', 'Proof of delivery successfully verified by cargo owner!')
-    } catch {
-      setTrip((prev) => (prev ? { ...prev, status: 'Completed' } : null))
-      setPodModalVisible(false)
-      Alert.alert('POD Submitted', 'Delivery complete sign-off logged.')
+      Alert.alert('POD submitted', 'Proof of delivery has been recorded against this trip.')
+      await fetchActiveTrip(true)
+    } catch (error) {
+      Alert.alert('POD not submitted', getApiErrorMessage(error, 'The proof of delivery was not saved. Please try again.'))
     } finally {
       setActionLoading(false)
     }
@@ -286,30 +292,44 @@ export function DriverTripScreen() {
   const handleSubmitIncident = async () => {
     if (!trip) return
     if (!incidentDesc.trim()) {
-      Alert.alert('Required Field', 'Please describe the delay or incident.')
+      Alert.alert('Required field', 'Please describe the delay or incident.')
       return
     }
 
     try {
       setActionLoading(true)
-      await api.post(`/tracking/${trip.id}/incident`, {
+      await trackingApi.reportIncident(trip.id, {
         category: incidentCategory,
-        description: incidentDesc,
-        impactMinutes: parseInt(impactMinutes, 10) || 30,
+        description: incidentDesc.trim(),
+        impactMinutes: Number.parseInt(impactMinutes, 10) || 0,
       })
 
       setIncidentModalVisible(false)
       setIncidentDesc('')
-      Alert.alert('Incident Reported', 'Fleet Dispatch Control Tower has been notified of the delay.')
-    } catch {
-      setIncidentModalVisible(false)
-      Alert.alert('Report Logged', 'Incident report recorded for dispatch audit.')
+      Alert.alert('Incident reported', 'Dispatch has been notified of the delay.')
+    } catch (error) {
+      Alert.alert('Report not sent', getApiErrorMessage(error, 'The incident report was not saved. Please try again.'))
     } finally {
       setActionLoading(false)
     }
   }
 
-  const balanceAmount = trip?.agreedPrice ? trip.agreedPrice * 0.5 : 0
+  const handleContactSupport = async () => {
+    if (!SUPPORT_PHONE) {
+      Alert.alert('Support', 'Reach the LorryCarry dispatch desk from the Help tab.')
+      return
+    }
+    const url = `tel:${SUPPORT_PHONE}`
+    try {
+      const supported = await Linking.canOpenURL(url)
+      if (!supported) throw new Error('unsupported')
+      await Linking.openURL(url)
+    } catch {
+      Alert.alert('Dispatch support', `Call ${SUPPORT_PHONE} for 24/7 dispatch assistance.`)
+    }
+  }
+
+  const balanceAmount = trip?.agreedPrice ? Math.round(trip.agreedPrice * 0.5) : 0
 
   return (
     <SafeAreaView style={styles.container}>
@@ -319,12 +339,15 @@ export function DriverTripScreen() {
           <Text style={styles.headerTitle}>Driver Mode</Text>
           <Text style={styles.headerSub}>Operational Trip Dispatch Center</Text>
         </View>
-        <TouchableOpacity style={styles.supportBadge} onPress={() => Alert.alert('Support Helpline', 'Call 24/7 Dispatch: +91 1800-LORRY-CARRY')}>
+        <TouchableOpacity style={styles.supportBadge} onPress={handleContactSupport} accessibilityRole="button">
           <Text style={styles.supportBadgeText}>📞 Dispatch Support</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchActiveTrip(true)} />}
+      >
         {/* Location Permission Status Card */}
         <View style={[styles.card, locationPermission ? styles.locationGranted : styles.locationWarning]}>
           <View style={styles.rowBetween}>
@@ -347,7 +370,16 @@ export function DriverTripScreen() {
         {loading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color="#F97316" />
-            <Text style={styles.loadingText}>Fetching active trip details...</Text>
+            <Text style={styles.loadingText}>Fetching active trip details…</Text>
+          </View>
+        ) : loadError ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyIcon}>⚠️</Text>
+            <Text style={styles.emptyTitle}>Could not load your trip</Text>
+            <Text style={styles.emptySub}>{loadError}</Text>
+            <TouchableOpacity style={styles.grantBtn} onPress={() => fetchActiveTrip(true)} accessibilityRole="button">
+              <Text style={styles.grantBtnText}>Retry</Text>
+            </TouchableOpacity>
           </View>
         ) : trip ? (
           <>
@@ -363,7 +395,7 @@ export function DriverTripScreen() {
               </View>
 
               {/* Payment Status */}
-              {trip.agreedPrice && (
+              {trip.agreedPrice !== null && (
                 <View style={styles.paymentStatusBox}>
                   <Text style={styles.paymentStatusTitle}>💰 Payment Status</Text>
                   <View style={styles.paymentRow}>
@@ -412,9 +444,13 @@ export function DriverTripScreen() {
               <View style={styles.checkpointBox}>
                 <View style={styles.rowBetween}>
                   <Text style={styles.checkpointHeader}>Next Geofence Checkpoint</Text>
-                  <Text style={styles.etaText}>⏱ ETA ~{trip.etaMinutes} mins</Text>
+                  {trip.etaMinutes !== null && <Text style={styles.etaText}>⏱ ETA ~{trip.etaMinutes} mins</Text>}
                 </View>
-                <Text style={styles.checkpointName}>📍 {trip.nextCheckpointName}</Text>
+                <Text style={styles.checkpointName}>
+                  {trip.nextCheckpointName
+                    ? `📍 ${trip.nextCheckpointName}${trip.totalCheckpoints ? ` (${trip.checkpointSeq}/${trip.totalCheckpoints})` : ''}`
+                    : 'No checkpoint data available for this trip yet.'}
+                </Text>
                 <Text style={styles.checkpointDisclaimer}>
                   Checkpoints update automatically upon entering highway geofences.
                 </Text>
@@ -433,35 +469,11 @@ export function DriverTripScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.actionBtn, trip.status === 'InTransit' && styles.actionBtnActive]}
-                  onPress={() => handleUpdateTripStatus('ReachedPickup')}
-                  disabled={actionLoading || trip.status === 'InTransit'}
-                >
-                  <Text style={styles.actionBtnText}>🏭 Reached Pickup</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => handleUpdateTripStatus('LoadingComplete')}
-                  disabled={actionLoading}
-                >
-                  <Text style={styles.actionBtnText}>📦 Loading Complete</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
                   style={[styles.actionBtn, styles.checkpointBtn]}
                   onPress={handleRecordCheckpoint}
                   disabled={actionLoading}
                 >
                   <Text style={styles.actionBtnText}>📍 Checkpoint Reached</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => handleUpdateTripStatus('ReachedDestination')}
-                  disabled={actionLoading}
-                >
-                  <Text style={styles.actionBtnText}>🏁 Reached Destination</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -502,8 +514,10 @@ export function DriverTripScreen() {
                 <View style={styles.completedBanner}>
                   <Text style={styles.completedTitle}>✅ Trip Completed</Text>
                   <Text style={styles.completedSubtext}>
-                    Balance payment of ₹{balanceAmount.toLocaleString('en-IN')} has been released.{'\n'}
-                    Factory owner has been notified for rating.
+                    {trip.balanceConfirmed
+                      ? `Balance payment of ₹${balanceAmount.toLocaleString('en-IN')} has been released.`
+                      : 'Balance release is being processed by our payments team.'}
+                    {'\n'}Factory owner has been notified for rating.
                   </Text>
                 </View>
               )}
@@ -522,7 +536,8 @@ export function DriverTripScreen() {
             <Text style={styles.emptyIcon}>🚛</Text>
             <Text style={styles.emptyTitle}>No Active Driver Trip</Text>
             <Text style={styles.emptySub}>
-              Assigned trips from your fleet manager will appear here for dispatch status tracking.
+              You have no confirmed or in-transit bookings right now. Accepted trips appear here
+              automatically — pull down to refresh.
             </Text>
           </View>
         )}
@@ -533,7 +548,7 @@ export function DriverTripScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Proof of Delivery (POD)</Text>
-            <Text style={styles.modalSub}>Complete delivery sign-off and capture receiver proof.</Text>
+            <Text style={styles.modalSub}>Record the delivery sign-off against this booking.</Text>
 
             <Text style={styles.inputLabel}>Consignee Receiver Name *</Text>
             <TextInput
@@ -544,15 +559,16 @@ export function DriverTripScreen() {
             />
 
             <TouchableOpacity
-              style={[styles.photoAttachBtn, podPhotoAttached && styles.photoAttachedBtn]}
-              onPress={() => {
-                setPodPhotoAttached(!podPhotoAttached)
-                Alert.alert('Photo Captured', 'POD Document photo attached successfully.')
-              }}
+              style={styles.photoAttachBtn}
+              onPress={() =>
+                Alert.alert(
+                  'Photo upload unavailable',
+                  'POD photo capture is not available in this app version. Submit the receiver name and notes now — the photo can be attached from the LorryCarry web app.',
+                )
+              }
+              accessibilityRole="button"
             >
-              <Text style={styles.photoAttachText}>
-                {podPhotoAttached ? '✓ POD Photo Attached (Tap to re-capture)' : '📷 Capture / Upload POD Photo'}
-              </Text>
+              <Text style={styles.photoAttachText}>📷 POD photo (web app only)</Text>
             </TouchableOpacity>
 
             <Text style={styles.inputLabel}>Delivery Notes / Remarks</Text>
@@ -616,15 +632,16 @@ export function DriverTripScreen() {
             />
 
             <TouchableOpacity
-              style={[styles.photoAttachBtn, podPhotoAttached && styles.photoAttachedBtn]}
-              onPress={() => {
-                setPodPhotoAttached(!podPhotoAttached)
-                Alert.alert('Photo Captured', 'POD Document photo attached successfully.')
-              }}
+              style={styles.photoAttachBtn}
+              onPress={() =>
+                Alert.alert(
+                  'Photo upload unavailable',
+                  'POD photo capture is not available in this app version. Submit the receiver name and notes now — the photo can be attached from the LorryCarry web app.',
+                )
+              }
+              accessibilityRole="button"
             >
-              <Text style={styles.photoAttachText}>
-                {podPhotoAttached ? '✓ POD Photo Attached' : '📷 Capture / Upload POD Photo'}
-              </Text>
+              <Text style={styles.photoAttachText}>📷 POD photo (web app only)</Text>
             </TouchableOpacity>
 
             <Text style={styles.inputLabel}>Delivery Notes (Optional)</Text>
@@ -639,7 +656,7 @@ export function DriverTripScreen() {
             {/* What happens next */}
             <View style={styles.nextStepsBox}>
               <Text style={styles.nextStepsTitle}>📋 What Happens Next:</Text>
-              <Text style={styles.nextStepsText}>• Balance payment of ₹{balanceAmount.toLocaleString('en-IN')} released to your account</Text>
+              <Text style={styles.nextStepsText}>• Balance payment of ₹{balanceAmount.toLocaleString('en-IN')} is released once the server confirms completion</Text>
               <Text style={styles.nextStepsText}>• Factory owner receives notification for rating</Text>
               <Text style={styles.nextStepsText}>• Trip marked as completed</Text>
             </View>
