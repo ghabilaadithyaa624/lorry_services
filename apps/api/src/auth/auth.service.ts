@@ -93,14 +93,15 @@ export class AuthService {
     this.logger.log(`OTP ${result.success ? 'sent' : 'failed'} via ${usedChannel} to ${phone}`)
 
     const isDev = this.config.get('NODE_ENV') !== 'production'
-    const isTestPhone = phone === '+918072025106' || this.config.get('ALLOW_TEST_OTP') === 'true'
+    const hasSmsProvider = !!(this.config.get('MSG91_API_KEY') || this.config.get('GUPSHUP_APP_TOKEN'))
+    const isTestPhone = phone === '+918072025106' || this.config.get('ALLOW_TEST_OTP') === 'true' || !hasSmsProvider
 
     return {
       success: result.success,
       message: result.message,
       channel: usedChannel,
       isExistingUser,
-      // Dev mode or test phone: return static mock OTP '123456' for free testing
+      // Dev mode, test phone, or unconfigured SMS gateway: return static mock OTP '123456' for free testing
       ...((isDev || isTestPhone) && { devOtp: '123456' }),
     }
   }
@@ -160,7 +161,8 @@ export class AuthService {
     // Verify OTP
     let verification: { valid: boolean; message: string }
     const isDev = this.config.get('NODE_ENV') !== 'production'
-    const isTestPhone = phone === '+918072025106' || this.config.get('ALLOW_TEST_OTP') === 'true'
+    const hasSmsProvider = !!(this.config.get('MSG91_API_KEY') || this.config.get('GUPSHUP_APP_TOKEN'))
+    const isTestPhone = phone === '+918072025106' || this.config.get('ALLOW_TEST_OTP') === 'true' || !hasSmsProvider
     if ((isDev || isTestPhone) && inputOtp === '123456') {
       verification = { valid: true, message: 'OTP verified successfully (Dev/Test Mode)' }
       await this.otpStorage.deleteOtp(phone)
