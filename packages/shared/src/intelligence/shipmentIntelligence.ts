@@ -13,28 +13,38 @@ export interface CheckpointData {
   crossedAt?: string | null
   crossedBy?: string | null
   etaMinutes?: number | null
+  crossed?: boolean
 }
 
 export interface BookingData {
   id: string
   loadId: string
   truckId: string
-  agreedPrice: number
+  agreedPrice: number | string
   advanceConfirmed: boolean
   advanceConfirmedAt?: string | null
   balanceConfirmed: boolean
   balanceConfirmedAt?: string | null
   ewayBillNumber?: string | null
+  ewayBillStatus?: string | null
   liabilityAccepted: boolean
-  status: 'Pending' | 'Confirmed' | 'InTransit' | 'Completed' | 'Cancelled'
+  liabilityAcceptedAt?: string | null
+  status: 'Pending' | 'Confirmed' | 'InTransit' | 'Completed' | 'Cancelled' | string
   startedAt?: string | null
   completedAt?: string | null
   createdAt: string
+  whatsappTriggerStatus?: 'NotTriggered' | 'Queued' | 'Sent' | 'Delivered' | 'Failed' | string | null
+  whatsappTriggeredAt?: string | null
+  whatsappStatus?: string | null
+  expectedDeliveryAt?: string | null
+  expectedDeliveryTime?: string | null
   checkpoints?: CheckpointData[]
   load?: {
     tonnageRequired?: number
     loadingAddress?: string
     unloadingAddress?: string
+    expectedDeliveryAt?: string | null
+    expectedDelivery?: string | null
     user?: { name?: string | null; phone: string }
   }
   truck?: {
@@ -42,6 +52,10 @@ export interface BookingData {
     bodyType?: string
     user?: { name?: string | null; phone: string }
   }
+}
+
+export interface AssessShipmentOptions {
+  now?: Date | string | number
 }
 
 export interface ShipmentRiskAssessment {
@@ -60,7 +74,7 @@ export interface ShipmentRiskAssessment {
     title: string
     description: string
     urgency: 'HIGH' | 'MEDIUM' | 'LOW'
-    actionType: 'CONFIRM_ADVANCE' | 'CONFIRM_BALANCE' | 'EWAY_BILL' | 'LIABILITY'
+    actionType: 'CONFIRM_ADVANCE' | 'CONFIRM_BALANCE' | 'EWAY_BILL' | 'LIABILITY' | 'WHATSAPP_RETRY' | 'DELAY_INVESTIGATION' | 'OVERDUE_DELIVERY' | string
   }>
   commercialState: {
     advancePaid: boolean
@@ -73,14 +87,19 @@ export interface ShipmentRiskAssessment {
 
 const assessmentCache = new WeakMap<BookingData, ShipmentRiskAssessment>()
 
-export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAssessment {
-  if (assessmentCache.has(booking)) {
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000
+
+export function assessShipmentIntelligence(
+  booking: BookingData,
+  options?: AssessShipmentOptions
+): ShipmentRiskAssessment {
+  if (!options && assessmentCache.has(booking)) {
     return assessmentCache.get(booking)!
   }
 
   const checkpoints = booking.checkpoints || []
   const totalCheckpoints = Math.max(checkpoints.length, 5)
-  const crossedCheckpoints = checkpoints.filter(cp => Boolean(cp.crossedAt))
+  const crossedCheckpoints = checkpoints.filter(cp => Boolean(cp.crossedAt || cp.crossed))
   const crossedCount = crossedCheckpoints.length
   
   const progressPercent = booking.status === 'Completed' ? 100 : Math.round((crossedCount / totalCheckpoints) * 100)
@@ -89,10 +108,60 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
   const advanceAmount = Math.round(agreedPrice * 0.5)
   const balanceAmount = agreedPrice - advanceAmount
 
+  const referenceTime = options?.now ? new Date(options.now).getTime() : Date.now()
+
+  // 1. Checkpoint delay check for InTransit:
+  // Find the latest crossedAt timestamp across all crossed checkpoints
+  let latestCrossedTime: number | null = null
+  for (const cp of crossedCheckpoints) {
+    if (cp.crossedAt) {
+      const t = new Date(cp.crossedAt).getTime()
+      if (!isNaN(t) && (latestCrossedTime === null || t > latestCrossedTime)) {
+        latestCrossedTime = t
+      }
+    }
+  }
+
+  let isCheckpointStale = false
+  if (booking.status === 'InTransit') {
+    if (latestCrossedTime !== null) {
+      if (referenceTime - latestCrossedTime > SIX_HOURS_MS) {
+        isCheckpointStale = true
+      }
+    } else if (booking.startedAt) {
+      const startedTime = new Date(booking.startedAt).getTime()
+      if (!isNaN(startedTime) && referenceTime - startedTime > SIX_HOURS_MS) {
+        isCheckpointStale = true
+      }
+    }
+  }
+
+  // 2. Expected delivery time passed check:
+  const rawExpectedDelivery =
+    booking.load?.expectedDeliveryAt ||
+    booking.load?.expectedDelivery ||
+    booking.expectedDeliveryAt ||
+    booking.expectedDeliveryTime ||
+    (booking as any).expectedDelivery
+  let isExpectedDeliveryPassed = false
+  if (rawExpectedDelivery && booking.status !== 'Completed' && booking.status !== 'Cancelled') {
+    const deliveryTime = new Date(rawExpectedDelivery).getTime()
+    if (!isNaN(deliveryTime) && referenceTime > deliveryTime) {
+      isExpectedDeliveryPassed = true
+    }
+  }
+
+  // 3. WhatsApp trigger failed check:
+  const isWhatsAppFailed =
+    (booking.whatsappTriggerStatus === 'Failed' ||
+      booking.whatsappStatus === 'Failed' ||
+      (booking as any).whatsapp_trigger_status === 'Failed') &&
+    booking.status !== 'Cancelled'
+
   const requiredActions: ShipmentRiskAssessment['requiredActions'] = []
 
-  // 1. Check commercial terms
-  if (!booking.advanceConfirmed && booking.status !== 'Cancelled') {
+  // 1. Check commercial terms: advance
+  if (!booking.advanceConfirmed && booking.status !== 'Cancelled' && booking.status !== 'Completed') {
     requiredActions.push({
       title: '50% Loading Advance Confirmation Pending',
       description: `Release ₹${advanceAmount.toLocaleString('en-IN')} loading advance to transporter upon dispatch confirmation.`,
@@ -101,23 +170,53 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
     })
   }
 
-  // 2. Check E-Way Bill compliance
-  if (!booking.ewayBillNumber && booking.status !== 'Cancelled' && booking.status !== 'Completed') {
-    requiredActions.push({
-      title: 'E-Way Bill Number Missing',
-      description: 'Indian GST regulations require an active E-Way Bill for consignments above ₹50,000.',
-      urgency: 'MEDIUM',
-      actionType: 'EWAY_BILL',
-    })
-  }
-
-  // 3. Check delivery balance
+  // 2. Check commercial terms: delivery balance
   if (booking.status === 'Completed' && !booking.balanceConfirmed) {
     requiredActions.push({
       title: 'Delivery Balance Confirmation Required',
       description: `Confirm release of remaining ₹${balanceAmount.toLocaleString('en-IN')} balance after verifying unloading & POD.`,
       urgency: 'HIGH',
       actionType: 'CONFIRM_BALANCE',
+    })
+  }
+
+  // 3. Check delivery schedule overdue
+  if (isExpectedDeliveryPassed) {
+    requiredActions.push({
+      title: 'Expected Delivery Time Overdue',
+      description: 'Trip has passed its scheduled delivery timeline. Contact transporter and verify current location.',
+      urgency: 'HIGH',
+      actionType: 'OVERDUE_DELIVERY',
+    })
+  }
+
+  // 4. Check highway checkpoint stale
+  if (isCheckpointStale) {
+    requiredActions.push({
+      title: 'Highway Checkpoint Update Stale (>6 hrs)',
+      description: 'No highway checkpoint update recorded in the last 6 hours. Check driver telematics and geofence status.',
+      urgency: 'HIGH',
+      actionType: 'DELAY_INVESTIGATION',
+    })
+  }
+
+  // 5. Check WhatsApp trigger status
+  if (isWhatsAppFailed) {
+    requiredActions.push({
+      title: 'WhatsApp Trigger Failed',
+      description: 'Automated WhatsApp dispatch notification failed to deliver. Resend or contact transporter via direct call.',
+      urgency: 'MEDIUM',
+      actionType: 'WHATSAPP_RETRY',
+    })
+  }
+
+  // 6. Check E-Way Bill compliance
+  if (!booking.ewayBillNumber && booking.status !== 'Cancelled' && booking.status !== 'Completed') {
+    requiredActions.push({
+      title: 'E-Way Bill Number Missing',
+      description: 'Indian GST regulations require an active E-Way Bill for consignments above ₹50,000.',
+      urgency: 'MEDIUM',
+      actionType: 'EWAY_BILL',
     })
   }
 
@@ -128,7 +227,7 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
   if (crossedCount > 0) {
     const lastCrossed = crossedCheckpoints[crossedCheckpoints.length - 1]
     currentLocationName = lastCrossed.name
-    const nextCp = checkpoints.find(cp => !cp.crossedAt)
+    const nextCp = checkpoints.find(cp => !cp.crossedAt && !cp.crossed)
     nextMilestoneName = nextCp ? nextCp.name : 'Destination Terminal'
   }
 
@@ -139,15 +238,42 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
   let whyReason = 'Vehicle progressing through checkpoints'
 
   if (booking.status === 'Completed') {
-    statusTier = 'COMPLETED'
-    badgeVariant = 'success'
-    riskSummary = 'Consignment successfully delivered at destination.'
-    whyReason = 'All highway checkpoints crossed & POD verified'
+    if (!booking.balanceConfirmed) {
+      statusTier = 'ACTION REQUIRED'
+      badgeVariant = 'danger'
+      riskSummary = 'Shipment action required: Consignment completed but POD delivery balance not confirmed.'
+      whyReason = 'Completed but balance not confirmed'
+    } else {
+      statusTier = 'COMPLETED'
+      badgeVariant = 'success'
+      riskSummary = 'Consignment successfully delivered at destination.'
+      whyReason = 'All highway checkpoints crossed & POD verified'
+    }
+  } else if (booking.status === 'Cancelled') {
+    statusTier = 'LOW RISK'
+    badgeVariant = 'info'
+    riskSummary = 'This shipment booking has been cancelled.'
+    whyReason = 'Booking cancelled'
   } else if (!booking.advanceConfirmed && (booking.status === 'InTransit' || booking.status === 'Confirmed')) {
     statusTier = 'ACTION REQUIRED'
     badgeVariant = 'danger'
     riskSummary = 'Shipment action required: 50% loading advance confirmation pending.'
     whyReason = '50% advance confirmation pending'
+  } else if (isExpectedDeliveryPassed) {
+    statusTier = 'DELAYED'
+    badgeVariant = 'danger'
+    riskSummary = 'Shipment delayed: Expected delivery schedule has passed but booking not completed.'
+    whyReason = 'Expected delivery time passed and booking not completed'
+  } else if (booking.status === 'InTransit' && isCheckpointStale) {
+    statusTier = 'DELAYED'
+    badgeVariant = 'danger'
+    riskSummary = 'Shipment delayed: In-transit vehicle has not recorded a checkpoint update for over 6 hours.'
+    whyReason = 'InTransit and latest checkpoint crossedAt older than 6 hours'
+  } else if (isWhatsAppFailed) {
+    statusTier = 'ATTENTION REQUIRED'
+    badgeVariant = 'warning'
+    riskSummary = 'Shipment attention required: Automated WhatsApp trigger failed.'
+    whyReason = 'WhatsApp trigger failed'
   } else if (!booking.ewayBillNumber) {
     statusTier = 'ATTENTION REQUIRED'
     badgeVariant = 'warning'
@@ -179,16 +305,18 @@ export function assessShipmentIntelligence(booking: BookingData): ShipmentRiskAs
     whyReason,
     requiredActions,
     commercialState: {
-      advancePaid: booking.advanceConfirmed,
-      balancePaid: booking.balanceConfirmed,
+      advancePaid: Boolean(booking.advanceConfirmed),
+      balancePaid: Boolean(booking.balanceConfirmed),
       advanceAmount,
       balanceAmount,
     },
     riskSummary,
   }
 
-  assessmentCache.set(booking, result)
-  return result;
+  if (!options) {
+    assessmentCache.set(booking, result)
+  }
+  return result
 }
 
 export interface ControlTowerSummary {
@@ -207,7 +335,10 @@ export interface ControlTowerSummary {
   }>
 }
 
-export function summarizeActiveShipmentsControlTower(bookings: BookingData[]): ControlTowerSummary {
+export function summarizeActiveShipmentsControlTower(
+  bookings: BookingData[],
+  options?: AssessShipmentOptions
+): ControlTowerSummary {
   let actionRequiredCount = 0
   let attentionRequiredCount = 0
   let onTrackCount = 0
@@ -217,10 +348,19 @@ export function summarizeActiveShipmentsControlTower(bookings: BookingData[]): C
   const highPriorityActions: ControlTowerSummary['highPriorityActions'] = []
 
   for (const bk of bookings) {
-    const intel = assessShipmentIntelligence(bk)
+    const intel = assessShipmentIntelligence(bk, options)
     switch (intel.statusTier) {
       case 'ACTION REQUIRED':
         actionRequiredCount++
+        highPriorityActions.push({
+          bookingId: bk.id,
+          loadRoute: `${bk.load?.loadingAddress || 'Origin'} ➔ ${bk.load?.unloadingAddress || 'Destination'}`,
+          statusTier: intel.statusTier,
+          whyReason: intel.whyReason,
+        })
+        break
+      case 'DELAYED':
+        delayedCount++
         highPriorityActions.push({
           bookingId: bk.id,
           loadRoute: `${bk.load?.loadingAddress || 'Origin'} ➔ ${bk.load?.unloadingAddress || 'Destination'}`,
@@ -236,9 +376,6 @@ export function summarizeActiveShipmentsControlTower(bookings: BookingData[]): C
           statusTier: intel.statusTier,
           whyReason: intel.whyReason,
         })
-        break
-      case 'DELAYED':
-        delayedCount++
         break
       case 'ON TRACK':
         onTrackCount++
