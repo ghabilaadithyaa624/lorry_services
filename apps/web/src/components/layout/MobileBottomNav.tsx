@@ -13,7 +13,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
-import { getDashboardForRole, isVehicleSideRole } from '@/lib/roles'
+import { getDashboardForRole, normalizeRole } from '@/lib/roles'
+import { getNavForRole } from '@/lib/dashboardNav'
 
 interface UserState {
   id?: string
@@ -50,34 +51,57 @@ export function MobileBottomNav() {
   // Only render for signed-in users; anonymous visitors use the Navbar.
   if (!user) return null
 
-  const isTruckOwner = isVehicleSideRole(user.role)
+  const role = normalizeRole(user.role)
+  const isFleetSide = role === 'truck_driver'
+
+  /**
+   * Five primary destinations, derived from the same role navigation used by
+   * the dashboard sidebar (`@/lib/dashboardNav`) so labels and routes never
+   * drift between the two surfaces. Admins are excluded above.
+   */
+  const roleNav = getNavForRole(user.role)
+  const pick = (key: string) => roleNav.find((item) => item.key === key)
+  const label = (item?: { labelKey: string; label: string }, fallback = '') => {
+    if (!item) return fallback
+    const translated = t(item.labelKey)
+    return translated === item.labelKey ? item.label : translated
+  }
+
+  const search = pick(isFleetSide ? 'find-loads' : 'find-trucks')
+  const listings = pick(isFleetSide ? 'my-trucks' : 'my-loads')
+  const bookings = pick('bookings')
 
   const items = [
     {
+      key: 'home',
       name: t('mobileNav.home'),
       href: getDashboardForRole(user.role),
       icon: HomeIcon,
       active: pathname.startsWith('/dashboard'),
     },
     {
+      key: 'search',
       name: t('mobileNav.search'),
-      href: isTruckOwner ? '/search?type=load' : '/search?type=truck',
+      href: search?.href ?? '/search',
       icon: MagnifyingGlassIcon,
       active: pathname.startsWith('/search'),
     },
     {
-      name: isTruckOwner ? t('mobileNav.fleet') : t('mobileNav.loads'),
-      href: isTruckOwner ? '/my-trucks' : '/my-loads',
-      icon: isTruckOwner ? TruckIcon : ClipboardDocumentListIcon,
-      active: pathname.startsWith(isTruckOwner ? '/my-trucks' : '/my-loads'),
+      key: 'listings',
+      name: label(listings, isFleetSide ? t('mobileNav.fleet') : t('mobileNav.loads')),
+      href: listings?.href ?? (isFleetSide ? '/my-trucks' : '/my-loads'),
+      icon: isFleetSide ? TruckIcon : ClipboardDocumentListIcon,
+      active: pathname.startsWith(isFleetSide ? '/my-trucks' : '/my-loads'),
     },
     {
-      name: t('dash.bookings'),
-      href: '/bookings',
+      key: 'bookings',
+      name: label(bookings, t('dash.bookings')),
+      href: bookings?.href ?? '/bookings',
       icon: BriefcaseIcon,
       active: pathname.startsWith('/booking'),
     },
     {
+      key: 'profile',
       name: t('common.profile'),
       href: '/profile',
       icon: UserIcon,
@@ -94,7 +118,7 @@ export function MobileBottomNav() {
         const Icon = item.icon
         return (
           <Link
-            key={item.name}
+            key={item.key}
             href={item.href}
             aria-current={item.active ? 'page' : undefined}
             className={cn(

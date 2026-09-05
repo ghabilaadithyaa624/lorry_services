@@ -9,7 +9,6 @@
   "hero.radiusMatch": "50km Radius Match",
   "hero.whatsappAlerts": "Direct WhatsApp Alerts",
   "hero.zeroCommission": "Zero Broker Commission",
-
   "nav.findTrucks": "Find Trucks",
   "nav.findLoads": "Find Loads",
   "nav.pricing": "Pricing & Plans",
@@ -20,7 +19,6 @@
   "nav.profileAccount": "Profile & account",
   "nav.notifications": "Notifications",
   "nav.settings": "Settings",
-
   "footer.platform": "PLATFORM",
   "footer.solutions": "SOLUTIONS",
   "footer.corridors": "CORRIDORS",
@@ -32,7 +30,6 @@
   "footer.whatsappHelpline": "WhatsApp Helpline",
   "footer.termsOfService": "Terms of Service",
   "footer.privacyPolicy": "Privacy & Data Security",
-
   "common.menu": "Menu",
   "common.profile": "Profile",
   "common.helpSupport": "Help & support",
@@ -41,7 +38,6 @@
   "common.cancel": "Cancel",
   "common.loading": "Loading…",
   "common.close": "Close",
-
   "dash.overview": "Overview",
   "dash.myLoads": "My loads",
   "dash.myFleet": "My fleet",
@@ -56,12 +52,21 @@
   "dash.roleLoadOwner": "Load owner",
   "dash.roleTruckOwner": "Truck owner",
   "dash.roleAdmin": "Administrator",
-
   "mobileNav.home": "Home",
   "mobileNav.search": "Search",
   "mobileNav.fleet": "Fleet",
   "mobileNav.loads": "Loads",
-
   "settings.language.title": "Language & units",
-  "settings.language.description": "Language selection is stored on your account. Interface translation is being rolled out progressively."
+  "settings.language.description": "Language selection is stored on your account. Interface translation is being rolled out progressively.",
+  "dash.dashboard": "Dashboard",
+  "dash.myTrucks": "My Trucks",
+  "nav.registerTruck": "Register Truck",
+  "admin.nav.kyc": "KYC Queue",
+  "admin.nav.listings": "Listings",
+  "admin.nav.disputes": "Disputes",
+  "admin.nav.subscriptions": "Subscriptions",
+  "admin.nav.users": "Users",
+  "admin.nav.intelligence": "Intelligence",
+  "admin.nav.risk": "Risk",
+  "mobileNav.bookings": "Bookings"
 }

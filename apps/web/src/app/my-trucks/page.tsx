@@ -135,6 +135,16 @@ export default function MyFleetPage() {
       // Ignore
     }
 
+    // `/register-truck` redirects here with `?register=1` so the sidebar can
+    // link a stable route while the form itself lives in this workspace.
+    try {
+      if (new URLSearchParams(window.location.search).get('register') === '1') {
+        setRegisterModalOpen(true)
+      }
+    } catch {
+      // Ignore
+    }
+
     loadFleetData()
   }, [])
 
