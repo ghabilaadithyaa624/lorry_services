@@ -2,7 +2,7 @@
  * Canonical user roles — mirrors the Prisma `UserRole` enum and
  * docs/database-schema-design.md.
  */
-export type AppUserRole = 'factory_owner' | 'truck_driver' | 'admin'
+export type AppUserRole = 'factory_owner' | 'truck_driver' | 'transporter' | 'admin'
 
 /**
  * Legacy labels that may still be present in cached sessions, cookies or JWTs
@@ -35,7 +35,13 @@ export const DEFAULT_DASHBOARD = '/dashboard/factory-owner'
  */
 export function normalizeRole(role?: string | null): AppUserRole | undefined {
   if (!role) return undefined
-  if (role === 'factory_owner' || role === 'truck_driver' || role === 'admin') return role
+  if (
+    role === 'factory_owner' ||
+    role === 'truck_driver' ||
+    role === 'transporter' ||
+    role === 'admin'
+  )
+    return role
   return LEGACY_ROLE_MAP[role as LegacyUserRole]
 }
 
@@ -65,6 +71,14 @@ export const REGISTRATION_ROLES: RegistrationRoleOption[] = [
     benefits: ['Find return loads', 'Manage vehicles and bookings'],
     dashboard: '/dashboard/truck-driver',
   },
+  {
+    value: 'transporter',
+    label: 'Transporter',
+    eyebrow: 'BOTH SIDES',
+    description: 'Post freight loads and list trucks — broker both sides of every trip.',
+    benefits: ['Post loads and trucks', 'Manage your own listings end to end'],
+    dashboard: '/dashboard',
+  },
 ]
 
 export function getRoleLabel(role?: string | null): string {
@@ -73,6 +87,8 @@ export function getRoleLabel(role?: string | null): string {
       return 'Factory owner'
     case 'truck_driver':
       return 'Truck driver'
+    case 'transporter':
+      return 'Transporter'
     case 'admin':
       return 'Administrator'
     default:
