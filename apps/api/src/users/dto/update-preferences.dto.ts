@@ -11,6 +11,13 @@ import {
 } from 'class-validator'
 
 /**
+ * Interface languages the platform ships translations for.
+ *
+ * Kept in lockstep with `UI_LANGUAGES` in apps/web/src/lib/language.ts.
+ */
+export const SUPPORTED_LANGUAGES = ['en', 'ta', 'hi'] as const
+
+/**
  * Partial update of a user's application preferences.
  *
  * Every field is optional; only supplied keys are persisted. Values are
@@ -24,11 +31,16 @@ export class UpdatePreferencesDto {
   theme?: string
 
   @ApiPropertyOptional({
-    description: 'UI language code',
-    enum: ['en', 'hi', 'ta', 'te', 'kn', 'mr', 'gu', 'bn'],
+    description:
+      'UI language code. Restricted to languages with a shipped interface ' +
+      'translation (English, Tamil, Hindi). Codes such as te/kn/mr/gu/bn were ' +
+      'previously accepted but had no locale catalogue, so they stored a ' +
+      'preference the interface silently ignored. Extend this list only when ' +
+      'the matching locale file ships in apps/web/src/locales.',
+    enum: [...SUPPORTED_LANGUAGES],
   })
   @IsOptional()
-  @IsIn(['en', 'hi', 'ta', 'te', 'kn', 'mr', 'gu', 'bn'])
+  @IsIn([...SUPPORTED_LANGUAGES])
   language?: string
 
   @ApiPropertyOptional({ enum: ['INR'] })

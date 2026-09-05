@@ -6,6 +6,12 @@ import {
   persistLanguage,
   LANGUAGE_STORAGE_KEY,
   LANGUAGE_DIRECTIONS,
+  LANGUAGE_SELECT_OPTIONS,
+  SUPPORTED_LANGUAGE_CODES,
+  normalizeLanguage,
+  detectBrowserLanguage,
+  hasStoredLanguage,
+  resolveInitialLanguage,
 } from './language'
 
 describe('Language System (header toggle: தமிழ் | हिन्दी | English)', () => {
@@ -38,6 +44,62 @@ describe('Language System (header toggle: தமிழ் | हिन्दी |
     expect(isUiLanguage(null)).toBe(false)
     expect(isUiLanguage(42)).toBe(false)
     expect(isUiLanguage('fr')).toBe(false)
+  })
+
+  describe('supported-language guard (settings picker / API parity)', () => {
+    it('derives the supported code list from the toggle so surfaces cannot drift', () => {
+      expect(SUPPORTED_LANGUAGE_CODES).toEqual(['ta', 'hi', 'en'])
+    })
+
+    it('only offers languages that actually have a locale catalogue', () => {
+      // Regression: the settings centre used to list te/kn/mr/gu/bn, which
+      // stored a preference the interface silently ignored.
+      expect(LANGUAGE_SELECT_OPTIONS.map((o) => o.value).sort()).toEqual(['en', 'hi', 'ta'])
+      for (const legacy of ['te', 'kn', 'mr', 'gu', 'bn']) {
+        expect(LANGUAGE_SELECT_OPTIONS.some((o) => o.value === (legacy as never))).toBe(false)
+      }
+    })
+
+    it('labels each option with its native name so it is findable in any script', () => {
+      const labels = LANGUAGE_SELECT_OPTIONS.map((o) => o.label)
+      expect(labels).toContain('தமிழ் (Tamil)')
+      expect(labels).toContain('हिन्दी (Hindi)')
+      expect(labels).toContain('English')
+    })
+
+    it('normalizes legacy/unsupported codes down to a renderable language', () => {
+      expect(normalizeLanguage('ta')).toBe('ta')
+      expect(normalizeLanguage('te')).toBe('en')
+      expect(normalizeLanguage('bn')).toBe('en')
+      expect(normalizeLanguage(null)).toBe('en')
+      expect(normalizeLanguage(undefined)).toBe('en')
+      expect(normalizeLanguage('te', 'hi')).toBe('hi')
+    })
+  })
+
+  describe('first-visit browser detection', () => {
+    afterEach(() => {
+      delete (global as any).navigator
+    })
+
+    it('matches a supported base subtag from navigator.languages', () => {
+      ;(global as any).navigator = { languages: ['ta-IN', 'en-US'], language: 'ta-IN' }
+      expect(detectBrowserLanguage()).toBe('ta')
+    })
+
+    it('skips unsupported locales and takes the first supported one', () => {
+      ;(global as any).navigator = { languages: ['te-IN', 'hi-IN'], language: 'te-IN' }
+      expect(detectBrowserLanguage()).toBe('hi')
+    })
+
+    it('falls back to English for an entirely unsupported device locale', () => {
+      ;(global as any).navigator = { languages: ['fr-FR'], language: 'fr-FR' }
+      expect(detectBrowserLanguage()).toBe('en')
+    })
+
+    it('returns English when no navigator exists (SSR)', () => {
+      expect(detectBrowserLanguage()).toBe('en')
+    })
   })
 
   it('falls back to English when no window/storage is available (SSR)', () => {
@@ -111,6 +173,22 @@ describe('Language System (header toggle: தமிழ் | हिन्दी |
       expect((global as any).document.documentElement.lang).toBe('hi')
       expect((global as any).document.documentElement.dir).toBe('ltr')
       expect(dispatched).toContain('lc-language-change')
+    })
+
+    it('reports whether an explicit device choice exists', () => {
+      expect(hasStoredLanguage()).toBe(false)
+      store[LANGUAGE_STORAGE_KEY] = 'fr'
+      expect(hasStoredLanguage()).toBe(false)
+      store[LANGUAGE_STORAGE_KEY] = 'ta'
+      expect(hasStoredLanguage()).toBe(true)
+    })
+
+    it('prefers an explicit choice over the detected device language', () => {
+      ;(global as any).navigator = { languages: ['hi-IN'], language: 'hi-IN' }
+      expect(resolveInitialLanguage()).toBe('hi') // nothing stored yet → detect
+      store[LANGUAGE_STORAGE_KEY] = 'ta'
+      expect(resolveInitialLanguage()).toBe('ta') // explicit choice wins
+      delete (global as any).navigator
     })
 
     it('toggles the Tamil font-scaling class on <html> and clears it for other languages', () => {

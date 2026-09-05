@@ -25,7 +25,9 @@ import {
   REGISTRATION_ROLES,
   type PublicRegistrationRole,
 } from '@/lib/roles'
-import { LanguageToggle } from '@/components/layout/LanguageToggle'
+import { OnboardingLanguagePicker } from '@/components/layout/OnboardingLanguagePicker'
+import { readStoredLanguage } from '@/lib/language'
+import { syncLanguageToAccount } from '@/lib/useLanguagePreference'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -157,6 +159,13 @@ function LoginForm() {
       setAuthCookies(accessToken, user.role)
       sessionStorage.removeItem('selectedRole')
 
+      // Carry the language chosen before sign-in onto the freshly authenticated
+      // account. Without this the pre-auth choice lived only in localStorage
+      // and was overwritten by the account default ('en') the first time any
+      // surface read `/users/preferences` — the reported "my language resets
+      // after I log in" bug.
+      syncLanguageToAccount(readStoredLanguage())
+
       const dashboard = getDashboardForRole(user.role)
       toast.success(
         user.isNewUser
@@ -182,10 +191,6 @@ function LoginForm() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-canvas px-4 py-6 sm:px-6 sm:py-10">
-      {/* Top-bar language selector — accessible before sign-in */}
-      <div className="absolute top-4 inset-x-0 flex justify-center sm:justify-end sm:pe-6 lg:pe-8 z-10">
-        <LanguageToggle />
-      </div>
       <div className="pointer-events-none absolute left-1/2 top-[-12rem] h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-primary-500/10 blur-3xl" />
       <div className="pointer-events-none absolute bottom-[-14rem] right-[-5rem] h-80 w-80 rounded-full bg-amber-400/10 blur-3xl" />
 
@@ -203,6 +208,11 @@ function LoginForm() {
             </Link>
           )}
         </header>
+
+        {/* The operator may land here directly (deep link / returning user)
+            without passing through role-select, so the language choice must be
+            reachable on the verification screen too. */}
+        <OnboardingLanguagePicker className="mb-5" />
 
         <OnboardingProgress step={step === 'phone' ? 2 : 3} />
 
