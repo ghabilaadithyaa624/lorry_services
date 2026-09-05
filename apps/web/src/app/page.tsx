@@ -16,6 +16,7 @@ import {
   XCircle,
   IndianRupee,
   ChevronDown,
+  MessageCircle,
 } from 'lucide-react'
 import { Navbar, Footer } from '@/components/layout'
 import HeroSection from '@/components/HeroSection'
@@ -176,49 +177,50 @@ export default function HomePage() {
     },
   ]
 
-  // Operational Benefits — factual platform capabilities only (no customer claims/metrics)
+  // Platform Capabilities — factual product capabilities only.
+  // No customer names, quotes, logos, metrics, certifications, or reviews.
   const operationalBenefits = [
+    {
+      code: 'MARKETPLACE',
+      metric: 'DIRECT',
+      title: 'Direct Shipper–Transporter Marketplace',
+      desc: 'Load owners post freight and truck operators post capacity on one open marketplace. Both sides discover each other and negotiate directly — no broker in between.',
+      icon: Truck,
+    },
     {
       code: 'MATCHING',
       metric: '\u2264 50 KM',
-      title: 'Geospatial Proximity Matching',
-      desc: 'PostGIS-powered discovery within a customizable search radius, ranked by a deterministic 100-point compatibility score across capacity fit, body type, proximity, and verification.',
+      title: '50km Proximity Matching',
+      desc: 'PostGIS-powered discovery around the loading point within a customizable radius, ranked by a deterministic compatibility score across capacity fit, body type, proximity, and verification.',
       icon: MapPin,
     },
     {
       code: 'VERIFICATION',
-      metric: 'VAHAN RC',
-      title: 'Government Database Verification',
-      desc: 'Truck registration certificates are validated against the Vahan database with masked owner PII, insurance validity, fitness, and FASTag readiness surfaced on every listing.',
+      metric: 'VAHAN-READY',
+      title: 'Vahan-Ready Truck Verification Workflow',
+      desc: 'Registration certificates are validated against the Vahan database with masked owner PII, insurance validity, fitness, and FASTag readiness surfaced on every listing before it appears in search.',
       icon: CheckCircle2,
     },
     {
-      code: 'COMMERCIALS',
-      metric: '50 / 50',
-      title: 'Zero Brokerage Commercial Terms',
-      desc: 'Standardised 50% advance at loading and 50% balance on POD confirmation, settled directly between shipper and transporter with no commission taken by the platform.',
-      icon: IndianRupee,
-    },
-    {
       code: 'TRACKING',
-      metric: '5 STAGE',
-      title: 'Checkpoint Trip Telemetry',
-      desc: 'Geofenced checkpoint trail with milestone crossing logs, ETA recalculation, incident reporting, and Proof of Delivery image submission.',
+      metric: 'CHECKPOINT',
+      title: 'Checkpoint-Based Tracking',
+      desc: 'Geofenced checkpoint trail with milestone crossing logs, ETA recalculation, incident reporting, and Proof of Delivery image submission. Toll-gate checkpoint visibility — not continuous GPS.',
       icon: Signal,
     },
     {
-      code: 'DOCUMENTS',
-      metric: '7 STAGE',
-      title: 'Digital Document Chain',
-      desc: 'Booking, E-Way Bill, loading, transit, delivery, POD, and balance documents stored via private pre-signed upload and download URLs with admin verification.',
-      icon: FileText,
+      code: 'CONTACT UNLOCK',
+      metric: 'WHATSAPP',
+      title: 'Direct WhatsApp / Contact Unlock via Subscription',
+      desc: 'Driver phone and WhatsApp credentials unlock through an active subscription plan. Once subscribed, you get direct access to verified counterparty contact details on every match.',
+      icon: MessageCircle,
     },
     {
-      code: 'BACKHAUL',
-      metric: '\u2264 300 KM',
-      title: 'Return Load Radar',
-      desc: 'Backhaul discovery resolves drop-off hubs from active bookings, truck GPS, or preferred corridors and ranks open return loads by deadhead distance and payload fit.',
-      icon: Truck,
+      code: 'COMMERCIALS',
+      metric: '\u20B90',
+      title: 'Zero Broker Commission Model',
+      desc: 'Standard 50% advance at loading and 50% balance on POD confirmation, settled directly between shipper and transporter. No per-trip commission is taken by the platform.',
+      icon: IndianRupee,
     },
   ]
 
@@ -799,7 +801,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── SECTION 7: OPERATIONAL BENEFITS (FACTUAL PLATFORM CAPABILITIES) ── */}
+        {/* ── SECTION 7: PLATFORM CAPABILITIES (FACTUAL PRODUCT CAPABILITIES — NO TESTIMONIALS) ── */}
         <section id="operational-benefits" className="relative py-20 bg-[#070A11] overflow-hidden">
           {/* Ambient brand glow */}
           <div
@@ -810,13 +812,13 @@ export default function HomePage() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
             <div className="text-center max-w-2xl mx-auto space-y-3">
               <span className="inline-block px-2.5 py-0.5 rounded-full bg-orange-500/15 text-orange-300 border border-orange-500/30 font-mono text-[10px] uppercase font-bold tracking-widest">
-                OPERATIONAL BENEFITS
+                PLATFORM CAPABILITIES
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-sans">
                 What The Platform Actually Does
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 font-sans">
-                Shipped product capabilities of the LorryCarry direct freight network — matching, verification, commercial terms, tracking, and documentation.
+                Shipped capabilities of the LorryCarry direct freight network — marketplace, 50km proximity matching, Vahan-ready verification, checkpoint tracking, subscription contact unlock, and zero brokerage.
               </p>
             </div>
 
