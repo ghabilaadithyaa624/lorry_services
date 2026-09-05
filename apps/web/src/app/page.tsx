@@ -35,71 +35,56 @@ export default function HomePage() {
   // Quick Preset Locations for Command Console
   const quickLocations = ['Pune', 'Delhi NCR', 'Mumbai', 'Bengaluru', 'Chennai', 'Ahmedabad', 'Hyderabad']
 
-  // Live Operational Marketplace Preview Routes Data
-  const liveRoutes = [
+  // Reference freight corridors — static directory entries with indicative
+  // rates only. No fabricated availability, match recency or contact data.
+  const referenceCorridors = [
     {
       id: 'delhi-mumbai',
-      route: 'Delhi NCR (Tughlakabad) ➔ JNPT Port, Mumbai',
+      corridorCode: 'DEL → BOM',
       origin: 'Delhi NCR',
       destination: 'Mumbai (JNPT)',
       distanceKm: 1420,
       etaHours: 38,
-      trucksAvailable: 18,
-      proximityKm: 12.4,
-      commercialRate: 52000,
+      indicativeRate: 52000,
       ratePerKm: 36.6,
       cargoType: 'Industrial Goods & FMCG',
       truckBody: '32ft Multi-Axle Container',
-      lastMatched: '12 mins ago',
-      driverPhone: '918072025106',
     },
     {
       id: 'chennai-bengaluru',
-      route: 'Chennai Port ➔ Bengaluru ICD (Whitefield)',
+      corridorCode: 'MAA → BLR',
       origin: 'Chennai',
       destination: 'Bengaluru ICD',
       distanceKm: 345,
       etaHours: 10,
-      trucksAvailable: 24,
-      proximityKm: 8.2,
-      commercialRate: 18500,
+      indicativeRate: 18500,
       ratePerKm: 53.6,
       cargoType: 'Electronics & Auto Components',
       truckBody: '24ft Open Body Lorry',
-      lastMatched: '4 mins ago',
-      driverPhone: '918072025106',
     },
     {
       id: 'ahmedabad-mumbai',
-      route: 'Ahmedabad Industrial GIDC ➔ JNPT Port, Mumbai',
+      corridorCode: 'AMD → BOM',
       origin: 'Ahmedabad',
-      destination: 'Mumbai Port',
+      destination: 'Mumbai (JNPT)',
       distanceKm: 525,
       etaHours: 14,
-      trucksAvailable: 15,
-      proximityKm: 16.1,
-      commercialRate: 24000,
+      indicativeRate: 24000,
       ratePerKm: 45.7,
       cargoType: 'Chemicals & Plastics',
-      truckBody: '20ft Closed Body Tanker/Trailer',
-      lastMatched: '19 mins ago',
-      driverPhone: '918072025106',
+      truckBody: '20ft Closed Body Trailer',
     },
     {
       id: 'hyderabad-chennai',
-      route: 'Hyderabad Pharma Hub ➔ Chennai Port Terminal',
+      corridorCode: 'HYD → MAA',
       origin: 'Hyderabad',
       destination: 'Chennai Port',
       distanceKm: 630,
       etaHours: 16,
-      trucksAvailable: 12,
-      proximityKm: 14.5,
-      commercialRate: 29500,
+      indicativeRate: 29500,
       ratePerKm: 46.8,
       cargoType: 'Pharma & Machinery',
       truckBody: '32ft High-Cube Container',
-      lastMatched: '7 mins ago',
-      driverPhone: '918072025106',
     },
   ]
 
@@ -520,17 +505,20 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── SECTION 4: ACTIVE FREIGHT CORRIDORS ── */}
+        {/* ── SECTION 4: REFERENCE FREIGHT CORRIDORS ── */}
         <section id="active-corridors" className="py-20 bg-slate-50 border-y border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div>
+              <div className="space-y-2">
                 <span className="inline-block px-2.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 font-mono text-[10px] uppercase font-bold mb-2">
                   HIGHWAY CORRIDOR DIRECTORY
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight font-sans">
-                  High-Volume Operational Corridors
+                  Popular Freight Corridors
                 </h2>
+                <p className="text-xs sm:text-sm text-gray-600 font-sans max-w-xl">
+                  Reference corridors with indicative rates — final freight is always negotiated directly between shipper and transporter.
+                </p>
               </div>
 
               <Link
@@ -544,16 +532,15 @@ export default function HomePage() {
 
             {/* Corridor Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {liveRoutes.map((c) => (
+              {referenceCorridors.map((c) => (
                 <div
                   key={c.id}
                   className="bg-white rounded-2xl p-6 border border-gray-200 flex flex-col justify-between space-y-6 shadow-sm hover:shadow-md transition-all group"
                 >
                   <div className="space-y-4">
                     <div className="flex items-center justify-between text-xs font-mono">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                        <span>{c.trucksAvailable} Trucks Avail.</span>
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-gray-200 text-gray-600 font-bold">
+                        <span>{c.corridorCode}</span>
                       </div>
 
                       <span className="text-gray-500 flex items-center gap-1 font-bold">
@@ -572,16 +559,16 @@ export default function HomePage() {
                       </h3>
                     </div>
 
-                    {/* Rate Telemetry Box */}
+                    {/* Indicative Rate Box */}
                     <div className="bg-slate-50 p-3.5 rounded-xl border border-gray-200 space-y-1.5 text-xs font-mono">
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-500">Rate Benchmark:</span>
+                        <span className="text-gray-500">Indicative rate:</span>
                         <span className="font-bold text-gray-900 text-sm">
-                          ₹{c.commercialRate.toLocaleString('en-IN')}
+                          ₹{c.indicativeRate.toLocaleString('en-IN')}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-gray-400">Rate per KM:</span>
+                        <span className="text-gray-400">Per KM reference:</span>
                         <span className="text-orange-600 font-bold">₹{c.ratePerKm}/KM</span>
                       </div>
                     </div>
@@ -590,13 +577,13 @@ export default function HomePage() {
                     <div className="space-y-1 text-xs">
                       <div>
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 font-sans block">
-                          CARGO TYPE
+                          TYPICAL CARGO
                         </span>
                         <span className="text-xs text-gray-700 font-medium font-sans">{c.cargoType}</span>
                       </div>
                       <div>
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 font-sans block">
-                          FLEET TYPE
+                          COMMON VEHICLE
                         </span>
                         <span className="text-xs text-gray-500 font-sans">{c.truckBody}</span>
                       </div>
@@ -613,6 +600,10 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
+
+            <p className="text-center text-[10px] sm:text-[11px] text-gray-400 font-sans">
+              Rates shown are indicative market references for orientation only. LorryCarry does not set or guarantee freight rates.
+            </p>
           </div>
         </section>
 
@@ -655,7 +646,7 @@ export default function HomePage() {
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-slate-100 border border-gray-200 text-gray-900 font-mono font-bold text-xs sm:text-sm uppercase tracking-wider transition-colors shadow-2xs focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4 shrink-0 text-orange-500" />
-                  <span>OPEN CONTROL TOWER DEMO</span>
+                  <span>EXPLORE THE CONTROL TOWER</span>
                 </button>
               </div>
             </div>
@@ -667,14 +658,14 @@ export default function HomePage() {
                 <div className="flex items-center justify-between border-b border-gray-200 pb-4">
                   <div>
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 block font-sans">
-                      ACTIVE SHIPMENT TELEMETRY
+                      PRODUCT PREVIEW — SAMPLE BOOKING
                     </span>
                     <h3 className="text-base font-mono font-bold text-gray-900 mt-0.5">
                       BOOKING #BK-88492 <span className="text-orange-600 text-xs font-normal">(IN TRANSIT)</span>
                     </h3>
                   </div>
-                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10px] font-bold">
-                    ON SCHEDULE
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-gray-600 border border-gray-200 font-mono text-[10px] font-bold">
+                    ILLUSTRATIVE EXAMPLE
                   </span>
                 </div>
 
@@ -945,7 +936,7 @@ export default function HomePage() {
               </h2>
 
               <p className="text-xs sm:text-sm text-gray-300 max-w-xl mx-auto leading-relaxed font-sans">
-                Join thousands of Vahan-verified lorry owners and industrial cargo shippers moving freight across India. Zero commission, 50km radial matching, and transparent terms.
+                Register as a shipper or lorry owner on LorryCarry&apos;s direct freight network. Zero broker commission, 50 km radial matching, and transparent, standardised commercial terms.
               </p>
 
               {/* Requirement Buttons */}

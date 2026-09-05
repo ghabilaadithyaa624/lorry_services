@@ -79,6 +79,92 @@ export const MESSAGES: Record<string, MessageCatalog> = {
   'nav.notifications': { en: 'Notifications', ta: 'அறிவிப்புகள்', hi: 'सूचनाएँ' },
   'nav.settings': { en: 'Settings', ta: 'அமைப்புகள்', hi: 'सेटिंग्स' },
 
+  // ── Prompt 1: Public navbar & Products mega menu ──
+  'nav.products': { en: 'Products', ta: 'தயாரிப்புகள்', hi: 'उत्पाद' },
+  'nav.solutions': { en: 'Solutions', ta: 'தீர்வுகள்', hi: 'समाधान' },
+  'nav.resources': { en: 'Resources', ta: 'வளங்கள்', hi: 'संसाधन' },
+  'nav.company': { en: 'Company', ta: 'நிறுவனம்', hi: 'कंपनी' },
+  'nav.menu.open': { en: 'Open menu', ta: 'மெனுவைத் திற', hi: 'मेनू खोलें' },
+  'nav.menu.close': { en: 'Close menu', ta: 'மெனுவை மூடு', hi: 'मेनू बंद करें' },
+  'nav.badge.admin': { en: 'Admin', ta: 'நிர்வாகம்', hi: 'एडमिन' },
+  'nav.mega.explore': { en: 'Explore the platform', ta: 'தளத்தை ஆராயுங்கள்', hi: 'प्लेटफ़ॉर्म देखें' },
+
+  'nav.mega.marketplace': { en: 'Freight Marketplace', ta: 'சரக்கு சந்தை', hi: 'फ्रेट मार्केटप्लेस' },
+  'nav.mega.marketplace.desc': {
+    en: 'Post cargo requirements and browse loads posted by shippers across highway corridors.',
+    ta: 'சரக்கு தேவைகளை பதிவிடவும், நெடுஞ்சாலை வழித்தடங்களில் அனுப்புநர்கள் பதிவிட்ட சுமைகளை பார்வையிடவும்.',
+    hi: 'कार्गो आवश्यकताएँ पोस्ट करें और राजमार्ग मार्गों पर शिपर्स द्वारा पोस्ट किए गए लोड देखें.',
+  },
+  'nav.mega.fleet': { en: 'Fleet Listings', ta: 'சரக்கு வண்டி பட்டியல்', hi: 'फ्लीट लिस्टिंग' },
+  'nav.mega.fleet.desc': {
+    en: 'Search Vahan-verified truck listings by location, body type and proximity radius.',
+    ta: 'இடம், வாகன வகை மற்றும் அருகாமை ஆரம் அடிப்படையில் வாகன் சரிபார்க்கப்பட்ட டிரக் பட்டியல்களைத் தேடுங்கள்.',
+    hi: 'स्थान, वाहन प्रकार और निकासी त्रिज्या के आधार पर वाहन-सत्यापित ट्रक लिस्टिंग खोजें.',
+  },
+  'nav.mega.controlTower': { en: 'Trip Control Tower', ta: 'பயண கட்டுப்பாட்டு அறை', hi: 'ट्रिप कंट्रोल टावर' },
+  'nav.mega.controlTower.desc': {
+    en: 'Follow active bookings with checkpoint milestone logs, ETAs and POD confirmation.',
+    ta: 'செக்பாயின்ட் மைல்கற்கள், ETA மற்றும் POD உறுதிப்படுத்தலுடன் செயலில் உள்ள முன்பதிவுகளைக் கண்காணியுங்கள்.',
+    hi: 'चेकपॉइंट माइलस्टोन, ETA और POD पुष्टि के साथ सक्रिय बुकिंग ट्रैक करें.',
+  },
+  'nav.mega.compliance': { en: 'Compliance', ta: 'இணக்கம்', hi: 'अनुपालन' },
+  'nav.mega.compliance.desc': {
+    en: 'RC, insurance and fitness documents verified against the Vahan database per listing.',
+    ta: 'ஒவ்வொரு பட்டியலுக்கும் வாகன் தரவுத்தளத்துடன் RC, காப்பீடு மற்றும் நல ஆவணங்கள் சரிபார்க்கப்படுகின்றன.',
+    hi: 'हर लिस्टिंग के लिए वाहन डेटाबेस के साथ RC, बीमा और फिटनेस दस्तावेज़ सत्यापित होते हैं.',
+  },
+  'nav.mega.payments': { en: 'Payments & Subscription', ta: 'பணம் & சந்தா', hi: 'भुगतान और सदस्यता' },
+  'nav.mega.payments.desc': {
+    en: 'Compare subscription plans, unlock contact access and manage billing in one place.',
+    ta: 'சந்தா திட்டங்களை ஒப்பிட்டு, தொடர்பு அணுகலைத் திறந்து, பில்லிங்கை ஒரே இடத்தில் நிர்வகிக்கவும்.',
+    hi: 'सदस्यता योजनाओं की तुलना करें, संपर्क एक्सेस अनलॉक करें और बिलिंग एक जगह प्रबंधित करें.',
+  },
+  'nav.mega.admin': { en: 'Admin Operations', ta: 'நிர்வாக செயல்பாடுகள்', hi: 'एडमिन संचालन' },
+  'nav.mega.admin.desc': {
+    en: 'Internal console for verification queues, booking oversight and platform operations.',
+    ta: 'சரிபார்ப்பு வரிசைகள், முன்பதிவு மேற்பார்வை மற்றும் தள செயல்பாடுகளுக்கான உள் கன்சோல்.',
+    hi: 'सत्यापन कतारें, बुकिंग निगरानी और प्लेटफ़ॉर्म संचालन के लिए आंतरिक कंसोल.',
+  },
+
+  'nav.sol.shippers': { en: 'For Shippers & Load Owners', ta: 'அனுப்புநர்கள் & சுமை உரிமையாளர்களுக்கு', hi: 'शिपर्स और लोड मालिकों के लिए' },
+  'nav.sol.shippers.desc': {
+    en: 'Post freight once and get matched with verified trucks within a 50 km radius.',
+    ta: 'சரக்கை ஒருமுறை பதிவிட்டு, 50 கி.மீ சுற்றளவில் சரிபார்க்கப்பட்ட டிரக்குகளுடன் பொருத்தம் பெறுங்கள்.',
+    hi: 'फ्रेट एक बार पोस्ट करें और 50 किमी त्रिज्या में सत्यापित ट्रकों से मैच पाएँ.',
+  },
+  'nav.sol.carriers': { en: 'For Truck Owners & Fleets', ta: 'டிரக் உரிமையாளர்கள் & ஃப்லீட்களுக்கு', hi: 'ट्रक मालिकों और फ्लीट के लिए' },
+  'nav.sol.carriers.desc': {
+    en: 'Find loads that fit your route and reduce empty return trips with return-load matching.',
+    ta: 'உங்கள் வழித்தடத்திற்கு ஏற்ற சுமைகளைக் கண்டறிந்து, திரும்பும் சுமை பொருத்தத்துடன் வெற்று திரும்பும் பயணங்களைக் குறைக்கவும்.',
+    hi: 'अपने रूट के अनुकूल लोड खोजें और रिटर्न-लोड मैचिंग से खाली वापसी यात्राएँ घटाएँ.',
+  },
+  'nav.sol.corridors': { en: 'Corridor Intelligence', ta: 'வழித்தட நுண்ணறிவு', hi: 'कॉरिडोर इंटेलिजेंस' },
+  'nav.sol.corridors.desc': {
+    en: 'Browse reference corridors connecting major industrial hubs and ports.',
+    ta: 'முக்கிய தொழில்துறை மையங்களையும் துறைமுகங்களையும் இணைக்கும் குறிப்பு வழித்தடங்களை பார்வையிடவும்.',
+    hi: 'प्रमुख औद्योगिक केंद्रों और बंदरगाहों को जोड़ने वाले संदर्भ कॉरिडोर देखें.',
+  },
+  'nav.sol.procurement': { en: 'Procurement Intelligence', ta: 'கொள்முதல் நுண்ணறிவு', hi: 'प्रोक्योरमेंट इंटेलिजेंस' },
+  'nav.sol.procurement.desc': {
+    en: 'Compare indicative lane rates before you commit to a booking.',
+    ta: 'முன்பதிவு செய்வதற்கு முன் சுட்டிக்காட்டப்பட்ட பாதை விகிதங்களை ஒப்பிடுங்கள்.',
+    hi: 'बुकिंग करने से पहले संकेतक लेन दरों की तुलना करें.',
+  },
+  'nav.sol.analytics': { en: 'Freight Analytics', ta: 'சரக்கு பகுப்பாய்வு', hi: 'फ्रेट एनालिटिक्स' },
+  'nav.sol.analytics.desc': {
+    en: 'Track your own bookings, spending and lane activity from your dashboard.',
+    ta: 'உங்கள் சொந்த முன்பதிவுகள், செலவுகள் மற்றும் பாதை செயல்பாட்டை டாஷ்போர்டிலிருந்து கண்காணிக்கவும்.',
+    hi: 'अपनी बुकिंग, खर्च और लेन गतिविधि को डैशबोर्ड से ट्रैक करें.',
+  },
+
+  'nav.res.help': { en: 'Help & Support', ta: 'உதவி & ஆதரவு', hi: 'सहायता और समर्थन' },
+  'nav.res.tracking': { en: 'Track a Shipment', ta: 'சரக்கைக் கண்காணி', hi: 'शिपमेंट ट्रैक करें' },
+  'nav.res.security': { en: 'Security & Data Protection', ta: 'பாதுகாப்பு & தரவு பாதுகாப்பு', hi: 'सुरक्षा और डेटा सुरक्षा' },
+
+  'nav.company.contact': { en: 'Contact Support', ta: 'ஆதரவைத் தொடர்பு கொள்ள', hi: 'सहायता से संपर्क करें' },
+  'nav.company.privacy': { en: 'Privacy & Data Security', ta: 'தனியுரிமை & தரவு பாதுகாப்பு', hi: 'गोपनीयता और डेटा सुरक्षा' },
+  'nav.company.terms': { en: 'Terms of Service', ta: 'சேவை விதிமுறைகள்', hi: 'सेवा की शर्तें' },
+
   // ── Prompt 2: Post Freight role-aware quick-post modal ──
   'pf.title': {
     en: 'Post Freight',
