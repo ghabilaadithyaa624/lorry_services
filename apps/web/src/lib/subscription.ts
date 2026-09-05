@@ -1,6 +1,7 @@
 'use client'
 
 import { api, subscriptionsApi } from '@/lib/api'
+import { normalizeRole, type AppUserRole } from '@/lib/roles'
 
 export type PaymentProvider = 'cashfree' | 'razorpay' | 'stripe'
 
@@ -160,6 +161,30 @@ export function hasClientSession(): boolean {
     return Boolean(window.localStorage.getItem('accessToken'))
   } catch {
     return false
+  }
+}
+
+/**
+ * Role from the persisted browser session, normalized — or `undefined`.
+ *
+ * Login stores the signed-in user as JSON in `localStorage.user` (see
+ * `app/login/page.tsx`), which is the same source `useOperationalTasks` and the
+ * Post Freight modal read. Public pages use this to tailor CTAs — which publish
+ * action leads, and which side of the marketplace is even available — without
+ * firing an authenticated `/users/me` that would 401 for anonymous visitors.
+ *
+ * It is a UX signal only. The middleware and the API re-check the role from the
+ * cookie/JWT on every protected request, so a stale or tampered value can never
+ * grant access.
+ */
+export function readClientSessionRole(): AppUserRole | undefined {
+  if (typeof window === 'undefined') return undefined
+  try {
+    const stored = window.localStorage.getItem('user')
+    if (!stored) return undefined
+    return normalizeRole(JSON.parse(stored)?.role)
+  } catch {
+    return undefined
   }
 }
 

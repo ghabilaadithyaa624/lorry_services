@@ -90,10 +90,10 @@ describe('DemoPreviewCards', () => {
 
     it('routes the publish CTAs through login for anonymous visitors', () => {
       const html = render()
-      expect(anchorWithHref(html, '/login?redirect=/need-load')).not.toBeNull()
-      expect(anchorWithHref(html, '/login?redirect=/need-vehicle')).not.toBeNull()
-      expect(html).toContain('Post a load')
-      expect(html).toContain('Register your truck')
+      expect(anchorWithHref(html, '/login?redirect=/post-load')).not.toBeNull()
+      expect(anchorWithHref(html, '/login?redirect=/register-truck')).not.toBeNull()
+      expect(html).toContain('Post Freight')
+      expect(html).toContain('Register Truck')
     })
 
     it('drops the login CTA for signed-in operators and links the forms directly', () => {
@@ -101,8 +101,51 @@ describe('DemoPreviewCards', () => {
       expect(html).not.toContain('Login to search live marketplace')
       expect(html).not.toContain('href="/login')
       // A shipper searching for trucks publishes freight.
-      expect(anchorWithHref(html, '/need-load')).not.toBeNull()
-      expect(anchorWithHref(html, '/need-vehicle')).not.toBeNull()
+      expect(anchorWithHref(html, '/post-load')).not.toBeNull()
+      expect(anchorWithHref(html, '/register-truck')).not.toBeNull()
+    })
+
+    it('puts the live-marketplace CTA on every sample card, not just the footer', () => {
+      const html = render()
+      const occurrences = html.split('Login to search live marketplace').length - 1
+      // One per sample card plus the conversion row.
+      expect(occurrences).toBe(DEMO_TRUCK_PREVIEWS.length + 1)
+      DEMO_TRUCK_PREVIEWS.forEach((truck) => {
+        const card = html.slice(html.indexOf(`data-sample-card="${truck.id}"`))
+        expect(card.slice(0, card.indexOf('</article>'))).toContain('Login to search live marketplace')
+      })
+    })
+
+    it('never shows the login CTA to a signed-in operator', () => {
+      expect(render({ isAuthenticated: true })).not.toContain('Login to search live marketplace')
+    })
+  })
+
+  describe('role-aware CTAs', () => {
+    it('offers a transporter both Post Freight and Register Truck', () => {
+      const modes: Array<'trucks' | 'loads'> = ['trucks', 'loads']
+      modes.forEach((mode) => {
+        const html = render({ mode, role: 'transporter', isAuthenticated: true })
+        expect(anchorWithHref(html, '/post-load')).toContain('Post Freight')
+        expect(anchorWithHref(html, '/register-truck')).toContain('Register Truck')
+      })
+    })
+
+    it('leads with freight in truck mode and with the fleet side in load mode', () => {
+      const trucks = render({ role: 'transporter', isAuthenticated: true, mode: 'trucks' })
+      expect(trucks.indexOf('Post Freight')).toBeLessThan(trucks.indexOf('Register Truck'))
+      const loads = render({ role: 'transporter', isAuthenticated: true, mode: 'loads' })
+      expect(loads.indexOf('Register Truck')).toBeLessThan(loads.indexOf('Post Freight'))
+    })
+
+    it('withholds the side the role cannot use and explains why', () => {
+      const shipper = render({ role: 'factory_owner', isAuthenticated: true, mode: 'loads' })
+      expect(shipper).not.toContain('href="/register-truck"')
+      expect(shipper).toContain('Vehicle registration is available on driver and transporter accounts')
+
+      const driver = render({ role: 'truck_driver', isAuthenticated: true, mode: 'trucks' })
+      expect(driver).not.toContain('href="/post-load"')
+      expect(driver).toContain('Freight posting is available on shipper and transporter accounts')
     })
   })
 
