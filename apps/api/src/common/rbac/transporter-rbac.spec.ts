@@ -112,9 +112,27 @@ describe('Transporter RBAC', () => {
     })
 
     it('declares transporter on every load management route', () => {
-      for (const handler of ['create', 'findMyLoads', 'updateStatus', 'delete']) {
+      for (const handler of ['create', 'findMyLoads', 'update', 'updateStatus', 'delete']) {
         const roles: UserRole[] = reflector.get(ROLES_KEY, (LoadsController.prototype as any)[handler])
         expect(roles).toContain(UserRole.transporter)
+      }
+    })
+
+    it('allows admin to reach the load edit/status/delete routes (service scopes the bypass to ownership)', () => {
+      for (const handler of ['update', 'updateStatus', 'delete']) {
+        expect(canAccess(reflector, LoadsController, handler, UserRole.admin)).toBe(true)
+      }
+      // Admins administer the board; they do not post freight.
+      expect(() =>
+        canAccess(reflector, LoadsController, 'create', UserRole.admin),
+      ).toThrow(ForbiddenException)
+    })
+
+    it('still blocks truck_driver from creating or managing loads (unless also transporter)', () => {
+      for (const handler of ['create', 'findMyLoads', 'update', 'updateStatus', 'delete']) {
+        expect(() =>
+          canAccess(reflector, LoadsController, handler, UserRole.truck_driver),
+        ).toThrow(ForbiddenException)
       }
     })
 

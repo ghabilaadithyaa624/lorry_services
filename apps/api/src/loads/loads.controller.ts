@@ -79,7 +79,7 @@ export class LoadsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.factory_owner, UserRole.transporter)
+  @Roles(UserRole.factory_owner, UserRole.transporter, UserRole.admin)
   @ApiOperation({ summary: 'Edit an open load (owner or admin only)' })
   async update(
     @Param('id') id: string,
@@ -91,7 +91,7 @@ export class LoadsController {
   }
 
   @Patch(':id/status')
-  @Roles(UserRole.factory_owner, UserRole.transporter)
+  @Roles(UserRole.factory_owner, UserRole.transporter, UserRole.admin)
   @ApiOperation({ summary: 'Update load status (owner or admin only)' })
   async updateStatus(
     @Param('id') id: string,
@@ -103,7 +103,7 @@ export class LoadsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.factory_owner, UserRole.transporter)
+  @Roles(UserRole.factory_owner, UserRole.transporter, UserRole.admin)
   @ApiOperation({ summary: 'Delete load (owner or admin only, and only if Open)' })
   async delete(
     @Param('id') id: string,

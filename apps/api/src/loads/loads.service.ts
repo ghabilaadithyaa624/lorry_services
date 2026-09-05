@@ -157,6 +157,15 @@ export class LoadsService {
       maxPrice: number
       minLengthFt: number
       minHeightFt: number
+      expectedDeliveryAt: Date
+      loadingAddress: string
+      loadingPin: string
+      loadingLat: number
+      loadingLng: number
+      unloadingAddress: string
+      unloadingPin: string
+      unloadingLat: number
+      unloadingLng: number
     }> = {}
     if (dto.tonnageRequired !== undefined) data.tonnageRequired = dto.tonnageRequired
     if (dto.truckType !== undefined) data.truckType = dto.truckType
@@ -164,14 +173,91 @@ export class LoadsService {
     if (dto.maxPrice !== undefined) data.maxPrice = dto.maxPrice
     if (dto.minLengthFt !== undefined) data.minLengthFt = dto.minLengthFt
     if (dto.minHeightFt !== undefined) data.minHeightFt = dto.minHeightFt
+    if (dto.expectedDeliveryAt !== undefined) {
+      data.expectedDeliveryAt = new Date(dto.expectedDeliveryAt)
+    }
 
-    return prisma.load.update({
+    // Route corrections re-geocode BEFORE persisting so a bad address fails the
+    // whole edit (nothing is partially applied) and matching coordinates stay accurate.
+    const wantsLoadingGeo = dto.loadingAddress !== undefined || dto.loadingPin !== undefined
+    const wantsUnloadingGeo = dto.unloadingAddress !== undefined || dto.unloadingPin !== undefined
+
+    let loadingGeo: { lat: number; lng: number } | null = null
+    let unloadingGeo: { lat: number; lng: number } | null = null
+
+    if (wantsLoadingGeo) {
+      const address = dto.loadingAddress ?? load.loadingAddress
+      const pin = dto.loadingPin ?? load.loadingPin
+      loadingGeo = await this.mapmyIndia.geocodeAddress(`${address}, ${pin}`)
+      if (!loadingGeo) {
+        throw new NotFoundException('Could not geocode loading address. Please check and try again.')
+      }
+      data.loadingAddress = address
+      data.loadingPin = pin
+      data.loadingLat = loadingGeo.lat
+      data.loadingLng = loadingGeo.lng
+    }
+
+    if (wantsUnloadingGeo) {
+      const address = dto.unloadingAddress ?? load.unloadingAddress
+      const pin = dto.unloadingPin ?? load.unloadingPin
+      unloadingGeo = await this.mapmyIndia.geocodeAddress(`${address}, ${pin}`)
+      if (!unloadingGeo) {
+        throw new NotFoundException('Could not geocode unloading address. Please check and try again.')
+      }
+      data.unloadingAddress = address
+      data.unloadingPin = pin
+      data.unloadingLat = unloadingGeo.lat
+      data.unloadingLng = unloadingGeo.lng
+    }
+
+    const updated = await prisma.load.update({
       where: { id },
       data,
       include: {
         _count: { select: { bookings: true } },
       },
     })
+
+    // Keep the PostGIS geography points in sync with any edited endpoint.
+    if (loadingGeo && unloadingGeo) {
+      try {
+        await prisma.$executeRaw`UPDATE loads SET loading_point = ST_SetSRID(ST_MakePoint(${loadingGeo.lng}, ${loadingGeo.lat}), 4326)::geography, unloading_point = ST_SetSRID(ST_MakePoint(${unloadingGeo.lng}, ${unloadingGeo.lat}), 4326)::geography WHERE id = ${id}`
+      } catch {
+        // PostGIS point update fallback
+      }
+    } else if (loadingGeo) {
+      try {
+        await prisma.$executeRaw`UPDATE loads SET loading_point = ST_SetSRID(ST_MakePoint(${loadingGeo.lng}, ${loadingGeo.lat}), 4326)::geography WHERE id = ${id}`
+      } catch {
+        // PostGIS point update fallback
+      }
+    } else if (unloadingGeo) {
+      try {
+        await prisma.$executeRaw`UPDATE loads SET unloading_point = ST_SetSRID(ST_MakePoint(${unloadingGeo.lng}, ${unloadingGeo.lat}), 4326)::geography WHERE id = ${id}`
+      } catch {
+        // PostGIS point update fallback
+      }
+    }
+
+    // Recompute corridor distance when either endpoint moved.
+    const effLoading = loadingGeo ?? (load.loadingLat != null && load.loadingLng != null
+      ? { lat: Number(load.loadingLat), lng: Number(load.loadingLng) }
+      : null)
+    const effUnloading = unloadingGeo ?? (load.unloadingLat != null && load.unloadingLng != null
+      ? { lat: Number(load.unloadingLat), lng: Number(load.unloadingLng) }
+      : null)
+    if (effLoading && effUnloading) {
+      return {
+        ...updated,
+        distanceKm: this.mapmyIndia.calculateDistance(
+          effLoading.lat, effLoading.lng,
+          effUnloading.lat, effUnloading.lng
+        ),
+      }
+    }
+
+    return updated
   }
 
   async updateStatus(id: string, userId: string, status: LoadStatus, role?: string | null) {
