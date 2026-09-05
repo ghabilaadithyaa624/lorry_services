@@ -13,7 +13,7 @@ import {
   Truck,
 } from 'lucide-react'
 import { REGISTRATION_ROLES, type PublicRegistrationRole } from '@/lib/roles'
-import { LanguageToggle } from '@/components/layout/LanguageToggle'
+import { OnboardingLanguagePicker } from '@/components/layout/OnboardingLanguagePicker'
 import { cn } from '@/lib/utils'
 
 const ROLE_ICONS: Record<string, typeof Building2> = {
@@ -39,10 +39,6 @@ export default function RoleSelectPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-canvas px-4 py-6 sm:px-6 sm:py-10">
-      {/* Top-bar language selector — accessible before sign-in */}
-      <div className="absolute top-4 inset-x-0 flex justify-center sm:justify-end sm:pe-6 lg:pe-8 z-10">
-        <LanguageToggle />
-      </div>
       <div className="pointer-events-none absolute left-[5%] top-[-7rem] h-72 w-72 rounded-full bg-primary-500/15 blur-3xl" />
       <div className="pointer-events-none absolute bottom-[-9rem] right-[5%] h-80 w-80 rounded-full bg-amber-400/15 blur-3xl" />
 
@@ -68,6 +64,10 @@ export default function RoleSelectPage() {
         </header>
 
         <div className="mx-auto w-full max-w-5xl">
+          {/* Language first: it is step zero of onboarding, so it sits above
+              the role cards rather than hidden in the top-right corner. */}
+          <OnboardingLanguagePicker className="mx-auto mb-6 max-w-2xl" />
+
           <div className="mx-auto mb-7 max-w-2xl text-center sm:mb-9">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary-500/25 bg-primary-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-primary-700 dark:text-primary-300">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />

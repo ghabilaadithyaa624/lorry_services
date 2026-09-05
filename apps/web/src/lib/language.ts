@@ -64,18 +64,102 @@ export function isUiLanguage(value: unknown): value is UiLanguage {
 }
 
 /**
+ * Canonical list of language codes the platform actually ships translations
+ * for. Anything not in this list must never reach persistence — see
+ * `normalizeLanguage`.
+ *
+ * This is deliberately derived from `UI_LANGUAGES` (rather than typed out a
+ * second time) so a new language is added in exactly one place and the header
+ * toggle, the settings centre, and the API DTO can never drift apart again.
+ */
+export const SUPPORTED_LANGUAGE_CODES: UiLanguage[] = UI_LANGUAGES.map((option) => option.value)
+
+/**
+ * Options for a `<select>`-style language picker (settings centre, onboarding).
+ *
+ * Labels pair the native name with the English name — an operator whose UI is
+ * currently in a script they can't read still needs to find their language.
+ */
+export const LANGUAGE_SELECT_OPTIONS: Array<{ value: UiLanguage; label: string }> =
+  UI_LANGUAGES.map((option) => ({
+    value: option.value,
+    label: option.name === option.label ? option.label : `${option.label} (${option.name})`,
+  }))
+
+/**
+ * Coerce any stored/remote value into a language the UI can actually render.
+ *
+ * Historically the settings centre offered eight Indian languages while only
+ * three had translations, so accounts could hold codes such as `te`/`bn` that
+ * every consumer silently ignored — the picker showed Telugu while the
+ * interface stayed English. Unsupported codes now degrade to the fallback so
+ * the stored value and the rendered interface always agree.
+ */
+export function normalizeLanguage(value: unknown, fallback: UiLanguage = 'en'): UiLanguage {
+  return isUiLanguage(value) ? value : fallback
+}
+
+/** Interface language used when nothing has been chosen or detected. */
+export const DEFAULT_LANGUAGE: UiLanguage = 'en'
+
+/**
  * Read the persisted preference. Falls back to English when unset/invalid.
  * Safe to call on the server (returns 'en').
  */
 export function readStoredLanguage(): UiLanguage {
-  if (typeof window === 'undefined') return 'en'
+  if (typeof window === 'undefined') return DEFAULT_LANGUAGE
   try {
     const raw = window.localStorage.getItem(LANGUAGE_STORAGE_KEY)
     if (isUiLanguage(raw)) return raw
   } catch {
     // localStorage unavailable (private mode / blocked storage)
   }
-  return 'en'
+  return DEFAULT_LANGUAGE
+}
+
+/**
+ * Whether the operator has ever made an explicit choice on this device.
+ *
+ * Used by onboarding to distinguish "chose English" from "never chose", so a
+ * first-time visitor can be shown their browser/device language without
+ * overriding a deliberate selection.
+ */
+export function hasStoredLanguage(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return isUiLanguage(window.localStorage.getItem(LANGUAGE_STORAGE_KEY))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Best guess at the operator's language for a brand-new device, from the
+ * browser's `navigator.language`/`languages` list.
+ *
+ * Only the base subtag is considered (`ta-IN` → `ta`) and unsupported
+ * languages fall through to English, so a Telugu-locale device gets a working
+ * English interface rather than an untranslated Telugu one.
+ */
+export function detectBrowserLanguage(): UiLanguage {
+  if (typeof navigator === 'undefined') return DEFAULT_LANGUAGE
+  const candidates = [
+    ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+    navigator.language,
+  ]
+  for (const candidate of candidates) {
+    const base = String(candidate || '').toLowerCase().split('-')[0]
+    if (isUiLanguage(base)) return base
+  }
+  return DEFAULT_LANGUAGE
+}
+
+/**
+ * The language onboarding should preselect: an explicit device choice wins,
+ * otherwise the detected browser language.
+ */
+export function resolveInitialLanguage(): UiLanguage {
+  return hasStoredLanguage() ? readStoredLanguage() : detectBrowserLanguage()
 }
 
 /**
@@ -115,7 +199,7 @@ export function applyLanguage(language: UiLanguage): void {
  */
 export const LANGUAGE_INIT_SCRIPT = `(function(){try{var k='${LANGUAGE_STORAGE_KEY}';var dirs=${JSON.stringify(
   LANGUAGE_DIRECTIONS
-)};var l=localStorage.getItem(k);if(!dirs.hasOwnProperty(l))l='en';var r=document.documentElement;r.lang=l;r.dir=dirs[l]||'ltr';if(l==='ta'){r.classList.add('lang-scale-ta');}}catch(e){}})();`
+)};var l=localStorage.getItem(k);if(!dirs.hasOwnProperty(l)){l='en';var nav=(navigator.languages||[navigator.language||'']);for(var i=0;i<nav.length;i++){var b=String(nav[i]||'').toLowerCase().split('-')[0];if(dirs.hasOwnProperty(b)){l=b;break;}}}var r=document.documentElement;r.lang=l;r.dir=dirs[l]||'ltr';if(l==='ta'){r.classList.add('lang-scale-ta');}}catch(e){}})();`
 
 /**
  * Persist the preference locally, apply it to the document, and broadcast the

@@ -21,6 +21,8 @@ import {
 import { DashboardLayout } from '@/components/layout'
 import { usersApi, authApi, type UserPreferences } from '@/lib/api'
 import { useI18n } from '@/lib/i18n'
+import { LANGUAGE_SELECT_OPTIONS, isUiLanguage, normalizeLanguage } from '@/lib/language'
+import { useLanguagePreference } from '@/lib/useLanguagePreference'
 import { useTheme } from '@/components/theme/ThemeProvider'
 import type { ThemePreference } from '@/lib/theme'
 import {
@@ -62,18 +64,12 @@ const SECTIONS: Array<{
   { id: 'danger', label: 'Danger zone', icon: ExclamationTriangleIcon, description: 'Irreversible actions' },
 ]
 
-// தமிழ், हिन्दी, English lead the list — these are the three languages with
-// full interface translation (top-bar selector + JSON locale coverage).
-const LANGUAGES = [
-  { value: 'ta', label: 'தமிழ் (Tamil)' },
-  { value: 'hi', label: 'हिन्दी (Hindi)' },
-  { value: 'en', label: 'English' },
-  { value: 'te', label: 'తెలుగు (Telugu)' },
-  { value: 'kn', label: 'ಕನ್ನಡ (Kannada)' },
-  { value: 'mr', label: 'मराठी (Marathi)' },
-  { value: 'gu', label: 'ગુજરાતી (Gujarati)' },
-  { value: 'bn', label: 'বাংলা (Bengali)' },
-]
+// The picker is generated from the single source of truth in `@/lib/language`
+// (தமிழ் | हिन्दी | English). It previously listed eight Indian languages while
+// only three had translations, so selecting Telugu/Kannada/Bengali stored a
+// code nothing could render and left the interface silently in English.
+// Languages reappear here automatically once their locale catalogue lands.
+const LANGUAGES = LANGUAGE_SELECT_OPTIONS
 
 const BODY_TYPES = ['Open', 'Container', 'Trailer', 'Tipper', 'Tanker', 'Refrigerated']
 
@@ -88,6 +84,9 @@ export default function SettingsPage() {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const { t } = useI18n()
+  // Language is a live interface preference, not a plain stored field: it must
+  // apply to the document and every mounted picker the instant it changes.
+  const { language, setLanguage } = useLanguagePreference()
 
   const [section, setSection] = useState<SectionId>('account')
   const [profile, setProfile] = useState<any>(null)
@@ -124,7 +123,7 @@ export default function SettingsPage() {
       if (!prefsData) {
         prefsData = {
           theme: (theme as any) || 'system',
-          language: 'ta',
+          language,
           currency: 'INR',
           distanceUnit: 'km',
           notifyWhatsapp: true,
@@ -142,13 +141,15 @@ export default function SettingsPage() {
         setProfile(profileData)
         setName(profileData?.name || '')
       }
-      setPrefs(prefsData)
+      // Normalise a legacy/unsupported stored code so the picker reflects the
+      // language the interface is genuinely rendering.
+      setPrefs({ ...prefsData, language: normalizeLanguage(prefsData.language, language) })
     } catch {
       setError('We could not load your settings. Please try again.')
     } finally {
       setLoading(false)
     }
-  }, [theme])
+  }, [theme, language])
 
   useEffect(() => {
     load()
@@ -209,6 +210,21 @@ export default function SettingsPage() {
   const handleThemeChange = (next: ThemePreference) => {
     setTheme(next) // Immediate visual change.
     savePreference({ theme: next }, 'theme')
+  }
+
+  /**
+   * Language changes must behave exactly like theme changes: apply instantly,
+   * then persist. `setLanguage` writes localStorage, updates `<html lang/dir>`,
+   * broadcasts to every mounted picker (including the header toggle) and
+   * mirrors to `/users/preferences` — so the whole interface re-renders in the
+   * new language without a reload. The local `prefs` copy is kept in step so
+   * the form does not flash the old value.
+   */
+  const handleLanguageChange = (next: string) => {
+    if (!isUiLanguage(next) || next === language) return
+    setLanguage(next)
+    setPrefs((prev) => (prev ? { ...prev, language: next } : prev))
+    toast.success('Language updated')
   }
 
   const handleSignOutAll = async () => {
@@ -397,10 +413,12 @@ export default function SettingsPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
                     <Select
-                      label="Language"
-                      value={prefs.language}
-                      onChange={(e) => savePreference({ language: e.target.value }, 'language')}
-                      disabled={savingPref === 'language'}
+                      label={t('common.language')}
+                      // Bound to the live interface language rather than the
+                      // raw stored value, so a legacy unsupported code shows
+                      // the language actually being rendered.
+                      value={language}
+                      onChange={(e) => handleLanguageChange(e.target.value)}
                     >
                       {LANGUAGES.map((lang) => (
                         <option key={lang.value} value={lang.value}>

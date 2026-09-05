@@ -1,16 +1,8 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
-import { usersApi } from '@/lib/api'
-import {
-  UI_LANGUAGES,
-  UiLanguage,
-  applyLanguage,
-  isUiLanguage,
-  persistLanguage,
-  readStoredLanguage,
-  LANGUAGE_CHANGE_EVENT,
-} from '@/lib/language'
+import React from 'react'
+import { UI_LANGUAGES } from '@/lib/language'
+import { useLanguagePreference } from '@/lib/useLanguagePreference'
 import { cn } from '@/lib/utils'
 
 interface LanguageToggleProps {
@@ -31,59 +23,9 @@ interface LanguageToggleProps {
  * - Broadcasts changes so multiple mounted toggles stay in sync.
  */
 export function LanguageToggle({ compact = false, className }: LanguageToggleProps) {
-  const [language, setLanguage] = useState<UiLanguage>('en')
-
-  useEffect(() => {
-    const stored = readStoredLanguage()
-    setLanguage(stored)
-    applyLanguage(stored)
-
-    const handleExternalChange = (event: Event) => {
-      const detail = (event as CustomEvent<unknown>).detail
-      if (isUiLanguage(detail)) setLanguage(detail)
-    }
-    window.addEventListener(LANGUAGE_CHANGE_EVENT, handleExternalChange)
-
-    // Adopt the server-side account preference when signed in. Best-effort:
-    // failure must never block the header chrome.
-    let cancelled = false
-    const syncFromAccount = async () => {
-      try {
-        if (!window.localStorage.getItem('user')) return
-        const res = await usersApi.getPreferences()
-        const accountLanguage = res.data?.language
-        if (
-          !cancelled &&
-          isUiLanguage(accountLanguage) &&
-          accountLanguage !== readStoredLanguage()
-        ) {
-          persistLanguage(accountLanguage)
-        }
-      } catch {
-        // Non-critical — local preference remains active.
-      }
-    }
-    syncFromAccount()
-
-    return () => {
-      cancelled = true
-      window.removeEventListener(LANGUAGE_CHANGE_EVENT, handleExternalChange)
-    }
-  }, [])
-
-  const select = useCallback((next: UiLanguage) => {
-    setLanguage(next)
-    persistLanguage(next)
-    // Mirror to the account when signed in. Fire-and-forget; local state is
-    // the instant source of truth for the UI.
-    try {
-      if (window.localStorage.getItem('user')) {
-        usersApi.updatePreferences({ language: next }).catch(() => {})
-      }
-    } catch {
-      // Non-critical.
-    }
-  }, [])
+  // All resolution/persistence/account-sync logic lives in the shared hook so
+  // this toggle, the onboarding picker and Settings can never disagree.
+  const { language, setLanguage } = useLanguagePreference()
 
   return (
     <div
@@ -103,7 +45,7 @@ export function LanguageToggle({ compact = false, className }: LanguageTogglePro
             )}
             <button
               type="button"
-              onClick={() => select(option.value)}
+              onClick={() => setLanguage(option.value)}
               aria-pressed={active}
               aria-label={
                 active ? `${option.name} (selected language)` : `Switch language to ${option.name}`

@@ -7,7 +7,10 @@ import {
 import { prisma, UserRole, SubscriptionStatus } from "@lorrycarry/database";
 import { S3Service } from "../common/services/s3.service";
 import { UpdateUserDto } from "./dto/update-user.dto";
-import { UpdatePreferencesDto } from "./dto/update-preferences.dto";
+import {
+  UpdatePreferencesDto,
+  SUPPORTED_LANGUAGES,
+} from "./dto/update-preferences.dto";
 import { isVehicleSideRole as isVehicleSide, isFreightSideRole as isFreightSide, isTransporterRole, canManageTrucks as canManageTrucksRole, canManageLoads as canManageLoadsRole } from '../common/utils/roles.util'
 
 export interface ActivityItem {
@@ -795,6 +798,15 @@ export class UsersService {
   };
 
   /**
+   * Coerce a stored language code into one the interface can actually render.
+   */
+  private normalizeLanguage(value: string | null | undefined): string {
+    return (SUPPORTED_LANGUAGES as readonly string[]).includes(value ?? "")
+      ? (value as string)
+      : this.defaultPreferences.language;
+  }
+
+  /**
    * Read the user's stored preferences, falling back to defaults.
    */
   async getPreferences(userId: string) {
@@ -808,7 +820,11 @@ export class UsersService {
 
     return {
       theme: stored.theme,
-      language: stored.language,
+      // Heal legacy rows: the picker used to offer eight Indian languages
+      // while only three had translations, so accounts can still hold codes
+      // like `te`/`bn` that no client can render. Reporting the fallback keeps
+      // the stored preference and the rendered interface in agreement.
+      language: this.normalizeLanguage(stored.language),
       currency: stored.currency,
       distanceUnit: stored.distanceUnit,
       notifyWhatsapp: stored.notifyWhatsapp,
