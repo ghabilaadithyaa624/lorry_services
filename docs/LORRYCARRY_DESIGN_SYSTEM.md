@@ -337,6 +337,13 @@ sidebars below `lg`.
   frosted-glass secondary CTAs. Below the hero the marketing sections (search console, corridors,
   telemetry preview) sit on light surfaces (`bg-slate-50`, white cards, gray-900 headings, orange
   accents).
+- **Testimonial policy**: The homepage deliberately publishes **no customer testimonials** or fabricated
+  social proof. Section 7 ("Operational Benefits") renders a permanent transparency banner:
+  `"NO CUSTOMER TESTIMONIALS ARE PUBLISHED UNTIL VERIFIED OPERATOR QUOTES ARE AVAILABLE"` — monospaced,
+  uppercase, rendered at `text-[10px]`. Only factual platform capabilities are shown.
+- **Search page (`/search`)**: The marketplace search surface is built on the semantic CSS token system
+  (`bg-canvas`, `text-ink`, `bg-sunken`, `text-body`, `text-muted`) defined in §2.2, so it renders
+  correctly in both light and dark themes without hardcoded colour classes.
 - Optional WebGL canvases exist under `components/3d/` (`HeroTruckCanvas`, `DynamicHeroTruckCanvas`)
   but are **not mounted on any current route**; the photo hero is the implemented treatment.
 

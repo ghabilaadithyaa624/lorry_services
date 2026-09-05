@@ -13,6 +13,7 @@ LorryCarry is a high-performance freight logistics monorepo platform connecting 
 | **Freight Rate Estimator** | `[Implemented]` | Rule-based Indian freight economics engine (`POST /api/v1/pricing/estimate`) |
 | **Operational Action Center** | `[Implemented]` | Dynamic multi-source task aggregator on the Web dashboard shell and the Next.js Admin console |
 | **5-Stage Checkpoint Tracking** | `[Implemented]` | Geofenced waypoint logging, ETA calculations, incident reporting — checkpoint based, not continuous GPS |
+| **Shipment Risk & Attention Analyzer** | `[Implemented]` | 6-hour checkpoint staleness detection, overdue delivery alerts, E-Way Bill expiry checks, WhatsApp failure tracking, and operational risk tiers via `shipmentIntelligence.ts` in `@lorrycarry/shared` |
 | **Vahan RC Validation** | `[Implemented — External Provider Dependent]` | Deterministic sandbox fallback in dev/non-prod; production verification requires Parivahan/ULIP provider credentials (`VAHAN_API_KEY`) |
 | **FASTag Readiness & E-Way Bill** | `[Implemented]` | FASTag state is owner/admin-reported (Vahan does not expose it); 12-digit E-Way Bill format & lifecycle validation |
 | **7-Stage Booking Document Chain** | `[Implemented — External Provider Dependent]` | Direct-to-storage S3/MinIO pre-signed PUT/GET URLs |
@@ -33,7 +34,7 @@ LorryCarry is a high-performance freight logistics monorepo platform connecting 
 - **Explainable Freight Pricing Engine**: Instant indicative benchmark rate calculation (`POST /api/v1/pricing/estimate`) using ton-km economics across Open, Container, and OpenBody configurations, with distance decay, handling buffers, and ±10% payload sensitivity analysis.
 - **Operational Action Center**: Unified task aggregator on the Web dashboard shell (`ActionCenterCard` & `ActionCenterMenu` on `/dashboard/*`) and the Next.js Admin console (`/admin/dashboard`). Dynamically flags unverified KYC documents, pending 50% loading advances, missing E-Way bills, unpaid balance milestones, expiring subscriptions, and WhatsApp delivery alerts.
 - **Zero Broker Commissions**: Standardized commercial terms (50% advance at loading, 50% balance upon delivery confirmation) with transparent milestone release controls.
-- **5-Stage Trip Tracking**: Geofence checkpoint trail (`seq: 1..5`) with milestone crossing logs, ETA calculations, incident reporting, and Proof of Delivery (POD) image submission.
+- **5-Stage Trip Tracking & Shipment Risk Intelligence**: Geofence checkpoint trail (`seq: 1..5`) with milestone crossing logs, ETA calculations, incident reporting, and Proof of Delivery (POD) image submission. The shared `shipmentIntelligence` engine classifies every active booking into operational risk tiers (**Completed → Action Required → Delayed → Attention Required → Low Risk → On Track**), flags 6-hour checkpoint staleness as `DELAYED`, detects overdue deliveries past the expected delivery window, expired E-Way Bills, and failed WhatsApp triggers — surfacing prioritised `requiredActions` with `lastCheckpointAgeHours` and `deliveryOverdueHours` metrics.
 - **Verification & Compliance (Vahan + FASTag + E-Way Bill)**:
   - **Vahan RC Validation**: Format verification, masked PII (owner/chassis/engine), cached snapshot storage, and automated sandbox fallback (`/compliance/trucks/:id/validate-rc`).
   - **Compliance Checklists**: Truck-level and booking-level verification checklists (`/compliance/trucks/:id`, `/compliance/bookings/:id`) aggregating RC validity, insurance expiry, fitness certificate, FASTag status, and E-Way Bill lifecycle.
@@ -71,7 +72,7 @@ lorry_services/
 
 ## 🧠 Shared Intelligence Layer (`@lorrycarry/shared`)
 
-All deterministic logistics maths lives in **one** place — [`packages/shared/src/intelligence/`](packages/shared/src/intelligence) — so the API, web and admin surfaces can never disagree on a number. (The Expo mobile workspace stays a thin REST client and does not bundle the shared package.)
+All deterministic logistics maths lives in **one** place — [`packages/shared/src/intelligence/`](packages/shared/src/intelligence) — so the API, web and admin surfaces can never disagree on a number. (The Expo mobile workspace stays a thin REST client and does not bundle the shared package; subscription checkout is handled by `startSubscriptionCheckout` via system-browser handoff to the secure Cashfree/Razorpay/Stripe session, with backend-authoritative verification polling — no mock activations.)
 
 | Module | Exports |
 | :--- | :--- |

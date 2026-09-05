@@ -46,7 +46,8 @@ in `apps/api`.
 
 `apps/mobile/package.json` does not include a Cashfree or Razorpay React Native
 module, so checkout is completed in the system browser (`expo-web-browser`,
-added as a dependency). Two strategies, selected from
+added as a dependency). The entry-point is `startSubscriptionCheckout()` in
+`src/services/checkout.ts`, which selects one of two strategies from
 `EXPO_PUBLIC_PAYMENT_PROVIDER`:
 
 1. **`api-checkout-url`** (Stripe) — `POST /subscriptions/initiate` returns
