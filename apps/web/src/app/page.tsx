@@ -958,6 +958,14 @@ export default function HomePage() {
                 >
                   REGISTER YOUR LORRY
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push('/request-demo')}
+                  className="font-bold px-8 py-4 text-xs sm:text-sm bg-white text-slate-900 hover:bg-slate-100 rounded-xl shadow-2xs uppercase tracking-wider font-mono transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus:outline-none cursor-pointer"
+                >
+                  REQUEST DEMO
+                </button>
               </div>
             </div>
           </div>

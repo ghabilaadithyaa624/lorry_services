@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   ArrowRight,
   Bell,
+  CalendarDays,
   ChevronDown,
   Menu,
   PlusCircle,
@@ -23,6 +24,7 @@ import {
   CTA_ROUTES,
   NAV_SECTIONS,
   isPricingActive,
+  isRequestDemoActive,
   isSectionActive,
   type NavSection,
 } from './navigation'
@@ -314,6 +316,19 @@ function DesktopMenus({ openKey, setOpenKey, triggerRefs, rootRef }: DesktopMenu
       >
         {t('nav.pricing')}
       </Link>
+      <Link
+        href={CTA_ROUTES.requestDemo}
+        aria-current={isRequestDemoActive(pathname) ? 'page' : undefined}
+        className={cn(
+          'flex items-center rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+          isRequestDemoActive(pathname)
+            ? 'text-primary-600 dark:text-primary-400 bg-primary-500/10'
+            : 'text-body hover:text-ink hover:bg-wash'
+        )}
+      >
+        {t('nav.requestDemo')}
+      </Link>
     </nav>
   )
 }
@@ -592,6 +607,19 @@ export function Navbar() {
                 </Link>
               )}
 
+              {/* Request Demo — public B2B sales CTA, visible from sm up.
+                  The filled Post Freight button stays the product action. */}
+              <Button
+                as={Link}
+                href={CTA_ROUTES.requestDemo}
+                variant="outline"
+                size="sm"
+                leftIcon={<CalendarDays className="w-4 h-4" />}
+                className="hidden md:inline-flex"
+              >
+                {t('nav.requestDemo')}
+              </Button>
+
               {/* Bright orange “Post Freight” CTA — always visible on the right.
                   Routes to /post-load; middleware guides anonymous visitors
                   through /login?redirect=/post-load. */}
@@ -689,6 +717,22 @@ export function Navbar() {
                 {t('nav.pricing')}
                 <ArrowRight className="h-4 w-4 text-muted" aria-hidden="true" />
               </Link>
+
+              <Link
+                href={CTA_ROUTES.requestDemo}
+                onClick={closeMobile}
+                aria-current={isRequestDemoActive(pathname) ? 'page' : undefined}
+                className={cn(
+                  'flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-semibold transition-colors min-h-[44px]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                  isRequestDemoActive(pathname)
+                    ? 'text-primary-600 dark:text-primary-400 bg-primary-500/10'
+                    : 'text-ink hover:bg-wash'
+                )}
+              >
+                {t('nav.requestDemo')}
+                <ArrowRight className="h-4 w-4 text-muted" aria-hidden="true" />
+              </Link>
             </nav>
 
             {/* Full-size language control inside the drawer */}
@@ -700,6 +744,17 @@ export function Navbar() {
             <div className="pt-3 border-t border-hairline space-y-2">
               {user ? (
                 <>
+                  <Button
+                    as={Link}
+                    href={CTA_ROUTES.requestDemo}
+                    onClick={closeMobile}
+                    variant="outline"
+                    size="md"
+                    fullWidth
+                    leftIcon={<CalendarDays className="w-4 h-4" />}
+                  >
+                    {t('nav.requestDemo')}
+                  </Button>
                   <Button
                     as={Link}
                     href={CTA_ROUTES.postFreight}
@@ -740,23 +795,36 @@ export function Navbar() {
                   </Link>
                 </>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <Button as={Link} href={CTA_ROUTES.signIn} onClick={closeMobile} variant="secondary" size="md" fullWidth>
-                    {t('nav.signIn')}
-                  </Button>
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button as={Link} href={CTA_ROUTES.signIn} onClick={closeMobile} variant="secondary" size="md" fullWidth>
+                      {t('nav.signIn')}
+                    </Button>
+                    <Button
+                      as={Link}
+                      href={CTA_ROUTES.postFreight}
+                      onClick={closeMobile}
+                      variant="primary"
+                      size="md"
+                      fullWidth
+                      leftIcon={<PlusCircle className="w-4 h-4" />}
+                      className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
+                    >
+                      {t('nav.postFreight')}
+                    </Button>
+                  </div>
                   <Button
                     as={Link}
-                    href={CTA_ROUTES.postFreight}
+                    href={CTA_ROUTES.requestDemo}
                     onClick={closeMobile}
-                    variant="primary"
+                    variant="outline"
                     size="md"
                     fullWidth
-                    leftIcon={<PlusCircle className="w-4 h-4" />}
-                    className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-glow-primary border-primary-500/40"
+                    leftIcon={<CalendarDays className="w-4 h-4" />}
                   >
-                    {t('nav.postFreight')}
+                    {t('nav.requestDemo')}
                   </Button>
-                </div>
+                </>
               )}
             </div>
           </div>

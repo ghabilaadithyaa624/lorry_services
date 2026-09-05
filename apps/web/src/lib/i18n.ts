@@ -71,6 +71,7 @@ export const MESSAGES: Record<string, MessageCatalog> = {
   'nav.findTrucks': { en: 'Find Trucks', ta: 'சரக்கு வண்டிகள் தேடு', hi: 'ट्रक खोजें' },
   'nav.findLoads': { en: 'Find Loads', ta: 'சுமைகள் தேடு', hi: 'लोड खोजें' },
   'nav.pricing': { en: 'Pricing & Plans', ta: 'விலை & திட்டங்கள்', hi: 'मूल्य और योजनाएँ' },
+  'nav.requestDemo': { en: 'Request Demo', ta: 'டெமோ கோருங்கள்', hi: 'डेमो का अनुरोध' },
   'nav.controlTower': { en: 'Control Tower', ta: 'கட்டுப்பாட்டு அறை', hi: 'कंट्रोल टावर' },
   'nav.postFreight': { en: 'Post Freight', ta: 'சரக்குகளை இடுகை', hi: 'फ्रेट पोस्ट करें' },
   'nav.signIn': { en: 'Sign in', ta: 'உள்நுழைக', hi: 'साइन इन करें' },

@@ -80,3 +80,11 @@ describe('homepage platform capabilities', () => {
     }
   )
 })
+
+describe('homepage Request Demo CTA', () => {
+  it('links the hero and closing banner to /request-demo', () => {
+    expect(HERO_SOURCE).toContain('/request-demo')
+    expect(PAGE_SOURCE).toContain('/request-demo')
+    expect(PAGE_SOURCE).toContain('REQUEST DEMO')
+  })
+})

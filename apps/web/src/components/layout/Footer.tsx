@@ -57,6 +57,7 @@ export function Footer() {
         { label: 'Find Trucks', href: '/search?type=truck' },
         { label: 'Find Loads', href: '/search?type=load' },
         { label: 'Pricing & Plans', href: '/subscribe' },
+        { label: 'Request Demo', href: '/request-demo' },
         { label: 'Track Shipments', href: '/tracking' },
       ],
     },

@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Boxes,
+  CalendarDays,
   ClipboardList,
   CreditCard,
   FileText,
@@ -43,6 +44,7 @@ export const CTA_ROUTES = {
   signIn: '/login',
   postFreight: '/post-load',
   registerLorry: '/login?redirect=/dashboard/truck-driver',
+  requestDemo: '/request-demo',
 } as const
 
 /** One product card inside the Products mega menu. */
@@ -245,8 +247,15 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     key: 'company',
     labelKey: 'nav.company',
     label: 'Company',
-    activePaths: ['/privacy', '/terms'],
+    activePaths: ['/privacy', '/terms', '/request-demo'],
     links: [
+      {
+        key: 'requestDemo',
+        labelKey: 'nav.requestDemo',
+        label: 'Request Demo',
+        href: CTA_ROUTES.requestDemo,
+        icon: CalendarDays,
+      },
       {
         key: 'contact',
         labelKey: 'nav.company.contact',
@@ -282,4 +291,9 @@ export function isSectionActive(section: NavSection, pathname: string): boolean 
 /** True when the path belongs to one of the Pricing surfaces. */
 export function isPricingActive(pathname: string): boolean {
   return pathname === '/subscribe' || pathname.startsWith('/subscribe/')
+}
+
+/** True when the path is the public Request Demo form. */
+export function isRequestDemoActive(pathname: string): boolean {
+  return pathname === '/request-demo' || pathname.startsWith('/request-demo/')
 }

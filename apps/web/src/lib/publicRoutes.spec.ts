@@ -17,7 +17,7 @@ import {
  */
 describe('publicRoutes allowlist', () => {
   describe('routes reported as wrongly redirected to /login', () => {
-    const reportedBroken = ['/privacy', '/terms', '/security', '/help', '/robots.txt', '/sitemap.xml']
+    const reportedBroken = ['/privacy', '/terms', '/security', '/help', '/request-demo', '/robots.txt', '/sitemap.xml']
 
     it.each(reportedBroken)('makes %s public', (pathname) => {
       expect(isPublicPath(pathname)).toBe(true)
@@ -38,6 +38,7 @@ describe('publicRoutes allowlist', () => {
       '/terms',
       '/security',
       '/help',
+      '/request-demo',
       '/robots.txt',
       '/sitemap.xml',
       '/manifest.webmanifest',
@@ -190,6 +191,7 @@ describe('publicRoutes allowlist', () => {
           '/terms',
           '/security',
           '/help',
+          '/request-demo',
           '/login',
           '/role-select',
           '/search',

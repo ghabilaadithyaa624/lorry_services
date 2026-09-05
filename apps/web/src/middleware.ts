@@ -19,8 +19,9 @@ import { isPublicPath } from '@/lib/publicRoutes'
  *
  * The public/protected route table lives in `@/lib/publicRoutes` so marketing,
  * legal and SEO routes (`/privacy`, `/terms`, `/security`, `/help`,
- * `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest`, static assets) stay
- * reachable without a session while everything else remains default-deny.
+ * `/request-demo`, `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest`,
+ * static assets) stay reachable without a session while everything else
+ * remains default-deny.
  */
 
 /**
