@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getDashboardForRole, normalizeRole, LEGACY_DASHBOARD_REDIRECTS } from '@/lib/roles'
+import {
+  canManageFleet,
+  canManageFreight,
+  getDashboardForRole,
+  isAdminRole,
+  normalizeRole,
+  LEGACY_DASHBOARD_REDIRECTS,
+  type AppUserRole,
+} from '@/lib/roles'
 import { isPublicPath } from '@/lib/publicRoutes'
 
 /**
@@ -15,8 +23,24 @@ import { isPublicPath } from '@/lib/publicRoutes'
  * reachable without a session while everything else remains default-deny.
  */
 
-const FACTORY_OWNER_PATHS = ['/dashboard/factory-owner', '/post-load', '/need-load', '/my-loads']
-const TRUCK_DRIVER_PATHS = ['/dashboard/truck-driver', '/register-truck', '/need-vehicle', '/my-trucks']
+/**
+ * Role-owned dashboards. Only the owning role (plus admins) may open them;
+ * anyone else is sent to the dashboard for their own role. Transporters get a
+ * dedicated both-sides workspace at /dashboard/transporter.
+ */
+const ROLE_DASHBOARD_OWNERS: Record<string, AppUserRole> = {
+  '/dashboard/factory-owner': 'factory_owner',
+  '/dashboard/truck-driver': 'truck_driver',
+  '/dashboard/transporter': 'transporter',
+}
+
+/**
+ * Marketplace workflows shared by the roles that manage that side — mirrors the
+ * API RBAC from apps/api (`factory_owner` + `transporter` post freight,
+ * `truck_driver` + `transporter` list trucks). Admins are never blocked.
+ */
+const FREIGHT_WORKFLOW_PATHS = ['/post-load', '/need-load', '/my-loads']
+const FLEET_WORKFLOW_PATHS = ['/register-truck', '/need-vehicle', '/my-trucks']
 
 const dashboardForRole = (role?: string) => getDashboardForRole(role)
 
@@ -86,16 +110,29 @@ export async function middleware(request: NextRequest) {
   // Role-based access control (legacy cookie values are normalized first)
   const canonicalRole = normalizeRole(userRole)
 
-  if (FACTORY_OWNER_PATHS.some(path => pathname.startsWith(path))) {
-    if (canonicalRole !== 'factory_owner' && canonicalRole !== 'admin') {
-      return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
-    }
+  // Role-owned dashboards: /dashboard/factory-owner, /dashboard/truck-driver,
+  // /dashboard/transporter — each opens for its own role and for admins.
+  const dashboardOwner = Object.entries(ROLE_DASHBOARD_OWNERS).find(([path]) =>
+    pathname.startsWith(path)
+  )?.[1]
+  if (dashboardOwner && canonicalRole !== dashboardOwner && !isAdminRole(canonicalRole)) {
+    return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
   }
 
-  if (TRUCK_DRIVER_PATHS.some(path => pathname.startsWith(path))) {
-    if (canonicalRole !== 'truck_driver' && canonicalRole !== 'admin') {
-      return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
-    }
+  // Freight-side workflows (post/manage loads): factory owners and transporters.
+  if (
+    FREIGHT_WORKFLOW_PATHS.some(path => pathname.startsWith(path)) &&
+    !canManageFreight(userRole)
+  ) {
+    return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
+  }
+
+  // Fleet-side workflows (register/manage trucks): truck drivers and transporters.
+  if (
+    FLEET_WORKFLOW_PATHS.some(path => pathname.startsWith(path)) &&
+    !canManageFleet(userRole)
+  ) {
+    return NextResponse.redirect(new URL(dashboardForRole(userRole), request.url))
   }
 
   return NextResponse.next()

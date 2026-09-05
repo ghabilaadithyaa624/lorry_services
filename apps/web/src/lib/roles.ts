@@ -75,9 +75,12 @@ export const REGISTRATION_ROLES: RegistrationRoleOption[] = [
     value: 'transporter',
     label: 'Transporter',
     eyebrow: 'BOTH SIDES',
-    description: 'Post freight loads and list trucks — broker both sides of every trip.',
-    benefits: ['Post loads and trucks', 'Manage your own listings end to end'],
-    dashboard: '/dashboard',
+    description: 'Manage both freight postings and truck listings from one workspace.',
+    benefits: [
+      'Post freight and list trucks side by side',
+      'One workspace for loads, fleet and bookings',
+    ],
+    dashboard: '/dashboard/transporter',
   },
 ]
 
@@ -96,9 +99,16 @@ export function getRoleLabel(role?: string | null): string {
   }
 }
 
+/**
+ * Post-login / post-signup landing routes:
+ * - factory_owner -> /dashboard/factory-owner
+ * - truck_driver  -> /dashboard/truck-driver
+ * - transporter   -> /dashboard/transporter
+ * - admin         -> /admin/dashboard
+ */
 export function getDashboardForRole(role?: string | null): string {
   const canonical = normalizeRole(role)
-  if (canonical === 'admin') return '/admin'
+  if (canonical === 'admin') return '/admin/dashboard'
   return REGISTRATION_ROLES.find((option) => option.value === canonical)?.dashboard || DEFAULT_DASHBOARD
 }
 
@@ -108,6 +118,29 @@ export function isVehicleSideRole(role?: string | null): boolean {
 
 export function isFreightSideRole(role?: string | null): boolean {
   return normalizeRole(role) === 'factory_owner'
+}
+
+/** Both-sides operators: post freight AND list trucks from one workspace. */
+export function isTransporterRole(role?: string | null): boolean {
+  return normalizeRole(role) === 'transporter'
+}
+
+/**
+ * Mirrors the API RBAC (`LOAD_MANAGER_ROLES` in apps/api roles.util): shippers
+ * and transporters may create/manage freight postings; admins keep override.
+ */
+export function canManageFreight(role?: string | null): boolean {
+  const canonical = normalizeRole(role)
+  return canonical === 'factory_owner' || canonical === 'transporter' || canonical === 'admin'
+}
+
+/**
+ * Mirrors the API RBAC (`TRUCK_MANAGER_ROLES` in apps/api roles.util): drivers
+ * and transporters may list/manage trucks; admins keep override.
+ */
+export function canManageFleet(role?: string | null): boolean {
+  const canonical = normalizeRole(role)
+  return canonical === 'truck_driver' || canonical === 'transporter' || canonical === 'admin'
 }
 
 /** Platform operators. Normalized so stale sessions are evaluated consistently. */

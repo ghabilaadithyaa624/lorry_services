@@ -127,6 +127,13 @@ export default function RoleSelectPage() {
             })}
           </div>
 
+          <p className="mt-4 text-center text-xs leading-relaxed text-subtle">
+            Run a fleet <em>and</em> move customer freight?{' '}
+            <span className="font-bold text-body">Transporters</span> manage both
+            freight postings and truck listings from one workspace — post loads, list
+            trucks and track every booking side by side.
+          </p>
+
           <div className="mt-5 flex flex-col items-center justify-between gap-4 rounded-2xl border border-primary-500/25 bg-panel/80 p-4 shadow-xs backdrop-blur-sm sm:flex-row sm:px-5">
             <div className="flex items-start gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-success-50 text-success-600 dark:bg-success-950/40 dark:text-success-400">

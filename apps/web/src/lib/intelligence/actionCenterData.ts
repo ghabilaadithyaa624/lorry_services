@@ -20,9 +20,12 @@ export async function fetchOperationalSnapshot(
         ['notifications', '/notifications'],
         ['bookings', '/bookings/my-bookings'],
       ]
-  if (role === 'truck_driver') {
+  // Transporters run both sides of the marketplace, so they need the union of
+  // the freight-side and fleet-side sources. Mirrors the API RBAC (Prompt 3).
+  if (role === 'truck_driver' || role === 'transporter') {
     sources.push(['trucks', '/trucks/my-trucks'], ['documents', '/users/documents'])
-  } else if (role === 'factory_owner') {
+  }
+  if (role === 'factory_owner' || role === 'transporter') {
     sources.push(['loads', '/loads/my-loads'])
   }
 

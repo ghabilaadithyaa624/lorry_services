@@ -2,10 +2,13 @@ import {
   DEFAULT_DASHBOARD,
   LEGACY_DASHBOARD_REDIRECTS,
   REGISTRATION_ROLES,
+  canManageFleet,
+  canManageFreight,
   getDashboardForRole,
   getRoleLabel,
   isAdminRole,
   isFreightSideRole,
+  isTransporterRole,
   isVehicleSideRole,
   normalizeRole,
 } from './roles'
@@ -21,6 +24,7 @@ describe('web role helpers', () => {
     it('passes canonical roles through', () => {
       expect(normalizeRole('factory_owner')).toBe('factory_owner')
       expect(normalizeRole('truck_driver')).toBe('truck_driver')
+      expect(normalizeRole('transporter')).toBe('transporter')
       expect(normalizeRole('admin')).toBe('admin')
     })
 
@@ -34,7 +38,8 @@ describe('web role helpers', () => {
     it('routes canonical roles to canonical dashboards', () => {
       expect(getDashboardForRole('factory_owner')).toBe('/dashboard/factory-owner')
       expect(getDashboardForRole('truck_driver')).toBe('/dashboard/truck-driver')
-      expect(getDashboardForRole('admin')).toBe('/admin')
+      expect(getDashboardForRole('transporter')).toBe('/dashboard/transporter')
+      expect(getDashboardForRole('admin')).toBe('/admin/dashboard')
     })
 
     it('routes legacy roles to the canonical dashboard, never the legacy route', () => {
@@ -69,10 +74,33 @@ describe('web role helpers', () => {
     expect(REGISTRATION_ROLES.map((r) => r.dashboard)).toEqual([
       '/dashboard/factory-owner',
       '/dashboard/truck-driver',
-      '/dashboard',
+      '/dashboard/transporter',
     ])
     // Admin is never a public self-service registration option.
     expect(REGISTRATION_ROLES.map((r) => r.value)).not.toContain('admin')
+  })
+
+  it('lists the three selector options with canonical role values', () => {
+    expect(REGISTRATION_ROLES.map((r) => r.label)).toEqual([
+      'Factory Owner',
+      'Truck Driver',
+      'Transporter',
+    ])
+    // The value stored on signup / login must be the canonical role key.
+    expect(REGISTRATION_ROLES.map((r) => r.value)).toEqual([
+      'factory_owner',
+      'truck_driver',
+      'transporter',
+    ])
+  })
+
+  it('explains the transporter role with the agreed copy', () => {
+    const transporter = REGISTRATION_ROLES.find((r) => r.value === 'transporter')
+    expect(transporter).toBeDefined()
+    expect(transporter?.description).toBe(
+      'Manage both freight postings and truck listings from one workspace.'
+    )
+    expect(transporter?.benefits.length).toBeGreaterThan(0)
   })
 
   it('labels legacy and canonical roles identically', () => {
@@ -83,8 +111,8 @@ describe('web role helpers', () => {
     expect(getRoleLabel('nope')).toBe('Operator')
   })
 
-  it('routes transporters to the unified dashboard', () => {
-    expect(getDashboardForRole('transporter')).toBe('/dashboard')
+  it('routes transporters to the unified transporter dashboard', () => {
+    expect(getDashboardForRole('transporter')).toBe('/dashboard/transporter')
   })
 
   it('classifies marketplace sides from legacy labels too', () => {
@@ -92,6 +120,34 @@ describe('web role helpers', () => {
     expect(isVehicleSideRole('driver')).toBe(true)
     expect(isFreightSideRole('load_owner')).toBe(true)
     expect(isFreightSideRole('driver')).toBe(false)
+  })
+
+  describe('transporter side access', () => {
+    it('recognizes the transporter role', () => {
+      expect(isTransporterRole('transporter')).toBe(true)
+      expect(isTransporterRole('factory_owner')).toBe(false)
+      expect(isTransporterRole(undefined)).toBe(false)
+    })
+
+    it('lets factory owners and transporters manage freight', () => {
+      expect(canManageFreight('factory_owner')).toBe(true)
+      expect(canManageFreight('transporter')).toBe(true)
+      expect(canManageFreight('admin')).toBe(true)
+      expect(canManageFreight('truck_driver')).toBe(false)
+      expect(canManageFreight('load_owner')).toBe(true) // legacy alias
+    })
+
+    it('lets truck drivers and transporters manage the fleet', () => {
+      expect(canManageFleet('truck_driver')).toBe(true)
+      expect(canManageFleet('transporter')).toBe(true)
+      expect(canManageFleet('admin')).toBe(true)
+      expect(canManageFleet('factory_owner')).toBe(false)
+      expect(canManageFleet('truck_owner')).toBe(true) // legacy alias
+    })
+
+    it('is the union of both marketplace sides', () => {
+      expect(canManageFreight('transporter') && canManageFleet('transporter')).toBe(true)
+    })
   })
 
   describe('isAdminRole', () => {
