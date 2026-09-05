@@ -62,6 +62,7 @@ export const PROTECTED_PATH_PREFIXES: readonly string[] = [
   '/dashboard',
   '/my-loads',
   '/my-trucks',
+  '/my-listings',
   '/bookings',
   '/booking',
   '/documents',
