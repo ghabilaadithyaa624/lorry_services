@@ -276,6 +276,38 @@ bg-gradient-to-r from-danger-600 to-danger-700 hover:from-danger-700 hover:to-da
   - Icon Badge: `w-14 h-14 rounded-2xl bg-surface-950 text-surface-400 border border-white/10 flex items-center justify-center mx-auto`
   - Step Cards: `bg-surface-950/70 border border-white/5 rounded-2xl p-4 text-left font-mono`
 
+### 15.1 Public Marketplace Empty State (`/search`)
+
+`SearchEmptyState.tsx` extends the pattern for the public marketplace, where an
+empty grid usually means *no query has run yet*, not *no supply exists*.
+
+- **State must be stated honestly.** Four variants — `needs-location`,
+  `ready-to-search`, `no-results`, `error`. A result count is only printed once
+  a query has completed; a failed query renders `role="alert"` + Retry and never
+  reports `0`.
+- **Every step carries a working control.** Detect GPS · enter an industrial
+  hub · expand radius · change vehicle type. The step that applies to the
+  current variant is flagged with `aria-current="step"`.
+- **Publish CTAs close the loop**: `Post a load` → `/login?redirect=/need-load`,
+  `Register your truck` → `/login?redirect=/need-vehicle` (direct routes once a
+  session exists).
+
+### 15.2 Sample Preview Cards (demo proof)
+
+`DemoPreviewCards.tsx` shows the *shape* of a live match when a public search
+returns nothing. Hard rules:
+
+- Labelled `Sample preview` on the section **and** on every card, with a line
+  stating they are not live listings.
+- **Never interleaved with real results** — the component returns `null` when
+  `realResultCount > 0`.
+- **No contact data of any kind.** The preview types carry no phone field, cards
+  render the sealed-contact state, and no WhatsApp/unlock affordance is offered.
+- Anonymous visitors get `Login to search live marketplace`
+  (`/login?redirect=/search?type=truck|load`, encoded).
+- Cards use `border-dashed border-hairline-strong` so they read as secondary to
+  live inventory.
+
 ---
 
 ## 16. Loading & Skeleton States
