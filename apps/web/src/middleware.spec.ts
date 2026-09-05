@@ -122,6 +122,7 @@ describeWithMiddleware('web middleware', () => {
       '/admin/users',
       '/my-loads',
       '/my-trucks',
+      '/my-listings',
       '/bookings',
       '/booking/booking_123',
       '/documents',
@@ -248,6 +249,19 @@ describeWithMiddleware('web middleware', () => {
       for (const path of ['/documents', '/notifications', '/settings', '/profile', '/bookings']) {
         const response = await runMiddleware(
           buildRequest(path, { accessToken: 'token', userRole: 'factory_owner' })
+        )
+
+        expect(response.status).toBe(200)
+        expect(response.headers.get('location')).toBeNull()
+      }
+    })
+
+    it('opens the unified /my-listings page to every operator role', async () => {
+      // Both tabs render for every role (one side may show an onboarding CTA),
+      // so no role redirect is needed — in-page gating handles the access.
+      for (const userRole of ['factory_owner', 'truck_driver', 'transporter']) {
+        const response = await runMiddleware(
+          buildRequest('/my-listings', { accessToken: 'token', userRole })
         )
 
         expect(response.status).toBe(200)

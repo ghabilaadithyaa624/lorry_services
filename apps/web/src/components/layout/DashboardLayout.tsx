@@ -24,6 +24,7 @@ import {
   ShieldExclamationIcon,
   UsersIcon,
   GlobeAsiaAustraliaIcon,
+  RectangleStackIcon,
 } from '@heroicons/react/24/outline'
 import { notificationsApi, usersApi } from '@/lib/api'
 import { Avatar } from '@/components/ui'
@@ -115,6 +116,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: t('nav.findTrucks'), href: '/search?type=truck', icon: MagnifyingGlassIcon },
     { name: t('nav.postFreight'), href: '/post-load', icon: PlusCircleIcon },
     { name: t('dash.myLoads'), href: '/my-loads', icon: ClipboardDocumentListIcon },
+    { name: t('dash.myListings'), href: '/my-listings', icon: RectangleStackIcon },
     { name: t('dash.bookings'), href: '/bookings', icon: BriefcaseIcon },
     { name: t('dash.tracking'), href: '/tracking', icon: MapIcon },
     { name: t('dash.analytics'), href: '/analytics', icon: ChartBarIcon },
@@ -129,6 +131,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: t('dash.overview'), href: '/dashboard/truck-driver', icon: HomeIcon },
     { name: t('nav.findLoads'), href: '/search?type=load', icon: MagnifyingGlassIcon },
     { name: t('dash.myFleet'), href: '/my-trucks', icon: TruckIcon },
+    { name: t('dash.myListings'), href: '/my-listings', icon: RectangleStackIcon },
     { name: t('dash.bookings'), href: '/bookings', icon: BriefcaseIcon },
     { name: t('dash.tracking'), href: '/tracking', icon: MapIcon },
     { name: t('dash.analytics'), href: '/analytics', icon: ChartBarIcon },
@@ -142,9 +145,12 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
   /**
    * Transporter workspace — both sides of the marketplace from one account:
    * post freight like a factory owner and manage a fleet like a truck driver.
+   * "My listings" unifies both sides on one tabbed page, so it sits right
+   * under the overview for this role.
    */
   const transporterNav: NavItem[] = [
     { name: t('dash.overview'), href: '/dashboard/transporter', icon: HomeIcon },
+    { name: t('dash.myListings'), href: '/my-listings', icon: RectangleStackIcon },
     { name: t('nav.postFreight'), href: '/post-load', icon: PlusCircleIcon },
     { name: t('dash.myLoads'), href: '/my-loads', icon: ClipboardDocumentListIcon },
     { name: t('dash.myFleet'), href: '/my-trucks', icon: TruckIcon },

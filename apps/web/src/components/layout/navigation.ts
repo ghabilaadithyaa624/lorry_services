@@ -163,7 +163,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     key: 'solutions',
     labelKey: 'nav.solutions',
     label: 'Solutions',
-    activePaths: ['/post-load', '/need-load', '/need-vehicle', '/corridors', '/procurement', '/analytics', '/my-loads', '/my-trucks'],
+    activePaths: ['/post-load', '/need-load', '/need-vehicle', '/corridors', '/procurement', '/analytics', '/my-loads', '/my-trucks', '/my-listings'],
     links: [
       {
         key: 'shippers',

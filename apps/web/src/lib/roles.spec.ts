@@ -5,6 +5,7 @@ import {
   canManageFleet,
   canManageFreight,
   getDashboardForRole,
+  getListingsAccess,
   getRoleLabel,
   isAdminRole,
   isFreightSideRole,
@@ -147,6 +148,51 @@ describe('web role helpers', () => {
 
     it('is the union of both marketplace sides', () => {
       expect(canManageFreight('transporter') && canManageFleet('transporter')).toBe(true)
+    })
+  })
+
+  describe('getListingsAccess (unified /my-listings tabs)', () => {
+    it('gives transporters both tabs fully, opening on freight', () => {
+      expect(getListingsAccess('transporter')).toEqual({
+        canFreight: true,
+        canFleet: true,
+        defaultTab: 'freight',
+      })
+    })
+
+    it('gives admins both tabs too (override, mirroring the API)', () => {
+      expect(getListingsAccess('admin')).toEqual({
+        canFreight: true,
+        canFleet: true,
+        defaultTab: 'freight',
+      })
+    })
+
+    it('defaults factory owners to the freight tab without fleet management', () => {
+      const access = getListingsAccess('factory_owner')
+      expect(access.canFreight).toBe(true)
+      expect(access.canFleet).toBe(false)
+      expect(access.defaultTab).toBe('freight')
+    })
+
+    it('defaults truck drivers to the fleet tab without freight management', () => {
+      const access = getListingsAccess('truck_driver')
+      expect(access.canFreight).toBe(false)
+      expect(access.canFleet).toBe(true)
+      expect(access.defaultTab).toBe('trucks')
+    })
+
+    it('normalizes legacy session labels to the same tab access', () => {
+      expect(getListingsAccess('load_owner')).toEqual(getListingsAccess('factory_owner'))
+      expect(getListingsAccess('truck_owner')).toEqual(getListingsAccess('truck_driver'))
+      expect(getListingsAccess('driver')).toEqual(getListingsAccess('truck_driver'))
+    })
+
+    it('falls back to the freight-led shipper view for unknown roles', () => {
+      const access = getListingsAccess(undefined)
+      expect(access.canFreight).toBe(false)
+      expect(access.canFleet).toBe(false)
+      expect(access.defaultTab).toBe('freight')
     })
   })
 

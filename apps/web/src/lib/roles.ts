@@ -147,3 +147,39 @@ export function canManageFleet(role?: string | null): boolean {
 export function isAdminRole(role?: string | null): boolean {
   return normalizeRole(role) === 'admin'
 }
+
+/* ── Unified "My Listings" workspace (/my-listings) ────────────────────── */
+
+/** Tabs rendered on the unified My Listings page. */
+export type ListingsTabKey = 'freight' | 'trucks'
+
+export interface ListingsAccess {
+  /** The role may list and manage its own freight posts (mirrors API RBAC). */
+  canFreight: boolean
+  /** The role may list and manage its own truck posts (mirrors API RBAC). */
+  canFleet: boolean
+  /** Tab opened on first visit — the side the role actually operates. */
+  defaultTab: ListingsTabKey
+}
+
+/**
+ * Tab access for the unified My Listings page.
+ *
+ * Product decision: both tabs stay visible for every role. A role that
+ * cannot manage a side still sees the tab, but the panel renders an
+ * onboarding CTA (e.g. "Register as transporter") instead of data — the
+ * two-sided value proposition stays discoverable while no request is ever
+ * sent to an endpoint the API would reject (factory owners get 403 on
+ * `/trucks/my-trucks`, truck drivers on `/loads/my-loads`).
+ */
+export function getListingsAccess(role?: string | null): ListingsAccess {
+  const canFreight = canManageFreight(role)
+  const canFleet = canManageFleet(role)
+  return {
+    canFreight,
+    canFleet,
+    // Drivers lead with their fleet; shippers, transporters and unknown or
+    // partially-resolved sessions lead with freight.
+    defaultTab: canFleet && !canFreight ? 'trucks' : 'freight',
+  }
+}

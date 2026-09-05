@@ -66,6 +66,7 @@ describe('publicRoutes allowlist', () => {
       '/my-loads',
       '/my-loads/123',
       '/my-trucks',
+      '/my-listings',
       '/bookings',
       '/booking/abc123',
       '/documents',
