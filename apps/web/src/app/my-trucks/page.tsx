@@ -14,12 +14,15 @@ import {
   Sparkles,
   Pencil,
   Power,
+  Trash2,
   Upload,
   X,
   Menu,
   Bell,
+  MapPin,
 } from 'lucide-react'
 import { api, trucksApi, authApi, matchesApi } from '@/lib/api'
+import { ConfirmDialog } from '@/components/ui/Modal'
 import { Footer, LanguageToggle } from '@/components/layout'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
 import { VerifiedBadge } from '@/components/VerifiedBadge'
@@ -29,6 +32,8 @@ import { cn, formatINR, formatPhone, whatsappLink } from '@/lib/utils'
 
 interface FleetTruck {
   id: string
+  /** Owner user id (from the trucks API); used to gate Edit/Delete to own trucks. */
+  userId?: string
   registrationNumber?: string | null
   bodyType: 'Open' | 'Container' | 'OpenBody' | string
   lengthFt?: number
@@ -103,8 +108,16 @@ export default function MyFleetPage() {
   const [editTruck, setEditTruck] = useState<FleetTruck | null>(null)
   const [editBodyType, setEditBodyType] = useState('Open')
   const [editCapacity, setEditCapacity] = useState('16')
+  const [editLength, setEditLength] = useState('24')
+  const [editHeight, setEditHeight] = useState('8')
   const [editRadius, setEditRadius] = useState('50')
+  const [editLocation, setEditLocation] = useState('')
+  const [editDestinations, setEditDestinations] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
+
+  // Delete Truck Confirmation State — destructive and irreversible server-side
+  const [deleteTarget, setDeleteTarget] = useState<FleetTruck | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
 
   // Per-truck smart matches (Need Load ↔ Need Vehicle, ≤50km, tonnage/budget)
   const [expandedMatches, setExpandedMatches] = useState<Record<string, { loading: boolean; items: any[] }>>({})
@@ -244,20 +257,75 @@ export default function MyFleetPage() {
     }
   }
 
+  /**
+   * Owner gate — `/trucks/my-trucks` only returns the signed-in user's trucks,
+   * but the Edit/Delete controls stay hidden unless the card provably belongs
+   * to the current user (defence in depth alongside the server-side check).
+   */
+  const canManageTruck = (truck: FleetTruck) =>
+    !truck.userId || !user?.id || truck.userId === user.id
+
+  const openEditModal = (truck: FleetTruck) => {
+    setEditTruck(truck)
+    setEditBodyType(truck.bodyType || 'Open')
+    setEditCapacity(truck.tonnageCapacity?.toString() ?? '16')
+    setEditLength(truck.lengthFt?.toString() ?? '24')
+    setEditHeight(truck.heightFt?.toString() ?? '8')
+    setEditRadius((truck.serviceableRadiusKm ?? 50).toString())
+    setEditLocation(truck.currentLocationName || '')
+    setEditDestinations((truck.preferredDestinations || []).join(', '))
+  }
+
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editTruck) return
+    if (!canManageTruck(editTruck)) {
+      toast.error('You can only edit your own vehicles')
+      return
+    }
 
     try {
       setSavingEdit(true)
-      // Update locally & refresh
+      await trucksApi.updateTruck(editTruck.id, {
+        bodyType: editBodyType,
+        tonnageCapacity: parseFloat(editCapacity) || undefined,
+        lengthFt: editLength ? parseFloat(editLength) : undefined,
+        heightFt: editHeight ? parseFloat(editHeight) : undefined,
+        serviceableRadiusKm: editRadius ? parseFloat(editRadius) : undefined,
+        preferredDestinations: editDestinations
+          .split(',')
+          .map((d) => d.trim())
+          .filter(Boolean),
+      })
+
+      // Location moves go through the dedicated re-geocoding endpoint (re-runs matching).
+      const newLocation = editLocation.trim()
+      if (newLocation && newLocation !== (editTruck.currentLocationName || '')) {
+        await trucksApi.updateTruckLocation(editTruck.id, newLocation)
+      }
+
       toast.success(`Vehicle ${editTruck.registrationNumber} specifications updated!`)
       setEditTruck(null)
       loadFleetData()
-    } catch {
-      toast.error('Failed to update truck details')
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to update truck details')
     } finally {
       setSavingEdit(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      setDeleteBusy(true)
+      await trucksApi.deleteTruck(deleteTarget.id)
+      setTrucks((prev) => prev.filter((t) => t.id !== deleteTarget.id))
+      toast.success(`Vehicle ${deleteTarget.registrationNumber} removed`)
+      setDeleteTarget(null)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete truck')
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
@@ -747,21 +815,31 @@ export default function MyFleetPage() {
                         </button>
                       )}
 
-                      {/* Edit Icon Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditTruck(truck)
-                          setEditBodyType(truck.bodyType)
-                          setEditCapacity(truck.tonnageCapacity.toString())
-                          setEditRadius((truck.serviceableRadiusKm || 50).toString())
-                        }}
-                        className="p-2 text-surface-400 hover:text-white hover:bg-white/5 rounded-xl border border-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
-                        title="Edit Vehicle Details"
-                        aria-label="Edit Vehicle Details"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
+                      {/* Edit Icon Button — own trucks only (server re-checks ownership) */}
+                      {canManageTruck(truck) && (
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(truck)}
+                          className="p-2 text-surface-400 hover:text-white hover:bg-white/5 rounded-xl border border-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
+                          title="Edit Vehicle Details"
+                          aria-label={`Edit vehicle ${truck.registrationNumber || truck.bodyType}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {/* Delete Icon Button — own trucks only, with confirmation gate */}
+                      {canManageTruck(truck) && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(truck)}
+                          className="p-2 text-danger-400 hover:bg-danger-950/40 rounded-xl border border-danger-900/40 transition-colors focus-visible:ring-2 focus-visible:ring-danger-500 focus:outline-none cursor-pointer"
+                          title="Delete vehicle"
+                          aria-label={`Delete vehicle ${truck.registrationNumber || truck.bodyType}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
 
                       {/* Deactivate / Toggle Button */}
                       <button
@@ -1293,6 +1371,21 @@ export default function MyFleetPage() {
             </div>
 
             <form onSubmit={handleSaveEdit} className="space-y-4">
+              {/* Registration number is Vahan-verified & unique — immutable */}
+              <div>
+                <label className="block text-xs font-semibold text-surface-300 mb-1.5">
+                  Registration Number (read-only — RTO verified)
+                </label>
+                <input
+                  type="text"
+                  value={editTruck.registrationNumber || ''}
+                  readOnly
+                  disabled
+                  aria-readonly="true"
+                  className="w-full px-3 py-2.5 bg-surface-950/60 border border-white/5 rounded-xl text-surface-500 font-mono font-bold text-xs sm:text-sm cursor-not-allowed"
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-surface-300 mb-1.5">
                   Body Type
@@ -1308,27 +1401,87 @@ export default function MyFleetPage() {
                 </select>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-surface-300 mb-1.5">
+                    Payload Capacity (Tons)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    value={editCapacity}
+                    onChange={(e) => setEditCapacity(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono font-bold text-xs sm:text-sm focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-surface-300 mb-1.5">
+                    Serviceable Radius (km)
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    value={editRadius}
+                    onChange={(e) => setEditRadius(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-surface-300 mb-1.5">
+                    Deck Length (ft)
+                  </label>
+                  <input
+                    type="number"
+                    min="8"
+                    value={editLength}
+                    onChange={(e) => setEditLength(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-surface-300 mb-1.5">
+                    Deck Height (ft)
+                  </label>
+                  <input
+                    type="number"
+                    min="6"
+                    value={editHeight}
+                    onChange={(e) => setEditHeight(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-semibold text-surface-300 mb-1.5">
-                  Payload Capacity (Tons)
+                <label className="block text-xs font-semibold text-surface-300 mb-1.5 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-primary-400" aria-hidden="true" />
+                  Current Location / Base Hub (leave blank to keep current)
                 </label>
                 <input
-                  type="number"
-                  value={editCapacity}
-                  onChange={(e) => setEditCapacity(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono font-bold text-xs sm:text-sm focus:outline-none focus:border-primary-500"
+                  type="text"
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  placeholder="e.g. Bhiwandi, Maharashtra"
+                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white text-xs sm:text-sm focus:outline-none focus:border-primary-500"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-surface-300 mb-1.5">
-                  Serviceable Radius (km)
+                  Preferred Destinations / Corridors (comma-separated)
                 </label>
                 <input
-                  type="number"
-                  value={editRadius}
-                  onChange={(e) => setEditRadius(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary-500"
+                  type="text"
+                  value={editDestinations}
+                  onChange={(e) => setEditDestinations(e.target.value)}
+                  placeholder="e.g. Mumbai, Pune, Bangalore"
+                  className="w-full px-3 py-2.5 bg-surface-950 border border-white/10 rounded-xl text-white text-xs sm:text-sm focus:outline-none focus:border-primary-500"
                 />
               </div>
 
@@ -1352,6 +1505,28 @@ export default function MyFleetPage() {
           </div>
         </div>
       )}
+
+      {/* ── DELETE TRUCK CONFIRMATION GATE — destructive and irreversible ── */}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onClose={() => (deleteBusy ? undefined : setDeleteTarget(null))}
+        onConfirm={handleDelete}
+        title="Delete this vehicle?"
+        destructive
+        loading={deleteBusy}
+        confirmLabel="Delete vehicle"
+        message={
+          <>
+            This permanently removes{' '}
+            <span className="font-mono font-semibold text-surface-100">
+              {deleteTarget?.registrationNumber}
+            </span>{' '}
+            from your fleet and the marketplace. It will no longer be matched to
+            freight loads. Trucks with active or past bookings cannot be deleted
+            and this action cannot be undone.
+          </>
+        }
+      />
 
       {/* Footer */}
       <Footer />
