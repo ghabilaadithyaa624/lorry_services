@@ -12,6 +12,7 @@ describe('LoadsController', () => {
     create: jest.fn(),
     findByUser: jest.fn(),
     findOne: jest.fn(),
+    update: jest.fn(),
     updateStatus: jest.fn(),
     delete: jest.fn(),
   }
@@ -97,6 +98,32 @@ describe('LoadsController', () => {
 
       expect(loadsService.findOne).toHaveBeenCalledWith(id, userId)
       expect(result).toEqual(mockResult)
+    })
+  })
+
+  describe('update', () => {
+    it('should call loadsService.update with id, dto, userId and role', async () => {
+      const id = 'load-1'
+      const userId = 'user-123'
+      const role = 'factory_owner' as any
+      const dto = { tonnageRequired: 22, maxPrice: 71000 }
+      const mockResult = { id, ...dto }
+      mockLoadsService.update.mockResolvedValue(mockResult)
+
+      const result = await controller.update(id, dto, userId, role)
+
+      expect(loadsService.update).toHaveBeenCalledWith(id, userId, dto, role)
+      expect(result).toEqual(mockResult)
+    })
+
+    it('should pass an admin role through so the service can manage any load', async () => {
+      const id = 'load-1'
+      const dto = { urgent: true }
+      mockLoadsService.update.mockResolvedValue({ id, urgent: true })
+
+      await controller.update(id, dto, 'admin-1', 'admin' as any)
+
+      expect(loadsService.update).toHaveBeenCalledWith(id, 'admin-1', dto, 'admin')
     })
   })
 

@@ -5,11 +5,12 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   PlusCircleIcon,
   TrashIcon,
+  PencilSquareIcon,
   MagnifyingGlassIcon,
   ArrowPathIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline'
-import { api, matchesApi } from '@/lib/api'
+import { api, usersApi, loadsApi, matchesApi } from '@/lib/api'
 import { DashboardLayout } from '@/components/layout'
 import {
   Badge,
@@ -17,21 +18,29 @@ import {
   GlassPanel,
   TelemetryMetric,
   Skeleton,
+  ConfirmDialog,
 } from '@/components/ui'
 import { OperationalEmptyState } from '@/components/intelligence'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
+import { EditLoadModal } from '@/components/freight/EditLoadModal'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo, formatPhone, whatsappLink } from '@/lib/utils'
 
 interface Load {
   id: string
+  userId?: string
   tonnageRequired: number
   loadingAddress: string
+  loadingPin?: string | null
   unloadingAddress: string
+  unloadingPin?: string | null
   truckType: string
   status: 'Open' | 'Matched' | 'Assigned' | 'Booked' | 'Pickup' | 'InTransit' | 'Delivered' | 'Completed' | 'Cancelled'
   urgent: boolean
-  maxPrice?: number
+  maxPrice?: number | null
+  minLengthFt?: number | null
+  minHeightFt?: number | null
+  expectedDeliveryAt?: string | null
   distanceKm?: number
   createdAt: string
   _count?: { bookings: number }
@@ -120,6 +129,10 @@ function MyLoadsContent() {
   const [activeFilter, setActiveFilter] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedMatches, setExpandedMatches] = useState<Record<string, { loading: boolean; items: any[] }>>({})
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [editingLoad, setEditingLoad] = useState<Load | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Load | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
@@ -129,6 +142,11 @@ function MyLoadsContent() {
 
   useEffect(() => {
     fetchLoads()
+    // Resolve the signed-in user id so action buttons render only for own loads.
+    usersApi
+      .getProfile()
+      .then((res) => setCurrentUserId(res.data?.id ?? null))
+      .catch(() => setCurrentUserId(null))
   }, [])
 
   const fetchLoads = async () => {
@@ -146,14 +164,27 @@ function MyLoadsContent() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this posted load?')) return
+  /**
+   * Owner gate — `/loads/my-loads` only returns the signed-in user's posts, but
+   * the Edit/Delete controls stay hidden unless the row provably belongs to the
+   * current user (defence in depth alongside the server-side check).
+   */
+  const canManage = (load: Load) => !load.userId || !currentUserId || load.userId === currentUserId
+
+  const canEdit = (load: Load) => canManage(load) && load.status === 'Open'
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleteBusy(true)
     try {
-      await api.delete(`/loads/${id}`)
-      setLoads((prev) => prev.filter((l) => l.id !== id))
+      await loadsApi.deleteLoad(deleteTarget.id)
+      setLoads((prev) => prev.filter((l) => l.id !== deleteTarget.id))
       toast.success('Load removed successfully')
+      setDeleteTarget(null)
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to delete load')
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
@@ -398,12 +429,25 @@ function MyLoadsContent() {
                         Marketplace
                       </Button>
 
-                      {load.status === 'Open' && (
+                      {canEdit(load) && (
                         <button
                           type="button"
-                          onClick={() => handleDelete(load.id)}
+                          onClick={() => setEditingLoad(load)}
+                          className="p-2 text-surface-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors cursor-pointer border border-white/10"
+                          title="Edit this load"
+                          aria-label={`Edit load ${load.loadingAddress} to ${load.unloadingAddress}`}
+                        >
+                          <PencilSquareIcon className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {canEdit(load) && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(load)}
                           className="p-2 text-danger-400 hover:bg-danger-950/40 rounded-xl transition-colors cursor-pointer border border-danger-900/40"
                           title="Delete this load"
+                          aria-label={`Delete load ${load.loadingAddress} to ${load.unloadingAddress}`}
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -487,6 +531,39 @@ function MyLoadsContent() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation gate — destructive and irreversible */}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onClose={() => (deleteBusy ? undefined : setDeleteTarget(null))}
+        onConfirm={handleDelete}
+        title="Delete this load?"
+        destructive
+        loading={deleteBusy}
+        confirmLabel="Delete load"
+        message={
+          <>
+            This permanently removes{' '}
+            <span className="font-semibold text-ink">
+              {deleteTarget?.loadingAddress} → {deleteTarget?.unloadingAddress}
+            </span>{' '}
+            from the marketplace. Nearby lorries will no longer see this freight, and this
+            cannot be undone.
+          </>
+        }
+      />
+
+      {/* Owner-only editor for an open load */}
+      {editingLoad && (
+        <EditLoadModal
+          load={editingLoad}
+          onClose={() => setEditingLoad(null)}
+          onSaved={async () => {
+            setEditingLoad(null)
+            await fetchLoads()
+          }}
+        />
+      )}
     </DashboardLayout>
   )
 }

@@ -1,14 +1,52 @@
-import { IsNumber, IsOptional, IsBoolean, IsEnum, Min, Max } from 'class-validator'
+import {
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsString,
+  IsDateString,
+  Min,
+  Max,
+} from 'class-validator'
 import { ApiProperty } from '@nestjs/swagger'
 import { TruckType } from '@prisma/client'
 
 /**
- * Partial edit of a posted load. Only the freight-side fields an operator can
- * legitimately revise while the load is still Open — route addresses are fixed
- * at posting time (they drive geocoded matching), so a route change means a new
- * post, not an edit.
+ * Partial edit of a posted load. Every freight-side field an operator can
+ * legitimately revise while the load is still Open:
+ *
+ *   - loading / unloading address (+ PIN) — re-geocoded server-side so the
+ *     stored lat/lng and PostGIS points (and therefore proximity matching)
+ *     stay accurate after a route correction
+ *   - tonnage, truck type, min length/height
+ *   - expected delivery date
+ *   - budget (max price)
+ *   - urgent flag
+ *
+ * Mutations are owner-only (admin override) and rejected once the load has
+ * left the Open status — see LoadsService.assertLoadOwnership.
  */
 export class UpdateLoadDto {
+  @ApiProperty({ example: 'MIDC Industrial Area, Pune', required: false })
+  @IsOptional()
+  @IsString()
+  loadingAddress?: string
+
+  @ApiProperty({ example: '411018', required: false })
+  @IsOptional()
+  @IsString()
+  loadingPin?: string
+
+  @ApiProperty({ example: 'Electronic City, Bangalore', required: false })
+  @IsOptional()
+  @IsString()
+  unloadingAddress?: string
+
+  @ApiProperty({ example: '560100', required: false })
+  @IsOptional()
+  @IsString()
+  unloadingPin?: string
+
   @ApiProperty({ example: 18, required: false })
   @IsOptional()
   @IsNumber()
@@ -45,4 +83,9 @@ export class UpdateLoadDto {
   @Min(6)
   @Max(15)
   minHeightFt?: number
+
+  @ApiProperty({ example: '2024-12-31T10:00:00Z', required: false })
+  @IsOptional()
+  @IsDateString()
+  expectedDeliveryAt?: Date
 }

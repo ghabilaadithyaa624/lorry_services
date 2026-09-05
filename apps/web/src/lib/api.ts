@@ -362,12 +362,17 @@ export const loadsApi = {
   updateLoad: (
     loadId: string,
     data: {
+      loadingAddress?: string
+      loadingPin?: string
+      unloadingAddress?: string
+      unloadingPin?: string
       tonnageRequired?: number
       truckType?: string
       urgent?: boolean
       maxPrice?: number
       minLengthFt?: number
       minHeightFt?: number
+      expectedDeliveryAt?: string
     },
   ) => api.patch(`/loads/${loadId}`, data),
   /** Delete an open load (owner only server-side). */
