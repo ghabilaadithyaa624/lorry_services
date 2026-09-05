@@ -217,6 +217,16 @@ describe('BookingDocumentsService', () => {
       expect(prisma.bookingDocument.create).not.toHaveBeenCalled()
     })
 
+    it('should fail closed when storage cannot verify the object', async () => {
+      ;(prisma.bookingDocument.findFirst as jest.Mock).mockResolvedValue(null)
+      s3.objectExists.mockRejectedValueOnce(new Error('S3 unavailable'))
+
+      await expect(service.register('b1', truckDriver, dto as any)).rejects.toThrow(
+        InternalServerErrorException,
+      )
+      expect(prisma.bookingDocument.create).not.toHaveBeenCalled()
+    })
+
     it('should be idempotent when the same object is registered twice', async () => {
       ;(prisma.bookingDocument.findFirst as jest.Mock).mockResolvedValue(docRow)
 

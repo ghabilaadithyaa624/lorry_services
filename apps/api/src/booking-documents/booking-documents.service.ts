@@ -296,13 +296,23 @@ export class BookingDocumentsService {
     return `${BOOKING_DOCUMENT_KEY_PREFIX}/${bookingId}/${stage}/${uuidv4()}.${ext}`
   }
 
-  /** Best-effort existence check; transport errors are logged and tolerated. */
+  /**
+   * Confirm the object exists before creating the database row.
+   *
+   * A storage outage is deliberately not treated as success: doing so would
+   * create phantom documents and make the chain claim that a file exists when
+   * it cannot be downloaded. `S3Service.objectExists` returns false for a
+   * normal 404 and throws for transport/authentication failures; preserve that
+   * distinction for callers.
+   */
   private async verifyObjectExists(key: string): Promise<boolean> {
     try {
       return await this.s3.objectExists(key)
     } catch (error) {
-      this.logger.warn(`Storage existence check failed for ${key} (${error}); trusting the upload.`)
-      return true
+      this.logger.error(`Storage existence check failed for ${key}: ${error}`)
+      throw new InternalServerErrorException(
+        'Could not verify the uploaded file in storage. Please try again.',
+      )
     }
   }
 
