@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import {
@@ -11,20 +11,13 @@ import {
   Clock,
   Bell,
   Sparkles,
-  AlertTriangle,
   PlusCircle,
   CheckCircle2,
   Check,
   X,
   Menu,
 } from 'lucide-react'
-import {
-  api,
-  usersApi,
-  authApi,
-  notificationsApi,
-  type NotificationFeedItem,
-} from '@/lib/api'
+import { api, usersApi, authApi } from '@/lib/api'
 import { Footer } from '@/components/layout'
 import { AnalyticsSnapshot } from '@/components/dashboard/AnalyticsSnapshot'
 import { ReturnLoadsPanel } from '@/components/dashboard/ReturnLoadsPanel'
@@ -36,10 +29,15 @@ import { getRoleLabel, isVehicleSideRole, normalizeRole, type AnyUserRole, type 
 import { BookingTermsModal } from '@/components/BookingTermsModal'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
 import { ActionCenterCard } from '@/components/intelligence'
-import { deriveDashboardActionTasks } from '@/lib/intelligence/actionCenterEngine'
+import {
+  deriveDashboardActionTasks,
+  getActionCenterUnavailableSources,
+  type DashboardActionCenterSnapshot,
+} from '@/lib/intelligence/actionCenterEngine'
+import { fetchOperationalSnapshot } from '@/lib/intelligence/actionCenterData'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo } from '@/lib/utils'
-import { getEntitlement, type SubscriptionEntitlement } from '@/lib/subscription'
+import type { SubscriptionEntitlement } from '@/lib/subscription'
 
 interface UserState {
   id?: string
@@ -124,6 +122,14 @@ interface UnifiedDashboardProps {
   roleOverride?: Exclude<AppUserRole, 'admin'>
 }
 
+// Display lists may be empty on failure, but the raw operational snapshot must
+// retain undefined so the action center can distinguish unavailable data.
+function dashboardRows<T extends { id: string }>(value: unknown): T[] {
+  return Array.isArray(value)
+    ? value.filter((row) => row && typeof row === 'object' && typeof row.id === 'string')
+    : []
+}
+
 export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -133,7 +139,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const [hasSubscription, setHasSubscription] = useState(false)
   const [subscriptionStatus, setSubscriptionStatus] = useState<TrialStatus | null>(null)
   const [entitlement, setEntitlement] = useState<SubscriptionEntitlement | null>(null)
-  const [kycComplete, setKycComplete] = useState(true)
+  const [sessionReady, setSessionReady] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Data state
@@ -143,9 +149,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [tripTab, setTripTab] = useState<'active' | 'completed'>('active')
 
-  // Operational Action Center inputs (real API data only)
-  const [fleetDocuments, setFleetDocuments] = useState<Array<Record<string, any>> | undefined>(undefined)
-  const [alertFeed, setAlertFeed] = useState<NotificationFeedItem[] | undefined>(undefined)
+  // Keep raw API availability separate from the empty arrays used by lists.
+  const [actionSnapshot, setActionSnapshot] = useState<DashboardActionCenterSnapshot>({})
+  const requestId = useRef(0)
+  const requestController = useRef<AbortController | null>(null)
 
   // Booking modal
   const [selectedTruckForBooking, setSelectedTruckForBooking] = useState<any | null>(null)
@@ -159,141 +166,74 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
       }
     } catch {
       // Ignore malformed local session data.
+    } finally {
+      setSessionReady(true)
     }
   }, [])
 
-  const effectiveRole = normalizeRole(roleOverride || user?.role) || 'factory_owner'
+  const effectiveRole = normalizeRole(roleOverride || user?.role)
   const isTruckDriver = isVehicleSideRole(effectiveRole)
   // Kept as an alias for existing JSX; the transporter/driver split is gone.
   const isTruckOwner = isTruckDriver
   const isTrial = subscriptionStatus?.isTrial === true
 
-  useEffect(() => {
-    loadDashboard()
-    // Reload when the persisted role arrives, avoiding a factory dashboard
-    // flash for driver/transporter accounts.
-  }, [roleOverride, user?.role])
+  const loadDashboard = useCallback(async () => {
+    if (!effectiveRole) return
+    const id = ++requestId.current
+    requestController.current?.abort()
+    const request = new AbortController()
+    requestController.current = request
+    setLoading(true)
 
-  const loadDashboard = async () => {
     try {
-      setLoading(true)
-
-      const [subRes, entRes, docRes, activityRes, alertRes] = await Promise.allSettled([
-        api.get<TrialStatus>('/subscriptions/status'),
-        getEntitlement(),
-        usersApi.getDocuments(),
+      // One entitlement request, and no factory-owner request to the fleet API.
+      // The same raw snapshot powers both dashboard lists and operational tasks.
+      const [snapshotRes, activityRes, nearbyRes] = await Promise.allSettled([
+        fetchOperationalSnapshot(effectiveRole, request.signal),
         usersApi.getActivity(),
-        notificationsApi.getNotifications(),
+        isTruckDriver
+          ? Promise.resolve(undefined)
+          : api.get('/search/trucks?lat=19.0760&lng=72.8777&radius=100', { signal: request.signal }),
       ])
+      if (request.signal.aborted || id !== requestId.current) return
 
-      if (subRes.status === 'fulfilled') {
-        setSubscriptionStatus(subRes.value.data)
-        setHasSubscription(Boolean(subRes.value.data?.hasSubscription))
-      }
+      const snapshot = snapshotRes.status === 'fulfilled' ? snapshotRes.value : { role: effectiveRole }
+      setActionSnapshot(snapshot)
+      setLoads(dashboardRows<LoadItem>(snapshot.loads))
+      setTrips(dashboardRows<TripBooking>(snapshot.bookings))
+      const fleet = isTruckDriver
+        ? snapshot.trucks
+        : nearbyRes.status === 'fulfilled' ? nearbyRes.value?.data : undefined
+      setTrucks(dashboardRows<TruckItem>(fleet))
 
-      if (entRes.status === 'fulfilled') {
-        setEntitlement(entRes.value)
-      }
-
-      // Check KYC status
-      if (docRes.status === 'fulfilled') {
-        const docs = docRes.value.data || []
-        setFleetDocuments(Array.isArray(docs) ? docs : [])
-        // Incomplete if no docs uploaded or any document is pending/rejected
-        if (!Array.isArray(docs) || docs.length === 0) {
-          setKycComplete(false)
-        } else {
-          const hasRC = docs.some((d: any) => d.type === 'RC' && d.verificationStatus === 'Verified')
-          const hasInsurance = docs.some((d: any) => d.type === 'Insurance' && d.verificationStatus === 'Verified')
-          setKycComplete(hasRC && hasInsurance)
-        }
-      } else {
-        setKycComplete(false)
-      }
-
-      // WhatsApp / in-app alert feed — powers failed-trigger action items.
-      if (alertRes.status === 'fulfilled') {
-        const feed = alertRes.value.data
-        setAlertFeed(Array.isArray(feed?.notifications) ? feed.notifications : [])
-      }
-
-      // Load Role-Specific Data
-      if (isTruckOwner) {
-        const [myTrucksRes, myBookingsRes] = await Promise.allSettled([
-          api.get('/trucks/my-trucks'),
-          api.get('/bookings/my-bookings'),
-        ])
-
-        if (myTrucksRes.status === 'fulfilled') {
-          const userTrucks = myTrucksRes.value.data || []
-          setTrucks(userTrucks)
-          // If any truck is unverified, mark KYC incomplete
-          const allVerified = userTrucks.length > 0 && userTrucks.every((t: any) => t.verificationStatus === 'Verified')
-          if (!allVerified) {
-            setKycComplete(false)
-          }
-        }
-
-        if (myBookingsRes.status === 'fulfilled') {
-          setTrips(myBookingsRes.value.data || [])
-        }
-      } else {
-        const [myLoadsRes, myBookingsRes, nearbyTrucksRes] = await Promise.allSettled([
-          api.get('/loads/my-loads'),
-          api.get('/bookings/my-bookings'),
-          api.get('/search/trucks?lat=19.0760&lng=72.8777&radius=100'),
-        ])
-
-        if (myLoadsRes.status === 'fulfilled') {
-          setLoads(myLoadsRes.value.data || [])
-        }
-
-        if (myBookingsRes.status === 'fulfilled') {
-          setTrips(myBookingsRes.value.data || [])
-        }
-
-        if (nearbyTrucksRes.status === 'fulfilled') {
-          setTrucks(nearbyTrucksRes.value.data || [])
-        }
-      }
-
-      // Notifications / Activity
-      if (activityRes.status === 'fulfilled' && Array.isArray(activityRes.value.data) && activityRes.value.data.length > 0) {
-        setActivities(activityRes.value.data)
-      } else {
-        // Synthesize recent meaningful records if none returned from raw endpoint
-        setActivities([
-          {
-            id: 'act-1',
-            title: isTruckDriver ? 'Vehicle Telemetry Online' : 'Freight Consignment Verified',
-            description: isTruckDriver
-              ? 'GPS centerpoint and 50km corridor broadcast active for verified shippers.'
-              : 'Direct factor-based match scoring activated for active loading points.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
-            type: 'match',
-          },
-          {
-            id: 'act-2',
-            title: 'Vahan Government RC Verification',
-            description: 'Automated digital verification check passed across official state transport registers.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 65).toISOString(),
-            type: 'kyc',
-          },
-          {
-            id: 'act-3',
-            title: 'Checkpoint Highway Milestone',
-            description: 'Record-only corridor tracking checkpoint recorded for regional transit.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 190).toISOString(),
-            type: 'booking',
-          },
-        ])
-      }
-    } catch {
-      // Graceful fallback
+      const subscription = snapshot.entitlement as (SubscriptionEntitlement & TrialStatus) | undefined
+      setEntitlement(subscription ?? null)
+      setSubscriptionStatus(subscription ?? null)
+      setHasSubscription(Boolean(subscription?.hasPremiumAccess ?? subscription?.hasSubscription))
+      setActivities(activityRes.status === 'fulfilled' && Array.isArray(activityRes.value.data)
+        ? activityRes.value.data
+        : [])
     } finally {
-      setLoading(false)
+      if (!request.signal.aborted && id === requestId.current) setLoading(false)
     }
-  }
+  }, [effectiveRole, isTruckDriver])
+
+  useEffect(() => {
+    // The persisted role must arrive before the generic /dashboard loads data.
+    if (!sessionReady) return
+    if (!effectiveRole) {
+      setLoading(false)
+      return
+    }
+    void loadDashboard()
+    const onFocus = () => void loadDashboard()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      ++requestId.current
+      requestController.current?.abort()
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [sessionReady, effectiveRole, loadDashboard])
 
   const handleLogout = async () => {
     try {
@@ -343,29 +283,14 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
     .filter((trip) => trip.status === 'Completed')
     .reduce((sum, trip) => sum + Number(trip.agreedPrice || 0), 0)
 
-  /**
-   * Operational Action Center — pending KYC, unverified/missing RC & Insurance,
-   * pending advance, missing E-Way Bill, unpaid balance on delivered trips,
-   * unmatched open loads, subscription expiry and failed WhatsApp triggers.
-   *
-   * Everything is derived from the API payloads already loaded above; sources
-   * that failed to load stay `undefined` so no placeholder task is invented.
-   */
-  const actionCenterTasks = useMemo(
-    () =>
-      deriveDashboardActionTasks({
-        role: effectiveRole,
-        // Only the vehicle side owns trucks/documents — for shippers the
-        // `trucks` state holds nearby search results, not a fleet.
-        trucks: isTruckDriver ? trucks : undefined,
-        documents: isTruckDriver ? fleetDocuments : undefined,
-        loads: isTruckDriver ? undefined : loads,
-        bookings: trips,
-        notifications: alertFeed,
-        entitlement: entitlement ?? undefined,
-      }),
-    [effectiveRole, isTruckDriver, trucks, fleetDocuments, loads, trips, alertFeed, entitlement]
-  )
+  // A role change must not briefly show work from the previous workspace.
+  const { actionCenterTasks, unavailableSources } = useMemo(() => {
+    const snapshot = actionSnapshot.role === effectiveRole ? actionSnapshot : { role: effectiveRole }
+    return {
+      actionCenterTasks: deriveDashboardActionTasks(snapshot),
+      unavailableSources: getActionCenterUnavailableSources(snapshot),
+    }
+  }, [actionSnapshot, effectiveRole])
 
   return (
     <div className="min-h-screen bg-canvas text-surface-100 flex flex-col font-sans selection:bg-primary-500 selection:text-white">
@@ -509,45 +434,19 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
       {/* ── Main Dashboard Workspace ── */}
       <main className="flex-1 py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
-        <TrialAccessBanner status={subscriptionStatus} />
-
-        {/* ── 2. KYC Verification Status Banner (Only when incomplete) ── */}
-        {!kycComplete && (
-          <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-modal">
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
-                <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
-              </div>
-              <div className="space-y-0.5">
-                <h2 className="text-sm sm:text-base font-bold text-amber-200">
-                  KYC & Vehicle Verification Incomplete
-                </h2>
-                <p className="text-xs sm:text-sm text-amber-300/80 leading-relaxed">
-                  Upload your RC book and Commercial Insurance documents to enable direct carrier matching, instant booking confirmation, and compliance clearance.
-                </p>
-              </div>
-            </div>
-
-            <Link
-              href="/profile"
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-amber-950 text-xs sm:text-sm font-bold transition-all shrink-0 shadow-glow-sm cursor-pointer"
-            >
-              <span>Complete Verification</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        )}
-
-        {/* ── 2b. Subscription & 3-Month Free Trial Banner (live countdown) ── */}
-        <TrialCountdownBanner entitlement={entitlement} />
-
-        {/* ── 2c. Operational Action Center — real pending work, no samples ── */}
+        {/* Operational work is the first dashboard panel, including KYC.
+            Nearby search results are never interpreted as an owned fleet. */}
         <ActionCenterCard
           tasks={actionCenterTasks}
-          loading={loading}
+          loading={loading || !sessionReady || Boolean(effectiveRole && actionSnapshot.role !== effectiveRole)}
+          unavailableSources={unavailableSources}
+          onRetry={loadDashboard}
           maxVisible={6}
           showWhenEmpty
         />
+
+        <TrialAccessBanner status={subscriptionStatus} />
+        <TrialCountdownBanner entitlement={entitlement} />
 
         {/* ── 4. Quick Actions Header & Role Greeting ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">

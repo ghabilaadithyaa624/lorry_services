@@ -1,15 +1,7 @@
 /**
- * Operational Action Center — web entry point.
- *
- * The derivation rules live in `@lorrycarry/shared` (pure + platform agnostic)
- * and are re-exported here for existing imports. This module adds the thin web
- * adapter that maps the payloads our REST endpoints actually return
- * (`/loads/my-loads`, `/trucks/my-trucks`, `/bookings/my-bookings`,
- * `/users/documents`, `/notifications`, `/subscriptions/status`,
- * `/admin/stats`) onto the engine input.
- *
- * It never fabricates sample tasks: a data source that failed to load is passed
- * as `undefined` so its rules are skipped entirely.
+ * Operational Action Center — REST adapter for the shared, pure task engine.
+ * Unknown/failed sources remain undefined; only a successful empty list means
+ * "no records". In particular, /users/documents and /notifications are envelopes.
  */
 import {
   deriveOperationalTasks,
@@ -37,7 +29,7 @@ export type {
   ActionCenterTruck,
 }
 
-/** Shape of `/subscriptions/status` (entitlement) as consumed by the web app. */
+/** Canonical entitlement plus legacy trial fields still returned by older APIs. */
 export interface DashboardEntitlementLike {
   status?: string
   hasSubscription?: boolean
@@ -49,9 +41,9 @@ export interface DashboardEntitlementLike {
   trialEndsAt?: string | Date | null
   trialDaysRemaining?: number | null
   trialDaysLeft?: number | null
+  upgradeReason?: string | null
 }
 
-/** Raw `/admin/stats` fields relevant to the action center. */
 export interface DashboardAdminStatsLike {
   pendingDocuments?: number
   pendingKyc?: number
@@ -60,152 +52,171 @@ export interface DashboardAdminStatsLike {
   unmatchedLoads?: number
 }
 
+/** Raw response bodies — validate at this boundary, not with truthy defaults. */
 export interface DashboardActionCenterSnapshot {
   role?: string | null
-  loads?: Array<Record<string, any>> | null
-  trucks?: Array<Record<string, any>> | null
-  bookings?: Array<Record<string, any>> | null
-  documents?: Array<Record<string, any>> | null
-  notifications?: Array<Record<string, any>> | null
-  entitlement?: DashboardEntitlementLike | null
-  adminStats?: DashboardAdminStatsLike | null
+  loads?: unknown
+  trucks?: unknown
+  bookings?: unknown
+  documents?: unknown
+  notifications?: unknown
+  entitlement?: unknown
+  adminStats?: unknown
   now?: Date | string | number
   maxTasks?: number
 }
 
-function asArray<T>(value: unknown): T[] | undefined {
-  return Array.isArray(value) ? (value as T[]) : undefined
+type ApiRecord = Record<string, unknown>
+
+function isRecord(value: unknown): value is ApiRecord {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function mapLoads(loads?: Array<Record<string, any>> | null): ActionCenterLoad[] | undefined {
-  return asArray<Record<string, any>>(loads)?.map((load) => ({
-    id: String(load.id ?? ''),
-    status: String(load.status ?? ''),
-    tonnageRequired: Number(load.tonnageRequired ?? 0),
-    loadingAddress: String(load.loadingAddress ?? ''),
+function text(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function number(value: unknown): number | undefined {
+  if (typeof value !== 'number' && typeof value !== 'string') return undefined
+  if (typeof value === 'string' && !value.trim()) return undefined
+  const result = Number(value)
+  return Number.isFinite(result) ? result : undefined
+}
+
+function count(value: unknown): number | undefined {
+  const result = number(value)
+  return result !== undefined && Number.isInteger(result) && result >= 0 ? result : undefined
+}
+
+function bool(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined
+}
+
+function date(value: unknown): string | Date | undefined {
+  return value instanceof Date || typeof value === 'string' ? value : undefined
+}
+
+function records(value: unknown, envelopeKey?: string, requireIds = false): ApiRecord[] | undefined {
+  const rows = isRecord(value) && envelopeKey ? value[envelopeKey] : value
+  // Do not turn a malformed response such as [null] into an empty fleet.
+  if (!Array.isArray(rows) || !rows.every(isRecord)) return undefined
+  if (requireIds && !rows.every((row) => text(row.id))) return undefined
+  return rows
+}
+
+function mapLoads(value: unknown): ActionCenterLoad[] | undefined {
+  return records(value, undefined, true)?.map((load) => ({
+    id: text(load.id)!,
+    status: text(load.status) ?? '',
+    tonnageRequired: number(load.tonnageRequired) ?? 0,
+    loadingAddress: text(load.loadingAddress) ?? '',
+    bookingCount: isRecord(load._count) ? count(load._count.bookings) : undefined,
   }))
 }
 
-function mapTrucks(trucks?: Array<Record<string, any>> | null): ActionCenterTruck[] | undefined {
-  return asArray<Record<string, any>>(trucks)?.map((truck) => ({
-    id: String(truck.id ?? ''),
-    registrationNumber: String(truck.registrationNumber ?? 'Unregistered vehicle'),
-    verificationStatus: String(truck.verificationStatus ?? ''),
-    documents: Array.isArray(truck.documents)
-      ? (truck.documents as Array<Record<string, any>>).map(mapDocument)
+function mapDocument(doc: ApiRecord): ActionCenterDocument {
+  return {
+    id: text(doc.id),
+    truckId: text(doc.truckId),
+    type: text(doc.type),
+    verificationStatus: text(doc.verificationStatus),
+    expiresAt: date(doc.expiryDate ?? doc.expiresAt),
+  }
+}
+
+function mapDocuments(value: unknown): ActionCenterDocument[] | undefined {
+  return records(value, 'documents')?.map(mapDocument)
+}
+
+function mapTrucks(value: unknown): ActionCenterTruck[] | undefined {
+  return records(value, undefined, true)?.map((truck) => ({
+    id: text(truck.id)!,
+    registrationNumber: text(truck.registrationNumber) ?? text(truck.id)!,
+    verificationStatus: text(truck.verificationStatus) ?? '',
+    documents: mapDocuments(truck.documents),
+  }))
+}
+
+function mapBookings(value: unknown): ActionCenterBooking[] | undefined {
+  return records(value, undefined, true)?.map((booking) => ({
+    id: text(booking.id)!,
+    loadId: text(booking.loadId),
+    status: text(booking.status) ?? '',
+    advanceConfirmed: bool(booking.advanceConfirmed),
+    balanceConfirmed: bool(booking.balanceConfirmed),
+    agreedPrice: number(booking.agreedPrice),
+    // Preserve absent vs explicitly empty: partial records aren't missing bills.
+    ewayBillNumber: booking.ewayBillNumber === null
+      ? null
+      : typeof booking.ewayBillNumber === 'string' ? booking.ewayBillNumber.trim() : undefined,
+    ewayBillStatus: text(booking.ewayBillStatus),
+    whatsappTriggerStatus: text(booking.whatsappTriggerStatus ?? booking.whatsappStatus),
+    load: isRecord(booking.load)
+      ? {
+          loadingAddress: text(booking.load.loadingAddress),
+          unloadingAddress: text(booking.load.unloadingAddress),
+        }
+      : undefined,
+    truck: isRecord(booking.truck)
+      ? { registrationNumber: text(booking.truck.registrationNumber) }
       : undefined,
   }))
 }
 
-function mapDocument(doc: Record<string, any>): ActionCenterDocument {
-  return {
-    id: doc.id ? String(doc.id) : undefined,
-    truckId: doc.truckId ? String(doc.truckId) : undefined,
-    type: doc.type ? String(doc.type) : undefined,
-    verificationStatus: doc.verificationStatus ? String(doc.verificationStatus) : undefined,
-    expiresAt: doc.expiresAt ?? null,
-  }
-}
-
-function mapDocuments(
-  documents?: Array<Record<string, any>> | null
-): ActionCenterDocument[] | undefined {
-  return asArray<Record<string, any>>(documents)?.map(mapDocument)
-}
-
-function mapBookings(
-  bookings?: Array<Record<string, any>> | null
-): ActionCenterBooking[] | undefined {
-  return asArray<Record<string, any>>(bookings)?.map((booking) => ({
-    id: String(booking.id ?? ''),
-    status: String(booking.status ?? ''),
-    advanceConfirmed: Boolean(booking.advanceConfirmed),
-    balanceConfirmed: Boolean(booking.balanceConfirmed),
-    agreedPrice: Number(booking.agreedPrice ?? 0),
-    ewayBillNumber: booking.ewayBillNumber ?? null,
-    ewayBillStatus: booking.ewayBillStatus ?? null,
-    whatsappTriggerStatus:
-      booking.whatsappTriggerStatus ?? booking.whatsappStatus ?? null,
-    load: booking.load
-      ? {
-          loadingAddress: booking.load.loadingAddress ?? null,
-          unloadingAddress: booking.load.unloadingAddress ?? null,
-        }
-      : null,
-    truck: booking.truck ? { registrationNumber: booking.truck.registrationNumber ?? null } : null,
+function mapNotifications(value: unknown): ActionCenterNotification[] | undefined {
+  return records(value, 'notifications', true)?.map((item) => ({
+    id: text(item.id)!,
+    channel: text(item.channel),
+    providerStatus: text(item.providerStatus),
+    title: text(item.title),
   }))
 }
 
-function mapNotifications(
-  notifications?: Array<Record<string, any>> | null
-): ActionCenterNotification[] | undefined {
-  return asArray<Record<string, any>>(notifications)?.map((item) => ({
-    id: String(item.id ?? ''),
-    channel: item.channel ?? null,
-    providerStatus: item.providerStatus ?? null,
-    title: item.title ?? null,
-  }))
-}
-
-/**
- * Normalizes the `/subscriptions/status` payload (paid pass or 3-month trial)
- * into the engine's entitlement shape.
- */
+/** Missing entitlement fields do not imply an expired subscription. */
 export function mapEntitlement(
-  entitlement?: DashboardEntitlementLike | null
+  value: unknown
 ): { subscription?: ActionCenterSubscription; hasSubscription?: boolean } {
-  if (!entitlement) return {}
+  if (!isRecord(value)) return {}
+  const status = text(value.status)?.toLowerCase()
+  const knownStatus = status && ['active', 'trial', 'expired'].includes(status) ? status : undefined
+  const trialActive = bool(value.isTrialActive) ?? bool(value.isTrial)
+  const hasPremiumAccess = bool(value.hasPremiumAccess)
+    ?? (trialActive === true ? true : bool(value.hasSubscription))
+    ?? (knownStatus ? knownStatus !== 'expired' : undefined)
+  if (hasPremiumAccess === undefined && !knownStatus) return {}
 
-  const isTrial = Boolean(entitlement.isTrialActive ?? entitlement.isTrial)
-  const hasPremiumAccess = Boolean(
-    entitlement.hasPremiumAccess ?? entitlement.hasSubscription ?? isTrial
-  )
-  const status = entitlement.status ?? (hasPremiumAccess ? (isTrial ? 'trial' : 'active') : 'expired')
-
-  const expiresAt = isTrial
-    ? entitlement.trialEndsAt ?? entitlement.expiresAt ?? null
-    : entitlement.expiresAt ?? null
-
-  const daysRemaining = isTrial
-    ? entitlement.trialDaysRemaining ?? entitlement.trialDaysLeft ?? null
-    : null
+  const isTrial = trialActive === true || knownStatus === 'trial'
+    || value.plan === 'free_trial' || value.upgradeReason === 'trial_expired'
+  const expiresAt = isTrial ? value.trialEndsAt ?? value.expiresAt : value.expiresAt
 
   return {
     subscription: {
       isActive: hasPremiumAccess,
-      status,
-      plan: entitlement.plan ?? null,
+      status: knownStatus ?? (hasPremiumAccess ? (isTrial ? 'trial' : 'active') : undefined),
+      plan: text(value.plan) ?? null,
       isTrial,
-      expiresAt,
-      daysRemaining,
+      expiresAt: date(expiresAt) ?? null,
+      daysRemaining: isTrial ? number(value.trialDaysRemaining ?? value.trialDaysLeft) ?? null : null,
     },
     hasSubscription: hasPremiumAccess,
   }
 }
 
-function mapAdminQueue(
-  stats?: DashboardAdminStatsLike | null
-): ActionCenterAdminQueue | undefined {
-  if (!stats) return undefined
-  return {
-    pendingKyc: stats.pendingKyc ?? stats.pendingDocuments ?? 0,
-    pendingDocuments: stats.pendingDocuments ?? 0,
-    openDisputes: stats.openDisputes ?? 0,
-    expiredTrials: stats.expiredTrials ?? 0,
-    unmatchedLoads: stats.unmatchedLoads ?? 0,
+function mapAdminQueue(value: unknown): ActionCenterAdminQueue | undefined {
+  if (!isRecord(value)) return undefined
+  const queue: ActionCenterAdminQueue = {
+    pendingKyc: count(value.pendingKyc),
+    pendingDocuments: count(value.pendingDocuments),
+    openDisputes: count(value.openDisputes),
+    expiredTrials: count(value.expiredTrials),
+    unmatchedLoads: count(value.unmatchedLoads),
   }
+  return Object.values(queue).some((count) => count !== undefined) ? queue : undefined
 }
 
-/**
- * Builds the Operational Action Center task list from live dashboard data.
- * Unknown / legacy roles are normalized (`load_owner` → `factory_owner`, …).
- */
-export function deriveDashboardActionTasks(
-  snapshot: DashboardActionCenterSnapshot
-): OperationalTask[] {
-  const role = normalizeRole(snapshot.role) || 'factory_owner'
-  const { subscription, hasSubscription } = mapEntitlement(snapshot.entitlement)
-
+export function deriveDashboardActionTasks(snapshot: DashboardActionCenterSnapshot): OperationalTask[] {
+  const role = normalizeRole(snapshot.role)
+  if (!role) return [] // Never assign factory-owner tasks to an unresolved session.
   return deriveOperationalTasks({
     userRole: role,
     loads: mapLoads(snapshot.loads),
@@ -213,10 +224,33 @@ export function deriveDashboardActionTasks(
     bookings: mapBookings(snapshot.bookings),
     documents: mapDocuments(snapshot.documents),
     notifications: mapNotifications(snapshot.notifications),
-    subscription,
-    hasSubscription,
+    ...mapEntitlement(snapshot.entitlement),
     adminQueue: mapAdminQueue(snapshot.adminStats),
     now: snapshot.now,
     maxTasks: snapshot.maxTasks,
   })
+}
+
+/** A failed source must not produce a reassuring green "all clear" panel. */
+export function getActionCenterUnavailableSources(snapshot: DashboardActionCenterSnapshot): string[] {
+  const role = normalizeRole(snapshot.role)
+  if (!role) return ['Account role']
+  if (role === 'admin') return mapAdminQueue(snapshot.adminStats) ? [] : ['Moderation queues']
+
+  const unavailable: string[] = []
+  if (!mapEntitlement(snapshot.entitlement).subscription) unavailable.push('Subscription')
+  if (!mapBookings(snapshot.bookings)) unavailable.push('Trips')
+  if (!mapNotifications(snapshot.notifications)) unavailable.push('WhatsApp alerts')
+  if (role === 'factory_owner') {
+    if (!mapLoads(snapshot.loads)) unavailable.push('Loads')
+  } else {
+    const trucks = mapTrucks(snapshot.trucks)
+    if (!trucks) unavailable.push('Fleet')
+    // /trucks/my-trucks embeds each truck's documents. That is sufficient even
+    // when the signed-document endpoint is unavailable (including an empty fleet).
+    if (!mapDocuments(snapshot.documents) && !trucks?.every((truck) => Array.isArray(truck.documents))) {
+      unavailable.push('Vehicle documents')
+    }
+  }
+  return unavailable
 }
