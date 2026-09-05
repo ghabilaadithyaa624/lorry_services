@@ -1,1 +1,1 @@
-{"version":3,"file":"client.d.ts","sourceRoot":"","sources":["client.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,YAAY,EAAE,MAAM,gBAAgB,CAAA;AAM7C,eAAO,MAAM,MAAM,gIAA+C,CAAA;AAKlE,cAAc,gBAAgB,CAAA"}
+{"version":3,"file":"client.d.ts","sourceRoot":"","sources":["../../home/user/lorry_services/packages/database/src/client.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,YAAY,EAAE,MAAM,gBAAgB,CAAA;AAuB7C,eAAO,MAAM,MAAM,EAAE,YASnB,CAAA;AAGF,cAAc,gBAAgB,CAAA"}

@@ -3,6 +3,7 @@ import type { FreightEstimate, PricingInput } from './intelligence/pricingEngine
 import type { MatchResult } from './intelligence/matchingEngine'
 import type { NationalLogisticsSummary } from './intelligence/nationalLogisticsEngine'
 import { isPublicPath } from './publicRoutes'
+import type { PublicRegistrationRole } from './roles'
 
 // Use the same-origin rewrite by default so browser requests work behind a
 // preview/proxy host. Direct API origins remain configurable for deployments.
@@ -158,7 +159,7 @@ export const authApi = {
   requestOtp: (phone: string, channel: 'whatsapp' | 'sms' = 'whatsapp') =>
     api.post('/auth/otp/request', { phone, channel }),
 
-  verifyOtp: (phone: string, otp: string, role?: 'factory_owner' | 'truck_driver') =>
+  verifyOtp: (phone: string, otp: string, role?: PublicRegistrationRole) =>
     api.post('/auth/otp/verify', { phone, otp, role }),
 
   refreshToken: (refreshToken: string) =>

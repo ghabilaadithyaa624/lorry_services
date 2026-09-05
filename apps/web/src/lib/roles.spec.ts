@@ -60,19 +60,31 @@ describe('web role helpers', () => {
     }
   })
 
-  it('offers exactly the two public registration roles', () => {
-    expect(REGISTRATION_ROLES.map((r) => r.value)).toEqual(['factory_owner', 'truck_driver'])
+  it('offers exactly the public registration roles', () => {
+    expect(REGISTRATION_ROLES.map((r) => r.value)).toEqual([
+      'factory_owner',
+      'truck_driver',
+      'transporter',
+    ])
     expect(REGISTRATION_ROLES.map((r) => r.dashboard)).toEqual([
       '/dashboard/factory-owner',
       '/dashboard/truck-driver',
+      '/dashboard',
     ])
+    // Admin is never a public self-service registration option.
+    expect(REGISTRATION_ROLES.map((r) => r.value)).not.toContain('admin')
   })
 
   it('labels legacy and canonical roles identically', () => {
     expect(getRoleLabel('load_owner')).toBe(getRoleLabel('factory_owner'))
     expect(getRoleLabel('truck_owner')).toBe(getRoleLabel('truck_driver'))
     expect(getRoleLabel('driver')).toBe('Truck driver')
+    expect(getRoleLabel('transporter')).toBe('Transporter')
     expect(getRoleLabel('nope')).toBe('Operator')
+  })
+
+  it('routes transporters to the unified dashboard', () => {
+    expect(getDashboardForRole('transporter')).toBe('/dashboard')
   })
 
   it('classifies marketplace sides from legacy labels too', () => {

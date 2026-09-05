@@ -8,7 +8,7 @@ import { prisma, UserRole, SubscriptionStatus } from "@lorrycarry/database";
 import { S3Service } from "../common/services/s3.service";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UpdatePreferencesDto } from "./dto/update-preferences.dto";
-import { isVehicleSideRole as isVehicleSide, isFreightSideRole as isFreightSide } from '../common/utils/roles.util'
+import { isVehicleSideRole as isVehicleSide, isFreightSideRole as isFreightSide, isTransporterRole, canManageTrucks as canManageTrucksRole, canManageLoads as canManageLoadsRole } from '../common/utils/roles.util'
 
 export interface ActivityItem {
   id: string;
@@ -54,6 +54,14 @@ export interface UserNotificationItem {
 const isVehicleSideRole = (role: string | UserRole) => isVehicleSide(role)
 
 const isLoadSideRole = (role: string | UserRole) => isFreightSide(role)
+
+const isTransporter = (role: string | UserRole) => isTransporterRole(role)
+
+/** Roles that can register/list trucks (truck drivers + transporters). */
+const canManageTrucks = (role: string | UserRole) => canManageTrucksRole(role)
+
+/** Roles that can post loads (factory owners + transporters). */
+const canManageLoads = (role: string | UserRole) => canManageLoadsRole(role)
 
 @Injectable()
 export class UsersService {
@@ -109,7 +117,44 @@ export class UsersService {
       missingSteps.push("Add your full name or company trading name");
     }
 
-    if (isVehicleSideRole(user.role)) {
+    if (isTransporter(user.role)) {
+      // Transporters operate on both sides: reward posting a load and listing
+      // a truck (10 points each) so a fully-active transporter still reaches 100.
+      if (user._count.loads > 0) {
+        completionScore += 10;
+      } else {
+        missingSteps.push("Post your first freight requirement");
+      }
+
+      if (user.trucks.length > 0) {
+        completionScore += 10;
+        const hasVerifiedDocs = user.trucks.some((t) =>
+          t.documents.some((d) => d.verificationStatus === "Verified"),
+        );
+        const hasUploadedDocs = user.trucks.some((t) => t.documents.length > 0);
+
+        if (hasVerifiedDocs) {
+          completionScore += 10;
+        } else if (hasUploadedDocs) {
+          completionScore += 5;
+          missingSteps.push(
+            "Awaiting admin verification for uploaded RC/Insurance",
+          );
+        } else {
+          missingSteps.push(
+            "Upload RC & Insurance documents for vehicle verification",
+          );
+        }
+      } else {
+        missingSteps.push("Register your first truck or fleet vehicle");
+      }
+
+      if (hasActiveSubscription) {
+        completionScore += 10;
+      } else {
+        missingSteps.push("Activate Transporter Contact Pass for direct calls");
+      }
+    } else if (isVehicleSideRole(user.role)) {
       if (user.trucks.length > 0) {
         completionScore += 20;
         const hasVerifiedDocs = user.trucks.some((t) =>
@@ -150,13 +195,13 @@ export class UsersService {
 
     completionScore = Math.min(100, completionScore);
 
-    // Fleet verification state for truck owners
+    // Fleet verification state for truck owners (truck drivers + transporters)
     let fleetVerificationStatus:
       | "Not Registered"
       | "Pending"
       | "Verified"
       | "Partially Verified" = "Not Registered";
-    if (isVehicleSideRole(user.role)) {
+    if (canManageTrucks(user.role)) {
       if (user.trucks.length === 0) {
         fleetVerificationStatus = "Not Registered";
       } else {
@@ -187,7 +232,7 @@ export class UsersService {
       verification: {
         phoneVerified: true, // Logged in via OTP
         fleetStatus:
-          isVehicleSideRole(user.role)
+          canManageTrucks(user.role)
             ? fleetVerificationStatus
             : undefined,
         isVerifiedTransporter: fleetVerificationStatus === "Verified",
@@ -206,9 +251,13 @@ export class UsersService {
         totalLoads: user._count.loads,
         totalTrucks: user._count.trucks,
         totalBookings:
-          isVehicleSideRole(user.role)
-            ? (user._count.truckOwnerBookings ?? (user._count as any).truckDriverBookings ?? 0)
-            : (user._count.loadOwnerBookings ?? (user._count as any).factoryOwnerBookings ?? 0),
+          isTransporter(user.role)
+            // Transporters can be either counterparty; sum both sides.
+            ? ((user._count.truckOwnerBookings ?? (user._count as any).truckDriverBookings ?? 0) +
+               (user._count.loadOwnerBookings ?? (user._count as any).factoryOwnerBookings ?? 0))
+            : isVehicleSideRole(user.role)
+              ? (user._count.truckOwnerBookings ?? (user._count as any).truckDriverBookings ?? 0)
+              : (user._count.loadOwnerBookings ?? (user._count as any).factoryOwnerBookings ?? 0),
         totalPayments: user._count.payments,
       },
       trucks: user.trucks.map((t) => ({
@@ -348,7 +397,13 @@ export class UsersService {
       id: `acc-create-${user.id}`,
       category: "ACCOUNT",
       title: "Account Registered",
-      description: `Registered with mobile ${user.phone} as ${isVehicleSideRole(user.role) ? "Truck Driver" : "Factory Owner"}.`,
+      description: `Registered with mobile ${user.phone} as ${
+        isTransporter(user.role)
+          ? "Transporter"
+          : isVehicleSideRole(user.role)
+            ? "Truck Driver"
+            : "Factory Owner"
+      }.`,
       timestamp: user.createdAt,
       status: "Completed",
     });
@@ -356,8 +411,8 @@ export class UsersService {
     // Execute all independent queries concurrently
     const isTruckOwner = isVehicleSideRole(user.role);
     const [loads, trucks, bookings, payments] = await Promise.all([
-      // 2. Loads (Only for factory_owner or admin)
-      isLoadSideRole(user.role) || user.role === UserRole.admin
+      // 2. Loads (factory_owner, transporter, or admin)
+      canManageLoads(user.role)
         ? prisma.load.findMany({
             where: { userId },
             orderBy: { createdAt: "desc" },
@@ -365,8 +420,8 @@ export class UsersService {
           })
         : Promise.resolve([]),
 
-      // 3. Trucks & Documents (Only for truck_driver or admin)
-      isVehicleSideRole(user.role) || user.role === UserRole.admin
+      // 3. Trucks & Documents (truck_driver, transporter, or admin)
+      canManageTrucks(user.role)
         ? prisma.truck.findMany({
             where: { userId },
             include: { documents: true },
@@ -571,8 +626,8 @@ export class UsersService {
     });
 
     // 2. Derive real operational notifications from active domain entities
-    // Check pending KYC
-    if (isVehicleSideRole(user.role)) {
+    // Check pending KYC (truck drivers + transporters both own trucks)
+    if (canManageTrucks(user.role)) {
       user.trucks.forEach((truck) => {
         if (truck.verificationStatus === "Pending") {
           items.push({

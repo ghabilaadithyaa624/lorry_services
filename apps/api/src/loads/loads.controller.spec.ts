@@ -104,13 +104,14 @@ describe('LoadsController', () => {
     it('should call loadsService.updateStatus with correct parameters', async () => {
       const id = 'load-1'
       const userId = 'user-123'
+      const role = 'factory_owner' as any
       const status = LoadStatus.Matched
       const mockResult = { id, status }
       mockLoadsService.updateStatus.mockResolvedValue(mockResult)
 
-      const result = await controller.updateStatus(id, status, userId)
+      const result = await controller.updateStatus(id, status, userId, role)
 
-      expect(loadsService.updateStatus).toHaveBeenCalledWith(id, userId, status)
+      expect(loadsService.updateStatus).toHaveBeenCalledWith(id, userId, status, role)
       expect(result).toEqual(mockResult)
     })
   })
@@ -119,12 +120,13 @@ describe('LoadsController', () => {
     it('should call loadsService.delete with correct parameters', async () => {
       const id = 'load-1'
       const userId = 'user-123'
+      const role = 'factory_owner' as any
       const mockResult = { id }
       mockLoadsService.delete.mockResolvedValue(mockResult)
 
-      const result = await controller.delete(id, userId)
+      const result = await controller.delete(id, userId, role)
 
-      expect(loadsService.delete).toHaveBeenCalledWith(id, userId)
+      expect(loadsService.delete).toHaveBeenCalledWith(id, userId, role)
       expect(result).toEqual(mockResult)
     })
   })

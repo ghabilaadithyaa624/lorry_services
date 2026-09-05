@@ -111,6 +111,10 @@ enum UserRole {
   factory_owner
   /// Truck drivers / fleet operators who list vehicles and run trips.
   truck_driver
+  /// Transporters / brokers who operate on BOTH sides of the marketplace:
+  /// they post freight loads AND list trucks. Ownership is still enforced per
+  /// record, so a transporter may only edit/delete their own loads and trucks.
+  transporter
   /// Platform operators.
   admin
 }

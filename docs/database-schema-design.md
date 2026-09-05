@@ -32,12 +32,15 @@ LorryCarry is a two-sided freight marketplace. The `UserRole` enum defines the t
 ```prisma
 enum UserRole {
   factory_owner   // Cargo owners / shippers / traders / factories posting freight loads
-  truck_driver    // Truck owner-operators / transporters fulfilling freight loads
+  truck_driver    // Truck owner-operators fulfilling freight loads
+  transporter     // Brokers/fleets that operate on BOTH sides: post loads AND list trucks
   admin           // Platform operators (KYC verification, dispute resolution, oversight)
 }
 ```
 
 > **Owner-Operator Model:** The account registering a vehicle is the account that dispatches/drives it (`truck_driver`). Legacy role strings (`load_owner`, `truck_owner`, `driver`) are normalized transparently at the application boundary to `factory_owner` or `truck_driver`.
+
+> **Transporter Role:** A `transporter` may create/list both loads and trucks, view the whole marketplace, and access a transporter dashboard. Write access is still ownership-scoped: a transporter can edit/delete **only their own** loads and trucks. Enforcement lives in the service layer (`load.userId === currentUser.id`, `truck.userId === currentUser.id`, or `admin`), so cross-user modification is impossible regardless of the broader `@Roles` route grant. Permission helpers `canManageLoads` / `canManageTrucks` (in `apps/api/src/common/utils/roles.util.ts`) centralize the "who may post what" decision.
 
 ### Relationship Chain & Prisma Relation Mapping
 
@@ -94,7 +97,7 @@ Root identity table for OTP-based (WhatsApp/SMS) phone authentication. One row p
 | `id` | uuid PK | Canonical user ID |
 | `phone` | text, **unique** | E.164 phone number; the OTP login identity |
 | `name` | text, nullable | Display name |
-| `role` | enum `UserRole` | `factory_owner` \| `truck_driver` \| `admin` |
+| `role` | enum `UserRole` | `factory_owner` \| `truck_driver` \| `transporter` \| `admin` |
 | `trial_started_at` | timestamp, nullable | Timestamp when 90-day free trial began |
 | `trial_ends_at` | timestamp, nullable | Hard expiry of 90-day free trial |
 | `trial_converted_at` | timestamp, nullable | Timestamp when upgraded to a paid plan |

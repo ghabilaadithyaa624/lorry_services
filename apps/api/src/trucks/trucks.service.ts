@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common'
-import { prisma, VerificationStatus, Prisma } from '@lorrycarry/database'
+import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common'
+import { prisma, VerificationStatus, Prisma, UserRole } from '@lorrycarry/database'
 import { MapmyIndiaService } from '../common/services/mapmyindia.service'
 import { VahanService } from '../common/services/vahan.service'
 import { S3Service } from '../common/services/s3.service'
+import { normalizeRole } from '../common/utils/roles.util'
 import { CreateTruckDto } from './dto/create-truck.dto'
 
 @Injectable()
@@ -89,21 +90,38 @@ export class TrucksService {
     console.warn(`[TrucksService] Vahan RC concern for ${registrationNumber}: ${error || 'unknown'}`)
   }
 
+  /**
+   * Ownership gate for mutating a truck. A truck may only be modified by the
+   * user who registered it (`truck.userId === currentUser.id`) or by an admin.
+   * This is the single source of truth for truck write authorization, so
+   * transporters (who can list trucks) can never edit or delete another user's
+   * truck.
+   */
+  private async assertTruckOwnership(truckId: string, userId: string, role?: string | null) {
+    const truck = await prisma.truck.findUnique({ where: { id: truckId } })
+
+    if (!truck) {
+      throw new NotFoundException('Truck not found')
+    }
+
+    const isAdmin = normalizeRole(role) === UserRole.admin
+    if (truck.userId !== userId && !isAdmin) {
+      throw new ForbiddenException('You can only modify your own trucks')
+    }
+
+    return truck
+  }
+
   async uploadDocument(
     truckId: string,
     userId: string,
     file: Express.Multer.File,
     docType: 'RC' | 'Insurance',
-    docNumber?: string
+    docNumber?: string,
+    role?: string | null
   ) {
-    // Verify truck ownership
-    const truck = await prisma.truck.findFirst({
-      where: { id: truckId, userId },
-    })
-
-    if (!truck) {
-      throw new NotFoundException('Truck not found or not authorized')
-    }
+    // Verify truck ownership (owner or admin only)
+    await this.assertTruckOwnership(truckId, userId, role)
 
     // Validate file
     const validation = this.s3.validateFile(
@@ -197,14 +215,8 @@ export class TrucksService {
     return truck
   }
 
-  async updateLocation(truckId: string, userId: string, address: string) {
-    const truck = await prisma.truck.findFirst({
-      where: { id: truckId, userId },
-    })
-
-    if (!truck) {
-      throw new NotFoundException('Truck not found')
-    }
+  async updateLocation(truckId: string, userId: string, address: string, role?: string | null) {
+    await this.assertTruckOwnership(truckId, userId, role)
 
     const location = await this.mapmyIndia.geocodeAddress(address)
     if (!location) {

@@ -1,10 +1,10 @@
 /**
  * Cross-repo invariants for the canonical role model.
  *
- * docs/database-schema-design.md defines exactly three roles:
- * `factory_owner`, `truck_driver`, `admin`. This suite asserts the Prisma
- * enum, the migration chain and the web helper all agree, so the legacy
- * labels cannot creep back in.
+ * docs/database-schema-design.md defines the canonical roles
+ * `factory_owner`, `truck_driver`, `transporter`, `admin`. This suite asserts
+ * the Prisma enum, the migration chain and the web helper all agree, so the
+ * legacy labels cannot creep back in.
  */
 import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
@@ -14,7 +14,7 @@ const REPO_ROOT = join(__dirname, '..', '..', '..', '..')
 const SCHEMA = join(REPO_ROOT, 'packages', 'database', 'prisma', 'schema.prisma')
 const MIGRATIONS = join(REPO_ROOT, 'packages', 'database', 'prisma', 'migrations')
 
-const CANONICAL = ['factory_owner', 'truck_driver', 'admin']
+const CANONICAL = ['factory_owner', 'truck_driver', 'transporter', 'admin']
 const LEGACY = ['load_owner', 'truck_owner', 'driver']
 
 describe('Prisma UserRole enum', () => {
@@ -25,7 +25,7 @@ describe('Prisma UserRole enum', () => {
     .map((line) => line.replace(/\/\/.*$/, '').trim())
     .filter(Boolean)
 
-  it('declares exactly the three canonical roles', () => {
+  it('declares exactly the canonical roles', () => {
     expect(values).toEqual(CANONICAL)
   })
 

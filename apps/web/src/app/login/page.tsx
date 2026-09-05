@@ -11,6 +11,7 @@ import {
   LoaderCircle,
   LockKeyhole,
   MessageCircle,
+  Repeat,
   ShieldCheck,
   Smartphone,
   Sparkles,
@@ -31,7 +32,12 @@ import { cn } from '@/lib/utils'
 const ROLE_ICONS: Record<string, typeof Building2> = {
   factory_owner: Building2,
   truck_driver: Truck,
+  // Transporters work both sides of the marketplace.
+  transporter: Repeat,
 }
+
+/** Fallback icon so a newly added role never renders `undefined` (build-safe). */
+const DEFAULT_ROLE_ICON = Building2
 
 function OnboardingProgress({ step }: { step: 2 | 3 }) {
   return (
@@ -216,7 +222,7 @@ function LoginForm() {
                 <legend className="mb-2.5 text-[11px] font-black uppercase tracking-[0.1em] text-muted">Your role</legend>
                 <div className="grid gap-2.5" role="radiogroup" aria-label="Choose your role">
                   {REGISTRATION_ROLES.map((role) => {
-                    const Icon = ROLE_ICONS[role.value]
+                    const Icon = ROLE_ICONS[role.value] ?? DEFAULT_ROLE_ICON
                     const isSelected = selectedRole === role.value
                     return (
                       <button
