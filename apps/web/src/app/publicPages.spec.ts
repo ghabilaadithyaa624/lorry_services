@@ -27,6 +27,13 @@ function readSource(...segments: string[]): string {
 const PUBLIC_PAGES = [
   { route: '/privacy', files: [['privacy', 'page.tsx']] },
   { route: '/terms', files: [['terms', 'page.tsx']] },
+  {
+    route: '/request-demo',
+    files: [
+      ['request-demo', 'page.tsx'],
+      ['request-demo', 'RequestDemo.tsx'],
+    ],
+  },
   // Server page + the colocated client component that renders the markup.
   {
     route: '/security',
@@ -84,7 +91,16 @@ describe('public legal, trust and support pages', () => {
     expect(source.indexOf('hasClientSession()')).toBeLessThan(source.indexOf('.getProfile()'))
   })
 
-  it.each(['/privacy', '/terms', '/security', '/help'] as const)(
+  it('renders /request-demo with the marketing header and footer', () => {
+    const source = readSource('request-demo', 'RequestDemo.tsx')
+
+    expect(source).toContain('<Navbar />')
+    expect(source).toContain('<Footer />')
+    expect(source).not.toContain('DashboardLayout')
+    expect(source).not.toContain('localStorage.setItem')
+  })
+
+  it.each(['/privacy', '/terms', '/security', '/help', '/request-demo'] as const)(
     '%s is indexable (no noindex metadata)',
     (route) => {
       const source = readSource(route.slice(1), 'page.tsx')

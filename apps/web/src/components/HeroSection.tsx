@@ -148,13 +148,20 @@ export default function HeroSection({
           </Link>
         </div>
 
-        {/* Quiet pricing escape hatch — standard B2B SaaS tertiary CTA */}
-        <div className="mt-5 sm:mt-6">
+        {/* Quiet pricing + demo escape hatches — standard B2B SaaS tertiary CTAs */}
+        <div className="mt-5 sm:mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
           <Link
             href="/subscribe"
             className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-white font-medium transition-colors underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded"
           >
             {t('nav.pricing')}
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </Link>
+          <Link
+            href="/request-demo"
+            className="inline-flex items-center gap-1.5 text-sm text-orange-300 hover:text-white font-semibold transition-colors underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded"
+          >
+            {t('nav.requestDemo')}
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </Link>
         </div>

@@ -5,7 +5,7 @@ import { PROTECTED_PATH_PREFIXES } from '@/lib/publicRoutes'
  * robots.txt
  *
  * Public marketing, search, legal and support routes are fully crawlable —
- * `/privacy`, `/terms`, `/security`, `/help`, `/sitemap.xml` are all served
+ * `/privacy`, `/terms`, `/security`, `/help`, `/request-demo`, `/sitemap.xml` are all served
  * without a session (see `@/lib/publicRoutes`).
  *
  * Authenticated application routes are disallowed so crawlers do not waste

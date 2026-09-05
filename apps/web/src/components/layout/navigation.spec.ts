@@ -5,6 +5,7 @@ import {
   NAV_SECTIONS,
   PRODUCT_MODULES,
   isPricingActive,
+  isRequestDemoActive,
   isSectionActive,
 } from './navigation'
 
@@ -91,6 +92,7 @@ describe('navigation structure', () => {
     expect(CTA_ROUTES.pricing).toBe('/subscribe')
     expect(CTA_ROUTES.signIn).toBe('/login')
     expect(CTA_ROUTES.postFreight).toBe('/post-load')
+    expect(CTA_ROUTES.requestDemo).toBe('/request-demo')
   })
 
   it('links every nav item to an existing app surface', () => {
@@ -113,6 +115,7 @@ describe('navigation structure', () => {
       '/privacy',
       '/terms',
       '/login',
+      '/request-demo',
     ]
 
     const hrefs = NAV_SECTIONS.flatMap((section) => [
@@ -167,6 +170,13 @@ describe('active-state helpers', () => {
     expect(isPricingActive('/subscribe/callback')).toBe(true)
     expect(isPricingActive('/subscription')).toBe(false)
     expect(isPricingActive('/')).toBe(false)
+  })
+
+  it('highlights Request Demo only on the demo form', () => {
+    expect(isRequestDemoActive('/request-demo')).toBe(true)
+    expect(isRequestDemoActive('/request-demo/thanks')).toBe(true)
+    expect(isRequestDemoActive('/help')).toBe(false)
+    expect(isRequestDemoActive('/')).toBe(false)
   })
 
   it('highlights Products on its module surfaces', () => {

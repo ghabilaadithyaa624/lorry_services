@@ -43,7 +43,7 @@ export function MobileBottomNav() {
     }
   }, [pathname])
 
-  const hiddenRoutes = ['/', '/login', '/role-select']
+  const hiddenRoutes = ['/', '/login', '/role-select', '/request-demo']
   if (hiddenRoutes.includes(pathname) || pathname.startsWith('/admin')) {
     return null
   }
