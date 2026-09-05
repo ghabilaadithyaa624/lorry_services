@@ -289,7 +289,7 @@ function DesktopMenus({ openKey, setOpenKey, triggerRefs, rootRef }: DesktopMenu
   const { t } = useI18n()
 
   return (
-    <nav className="hidden xl:flex items-center gap-0.5" aria-label="Primary" ref={rootRef as React.RefObject<HTMLElement>}>
+    <nav className="hidden xl:flex items-center gap-0.5 shrink-0" aria-label="Primary" ref={rootRef as React.RefObject<HTMLElement>}>
       {NAV_SECTIONS.map((section) => (
         <DesktopMenu
           key={section.key}
@@ -320,7 +320,7 @@ function DesktopMenus({ openKey, setOpenKey, triggerRefs, rootRef }: DesktopMenu
         href={CTA_ROUTES.requestDemo}
         aria-current={isRequestDemoActive(pathname) ? 'page' : undefined}
         className={cn(
-          'flex items-center rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+          'hidden 2xl:flex items-center rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
           isRequestDemoActive(pathname)
             ? 'text-primary-600 dark:text-primary-400 bg-primary-500/10'
@@ -549,8 +549,8 @@ export function Navbar() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3 h-16">
-            {/* Brand + language toggle + desktop menus */}
-            <div className="flex items-center gap-3 lg:gap-4 min-w-0">
+            {/* Brand + language toggle */}
+            <div className="flex items-center gap-3 lg:gap-4 shrink-0">
               <Link
                 href="/"
                 className="flex items-center gap-2.5 group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas shrink-0"
