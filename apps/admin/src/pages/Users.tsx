@@ -15,7 +15,7 @@ interface UserItem {
   id: string
   phone: string
   name: string | null
-  role: 'factory_owner' | 'truck_driver' | 'admin'
+  role: 'factory_owner' | 'truck_driver' | 'transporter' | 'admin'
   createdAt: string
   updatedAt: string
   _count: { loads: number; trucks: number; subscriptions: number }
@@ -24,6 +24,7 @@ interface UserItem {
 const ROLE_CONFIG: Record<string, { label: string; bg: string; text: string; border: string }> = {
   factory_owner: { label: 'Factory Owner', bg: 'bg-info-500/15', text: 'text-info-400', border: 'border-info-500/30' },
   truck_driver: { label: 'Truck Driver', bg: 'bg-success-500/15', text: 'text-success-400', border: 'border-success-500/30' },
+  transporter: { label: 'Transporter', bg: 'bg-primary-500/15', text: 'text-primary-400', border: 'border-primary-500/30' },
   admin: { label: 'Admin', bg: 'bg-danger-500/15', text: 'text-danger-400', border: 'border-danger-500/30' },
 }
 
@@ -115,6 +116,7 @@ export function Users() {
               <option value="">All Roles</option>
               <option value="factory_owner">Factory Owner</option>
               <option value="truck_driver">Truck Driver</option>
+              <option value="transporter">Transporter</option>
               <option value="admin">Admin</option>
             </select>
           </div>

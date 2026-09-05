@@ -88,7 +88,7 @@ export interface ActionCenterAdminQueue {
 }
 
 export interface DeriveOperationalTasksParams {
-  userRole: 'factory_owner' | 'truck_driver' | 'admin'
+  userRole: 'factory_owner' | 'truck_driver' | 'transporter' | 'admin'
   loads?: ActionCenterLoad[]
   trucks?: ActionCenterTruck[]
   bookings?: ActionCenterBooking[]
@@ -163,8 +163,11 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
   const tasks: OperationalTask[] = []
   const now = toTime(params.now) ?? Date.now()
   const isAdmin = params.userRole === 'admin'
-  const isTruckDriver = params.userRole === 'truck_driver'
-  const isFactoryOwner = params.userRole === 'factory_owner'
+  // Transporters operate on BOTH sides of the marketplace, so they receive the
+  // union of factory-owner (load) and truck-driver (vehicle) operational tasks.
+  const isTransporter = params.userRole === 'transporter'
+  const isTruckDriver = params.userRole === 'truck_driver' || isTransporter
+  const isFactoryOwner = params.userRole === 'factory_owner' || isTransporter
 
   // ── 1. Subscription / trial entitlement ──────────────────────────────────
   if (!isAdmin) {
