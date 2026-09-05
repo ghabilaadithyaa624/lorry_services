@@ -137,9 +137,43 @@ describe('Transporter RBAC', () => {
     })
 
     it('declares transporter on every truck management route', () => {
-      for (const handler of ['create', 'uploadDocument', 'findMyTrucks', 'updateLocation']) {
+      for (const handler of [
+        'create',
+        'uploadDocument',
+        'findMyTrucks',
+        'update',
+        'updateLocation',
+        'delete',
+      ]) {
         const roles: UserRole[] = reflector.get(ROLES_KEY, (TrucksController.prototype as any)[handler])
         expect(roles).toContain(UserRole.transporter)
+      }
+    })
+
+    it('blocks factory_owner from every truck management route (transporters only)', () => {
+      for (const handler of [
+        'create',
+        'uploadDocument',
+        'findMyTrucks',
+        'update',
+        'updateLocation',
+        'delete',
+      ]) {
+        expect(() =>
+          canAccess(reflector, TrucksController, handler, UserRole.factory_owner),
+        ).toThrow(ForbiddenException)
+      }
+    })
+
+    it('allows admin to reach the truck edit/location/delete routes (service scopes the bypass to ownership)', () => {
+      for (const handler of ['update', 'updateLocation', 'delete', 'uploadDocument']) {
+        expect(canAccess(reflector, TrucksController, handler, UserRole.admin)).toBe(true)
+      }
+      // Admins administer the board; they do not register trucks or browse a personal fleet.
+      for (const handler of ['create', 'findMyTrucks']) {
+        expect(() =>
+          canAccess(reflector, TrucksController, handler, UserRole.admin),
+        ).toThrow(ForbiddenException)
       }
     })
   })

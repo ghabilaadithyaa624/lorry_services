@@ -394,6 +394,9 @@ export const trucksApi = {
       preferredDestinations?: string[]
     },
   ) => api.patch(`/trucks/${truckId}`, data),
+  /** Move an owned truck's current location (re-geocodes & re-runs proximity matching, owner only). */
+  updateTruckLocation: (truckId: string, address: string) =>
+    api.patch(`/trucks/${truckId}/location`, { address }),
   /** Delete an owned truck (blocked server-side while bookings are active). */
   deleteTruck: (truckId: string) => api.delete(`/trucks/${truckId}`),
   uploadDocument: (truckId: string, docType: 'RC' | 'Insurance', file: File, docNumber?: string) => {

@@ -54,7 +54,7 @@ export class TrucksController {
   }
 
   @Post(':id/documents/:type')
-  @Roles(UserRole.truck_driver, UserRole.transporter)
+  @Roles(UserRole.truck_driver, UserRole.transporter, UserRole.admin)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload RC or Insurance document' })
@@ -86,7 +86,7 @@ export class TrucksController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.truck_driver, UserRole.transporter)
+  @Roles(UserRole.truck_driver, UserRole.transporter, UserRole.admin)
   @ApiOperation({ summary: 'Edit truck specifications (owner or admin only)' })
   async update(
     @Param('id') id: string,
@@ -98,7 +98,7 @@ export class TrucksController {
   }
 
   @Patch(':id/location')
-  @Roles(UserRole.truck_driver, UserRole.transporter)
+  @Roles(UserRole.truck_driver, UserRole.transporter, UserRole.admin)
   @ApiOperation({ summary: 'Update truck current location — re-evaluates proximity matches' })
   async updateLocation(
     @Param('id') id: string,
@@ -120,7 +120,7 @@ export class TrucksController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.truck_driver, UserRole.transporter)
+  @Roles(UserRole.truck_driver, UserRole.transporter, UserRole.admin)
   @ApiOperation({ summary: 'Delete truck (owner or admin only; blocked with active bookings)' })
   async delete(
     @Param('id') id: string,
