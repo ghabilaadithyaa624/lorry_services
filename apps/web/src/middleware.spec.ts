@@ -74,6 +74,7 @@ describeWithMiddleware('web middleware', () => {
       '/search',
       '/search/trucks',
       '/search/loads',
+      '/subscribe',
       '/privacy',
       '/terms',
       '/security',

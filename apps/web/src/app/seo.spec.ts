@@ -21,6 +21,7 @@ const REQUIRED_PUBLIC_ROUTES = [
   '/search',
   '/search/trucks',
   '/search/loads',
+  '/subscribe',
   '/privacy',
   '/terms',
   '/security',
