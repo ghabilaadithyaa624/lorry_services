@@ -349,12 +349,15 @@ describe('TrucksService', () => {
   })
 
   describe('findByUser', () => {
-    it('should return list of trucks for a user', async () => {
-      const mockTrucks = [{ id: 'truck-1' }]
+    it('should return list of trucks for a user stamped with isOwner=true (Prompt 9)', async () => {
+      const mockTrucks = [{ id: 'truck-1' }, { id: 'truck-2' }]
       ;(prisma.truck.findMany as jest.Mock).mockResolvedValueOnce(mockTrucks)
 
       const result = await service.findByUser('user-123')
-      expect(result).toEqual(mockTrucks)
+      expect(result).toEqual([
+        { id: 'truck-1', isOwner: true },
+        { id: 'truck-2', isOwner: true },
+      ])
       expect(prisma.truck.findMany).toHaveBeenCalledWith({
         where: { userId: 'user-123' },
         include: {
@@ -390,6 +393,7 @@ describe('TrucksService', () => {
       const result = await service.findOne('truck-123')
       expect(result.user.name).toBeNull()
       expect(result.user.phone).toBeNull()
+      expect(result.isOwner).toBe(false)
     })
 
     it('should return truck details with masked user details if requester is not owner', async () => {
@@ -403,6 +407,7 @@ describe('TrucksService', () => {
       const result = await service.findOne('truck-123', 'other-user')
       expect(result.user.name).toBeNull()
       expect(result.user.phone).toBeNull()
+      expect(result.isOwner).toBe(false)
     })
 
     it('should return truck details with unmasked user details if requester is owner', async () => {
@@ -416,6 +421,7 @@ describe('TrucksService', () => {
       const result = await service.findOne('truck-123', 'owner-id')
       expect(result.user.name).toBe('John')
       expect(result.user.phone).toBe('123')
+      expect(result.isOwner).toBe(true)
     })
   })
 

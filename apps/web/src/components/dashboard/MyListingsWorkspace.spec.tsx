@@ -93,24 +93,30 @@ const foreignTruck: ListingTruckRow = {
 const noop = () => undefined
 
 describe('isOwnRecord (client-side ownership gate)', () => {
-  it('matches rows by user id', () => {
-    expect(isOwnRecord('user-1', 'user-1')).toBe(true)
-    expect(isOwnRecord('user-2', 'user-1')).toBe(false)
+  it('prefers the backend isOwner flag (Prompt 9) over the legacy userId compare', () => {
+    expect(isOwnRecord({ isOwner: true, userId: 'someone-else' }, 'user-1')).toBe(true)
+    expect(isOwnRecord({ isOwner: false, userId: 'user-1' }, 'user-1')).toBe(false)
+  })
+
+  it('matches rows by user id when no isOwner flag is present', () => {
+    expect(isOwnRecord({ userId: 'user-1' }, 'user-1')).toBe(true)
+    expect(isOwnRecord({ userId: 'user-2' }, 'user-1')).toBe(false)
   })
 
   it('trusts rows without a userId (the my-* endpoints are ownership-scoped)', () => {
+    expect(isOwnRecord({}, 'user-1')).toBe(true)
     expect(isOwnRecord(undefined, 'user-1')).toBe(true)
   })
 
   it('treats an unresolved session user id as "everything visible is mine"', () => {
-    expect(isOwnRecord('user-9', null)).toBe(true)
+    expect(isOwnRecord({ userId: 'user-9' }, null)).toBe(true)
   })
 })
 
 describe('ListingsFreightPanel', () => {
   it('renders status badges and route details', () => {
     const html = renderToStaticMarkup(
-      <ListingsFreightPanel loads={[ownLoad, matchedLoad]} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
+      <ListingsFreightPanel loads={[ownLoad, matchedLoad]} loading={false} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
     )
     expect(html).toContain('LOAD-LOAD-OWN')
     expect(html).toContain('MIDC, Pune')
@@ -120,19 +126,20 @@ describe('ListingsFreightPanel', () => {
     expect(html).toContain('Urgent')
   })
 
-  it('shows Edit/Delete only for own, still-open loads', () => {
+  it('shows Manage/Edit/Delete only for own, still-open loads', () => {
     const html = renderToStaticMarkup(
-      <ListingsFreightPanel loads={[ownLoad, matchedLoad, foreignLoad]} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
+      <ListingsFreightPanel loads={[ownLoad, matchedLoad, foreignLoad]} loading={false} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
     )
     expect(html.match(/Edit</g)).toHaveLength(1)
     expect(html.match(/Delete</g)).toHaveLength(1)
+    expect(html.match(/Manage</g)).toHaveLength(1)
     // Foreign or matched rows never render destructive affordances.
     expect(html).toContain('Locked from edits once matched')
   })
 
   it('renders the posting empty state when there are no loads', () => {
     const html = renderToStaticMarkup(
-      <ListingsFreightPanel loads={[]} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
+      <ListingsFreightPanel loads={[]} loading={false} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
     )
     expect(html).toContain('No freight posts yet')
     expect(html).toContain('/post-load')
@@ -150,7 +157,7 @@ describe('ListingsFreightPanel', () => {
 describe('ListingsTruckPanel', () => {
   it('shows verification status per truck', () => {
     const html = renderToStaticMarkup(
-      <ListingsTruckPanel trucks={[ownTruck, verifiedTruck]} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
+      <ListingsTruckPanel trucks={[ownTruck, verifiedTruck]} loading={false} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
     )
     expect(html).toContain('MH12QW8842')
     expect(html).toContain('Pending verification')
@@ -158,26 +165,37 @@ describe('ListingsTruckPanel', () => {
     expect(html).toContain('Mumbai')
   })
 
-  it('shows Edit/Delete for own trucks only — never for a foreign row', () => {
+  it('shows Manage Documents/Edit/Delete for own trucks only — never for a foreign row', () => {
     const html = renderToStaticMarkup(
-      <ListingsTruckPanel trucks={[ownTruck, foreignTruck]} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
+      <ListingsTruckPanel trucks={[ownTruck, foreignTruck]} loading={false} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
     )
     // Two actions per managed row, none for the foreign row.
     const own = renderToStaticMarkup(
-      <ListingsTruckPanel trucks={[ownTruck]} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
+      <ListingsTruckPanel trucks={[ownTruck]} loading={false} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
     )
     const foreignOnly = renderToStaticMarkup(
-      <ListingsTruckPanel trucks={[foreignTruck]} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
+      <ListingsTruckPanel trucks={[foreignTruck]} loading={false} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
     )
     expect(html.match(/Edit</g)).toHaveLength(1)
     expect(own).toContain('Edit<')
+    expect(own).toContain('Manage Documents<')
     expect(foreignOnly).not.toContain('Edit<')
     expect(foreignOnly).not.toContain('Delete<')
+    expect(foreignOnly).not.toContain('Manage Documents<')
+  })
+
+  it('honours the backend isOwner flag when present (Prompt 9)', () => {
+    const flaggedForeign = renderToStaticMarkup(
+      <ListingsTruckPanel trucks={[{ ...ownTruck, isOwner: false }]} loading={false} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
+    )
+    expect(flaggedForeign).not.toContain('Edit<')
+    expect(flaggedForeign).not.toContain('Delete<')
+    expect(flaggedForeign).not.toContain('Manage Documents<')
   })
 
   it('renders the registration empty state when no truck is listed', () => {
     const html = renderToStaticMarkup(
-      <ListingsTruckPanel trucks={[]} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
+      <ListingsTruckPanel trucks={[]} loading={false} currentUserId="user-1" onRetry={noop} onRefresh={noop} />
     )
     expect(html).toContain('No trucks listed yet')
     expect(html).toContain('/need-vehicle')

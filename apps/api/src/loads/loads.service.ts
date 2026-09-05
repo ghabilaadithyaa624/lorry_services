@@ -81,7 +81,7 @@ export class LoadsService {
     const where: any = { userId }
     if (status) where.status = status
 
-    return prisma.load.findMany({
+    const rows = await prisma.load.findMany({
       where,
       skip,
       take: safeLimit,
@@ -92,6 +92,12 @@ export class LoadsService {
         },
       },
     })
+
+    // Prompt 9: ownership signal for card action gating. The endpoint is
+    // owner-scoped by construction, so every row is the caller's — the
+    // explicit flag lets clients gate Edit/Delete/Manage without comparing
+    // user ids (and without depending on `userId` being present at all).
+    return rows.map((row) => ({ ...row, isOwner: true }))
   }
 
   async findOne(id: string, requestingUserId?: string) {
@@ -119,7 +125,10 @@ export class LoadsService {
       load.user.name = null as any
     }
 
-    return load
+    // Prompt 9: explicit ownership flag so clients render owner controls
+    // (Edit/Delete/Manage) vs marketplace actions (View/Unlock Contact)
+    // without inspecting the owner's user id.
+    return { ...load, isOwner }
   }
 
   /**

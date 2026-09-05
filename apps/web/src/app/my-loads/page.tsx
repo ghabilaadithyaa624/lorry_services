@@ -11,6 +11,7 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline'
 import { api, usersApi, loadsApi, matchesApi } from '@/lib/api'
+import { isOwnListingRow } from '@/lib/marketplaceActions'
 import { DashboardLayout } from '@/components/layout'
 import {
   Badge,
@@ -29,6 +30,8 @@ import { cn, formatINR, timeAgo, formatPhone, whatsappLink } from '@/lib/utils'
 interface Load {
   id: string
   userId?: string
+  /** Backend-computed ownership (Prompt 9) — preferred over the userId compare. */
+  isOwner?: boolean
   tonnageRequired: number
   loadingAddress: string
   loadingPin?: string | null
@@ -166,10 +169,12 @@ function MyLoadsContent() {
 
   /**
    * Owner gate — `/loads/my-loads` only returns the signed-in user's posts, but
-   * the Edit/Delete controls stay hidden unless the row provably belongs to the
-   * current user (defence in depth alongside the server-side check).
+   * the owner controls (Edit/Delete/Manage) stay hidden unless the row is
+   * provably the current user's: the backend `isOwner` flag (Prompt 9) wins,
+   * with the legacy userId compare as fallback (defence in depth alongside the
+   * server-side check).
    */
-  const canManage = (load: Load) => !load.userId || !currentUserId || load.userId === currentUserId
+  const canManage = (load: Load) => isOwnListingRow(load, currentUserId)
 
   const canEdit = (load: Load) => canManage(load) && load.status === 'Open'
 
@@ -411,15 +416,20 @@ function MyLoadsContent() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => toggleMatches(load.id)}
-                        leftIcon={<SparklesIcon className="w-4 h-4" />}
-                        className="border-white/10 hover:border-white/20"
-                      >
-                        {expandedMatches[load.id] ? 'Hide matches' : 'Match lorries ≤50km'}
-                      </Button>
+                      {/* Owner control (Prompt 9): opens the per-load management
+                          panel (matched lorries ≤50km, quotes, lifecycle). */}
+                      {canManage(load) && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => toggleMatches(load.id)}
+                          leftIcon={<SparklesIcon className="w-4 h-4" />}
+                          className="border-white/10 hover:border-white/20"
+                          aria-label={`Manage load ${load.loadingAddress} to ${load.unloadingAddress}`}
+                        >
+                          {expandedMatches[load.id] ? 'Hide' : 'Manage'}
+                        </Button>
+                      )}
                       <Button
                         variant="secondary"
                         size="sm"
