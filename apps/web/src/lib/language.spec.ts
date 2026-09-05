@@ -78,22 +78,27 @@ describe('Language System (header toggle: தமிழ் | हिन्दी |
   })
 
   describe('first-visit browser detection', () => {
+    /** Stub the device locale list the detector reads. */
+    const setNavigator = (languages: string[]) => {
+      (global as any).navigator = { languages, language: languages[0] }
+    }
+
     afterEach(() => {
       delete (global as any).navigator
     })
 
     it('matches a supported base subtag from navigator.languages', () => {
-      ;(global as any).navigator = { languages: ['ta-IN', 'en-US'], language: 'ta-IN' }
+      setNavigator(['ta-IN', 'en-US'])
       expect(detectBrowserLanguage()).toBe('ta')
     })
 
     it('skips unsupported locales and takes the first supported one', () => {
-      ;(global as any).navigator = { languages: ['te-IN', 'hi-IN'], language: 'te-IN' }
+      setNavigator(['te-IN', 'hi-IN'])
       expect(detectBrowserLanguage()).toBe('hi')
     })
 
     it('falls back to English for an entirely unsupported device locale', () => {
-      ;(global as any).navigator = { languages: ['fr-FR'], language: 'fr-FR' }
+      setNavigator(['fr-FR'])
       expect(detectBrowserLanguage()).toBe('en')
     })
 
@@ -184,7 +189,7 @@ describe('Language System (header toggle: தமிழ் | हिन्दी |
     })
 
     it('prefers an explicit choice over the detected device language', () => {
-      ;(global as any).navigator = { languages: ['hi-IN'], language: 'hi-IN' }
+      (global as any).navigator = { languages: ['hi-IN'], language: 'hi-IN' }
       expect(resolveInitialLanguage()).toBe('hi') // nothing stored yet → detect
       store[LANGUAGE_STORAGE_KEY] = 'ta'
       expect(resolveInitialLanguage()).toBe('ta') // explicit choice wins
