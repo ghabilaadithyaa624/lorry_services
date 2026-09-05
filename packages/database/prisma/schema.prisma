@@ -119,7 +119,7 @@ enum UserRole {
 model Subscription {
   id              String             @id @default(uuid())
   userId          String             @map("user_id")
-  plan            String // 'monthly_unlimited', 'pay_per_unlock', etc.
+  plan            String // 'monthly' | 'quarterly' | 'annual' — see SUBSCRIPTION_PLANS in @lorrycarry/shared
   status          SubscriptionStatus
   startedAt       DateTime           @map("started_at")
   /// Hard expiry timestamp — the paywall gate compares `now() > expiresAt`

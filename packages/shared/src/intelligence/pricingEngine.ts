@@ -164,7 +164,7 @@ export function estimateFreightRate(input: PricingInput): FreightEstimate {
   const maxEstimate = Math.round((rawEstimatedCost * 1.15) / 100) * 100
 
   const confidence: FreightEstimate['confidence'] =
-    input.distanceKm ? 'HIGH' : input.loadingLat ? 'MEDIUM' : 'BENCHMARK'
+    input.distanceKm ? 'HIGH' : input.loadingLat != null && input.loadingLng != null ? 'MEDIUM' : 'BENCHMARK'
 
   const isBenchmarkBased = true
   const disclaimer = 'Indicative benchmark estimate. Rule-based model grounded in Indian freight economics — not a guaranteed spot market quote.'

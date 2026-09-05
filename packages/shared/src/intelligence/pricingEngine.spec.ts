@@ -69,8 +69,10 @@ describe('Pricing Engine — estimateFreightRate', () => {
       unloadingLng: 1,
     })
 
+    // Straight-line (0,0)→(1,1) ≈ 157 km; the shared geo helper multiplies by
+    // ROAD_NETWORK_FACTOR (1.3) ≈ 204 km road distance.
     expect(estimate.distanceKm).toBeGreaterThan(100)
-    expect(estimate.distanceKm).toBeLessThan(200)
+    expect(estimate.distanceKm).toBeLessThan(300)
     expect(estimate.confidence).toBe('MEDIUM')
   })
 

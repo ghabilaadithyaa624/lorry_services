@@ -1,8 +1,14 @@
 # LorryCarry — Logistics Platform Intelligence Audit
 
-**Version:** 2.0.0  
+**Version:** 3.0.0  
 **Architect:** Principal Product Engineer & Logistics Platform Architect  
-**Status:** Implemented & Verified in Monorepo  
+**Status:** Final implementation audit — Implemented / Partial / External-Provider-Dependent / Roadmap  
+
+**Status legend used throughout this document:**
+- `[Implemented]` — shipped and verified in the monorepo.
+- `[Implemented — Partial]` — core flow shipped, but a documented part of the capability is not yet present.
+- `[Implemented — External Provider Dependent]` — the code path ships and works in sandbox/mock mode, but production-grade behaviour requires live third-party credentials.
+- `[Roadmap]` — designed, not implemented.
 
 ---
 
@@ -10,7 +16,7 @@
 
 LorryCarry is an open, direct freight marketplace connecting Indian cargo owners (shippers, factories, traders) and verified lorry operators (truck drivers, fleet owners) without broker commissions.
 
-This audit documents the transition of LorryCarry from a transactional CRUD application into a **Logistics Intelligence Platform**. The intelligence layer is powered by deterministic algorithms in `@lorrycarry/shared`, dedicated NestJS backend endpoints, and interactive Next.js 15 / Vite frontends.
+This audit documents the transition of LorryCarry from a transactional CRUD application into a **Logistics Intelligence Platform**. The intelligence layer is powered by deterministic algorithms in `@lorrycarry/shared`, dedicated NestJS backend endpoints, and interactive Next.js 15 frontends (the Expo mobile workspace is a thin REST client and does not import the shared intelligence engines).
 
 ---
 
@@ -18,19 +24,19 @@ This audit documents the transition of LorryCarry from a transactional CRUD appl
 
 | Capability | Scope | Status | Implementation Details |
 |---|---|---|---|
-| **Deterministic Match Scoring** | Shared + API + Web | `[Implemented]` | 100-pt compatibility scoring (`matchingEngine.ts`, `/api/v1/matches/*`, `/search`) |
-| **Freight Rate Estimator** | Shared + API + Web | `[Implemented]` | Rule-based rate estimator (`pricingEngine.ts`, `POST /api/v1/pricing/estimate`) |
-| **Return-Load (Backhaul) Radar** | Shared + API + Web | `[Implemented]` | Drop-off hub backhaul engine (`returnLoadEngine.ts`, `GET /api/v1/matching/truck/:truckId/return-loads`) |
-| **Shipment Risk & Attention Analyzer**| Shared + Web + Admin | `[Implemented]` | Real-time booking risk status (`shipmentIntelligence.ts`, `/booking/[id]`, `/admin/risk`) |
-| **Operational Action Center** | Shared + Web + Admin | `[Implemented]` | Dynamic multi-source operational task aggregator (`actionCenterEngine.ts`) |
-| **Vahan RC Validation** | API + Web + Admin | `[Implemented - External Provider Dependent]` | Vahan API adapter with sandbox fallback (`/api/v1/compliance/trucks/:id/validate-rc`) |
-| **FASTag Readiness & E-Way Bill** | API + Web + Admin | `[Implemented]` | 12-digit E-Way Bill lifecycle validation & FASTag toll state tracking (`/api/v1/compliance/*`) |
-| **7-Stage Booking Document Chain** | API + Web + Admin | `[Implemented]` | Pre-signed S3/MinIO upload/download chain (`/api/v1/bookings/:id/documents/*`) |
+| **Deterministic Match Scoring** | Shared + API + Web | `[Implemented]` | 100-pt compatibility scoring — capacity 35 · body 25 · proximity 20 · verification 15 · corridor 5 (`matchingEngine.ts`, `/api/v1/matches/*`, `/search`); server enables the optional budget gate and a 50 km proximity cap |
+| **Freight Rate Estimator** | Shared + API + Web | `[Implemented]` | Rule-based rate estimator (`pricingEngine.ts`, `POST /api/v1/pricing/estimate` and its `/intelligence/pricing/estimate` alias) |
+| **Return-Load (Backhaul) Radar** | Shared + API + Web | `[Implemented]` | Drop-off hub backhaul engine (`returnLoadEngine.ts`, `GET /api/v1/matching/truck/:truckId/return-loads`, `/matches` alias retained) |
+| **Shipment Risk & Attention Analyzer**| Shared + Web + Admin | `[Implemented]` | Booking risk tiers from domain state (`shipmentIntelligence.ts`, `/booking/[id]`, `/tracking`, `/admin/risk`) |
+| **Operational Action Center** | Shared + Web + Admin | `[Implemented]` | Dynamic multi-source operational task aggregator (`actionCenterEngine.ts`) on the Web dashboard shell and the Next.js Admin console (`/admin/dashboard`) |
+| **Vahan RC Validation** | API + Web + Admin | `[Implemented — External Provider Dependent]` | Provider adapter + deterministic sandbox fallback (`/api/v1/compliance/trucks/:id/validate-rc`); `Unavailable` is explicit when no provider credentials exist; real verification requires Parivahan/ULIP access |
+| **FASTag Readiness & E-Way Bill** | API + Web + Admin | `[Implemented]` | 12-digit E-Way Bill lifecycle validation & FASTag state tracking (`/api/v1/compliance/*`). FASTag status is owner/admin-reported (Vahan does not expose it); automated EWB sync is Roadmap |
+| **7-Stage Booking Document Chain** | API + Web + Admin | `[Implemented — External Provider Dependent]` | Pre-signed S3/MinIO upload/download chain (`/api/v1/bookings/:id/documents/*`, `/api/v1/admin/booking-documents`) |
 | **Booking Dispute Resolution** | API + Web + Admin | `[Implemented]` | Counterparty dispute filing & priority-sorted admin queue (`/api/v1/admin/disputes`) |
-| **Subscription Paywall & 90-Day Trial**| API + Web | `[Implemented - External Provider Dependent]`| Expiry gate, 90-day trial lifecycle, Cashfree/Razorpay/Stripe webhooks |
+| **Subscription Paywall & 90-Day Trial**| API + Web | `[Implemented — External Provider Dependent]`| Expiry gate + one-time 90-day trial (auto-granted at registration); trial unlocks search contact reveals, booking creation requires an active paid subscription; Cashfree/Razorpay/Stripe checkout & webhooks |
 | **Multi-Driver Live IoT Telematics** | Backend + Stream | `[Roadmap]` | Requires continuous streaming GPS & Redis time-series stream |
-| **Direct ULIP / Parivahan API Bridge**| Integration | `[Roadmap]` | Direct government ULIP portal bridge to replace sandbox adapter |
-| **Automated Escrow Smart Payouts** | Payment Engine | `[Roadmap]` | Automated milestone disbursement via Cashfree Payouts API |
+| **Direct ULIP / Parivahan API Bridge**| Integration | `[Roadmap]` | Direct government ULIP portal bridge to replace the sandbox adapter |
+| **Automated Escrow Smart Payouts** | Payment Engine | `[Roadmap]` | Automated milestone disbursement via Cashfree Payouts API (today's milestones are confirmed in-app, not auto-disbursed) |
 | **Direct NIC E-Way Bill GSP Fetch** | Compliance | `[Roadmap]` | Direct GSP gateway connection for automatic EWB status syncing |
 
 ---
@@ -53,7 +59,7 @@ Inspected from `packages/database/prisma/schema.prisma`:
 | **Checkpoint** | `bookingId`, `seq` (1..5), `name`, `lat`, `lng`, `radiusM`, `crossedAt`, `crossedBy`, `etaMinutes`, `notifiedAt` | Milestone progression, delay detection, geofenced ETA tracking, shipment health classifier. |
 | **Match** | `loadId`, `truckId`, `loadOwnerId`, `truckOwnerId`, `bookingId`, `status`, `distanceKm`, `matchScore`, `tonnageCompatible`, `routeCompatible`, `budgetCompatible` | Persisted algorithmic matching pairs and WhatsApp notification trigger state. |
 | **Payment** | `amount`, `currency`, `purpose` (`subscription`, `booking_advance`, `booking_balance`), `status`, `provider`, `providerOrderId`, `providerTxnId`, `paymentMethod`, `paidAt` | Platform financial ledger, transaction tracking, subscription revenue metrics. |
-| **Subscription** | `plan`, `status` (`active`, `expired`, `cancelled`), `startedAt`, `expiresAt`, `autoRenew`, `providerOrderId` | Expiry-driven access control gating contact reveal and booking initiation. |
+| **Subscription** | `plan` (`monthly`/`quarterly`/`annual`), `status` (`active`, `expired`, `cancelled`), `startedAt`, `expiresAt`, `autoRenew`, `providerOrderId` | Expiry-driven access control: contact reveal is gated on subscription **or** trial; booking creation and return-load contact reveal require an active paid subscription. |
 | **Rating** | `bookingId`, `raterId`, `ratedUserId`, `rating`, `review`, `category` (`driver_service`, `factory_payment`, `overall`) | Post-trip counterparty trust scoring and review aggregation. |
 | **Notification** | `userId`, `channel` (`whatsapp`, `sms`, `push`), `template`, `variables`, `recipient`, `content`, `status`, `providerMsgId` | Granular per-recipient communication log and audit trail. |
 
@@ -65,8 +71,8 @@ All endpoints are hosted under `/api/v1`:
 
 | Route | Method | Access | Functionality | Status |
 |---|---|---|---|---|
-| `/search/trucks` | `GET` | Authenticated | PostGIS radius search for verified trucks (`lat`, `lng`, `radiusKm`, `truckType`, `minTonnage`). | `[Implemented]` |
-| `/search/loads` | `GET` | Authenticated | PostGIS radius search for open freight loads (`lat`, `lng`, `radiusKm`, `truckType`, `maxTonnage`). | `[Implemented]` |
+| `/search/trucks` | `GET` | Authenticated | PostGIS radius search for **verified** trucks (`lat`, `lng`, `radius`, `truckType`, `minTonnage`); contact/registration fields masked. | `[Implemented]` |
+| `/search/loads` | `GET` | Authenticated | PostGIS radius search for **open** freight loads (`lat`, `lng`, `radius`, `truckType`, `maxTonnage`); contact fields masked. | `[Implemented]` |
 | `/search/:type/:id/reveal` | `POST` | Subscribed / Trial | Unlocks direct phone & WhatsApp contact details behind the paywall. | `[Implemented]` |
 | `/pricing/estimate` | `POST` | Public | **Freight Rate Estimator**: Indicative rate range, ton-km calculation, and sensitivity breakdown. | `[Implemented]` |
 | `/intelligence/pricing/estimate` | `POST` | Public | Pricing estimator alias endpoint. | `[Implemented]` |
@@ -76,11 +82,11 @@ All endpoints are hosted under `/api/v1`:
 | `/matching/truck/:truckId/return-loads` | `GET` | Truck owner | **Return-load discovery**: Ranked opportunities within 50 km; active subscription required for contacts. | `[Implemented]` |
 | `/matches/truck/:truckId/return-loads` | `GET` | Truck owner | Compatibility alias of the canonical return-load endpoint. | `[Implemented]` |
 | `/matches/evaluate` | `POST` | Authenticated | Evaluates candidate pairs and persists match records. | `[Implemented]` |
-| `/compliance/trucks/:id` | `GET` | Authenticated | Complete truck compliance checklist (RC, insurance, fitness, permit, FASTag). | `[Implemented]` |
-| `/compliance/trucks/:id/validate-rc` | `POST` | Authenticated | Live Vahan RC validation with external API / sandbox fallback. | `[Implemented - External Provider Dependent]` |
-| `/compliance/trucks/:id/fastag` | `PATCH` | Authenticated | FASTag status report (`Active`, `LowBalance`, `Inactive`, `Unknown`). | `[Implemented]` |
-| `/compliance/bookings/:id` | `GET` | Authenticated | Trip compliance checklist including E-Way Bill validity. | `[Implemented]` |
-| `/compliance/bookings/:id/eway-bill` | `POST` | Authenticated Party | Attach or update 12-digit GSTN E-Way Bill number and expiry. | `[Implemented]` |
+| `/compliance/trucks/:id` | `GET` | Owner / Admin | Complete truck compliance checklist (RC, insurance, fitness, permit, FASTag). | `[Implemented]` |
+| `/compliance/trucks/:id/validate-rc` | `POST` | Truck Driver / Admin | Provider-backed Vahan RC validation with deterministic sandbox fallback; `Unavailable` surfaced when no credentials are configured. | `[Implemented — External Provider Dependent]` |
+| `/compliance/trucks/:id/fastag` | `PATCH` | Truck Driver / Admin | Report FASTag readiness (`Active`, `LowBalance`, `Inactive`, `Unknown`). | `[Implemented]` |
+| `/compliance/bookings/:id` | `GET` | Booking Party / Admin | Trip compliance checklist including E-Way Bill validity. | `[Implemented]` |
+| `/compliance/bookings/:id/eway-bill` | `POST` | Factory Owner / Admin | Attach or update 12-digit GSTN E-Way Bill number and expiry. | `[Implemented]` |
 | `/bookings/:id/documents` | `GET` | Booking Parties | List documents attached to the 7-stage document chain. | `[Implemented]` |
 | `/bookings/:id/documents/upload-url` | `POST` | Booking Parties | Issue 5-minute pre-signed S3/MinIO PUT URL for direct upload. | `[Implemented]` |
 | `/bookings/:id/documents` | `POST` | Booking Parties | Register uploaded trip document with metadata. | `[Implemented]` |
@@ -101,24 +107,25 @@ All endpoints are hosted under `/api/v1`:
 ## 5. Detailed Intelligence Engines
 
 ### 5.1 Deterministic Match Scoring Engine (`matchingEngine.ts`)
-Calculates a 0–100 compatibility score between a `Load` and a `Truck`:
-- **Capacity Compatibility (30 pts)**: Vehicle payload capacity vs required freight tonnage.
-- **Body Type Fit (25 pts)**: Exact match (`Open` vs `Open`, `Container` vs `Container`) or compatible configuration.
-- **Proximity Score (25 pts)**: Linear decay across vehicle's `serviceableRadiusKm` (default 50 km).
-- **KYC & Verification Boost (10 pts)**: Verified vehicles receive trust score elevation.
-- **Corridor Preference Boost (10 pts)**: Alignment with driver's `preferredDestinations`.
+Calculates a 0–100 compatibility score between a `Load` and a `Truck` (weights from `MATCH_SCORE_WEIGHTS` in the shared package):
+- **Capacity Compatibility (35 pts)**: Vehicle payload capacity vs required freight tonnage. A ≥70% load-to-truck utilisation scores the full 35; an oversized-but-fitting lorry scores 25.
+- **Body Type Fit (25 pts)**: Exact match (`Open` vs `Open`, `Container` vs `Container`) or a compatible configuration.
+- **Proximity Score (20 pts)**: Distance-based decay inside the discovery radius (server enforces a 50 km cap via `maxProximityKm`).
+- **KYC & Verification Boost (15 pts)**: Verified vehicles receive trust score elevation.
+- **Corridor Preference Boost (5 pts)**: Alignment with the driver's `preferredDestinations`.
+- **Budget gate (optional, not a score component)**: when enabled, a shipper budget more than 15% below the shared benchmark estimate caps the score at 65 and emits a warning. The API passes `budget: true` so persisted matches and WhatsApp alerts only fire for commercially viable pairs.
 
 ### 5.2 Freight Rate Estimator (`pricingEngine.ts`)
 Exposed via `POST /api/v1/pricing/estimate` and `POST /api/v1/intelligence/pricing/estimate`:
-- **Base Ton-Km Economics**:
-  - `Open`: ₹3.20 – ₹4.00 / ton-km (base: ₹3.60)
-  - `Container`: ₹3.80 – ₹4.60 / ton-km (base: ₹4.20)
-  - `OpenBody` / Trailer: ₹3.00 – ₹3.70 / ton-km (base: ₹3.35)
+- **Base Ton-Km Economics** (base rate + loading/unloading buffer):
+  - `Open` standard lorry: ₹3.40 / ton-km, handling ₹2,500
+  - `Container`: ₹4.10 / ton-km, handling ₹3,500
+  - `OpenBody` (heavy flatbed trailer): ₹3.15 / ton-km, handling ₹3,000
 - **Distance Scaling**:
-  - `> 500 km`: 5% long-haul scale discount
-  - `> 1000 km`: 10% ultra-long-haul scale discount
-- **Handling Charges**: Fixed loading/unloading buffer (₹1,500 – ₹2,500 based on body type).
-- **Output Metrics**: Target recommended price, min/max range bounds (-10% / +15%), price sensitivity table (±10% weight variance), alternative body type rate comparison, and transparent explanation.
+  - `> 500 km`: 6% regional long-haul discount
+  - `> 1000 km`: 12% ultra-long-haul scale discount
+- **Output Metrics**: target recommended price (rounded to the nearest ₹100), min/max range bounds (−10% / +15%), price sensitivity table (±10% tonnage variance with cost-per-additional-ton), alternative body-type comparison, long-haul adjustment, and a transparent explanation string.
+- **Confidence label**: `HIGH` when a distance is supplied, `MEDIUM` when coordinates are supplied, otherwise `BENCHMARK`.
 
 ### 5.3 Return-Load & Backhaul Discovery (`returnLoadEngine.ts` & `ReturnLoadsService`)
 Exposed via `GET /api/v1/matching/truck/:truckId/return-loads`:
@@ -148,10 +155,10 @@ Classifies booking journeys into operational health states. Conditions are evalu
 5. **`LOW RISK`** — Booking cancelled, still `Pending` counterparty confirmation, or `Confirmed` awaiting the first checkpoint check-in.
 6. **`ON TRACK`** — Checkpoints progressing on schedule with advance confirmed.
 
-Every assessment exposes `statusTier`, `badgeVariant`, `whyReason`, `riskSummary`, `requiredActions` (urgency + typed action: `CONFIRM_ADVANCE`, `CONFIRM_BALANCE`, `EWAY_BILL`, `WHATSAPP_RETRY`, `DELAY_INVESTIGATION`, `OVERDUE_DELIVERY`), the 50/50 commercial milestone split, delay magnitudes (`lastCheckpointAgeHours`, `deliveryOverdueHours`, `isEwayBillExpired`), and corridor milestone progress (`crossedCount`/`totalCheckpoints`, current location, next milestone, indicative ETA). `summarizeActiveShipmentsControlTower` aggregates the tiers for the Shipment Control Tower (`/tracking`) and booking deal room (`/booking/[id]`).
+Every assessment exposes `statusTier`, `badgeVariant`, `whyReason`, `riskSummary`, `requiredActions` (urgency + typed action: `CONFIRM_ADVANCE`, `CONFIRM_BALANCE`, `EWAY_BILL`, `WHATSAPP_RETRY`, `DELAY_INVESTIGATION`, `OVERDUE_DELIVERY`, `LIABILITY`), the 50/50 commercial milestone split, delay magnitudes (`lastCheckpointAgeHours`, `deliveryOverdueHours`, `isEwayBillExpired`), and corridor milestone progress (`crossedCount`/`totalCheckpoints`, current location, next milestone, indicative ETA). `summarizeActiveShipmentsControlTower` aggregates the tiers for the Shipment Control Tower (`/tracking`) and booking deal room (`/booking/[id]`).
 
 ### 5.5 Operational Action Center (`actionCenterEngine.ts`)
-Shared task derivation engine consumed across Next.js and Vite dashboards:
+Shared task derivation engine rendered by `ActionCenterCard` / `ActionCenterMenu` on the Web dashboard shell (`/dashboard/*`, `UnifiedDashboard`) and on the Next.js Admin console (`/admin/dashboard`). The standalone Vite admin SPA does not import the shared engine — it reads the same data via `GET /api/v1/admin/*`:
 - **Factory Owner Tasks**: Pending loading advance payments, missing E-Way bill assignments, unassigned open freight postings, delivered shipments awaiting balance release, expiring subscriptions/trial.
 - **Truck Driver Tasks**: Vehicle KYC document verification pending/rejected, expiring RC/Insurance documents, FASTag low balance alert, confirmed bookings awaiting advance payment from shipper, return-load opportunities.
 - **Admin Tasks**: Pending truck KYC document review queue, unresolved counterparty disputes, pending trip document review queue.
