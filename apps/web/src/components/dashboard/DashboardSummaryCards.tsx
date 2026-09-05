@@ -6,8 +6,10 @@ import {
   ArrowUpRight,
   CalendarClock,
   CheckCircle2,
+  ClipboardList,
   IndianRupee,
   TrendingUp,
+  Truck,
 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { cn, formatINR } from '@/lib/utils'
@@ -17,9 +19,27 @@ interface DashboardSummaryCardsProps {
   completedTrips: number
   earnings: number
   loading?: boolean
+  /**
+   * Transporter workspace extras. Both marketplace sides are managed from one
+   * account, so the summary opens with the two "my posts" counts before the
+   * booking/earnings trio. Omitted for single-side roles.
+   */
+  activeLoads?: number
+  activeTrucks?: number
 }
 
-const cards = [
+type CardTone = 'primary' | 'success' | 'amber' | 'emerald'
+
+interface SummaryCard {
+  key: 'activeLoads' | 'activeTrucks' | 'activeBookings' | 'completedTrips' | 'earnings'
+  label: string
+  hint: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  tone: CardTone
+}
+
+const BASE_CARDS: SummaryCard[] = [
   {
     key: 'activeBookings',
     label: 'dashboard.activeBookings',
@@ -44,10 +64,10 @@ const cards = [
     icon: IndianRupee,
     tone: 'amber',
   },
-] as const
+]
 
 /**
- * The three decision metrics operators need immediately after signing in.
+ * The decision metrics operators need immediately after signing in.
  * Cards stay linkable so the summary doubles as a launch pad on small screens.
  */
 export function DashboardSummaryCards({
@@ -55,9 +75,39 @@ export function DashboardSummaryCards({
   completedTrips,
   earnings,
   loading = false,
+  activeLoads,
+  activeTrucks,
 }: DashboardSummaryCardsProps) {
   const { t } = useI18n()
-  const values = {
+
+  const cards: SummaryCard[] = [
+    ...(typeof activeLoads === 'number'
+      ? [{
+          key: 'activeLoads' as const,
+          label: 'dashboard.myActiveLoads',
+          hint: 'dashboard.myActiveLoadsHint',
+          href: '/my-loads',
+          icon: ClipboardList,
+          tone: 'emerald' as CardTone,
+        }]
+      : []),
+    ...(typeof activeTrucks === 'number'
+      ? [{
+          key: 'activeTrucks' as const,
+          label: 'dashboard.myActiveTrucks',
+          hint: 'dashboard.myActiveTrucksHint',
+          href: '/my-trucks',
+          icon: Truck,
+          tone: 'primary' as CardTone,
+        }]
+      : []),
+    ...BASE_CARDS,
+  ]
+
+  // The "my posts" values exist only when their card is included in `cards`.
+  const values: Record<SummaryCard['key'], string | number | undefined> = {
+    activeLoads,
+    activeTrucks,
     activeBookings,
     completedTrips,
     earnings: formatINR(earnings),
@@ -76,7 +126,12 @@ export function DashboardSummaryCards({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3 sm:gap-4">
+      <div
+        className={cn(
+          'grid gap-3 sm:gap-4',
+          cards.length >= 5 ? 'sm:grid-cols-2 lg:grid-cols-5' : cards.length === 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'
+        )}
+      >
         {cards.map((card) => {
           const Icon = card.icon
           const value = values[card.key]
@@ -87,21 +142,24 @@ export function DashboardSummaryCards({
               className={cn(
                 'group relative overflow-hidden rounded-card border border-hairline bg-panel p-4 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-500/40 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:p-5',
                 card.tone === 'success' && 'hover:border-emerald-500/40',
-                card.tone === 'amber' && 'hover:border-amber-500/40'
+                card.tone === 'amber' && 'hover:border-amber-500/40',
+                card.tone === 'emerald' && 'hover:border-emerald-500/40'
               )}
             >
               <div className={cn(
                 'absolute inset-x-0 top-0 h-1',
                 card.tone === 'primary' && 'bg-primary-500',
                 card.tone === 'success' && 'bg-emerald-500',
-                card.tone === 'amber' && 'bg-amber-500'
+                card.tone === 'amber' && 'bg-amber-500',
+                card.tone === 'emerald' && 'bg-emerald-500'
               )} aria-hidden="true" />
               <div className="flex items-start justify-between gap-3">
                 <span className={cn(
                   'flex h-10 w-10 items-center justify-center rounded-xl',
                   card.tone === 'primary' && 'bg-primary-500/10 text-primary-600 dark:text-primary-400',
                   card.tone === 'success' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-                  card.tone === 'amber' && 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  card.tone === 'amber' && 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                  card.tone === 'emerald' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                 )}>
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </span>

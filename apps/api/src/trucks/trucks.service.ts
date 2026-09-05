@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common'
-import { prisma, VerificationStatus, Prisma, UserRole } from '@lorrycarry/database'
+import { prisma, VerificationStatus, Prisma, UserRole, BookingStatus } from '@lorrycarry/database'
 import { MapmyIndiaService } from '../common/services/mapmyindia.service'
 import { VahanService } from '../common/services/vahan.service'
 import { S3Service } from '../common/services/s3.service'
 import { normalizeRole } from '../common/utils/roles.util'
 import { CreateTruckDto } from './dto/create-truck.dto'
+import { UpdateTruckDto } from './dto/update-truck.dto'
 
 @Injectable()
 export class TrucksService {
@@ -238,5 +239,77 @@ export class TrucksService {
     }
 
     return updatedTruck
+  }
+
+  /**
+   * Edit the revisable specifications of an owned truck (body type, capacity,
+   * dimensions, serviceable radius, preferred destinations). The registration
+   * number is Vahan-verified and stays immutable; location changes go through
+   * `updateLocation` so proximity matching re-runs.
+   */
+  async update(truckId: string, userId: string, dto: UpdateTruckDto, role?: string | null) {
+    await this.assertTruckOwnership(truckId, userId, role)
+
+    const data: Partial<{
+      bodyType: typeof dto.bodyType
+      lengthFt: number
+      heightFt: number
+      tonnageCapacity: number
+      serviceableRadiusKm: number
+      preferredDestinations: string[]
+    }> = {}
+    if (dto.bodyType !== undefined) data.bodyType = dto.bodyType
+    if (dto.lengthFt !== undefined) data.lengthFt = dto.lengthFt
+    if (dto.heightFt !== undefined) data.heightFt = dto.heightFt
+    if (dto.tonnageCapacity !== undefined) data.tonnageCapacity = dto.tonnageCapacity
+    if (dto.serviceableRadiusKm !== undefined) data.serviceableRadiusKm = dto.serviceableRadiusKm
+    if (dto.preferredDestinations !== undefined) data.preferredDestinations = dto.preferredDestinations
+
+    return prisma.truck.update({
+      where: { id: truckId },
+      data,
+      include: {
+        documents: {
+          select: {
+            id: true,
+            type: true,
+            verificationStatus: true,
+            verifiedAt: true,
+          },
+        },
+      },
+    })
+  }
+
+  /**
+   * Remove an owned truck. Blocked while the vehicle carries active bookings
+   * (Pending / Confirmed / InTransit); trucks with settled booking history are
+   * kept for audit, mirroring how the booking table references the fleet.
+   */
+  async delete(truckId: string, userId: string, role?: string | null) {
+    const truck = await this.assertTruckOwnership(truckId, userId, role)
+
+    const activeBooking = await prisma.booking.findFirst({
+      where: {
+        truckId: truck.id,
+        status: { in: [BookingStatus.Pending, BookingStatus.Confirmed, BookingStatus.InTransit] },
+      },
+      select: { id: true },
+    })
+    if (activeBooking) {
+      throw new ConflictException('Truck has active bookings and cannot be deleted')
+    }
+
+    try {
+      await prisma.truck.delete({ where: { id: truck.id } })
+    } catch (err: any) {
+      if (err?.code === 'P2003') {
+        // Settled bookings still reference this truck — history must survive.
+        throw new ConflictException('Truck has booking history and cannot be deleted')
+      }
+      throw err
+    }
+
+    return { success: true }
   }
 }

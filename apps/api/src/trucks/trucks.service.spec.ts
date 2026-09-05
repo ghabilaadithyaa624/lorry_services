@@ -18,6 +18,10 @@ jest.mock('@lorrycarry/database', () => {
         create: jest.fn(),
         findMany: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
+      },
+      booking: {
+        findFirst: jest.fn(),
       },
       document: {
         create: jest.fn(),
@@ -488,6 +492,122 @@ describe('TrucksService', () => {
       expect(calledArgs[1]).toBe(72.8777) // lng first
       expect(calledArgs[2]).toBe(19.0760) // lat second
       expect(calledArgs[3]).toBe(truckId)
+    })
+  })
+
+  describe('update', () => {
+    const truckId = 'truck-123'
+    const userId = 'user-123'
+
+    it('should throw NotFoundException if truck does not exist', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(null)
+
+      await expect(
+        service.update(truckId, userId, { tonnageCapacity: 20 })
+      ).rejects.toThrow(NotFoundException)
+      expect(prisma.truck.update).not.toHaveBeenCalled()
+    })
+
+    it('should throw ForbiddenException if a non-admin edits another user\'s truck', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId: 'owner-999' })
+
+      await expect(
+        service.update(truckId, userId, { tonnageCapacity: 20 })
+      ).rejects.toThrow(ForbiddenException)
+      expect(prisma.truck.update).not.toHaveBeenCalled()
+    })
+
+    it('should allow an admin to edit another user\'s truck', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId: 'owner-999' })
+      const mockUpdated = { id: truckId, tonnageCapacity: 20 }
+      ;(prisma.truck.update as jest.Mock).mockResolvedValueOnce(mockUpdated)
+
+      const result = await service.update(truckId, 'admin-1', { tonnageCapacity: 20 }, 'admin')
+      expect(result).toEqual(mockUpdated)
+    })
+
+    it('should persist only the provided fields for the owner', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId })
+      const mockUpdated = { id: truckId }
+      ;(prisma.truck.update as jest.Mock).mockResolvedValueOnce(mockUpdated)
+
+      const result = await service.update(truckId, userId, {
+        tonnageCapacity: 18,
+        serviceableRadiusKm: 75,
+        preferredDestinations: ['Mumbai', 'Pune'],
+      })
+      expect(result).toEqual(mockUpdated)
+      expect(prisma.truck.update).toHaveBeenCalledWith({
+        where: { id: truckId },
+        data: {
+          tonnageCapacity: 18,
+          serviceableRadiusKm: 75,
+          preferredDestinations: ['Mumbai', 'Pune'],
+        },
+        include: {
+          documents: {
+            select: {
+              id: true,
+              type: true,
+              verificationStatus: true,
+              verifiedAt: true,
+            },
+          },
+        },
+      })
+    })
+  })
+
+  describe('delete', () => {
+    const truckId = 'truck-123'
+    const userId = 'user-123'
+
+    it('should throw NotFoundException if truck does not exist', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(null)
+
+      await expect(service.delete(truckId, userId)).rejects.toThrow(NotFoundException)
+      expect(prisma.truck.delete).not.toHaveBeenCalled()
+    })
+
+    it('should throw ForbiddenException if a non-admin deletes another user\'s truck', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId: 'owner-999' })
+
+      await expect(service.delete(truckId, userId)).rejects.toThrow(ForbiddenException)
+      expect(prisma.booking.findFirst).not.toHaveBeenCalled()
+      expect(prisma.truck.delete).not.toHaveBeenCalled()
+    })
+
+    it('should throw ConflictException while the truck has active bookings', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId })
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'bk-active' })
+
+      await expect(service.delete(truckId, userId)).rejects.toThrow(ConflictException)
+      expect(prisma.truck.delete).not.toHaveBeenCalled()
+    })
+
+    it('should map settled booking history (FK restrict) to a ConflictException', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId })
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(null)
+      ;(prisma.truck.delete as jest.Mock).mockRejectedValueOnce({ code: 'P2003' })
+
+      await expect(service.delete(truckId, userId)).rejects.toThrow(ConflictException)
+    })
+
+    it('should delete an owned truck without bookings', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId })
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(null)
+      ;(prisma.truck.delete as jest.Mock).mockResolvedValueOnce({ id: truckId })
+
+      await expect(service.delete(truckId, userId)).resolves.toEqual({ success: true })
+      expect(prisma.truck.delete).toHaveBeenCalledWith({ where: { id: truckId } })
+    })
+
+    it('should allow an admin to delete another user\'s truck', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId: 'owner-999' })
+      ;(prisma.booking.findFirst as jest.Mock).mockResolvedValueOnce(null)
+      ;(prisma.truck.delete as jest.Mock).mockResolvedValueOnce({ id: truckId })
+
+      await expect(service.delete(truckId, 'admin-1', 'admin')).resolves.toEqual({ success: true })
     })
   })
 })
