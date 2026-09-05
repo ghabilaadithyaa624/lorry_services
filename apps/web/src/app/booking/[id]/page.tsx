@@ -10,14 +10,13 @@ import {
   ArrowPathIcon,
   CurrencyRupeeIcon,
 } from '@heroicons/react/24/outline'
-import { api, bookingsApi, matchesApi } from '@/lib/api'
+import { api, bookingsApi, matchesApi, type ReturnLoadOpportunity } from '@/lib/api'
 import { format } from 'date-fns'
 import { Navbar, Footer } from '@/components/layout'
 import { Badge, Button, Spinner } from '@/components/ui'
 import { assessShipmentIntelligence } from '@/lib/intelligence'
 import { ReturnLoadOpportunityCard, DigitalDocumentChainCard } from '@/components/intelligence'
 import { BookingComplianceCard } from '@/components/compliance/BookingComplianceCard'
-import { evaluateBackhaulOpportunities, BackhaulOpportunity } from '@/lib/intelligence/matchingEngine'
 import { normalizeRole } from '@/lib/roles'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, whatsappLink } from '@/lib/utils'
@@ -32,14 +31,15 @@ export default function BookingDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const [backhaulOpps, setBackhaulOpps] = useState<BackhaulOpportunity[]>([])
+  const [backhaulOpps, setBackhaulOpps] = useState<ReturnLoadOpportunity[]>([])
   const [returnLoadMeta, setReturnLoadMeta] = useState<{
     hubLabel: string
     radiusKm: number
     contactUnlocked: boolean
     candidatesEvaluated: number
-    source: 'api' | 'client'
   } | null>(null)
+  const [returnLoadsLoading, setReturnLoadsLoading] = useState(false)
+  const [returnLoadsError, setReturnLoadsError] = useState('')
   const [showRatingModal, setShowRatingModal] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [viewerRole, setViewerRole] = useState<string | undefined>(undefined)
@@ -92,12 +92,6 @@ export default function BookingDetailPage() {
           console.warn('Could not check pending ratings:', err)
         }
       }
-
-      // Discover potential return loads from the destination hub.
-      // Preferred path: the backend return-load product API (real truck record,
-      // ranked server side, contacts paywalled). Falls back to the client-side
-      // engine when the booking has no truck attached or the call fails.
-      await loadReturnLoads(bk)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load booking details')
     } finally {
@@ -105,67 +99,53 @@ export default function BookingDetailPage() {
     }
   }
 
-  const loadReturnLoads = async (bk: any) => {
-    const truckId = bk.truck?.id || bk.truckId
-    const destLat = Number(bk.unloadingLat || bk.load?.unloadingLat) || undefined
-    const destLng = Number(bk.unloadingLng || bk.load?.unloadingLng) || undefined
-
-    if (truckId) {
-      try {
-        const res = await matchesApi.getReturnLoads(truckId, {
-          radius: 150,
-          limit: 6,
-          ...(destLat !== undefined && destLng !== undefined
-            ? { destinationLat: destLat, destinationLng: destLng }
-            : {}),
-        })
-        setBackhaulOpps(res.data.opportunities as unknown as BackhaulOpportunity[])
-        setReturnLoadMeta({
-          hubLabel: res.data.anchor?.label || bk.unloadingAddress || 'Destination',
-          radiusKm: res.data.radiusKm,
-          contactUnlocked: res.data.contactUnlocked,
-          candidatesEvaluated: res.data.candidatesEvaluated,
-          source: 'api',
-        })
-        return
-      } catch (err) {
-        console.warn('Return-load API unavailable, falling back to client engine:', err)
-      }
+  // Discovery is isolated from booking actions and only requested for the
+  // authenticated truck owner. No sample truck, city, or client-side paywall fallback.
+  useEffect(() => {
+    setBackhaulOpps([])
+    setReturnLoadMeta(null)
+    setReturnLoadsError('')
+    if (!booking || booking.id !== id || booking.truckOwnerId !== currentUserId || viewerRole !== 'truck_driver') {
+      setReturnLoadsLoading(false)
+      return
     }
+    const truckId = booking.truck?.id || booking.truckId
+    if (!truckId) {
+      setReturnLoadsLoading(false)
+      setReturnLoadsError('No truck is assigned to this booking.')
+      return
+    }
+    const controller = new AbortController()
+    const lat = booking.unloadingLat ?? booking.load?.unloadingLat
+    const lng = booking.unloadingLng ?? booking.load?.unloadingLng
+    const hasDestination = lat !== null && lat !== undefined && lat !== '' &&
+      lng !== null && lng !== undefined && lng !== '' &&
+      Number.isFinite(Number(lat)) && Math.abs(Number(lat)) <= 90 &&
+      Number.isFinite(Number(lng)) && Math.abs(Number(lng)) <= 180
 
-    try {
-      const fallbackLat = destLat ?? 12.9716
-      const fallbackLng = destLng ?? 77.5946
-      const loadsRes = await api.get(`/search/loads?lat=${fallbackLat}&lng=${fallbackLng}&radius=150`)
-      const openLoads = loadsRes.data || []
-
-      const hubTruck = {
-        id: truckId || 'truck-active',
-        bodyType: bk.truck?.bodyType || bk.truck?.truckType || 'Open',
-        currentLat: fallbackLat,
-        currentLng: fallbackLng,
-        tonnageCapacity: Number(bk.truck?.tonnageCapacity ?? bk.truck?.capacityTons) || 16,
-        verificationStatus: bk.truck?.verificationStatus || 'Verified',
-        preferredDestinations: [bk.loadingAddress || bk.load?.loadingAddress || 'Origin'],
-      }
-
-      const opps = evaluateBackhaulOpportunities(hubTruck, openLoads, {
-        lat: fallbackLat,
-        lng: fallbackLng,
-        label: bk.unloadingAddress || bk.load?.unloadingAddress || 'Destination',
-      })
-      setBackhaulOpps(opps)
+    setReturnLoadsLoading(true)
+    matchesApi.getReturnLoads(truckId, {
+      limit: 6,
+      ...(hasDestination ? { destinationLat: Number(lat), destinationLng: Number(lng) } : {}),
+    }, controller.signal).then(({ data }) => {
+      if (controller.signal.aborted) return
+      setBackhaulOpps(data.opportunities)
       setReturnLoadMeta({
-        hubLabel: bk.unloadingAddress || bk.load?.unloadingAddress || 'Destination',
-        radiusKm: 150,
-        contactUnlocked: false,
-        candidatesEvaluated: openLoads.length,
-        source: 'client',
+        hubLabel: data.anchor.source === 'query_override'
+          ? booking.load?.unloadingAddress || booking.unloadingAddress || data.anchor.label
+          : data.anchor.label,
+        radiusKm: data.radiusKm,
+        contactUnlocked: data.contactUnlocked,
+        candidatesEvaluated: data.candidatesEvaluated,
       })
-    } catch (err) {
-      console.warn('Could not fetch return loads:', err)
-    }
-  }
+      if (data.anchor.source === 'unresolved') setReturnLoadsError(data.anchor.detail)
+    }).catch(() => {
+      if (!controller.signal.aborted) setReturnLoadsError('Return-load discovery is temporarily unavailable. No local estimates are shown.')
+    }).finally(() => {
+      if (!controller.signal.aborted) setReturnLoadsLoading(false)
+    })
+    return () => controller.abort()
+  }, [booking, id, currentUserId, viewerRole])
 
   /**
    * Confirm a payment milestone.
@@ -556,8 +536,8 @@ export default function BookingDetailPage() {
           onRefresh={loadBooking}
         />
 
-        {/* Potential Return Load Opportunities */}
-        <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-5">
+        {/* Potential Return Load Opportunities — vehicle owner only */}
+        {booking.truckOwnerId === currentUserId && viewerRole === 'truck_driver' && <div className="bg-panel rounded-[20px] border border-white/10 p-6 sm:p-7 shadow-modal space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10">
             <div>
               <div className="flex items-center gap-2">
@@ -571,10 +551,8 @@ export default function BookingDetailPage() {
               </p>
               {returnLoadMeta && (
                 <p className="text-[11px] font-mono text-surface-500 mt-1">
-                  {returnLoadMeta.source === 'api'
-                    ? `Ranked by the return-load engine · ${returnLoadMeta.candidatesEvaluated} open load(s) scanned within ${returnLoadMeta.radiusKm} km`
-                    : `Local estimate · ${returnLoadMeta.candidatesEvaluated} open load(s) scanned within ${returnLoadMeta.radiusKm} km`}
-                  {returnLoadMeta.source === 'api' && !returnLoadMeta.contactUnlocked
+                  {`Ranked by the return-load engine · ${returnLoadMeta.candidatesEvaluated} nearby load(s) evaluated within ${returnLoadMeta.radiusKm} km`}
+                  {!returnLoadMeta.contactUnlocked
                     ? ' · shipper contacts locked until you subscribe'
                     : ''}
                 </p>
@@ -606,7 +584,7 @@ export default function BookingDetailPage() {
                   opportunity={opp}
                   onConnect={() =>
                     router.push(
-                      `/search?type=load&location=${encodeURIComponent(opp.loadingAddress)}`
+                      opp.contact.locked ? '/subscription' : `/search?type=load&location=${encodeURIComponent(opp.loadingAddress)}`
                     )
                   }
                 />
@@ -615,7 +593,9 @@ export default function BookingDetailPage() {
           ) : (
             <div className="p-6 rounded-2xl bg-surface-950/60 border border-white/5 text-center space-y-3">
               <p className="text-xs font-mono text-surface-400">
-                Searching real-time load board for potential return freight near {booking.unloadingAddress || 'destination'}...
+                {returnLoadsLoading
+                  ? 'Searching the live load board for nearby return freight…'
+                  : returnLoadsError || `No eligible return loads within ${returnLoadMeta?.radiusKm || 50} km of this hub right now.`}
               </p>
               <Button
                 variant="primary"
@@ -627,7 +607,7 @@ export default function BookingDetailPage() {
               </Button>
             </div>
           )}
-        </div>
+        </div>}
 
         {disputeOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Report a booking issue">

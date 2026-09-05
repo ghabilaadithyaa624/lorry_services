@@ -34,7 +34,7 @@ export const RETURN_LOAD_RANK_WEIGHTS = {
 export type ReturnLoadRankFactorKey = keyof typeof RETURN_LOAD_RANK_WEIGHTS
 
 /** Default discovery radius (km) around the drop-off hub for return freight. */
-export const DEFAULT_RETURN_LOAD_RADIUS_KM = 150
+export const DEFAULT_RETURN_LOAD_RADIUS_KM = 50
 
 export interface ReturnLoadRankFactor {
   key: ReturnLoadRankFactorKey

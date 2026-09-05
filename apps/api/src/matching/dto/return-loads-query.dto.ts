@@ -1,57 +1,55 @@
-import { IsInt, IsLatitude, IsLongitude, IsNumber, IsOptional, Max, Min } from 'class-validator'
-import { Type } from 'class-transformer'
+import { IsInt, IsNumber, IsOptional, Max, Min, ValidateIf } from 'class-validator'
+import { Transform } from 'class-transformer'
 import { ApiPropertyOptional } from '@nestjs/swagger'
+import { DEFAULT_RETURN_LOAD_RADIUS_KM } from '@lorrycarry/shared'
 
-/** Widest radius (km) the return-load scanner will search around the drop-off hub. */
-export const RETURN_LOAD_MAX_RADIUS_KM = 300
-/** Default radius (km) — return freight is discovered wider than the 50 km live-match filter. */
-export const RETURN_LOAD_DEFAULT_RADIUS_KM = 150
-/** Hard ceiling on returned opportunities per request. */
+/** Hard limits apply to both HTTP callers and internal service calls. */
+export const RETURN_LOAD_MAX_RADIUS_KM = 50
+export const RETURN_LOAD_DEFAULT_RADIUS_KM = DEFAULT_RETURN_LOAD_RADIUS_KM
 export const RETURN_LOAD_MAX_LIMIT = 50
 export const RETURN_LOAD_DEFAULT_LIMIT = 10
 
-/**
- * Query parameters for `GET /matches/truck/:truckId/return-loads`.
- *
- * Every field is optional: with no query the service resolves the drop-off hub
- * from the truck's most recent booking destination, then its current GPS
- * position, then its declared preferred corridors.
- */
+// Unlike Number(value), this does not turn blank strings, arrays or null into 0.
+const QueryNumber = () => Transform(({ value }) =>
+  typeof value === 'string' && value.trim() !== '' ? Number(value) : value,
+)
+
+/** Query for GET /matching/truck/:truckId/return-loads (also aliased under /matches). */
 export class ReturnLoadsQueryDto {
   @ApiPropertyOptional({
-    example: 150,
+    default: RETURN_LOAD_DEFAULT_RADIUS_KM,
     minimum: 1,
     maximum: RETURN_LOAD_MAX_RADIUS_KM,
-    description: `Discovery radius in km around the drop-off hub (default ${RETURN_LOAD_DEFAULT_RADIUS_KM}, max ${RETURN_LOAD_MAX_RADIUS_KM})`,
+    description: 'Pickup proximity radius in km (spherical distance, not a road-route estimate)',
   })
   @IsOptional()
-  @Type(() => Number)
+  @QueryNumber()
   @IsNumber()
   @Min(1)
   @Max(RETURN_LOAD_MAX_RADIUS_KM)
   radius?: number
 
   @ApiPropertyOptional({
-    example: 10,
+    default: RETURN_LOAD_DEFAULT_LIMIT,
     minimum: 1,
     maximum: RETURN_LOAD_MAX_LIMIT,
-    description: `Maximum ranked opportunities to return (default ${RETURN_LOAD_DEFAULT_LIMIT}, max ${RETURN_LOAD_MAX_LIMIT})`,
+    description: 'Maximum ranked opportunities to return',
   })
   @IsOptional()
-  @Type(() => Number)
+  @QueryNumber()
   @IsInt()
   @Min(1)
   @Max(RETURN_LOAD_MAX_LIMIT)
   limit?: number
 
   @ApiPropertyOptional({
-    example: 40,
+    default: 0,
     minimum: 0,
     maximum: 100,
-    description: 'Drop opportunities whose composite return-load rank score is below this threshold',
+    description: 'Minimum composite return-load rank score',
   })
   @IsOptional()
-  @Type(() => Number)
+  @QueryNumber()
   @IsNumber()
   @Min(0)
   @Max(100)
@@ -59,19 +57,27 @@ export class ReturnLoadsQueryDto {
 
   @ApiPropertyOptional({
     example: 12.9716,
-    description: 'Override the drop-off hub latitude (e.g. the driver picks a different destination city)',
+    minimum: -90,
+    maximum: 90,
+    description: 'Optional destination override; must be paired with destinationLng',
   })
-  @IsOptional()
-  @Type(() => Number)
-  @IsLatitude()
+  @ValidateIf((query) => query.destinationLat !== undefined || query.destinationLng !== undefined)
+  @QueryNumber()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
   destinationLat?: number
 
   @ApiPropertyOptional({
     example: 77.5946,
-    description: 'Override the drop-off hub longitude (must be sent together with destinationLat)',
+    minimum: -180,
+    maximum: 180,
+    description: 'Optional destination override; must be paired with destinationLat',
   })
-  @IsOptional()
-  @Type(() => Number)
-  @IsLongitude()
+  @ValidateIf((query) => query.destinationLat !== undefined || query.destinationLng !== undefined)
+  @QueryNumber()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
   destinationLng?: number
 }

@@ -268,10 +268,10 @@ export function calculateMatchScore(
         : undefined
   if (
     distanceKm === undefined &&
-    truck.currentLat &&
-    truck.currentLng &&
-    load.loadingLat &&
-    load.loadingLng
+    Number.isFinite(truck.currentLat) &&
+    Number.isFinite(truck.currentLng) &&
+    Number.isFinite(load.loadingLat) &&
+    Number.isFinite(load.loadingLng)
   ) {
     distanceKm = calculateGeoDistance(
       toNumber(truck.currentLat),
@@ -361,7 +361,7 @@ export function calculateMatchScore(
   let proximityValue = `${distanceKm.toFixed(1)} km away`
   let proximityDetail = ''
 
-  if (distanceKm <= 10) {
+  if (distanceKm <= 10 && (maxProximityKm === undefined || distanceKm <= maxProximityKm)) {
     isProximityFit = true
     proximityScore = 20
     proximityValue = `${distanceKm.toFixed(1)} km (Immediate)`
@@ -655,12 +655,16 @@ export function evaluateBackhaulOpportunities(
 
     // Calculate pickup distance from destination hub
     let pickupDistanceFromDestinationKm = DEFAULT_MATCH_DISTANCE_KM
-    if (
+    // Database callers may supply a measured spherical proximity distance for
+    // this load. Use it consistently for both matching and return-load ranking.
+    if (typeof options?.distanceKm === 'number' && Number.isFinite(options.distanceKm)) {
+      pickupDistanceFromDestinationKm = options.distanceKm
+    } else if (
       destinationLocation &&
-      destinationLocation.lat &&
-      destinationLocation.lng &&
-      load.loadingLat &&
-      load.loadingLng
+      Number.isFinite(destinationLocation.lat) &&
+      Number.isFinite(destinationLocation.lng) &&
+      typeof load.loadingLat === 'number' && Number.isFinite(load.loadingLat) &&
+      typeof load.loadingLng === 'number' && Number.isFinite(load.loadingLng)
     ) {
       const destKey = `${destinationLocation.lat}_${destinationLocation.lng}`
       let loadPickupCache = pickupDistanceCache.get(load)
@@ -685,7 +689,12 @@ export function evaluateBackhaulOpportunities(
 
     // Potential empty-run reduction is the freight transit distance of the return load
     let potentialEmptyRunReductionKm = 300
-    if (load.loadingLat && load.loadingLng && load.unloadingLat && load.unloadingLng) {
+    if (
+      typeof load.loadingLat === 'number' && Number.isFinite(load.loadingLat) &&
+      typeof load.loadingLng === 'number' && Number.isFinite(load.loadingLng) &&
+      typeof load.unloadingLat === 'number' && Number.isFinite(load.unloadingLat) &&
+      typeof load.unloadingLng === 'number' && Number.isFinite(load.unloadingLng)
+    ) {
       let cachedEmptyRun = emptyRunCache.get(load)
       if (cachedEmptyRun === undefined) {
         cachedEmptyRun = calculateGeoDistance(

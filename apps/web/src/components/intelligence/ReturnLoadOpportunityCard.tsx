@@ -1,15 +1,21 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
+import type { ReturnLoadContact } from '@/lib/api'
 import { ArrowPathIcon, InformationCircleIcon } from '@heroicons/react/24/outline'
 import { BackhaulOpportunity } from '@/lib/intelligence/matchingEngine'
 import { MatchScoreBadge } from './MatchScoreBadge'
 import { Button } from '@/components/ui'
 import { formatINR, cn } from '@/lib/utils'
 
+interface CardOpportunity extends BackhaulOpportunity {
+  contact?: ReturnLoadContact
+}
+
 interface ReturnLoadOpportunityCardProps {
-  opportunity: BackhaulOpportunity
-  onConnect?: (opportunity: BackhaulOpportunity) => void
+  opportunity: CardOpportunity
+  onConnect?: (opportunity: CardOpportunity) => void
   className?: string
 }
 
@@ -96,17 +102,30 @@ export function ReturnLoadOpportunityCard({
         <span>{opportunity.disclaimer}</span>
       </div>
 
-      {/* Action Button */}
-      <div className="pt-2 border-t border-white/5">
-        <Button
-          variant="primary"
-          size="md"
-          fullWidth
-          onClick={() => onConnect && onConnect(opportunity)}
-          className="font-bold text-xs py-2.5 shadow-glow-primary bg-primary-500 border border-purple-400/30"
-        >
-          Connect for Potential Return Load
-        </Button>
+      {/* Only the API's explicit contact decision can enable contact links. */}
+      <div className="pt-2 border-t border-white/5 space-y-2">
+        {opportunity.contact?.locked ? (
+          <Link href="/subscription" className="block text-center text-xs font-bold text-primary-400 underline">
+            Subscribe to unlock shipper contact
+          </Link>
+        ) : (
+          <>
+            {opportunity.contact?.phone && (
+              <a href={`tel:${opportunity.contact.phone}`} className="block text-xs font-semibold text-primary-400 underline">
+                Call {opportunity.contact.name || 'shipper'} · {opportunity.contact.phone}
+              </a>
+            )}
+            {onConnect ? (
+              <Button variant="primary" size="md" fullWidth onClick={() => onConnect(opportunity)} className="font-bold text-xs py-2.5">
+                View potential return load
+              </Button>
+            ) : (
+              <Link href={`/search?type=load&location=${encodeURIComponent(opportunity.loadingAddress)}`} className="block text-center text-xs font-bold text-primary-400 underline">
+                View potential return load
+              </Link>
+            )}
+          </>
+        )}
       </div>
     </div>
   )

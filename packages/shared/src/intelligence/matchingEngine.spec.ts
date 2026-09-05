@@ -459,3 +459,41 @@ describe('Matching Engine — evaluateBackhaulOpportunities', () => {
     console.log(`[MATCH_ENGINE_BENCHMARK] Elapsed time for 20k matches: ${(end - start).toFixed(2)} ms`)
   })
 })
+
+
+describe('return-load proximity consistency', () => {
+  const truck: TruckItem = {
+    id: 'truck-zero', bodyType: 'Open', tonnageCapacity: 20,
+    currentLat: 0, currentLng: 0, serviceableRadiusKm: 50,
+  }
+  const load: LoadItem = {
+    id: 'load-zero', tonnageRequired: 18, truckType: 'Open',
+    loadingLat: 0, loadingLng: 0.01, unloadingLat: 0, unloadingLng: 0.02,
+  }
+
+  it('honours a measured distance for both match scoring and backhaul ranking', () => {
+    const [opportunity] = evaluateBackhaulOpportunities(truck, [load], { lat: 10, lng: 10 }, {
+      distanceKm: 2.35, maxProximityKm: 50,
+    })
+    expect(opportunity.pickupDistanceFromDestinationKm).toBe(2.35)
+    expect(opportunity.matchResult.distanceKm).toBe(2.35)
+  })
+
+  it('preserves zero deadhead instead of substituting a default estimate', () => {
+    const [opportunity] = evaluateBackhaulOpportunities(truck, [load], undefined, { distanceKm: 0 })
+    expect(opportunity.pickupDistanceFromDestinationKm).toBe(0)
+    expect(opportunity.matchResult.distanceKm).toBe(0)
+  })
+
+  it('accepts zero coordinates for GPS, hub, pickup and return-leg distances', () => {
+    const [opportunity] = evaluateBackhaulOpportunities(truck, [load], { lat: 0, lng: 0 })
+    expect(opportunity.pickupDistanceFromDestinationKm).toBe(1)
+    expect(opportunity.matchResult.distanceKm).toBe(1)
+    expect(opportunity.potentialEmptyRunReductionKm).toBe(1)
+  })
+
+  it('honours a radius smaller than the immediate-proximity bucket', () => {
+    const result = calculateMatchScore(load, truck, { distanceKm: 8, maxProximityKm: 5 })
+    expect(result.isProximityFit).toBe(false)
+  })
+})

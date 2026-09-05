@@ -20,7 +20,7 @@ This audit documents the transition of LorryCarry from a transactional CRUD appl
 |---|---|---|---|
 | **Deterministic Match Scoring** | Shared + API + Web | `[Implemented]` | 100-pt compatibility scoring (`matchingEngine.ts`, `/api/v1/matches/*`, `/search`) |
 | **Freight Rate Estimator** | Shared + API + Web | `[Implemented]` | Rule-based rate estimator (`pricingEngine.ts`, `POST /api/v1/pricing/estimate`) |
-| **Return-Load (Backhaul) Radar** | Shared + API + Web | `[Implemented]` | Drop-off hub backhaul engine (`returnLoadEngine.ts`, `GET /api/v1/matches/truck/:truckId/return-loads`) |
+| **Return-Load (Backhaul) Radar** | Shared + API + Web | `[Implemented]` | Drop-off hub backhaul engine (`returnLoadEngine.ts`, `GET /api/v1/matching/truck/:truckId/return-loads`) |
 | **Shipment Risk & Attention Analyzer**| Shared + Web + Admin | `[Implemented]` | Real-time booking risk status (`shipmentIntelligence.ts`, `/booking/[id]`, `/admin/risk`) |
 | **Operational Action Center** | Shared + Web + Admin | `[Implemented]` | Dynamic multi-source operational task aggregator (`actionCenterEngine.ts`) |
 | **Vahan RC Validation** | API + Web + Admin | `[Implemented - External Provider Dependent]` | Vahan API adapter with sandbox fallback (`/api/v1/compliance/trucks/:id/validate-rc`) |
@@ -73,7 +73,8 @@ All endpoints are hosted under `/api/v1`:
 | `/matches/my-matches` | `GET` | Authenticated | Algorithmic match pairings for the authenticated party. | `[Implemented]` |
 | `/matches/load/:loadId` | `GET` | Authenticated | Matching trucks for a load posting within ≤50 km. | `[Implemented]` |
 | `/matches/truck/:truckId` | `GET` | Authenticated | Matching open loads for a vehicle within ≤50 km. | `[Implemented]` |
-| `/matches/truck/:truckId/return-loads` | `GET` | Authenticated | **Return-load (backhaul) discovery**: Ranked backhaul opportunities near drop-off hub. | `[Implemented]` |
+| `/matching/truck/:truckId/return-loads` | `GET` | Truck owner | **Return-load discovery**: Ranked opportunities within 50 km; active subscription required for contacts. | `[Implemented]` |
+| `/matches/truck/:truckId/return-loads` | `GET` | Truck owner | Compatibility alias of the canonical return-load endpoint. | `[Implemented]` |
 | `/matches/evaluate` | `POST` | Authenticated | Evaluates candidate pairs and persists match records. | `[Implemented]` |
 | `/compliance/trucks/:id` | `GET` | Authenticated | Complete truck compliance checklist (RC, insurance, fitness, permit, FASTag). | `[Implemented]` |
 | `/compliance/trucks/:id/validate-rc` | `POST` | Authenticated | Live Vahan RC validation with external API / sandbox fallback. | `[Implemented - External Provider Dependent]` |
@@ -120,13 +121,14 @@ Exposed via `POST /api/v1/pricing/estimate` and `POST /api/v1/intelligence/prici
 - **Output Metrics**: Target recommended price, min/max range bounds (-10% / +15%), price sensitivity table (±10% weight variance), alternative body type rate comparison, and transparent explanation.
 
 ### 5.3 Return-Load & Backhaul Discovery (`returnLoadEngine.ts` & `ReturnLoadsService`)
-Exposed via `GET /api/v1/matches/truck/:truckId/return-loads`:
+Exposed via `GET /api/v1/matching/truck/:truckId/return-loads`:
 - **Drop-Off Hub Resolution**:
   1. Explicit query coordinates (`destinationLat`, `destinationLng`)
-  2. Unloading point of latest active/completed booking for the truck
+  2. Valid unloading point of the latest completed booking for the truck and its current owner
   3. Current truck GPS position (`currentLat`, `currentLng`)
-  4. First declared preferred destination city
-- **Spatial Discovery**: Queries open loads within discovery radius (default 150 km, max 300 km) using PostGIS `ST_DWithin`.
+  4. Unresolved hub: empty opportunities, no load query (preferred destination names inform ranking only)
+- **Spatial Discovery**: Queries positive, capacity-fitting open loads within a default/max **50 km** spherical pickup radius. PostGIS `ST_DWithin` and its numeric-coordinate fallback both filter before limiting to the nearest 100 candidates. A partial GiST expression index supports pickup proximity.
+- **Safe UI Integration**: Driver dashboard truck/radius selection, rank explanations and explicit loading/empty/error states; booking/assistant API failures never substitute sample trucks or unbounded local recommendations.
 - **Ranking Weights**:
   - Match score compatibility: 55 pts
   - Pickup deadhead distance from drop-off hub: 15 pts
@@ -134,7 +136,7 @@ Exposed via `GET /api/v1/matches/truck/:truckId/return-loads`:
   - Truck body type fit: 6 pts
   - Price rate vs benchmark: 7 pts
   - Preferred return corridor: 5 pts
-- **Paywall Protection**: Shipper contact details (`name`, `phone`, `company`) are masked (`locked: true`) unless the requesting user holds an active subscription or 90-day free trial.
+- **Paywall Protection**: Shipper `name` and `phone` are masked (`locked: true`) unless the requesting user holds an active, started and unexpired subscription. Trial-only accounts remain masked on this endpoint. The truck must belong to the caller regardless of subscription status. See [return-loads-api.md](return-loads-api.md) for the full contract.
 
 ### 5.4 Shipment Risk & Attention Classifier (`shipmentIntelligence.ts`)
 Classifies active booking journeys into operational health states:

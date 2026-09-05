@@ -22,14 +22,12 @@ import {
   api,
   usersApi,
   authApi,
-  matchesApi,
   notificationsApi,
   type NotificationFeedItem,
-  type ReturnLoadOpportunity,
-  type ReturnLoadAnchor,
 } from '@/lib/api'
 import { Footer } from '@/components/layout'
 import { AnalyticsSnapshot } from '@/components/dashboard/AnalyticsSnapshot'
+import { ReturnLoadsPanel } from '@/components/dashboard/ReturnLoadsPanel'
 import { DashboardSummaryCards } from '@/components/dashboard/DashboardSummaryCards'
 import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
@@ -149,11 +147,6 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
   const [fleetDocuments, setFleetDocuments] = useState<Array<Record<string, any>> | undefined>(undefined)
   const [alertFeed, setAlertFeed] = useState<NotificationFeedItem[] | undefined>(undefined)
 
-  // Return-load (backhaul) intelligence for vehicle-side operators
-  const [returnLoads, setReturnLoads] = useState<ReturnLoadOpportunity[]>([])
-  const [returnLoadHub, setReturnLoadHub] = useState<ReturnLoadAnchor | null>(null)
-  const [returnLoadsLoading, setReturnLoadsLoading] = useState(false)
-
   // Booking modal
   const [selectedTruckForBooking, setSelectedTruckForBooking] = useState<any | null>(null)
 
@@ -239,9 +232,6 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
           if (!allVerified) {
             setKycComplete(false)
           }
-          // Backhaul intelligence: what can this lorry carry home instead of
-          // running empty? Ranked server-side by the return-load engine.
-          void loadReturnLoads(userTrucks)
         }
 
         if (myBookingsRes.status === 'fulfilled') {
@@ -302,33 +292,6 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
       // Graceful fallback
     } finally {
       setLoading(false)
-    }
-  }
-
-  /**
-   * Fetches ranked return-load opportunities for the operator's primary lorry
-   * (first verified vehicle, otherwise the first registered one). The API
-   * resolves the drop-off hub from the latest trip destination or GPS position.
-   */
-  const loadReturnLoads = async (userTrucks: TruckItem[]) => {
-    const primaryTruck =
-      userTrucks.find((t) => t.verificationStatus === 'Verified') || userTrucks[0]
-    if (!primaryTruck?.id) {
-      setReturnLoads([])
-      setReturnLoadHub(null)
-      return
-    }
-
-    try {
-      setReturnLoadsLoading(true)
-      const res = await matchesApi.getReturnLoads(primaryTruck.id, { radius: 150, limit: 3 })
-      setReturnLoads(res.data.opportunities || [])
-      setReturnLoadHub(res.data.anchor || null)
-    } catch {
-      setReturnLoads([])
-      setReturnLoadHub(null)
-    } finally {
-      setReturnLoadsLoading(false)
     }
   }
 
@@ -1139,7 +1102,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary-400" />
                 <h3 className="text-base font-bold text-white">
-                  {isTruckDriver ? 'High-Yield Backhauls' : 'Nearby Matched Lorries'}
+                  {isTruckDriver ? 'Return-load opportunities' : 'Nearby Matched Lorries'}
                 </h3>
               </div>
               <Link
@@ -1152,66 +1115,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             </div>
 
             {isTruckDriver ? (
-              <div className="space-y-3">
-                {returnLoadHub && (
-                  <p className="text-[11px] font-mono text-surface-400">
-                    Empty from <span className="text-surface-200">{returnLoadHub.label}</span> · {returnLoadHub.detail}
-                  </p>
-                )}
-
-                {returnLoadsLoading ? (
-                  <div className="p-6 text-center text-xs text-surface-400 bg-surface-950/60 rounded-xl border border-white/5">
-                    Scanning the open load board for return freight…
-                  </div>
-                ) : returnLoads.length === 0 ? (
-                  <div className="p-6 text-center space-y-2 bg-surface-950/60 rounded-xl border border-white/5">
-                    <Sparkles className="w-8 h-8 text-surface-400 mx-auto" />
-                    <p className="text-sm font-bold text-white">No return loads yet</p>
-                    <p className="text-xs text-surface-400">
-                      Keep your vehicle location and preferred corridors current — matching return freight near your
-                      drop-off hub will surface here automatically.
-                    </p>
-                    <Link
-                      href="/search?type=load&sort=RETURN_LOAD"
-                      className="inline-flex items-center gap-1 text-xs font-bold text-primary-400 hover:text-primary-300"
-                    >
-                      <span>Browse the load board</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
-                ) : (
-                  returnLoads.map((opp) => (
-                    <div
-                      key={opp.loadId}
-                      className="p-3.5 rounded-xl bg-surface-950/80 border border-white/5 hover:border-white/15 transition-all space-y-2 shadow-card"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 space-y-1">
-                          <div className="text-xs font-bold text-white truncate">{opp.routeLabel}</div>
-                          <div className="text-[11px] text-surface-400 font-medium">
-                            {opp.tonnageRequired}T {opp.truckType} • {opp.pickupDistanceFromDestinationKm} km to pickup
-                          </div>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full bg-primary-950/60 text-primary-300 border border-primary-500/30 text-[10px] font-mono font-bold shrink-0">
-                          {Math.round(opp.rankScore)}% fit
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-[11px] font-mono text-emerald-300">
-                          {formatINR(opp.estimatedFreight)} · saves ~{opp.potentialEmptyRunReductionKm} km empty
-                        </div>
-                        <Link
-                          href={`/search?type=load&location=${encodeURIComponent(opp.loadingAddress)}`}
-                          className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs font-bold transition-all shadow-glow-primary shrink-0 border border-primary-400/30"
-                        >
-                          {opp.contact.locked ? 'Unlock Load' : 'View Load'}
-                        </Link>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <ReturnLoadsPanel trucks={trucks} />
             ) : (
               <div className="space-y-3">
                 {trucks.slice(0, 3).map((item, idx) => (
