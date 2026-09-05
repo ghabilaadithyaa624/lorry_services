@@ -142,14 +142,17 @@ export async function verifyOrder(orderId: string) {
 }
 
 /**
- * Client-side session probe used by the **public** pricing pages.
+ * Client-side session probe used by the **public** pages.
  *
- * `/subscribe` and `/subscription` are public (see `@/lib/publicRoutes`) so
- * anonymous visitors can read plans and pricing. They must not call the
- * authenticated entitlement endpoints, and they must not start a checkout.
- * This helper answers "is there a session in this browser?" without hitting the
- * API — it is a UX gate only. Real enforcement stays server-side: the
- * `/subscriptions/initiate` endpoint requires a valid bearer token.
+ * `/subscribe`, `/subscription`, `/help` and `/security` are public (see
+ * `@/lib/publicRoutes`) so anonymous visitors can read pricing, the help centre
+ * and the security page. Public pages must not call authenticated endpoints on
+ * mount — an anonymous visitor's `/users/me`, `/subscriptions/status` or
+ * entitlement call always answers 401, which used to surface as an error
+ * banner (and, before the allowlist existed, a redirect) on pages anyone may
+ * read. This helper answers "is there a session in this browser?" without
+ * hitting the API — it is a UX gate only. Real enforcement stays server-side:
+ * `/subscriptions/initiate` and friends require a valid bearer token.
  */
 export function hasClientSession(): boolean {
   if (typeof window === 'undefined') return false

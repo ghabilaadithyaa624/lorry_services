@@ -33,6 +33,7 @@ describe('publicRoutes allowlist', () => {
       '/search',
       '/search/trucks',
       '/search/loads',
+      '/subscribe',
       '/privacy',
       '/terms',
       '/security',
