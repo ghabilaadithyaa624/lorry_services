@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import type { FreightEstimate, PricingInput } from './intelligence/pricingEngine'
+import type { MatchResult } from './intelligence/matchingEngine'
 import type { NationalLogisticsSummary } from './intelligence/nationalLogisticsEngine'
 import { isPublicPath } from './publicRoutes'
 
@@ -522,7 +523,7 @@ export interface MatchRecord {
 }
 
 /**
- * Return-load (backhaul) intelligence — `GET /matches/truck/:truckId/return-loads`.
+ * Return-load (backhaul) intelligence — `GET /matching/truck/:truckId/return-loads`.
  * The API resolves the drop-off hub, queries the open load board around it, and
  * ranks the candidates with the shared return-load engine.
  */
@@ -530,7 +531,6 @@ export type ReturnLoadAnchorSource =
   | 'query_override'
   | 'booking_destination'
   | 'truck_current_location'
-  | 'preferred_destination'
   | 'unresolved'
 
 export interface ReturnLoadAnchor {
@@ -568,7 +568,7 @@ export interface ReturnLoadOpportunity {
   matchScore: number
   matchRating: string
   /** Full explainable match breakdown — feeds `MatchScoreBadge` / `ReturnLoadOpportunityCard`. */
-  matchResult: any
+  matchResult: MatchResult
   routeLabel: string
   loadingAddress: string
   unloadingAddress: string
@@ -637,7 +637,8 @@ export const matchesApi = {
    * Return-load (backhaul) opportunities for a truck, ranked by deadhead
    * distance from the drop-off hub, match score, payload utilisation, body
    * type, rate vs benchmark and preferred corridor. Shipper contacts stay
-   * masked unless the caller has an active subscription or free trial.
+   * masked unless the caller has an active subscription. Radius defaults to
+   * 50 km and is limited to 1–50 km. This endpoint is truck-owner only.
    */
   getReturnLoads: (
     truckId: string,
@@ -648,16 +649,11 @@ export const matchesApi = {
       destinationLat?: number
       destinationLng?: number
     },
+    signal?: AbortSignal,
   ) =>
-    api.get<ReturnLoadsResponse>(`/matches/truck/${truckId}/return-loads`, {
-      params: {
-        ...(params?.radius ? { radius: params.radius } : {}),
-        ...(params?.limit ? { limit: params.limit } : {}),
-        ...(params?.minScore !== undefined ? { minScore: params.minScore } : {}),
-        ...(params?.destinationLat !== undefined && params?.destinationLng !== undefined
-          ? { destinationLat: params.destinationLat, destinationLng: params.destinationLng }
-          : {}),
-      },
+    api.get<ReturnLoadsResponse>(`/matching/truck/${encodeURIComponent(truckId)}/return-loads`, {
+      params: params ?? {},
+      signal,
     }),
 
   /** Trigger WhatsApp-backed evaluation for a load or truck */

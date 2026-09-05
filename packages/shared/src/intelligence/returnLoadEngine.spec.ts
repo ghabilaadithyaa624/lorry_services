@@ -157,7 +157,7 @@ describe('Return Load Engine — scoreReturnLoadOpportunity', () => {
     const load = buildLoad({ id: 'default-radius', loadingLat: HUB.lat, loadingLng: HUB.lng })
     const [opportunity] = evaluateBackhaulOpportunities(truck, [load], HUB)
 
-    expect(DEFAULT_RETURN_LOAD_RADIUS_KM).toBe(150)
+    expect(DEFAULT_RETURN_LOAD_RADIUS_KM).toBe(50)
     expect(scoreReturnLoadOpportunity(opportunity, truck).rankScore).toBeGreaterThan(0)
   })
 })

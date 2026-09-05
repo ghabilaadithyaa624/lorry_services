@@ -28,7 +28,7 @@ LorryCarry is a high-performance freight logistics monorepo platform connecting 
 ## 🌟 Key Features
 
 - **Direct Freight & Truck Matching**: PostGIS-powered geospatial discovery within customizable search radii (≤50 km default), evaluated by a deterministic 100-point compatibility algorithm (capacity fit, body type, proximity, verification, and preferred corridors).
-- **Return Load (Backhaul) Intelligence**: Dedicated backend backhaul discovery (`GET /api/v1/matches/truck/:truckId/return-loads`). Resolves drop-off hubs from active/recent bookings, truck GPS, or preferred corridors, querying open loads within ≤300 km and ranking by deadhead distance, payload fit, and rate benchmark. Shipper contacts are masked behind the subscription paywall.
+- **Return Load (Backhaul) Intelligence**: Truck-owner-only discovery (`GET /api/v1/matching/truck/:truckId/return-loads`, with the existing `/matches` alias retained). Uses the latest completed booking destination or valid truck GPS, with a **50 km default and hard cap**, shared six-factor ranking, and active-subscription-only shipper contacts. Missing coordinates never trigger an unbounded search. The driver dashboard offers truck/radius selection, explanations, and explicit empty/error states. See [the return-load API contract](docs/return-loads-api.md) for overrides, ranking, privacy, and deployment details.
 - **Explainable Freight Pricing Engine**: Instant indicative benchmark rate calculation (`POST /api/v1/pricing/estimate`) using ton-km economics across Open, Container, and OpenBody configurations, with distance decay, handling buffers, and ±10% payload sensitivity analysis.
 - **Operational Action Center**: Unified task aggregator on the Web dashboard shell (`ActionCenterCard` & `ActionCenterMenu`) and Admin tower. Dynamically flags unverified KYC documents, pending 50% loading advances, missing E-Way bills, unpaid balance milestones, expiring subscriptions, and WhatsApp delivery alerts.
 - **Zero Broker Commissions**: Standardized commercial terms (50% advance at loading, 50% balance upon delivery confirmation) with transparent milestone release controls.
@@ -92,7 +92,7 @@ All deterministic logistics maths lives in **one** place — [`packages/shared/s
 
 Both paths run the identical scoring function, so the gate changes *which* matches surface, never *how* they are scored.
 
-Run the suite with `npm test` (Turborepo) or `npm --prefix packages/shared test` — **163 tests** covering scoring weights, budget gating, pricing economics, backhaul ranking, shipment risk and action-center derivation.
+Run the suite with `npm test` (Turborepo) or `npm --prefix packages/shared test` — covering scoring weights, budget gating, pricing economics, backhaul ranking, shipment risk and action-center derivation.
 
 ---
 
@@ -295,13 +295,14 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 }
 ```
 
-### 10. Matching Engine & Return Loads (`/api/v1/matches`)
+### 10. Matching Engine & Return Loads (`/api/v1/matches`, `/api/v1/matching`)
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/matches/my-matches` | Authenticated | List persistent algorithmic matches for current user |
 | `GET` | `/api/v1/matches/load/:loadId` | Authenticated | Discover matching trucks for a posted load (proximity ≤50 km) |
 | `GET` | `/api/v1/matches/truck/:truckId` | Authenticated | Discover matching open loads for a truck (proximity ≤50 km) |
-| `GET` | `/api/v1/matches/truck/:truckId/return-loads` | Authenticated | **Return-load (backhaul) radar** — ranked open loads near drop-off hub (≤300 km) |
+| `GET` | `/api/v1/matching/truck/:truckId/return-loads` | Truck owner | **Return-load opportunities** — open loads near completed-trip destination/GPS, default/max 50 km; contacts require active subscription |
+| `GET` | `/api/v1/matches/truck/:truckId/return-loads` | Truck owner | Backwards-compatible alias of the return-load endpoint |
 | `POST` | `/api/v1/matches/evaluate` | Authenticated | Run matching engine across loads/trucks and persist candidate pairs |
 | `POST` | `/api/v1/matches/evaluate/load/:loadId` | Authenticated | Evaluate and persist matches for a specific freight load |
 | `POST` | `/api/v1/matches/evaluate/truck/:truckId` | Authenticated | Evaluate and persist matches for a specific vehicle |
@@ -309,6 +310,13 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 | `GET` | `/api/v1/matches/:id` | Authenticated | Retrieve single match details with compatibility breakdown |
 | `PATCH` | `/api/v1/matches/:id/status` | Authenticated | Update match state (`Pending`, `Booked`, `Completed`, `Cancelled`) |
 | `DELETE` | `/api/v1/matches/:id` | Authenticated | Remove match pair |
+
+Return-load parameters: `radius` (1–50 km, default 50), `limit` (1–50, default 10),
+`minScore` (0–100), and an optional paired `destinationLat`/`destinationLng` override.
+The nearest 100 eligible candidates are ranked before applying the response limit.
+Trial-only accounts stay contact-masked on this endpoint. Apply the new partial
+GiST index migration before production rollout. Full contract and checks:
+[docs/return-loads-api.md](docs/return-loads-api.md).
 
 ### 11. Trip Checkpoint Tracking (`/api/v1/tracking`)
 | Method | Endpoint | Access | Description |

@@ -1,13 +1,20 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common'
-import { prisma, Prisma } from '@lorrycarry/database'
 import {
-  calculateGeoDistance,
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common'
+import { prisma, Prisma, type Load, type Truck } from '@lorrycarry/database'
+import {
+  EARTH_RADIUS_KM,
   evaluateBackhaulOpportunities,
   rankReturnLoadOpportunities,
-  LoadItem,
-  TruckItem,
-  RankedReturnLoad,
-  ReturnLoadRankFactor,
+  type LoadItem,
+  type TruckItem,
+  type RankedReturnLoad,
+  type ReturnLoadRankFactor,
 } from '@lorrycarry/shared'
 import {
   RETURN_LOAD_DEFAULT_LIMIT,
@@ -16,17 +23,42 @@ import {
   RETURN_LOAD_MAX_RADIUS_KM,
 } from './dto/return-loads-query.dto'
 
-/** How many raw candidates are pulled from the load board before ranking. */
+/** Rank at most the nearest 100 eligible loads; filter in SQL BEFORE this limit. */
 const CANDIDATE_QUERY_LIMIT = 100
 
-/** Booking states that tell us where the lorry is (or will shortly be) empty. */
-const DROP_OFF_BOOKING_STATUSES = ['Completed', 'InTransit', 'Confirmed']
+const truckSelect = {
+  id: true,
+  userId: true,
+  registrationNumber: true,
+  bodyType: true,
+  tonnageCapacity: true,
+  lengthFt: true,
+  heightFt: true,
+  currentLat: true,
+  currentLng: true,
+  preferredDestinations: true,
+  verificationStatus: true,
+} satisfies Prisma.TruckSelect
+
+type ReturnLoadTruck = Pick<Truck, keyof typeof truckSelect>
+type CandidateLoad = Pick<Load,
+  'id' | 'userId' | 'tonnageRequired' | 'loadingAddress' | 'loadingLat' | 'loadingLng' |
+  'unloadingAddress' | 'unloadingLat' | 'unloadingLng' | 'truckType' |
+  'minLengthFt' | 'minHeightFt' | 'urgent' | 'maxPrice' | 'createdAt'
+> & { pickupDistanceKm: number; ownerPhone?: string | null; ownerName?: string | null }
+
+export interface ReturnLoadsOptions {
+  radiusKm?: number
+  limit?: number
+  minScore?: number
+  destinationLat?: number
+  destinationLng?: number
+}
 
 export type ReturnLoadAnchorSource =
   | 'query_override'
   | 'booking_destination'
   | 'truck_current_location'
-  | 'preferred_destination'
   | 'unresolved'
 
 /** The hub the lorry runs empty from — the origin of every return-load search. */
@@ -102,402 +134,248 @@ export interface ReturnLoadsResult {
   opportunities: ReturnLoadOpportunityDto[]
 }
 
-/**
- * Return-load (backhaul) discovery for truck drivers.
- *
- * Answers "what can I carry home instead of running empty?" using the real
- * truck record (current GPS position, preferred corridors, most recent booking
- * destination), the live open load board, and the shared intelligence engines
- * (`evaluateBackhaulOpportunities` + `rankReturnLoadOpportunities`) so the API,
- * web and mobile surfaces all agree on the numbers.
- *
- * Contact details stay masked unless the caller holds an active subscription
- * or an in-flight free trial, matching the marketplace paywall.
- */
+/** Read-only discovery: no match persistence, booking creation or notifications. */
 @Injectable()
 export class ReturnLoadsService {
   private readonly logger = new Logger(ReturnLoadsService.name)
 
   async getReturnLoadsForTruck(
     truckId: string,
-    requestingUserId?: string,
-    options: {
-      radiusKm?: number
-      limit?: number
-      minScore?: number
-      destinationLat?: number
-      destinationLng?: number
-    } = {},
+    requestingUserId: string,
+    options: ReturnLoadsOptions = {},
   ): Promise<ReturnLoadsResult> {
-    const truck = await (prisma as any).truck.findUnique({
-      where: { id: truckId },
-      include: { user: { select: { id: true, name: true, phone: true } } },
-    })
-    if (!truck) throw new NotFoundException('Truck not found')
+    if (!requestingUserId) throw new UnauthorizedException('Authentication required')
+    const { radiusKm, limit, minScore } = this.validateOptions(options)
+    const truck = await prisma.truck.findUnique({ where: { id: truckId }, select: truckSelect })
+    // Do not disclose another operator's GPS position or booking history.
+    if (!truck || truck.userId !== requestingUserId) throw new NotFoundException('Truck not found')
 
-    const radiusKm = this.normalizeRadius(options.radiusKm)
-    const limit = this.normalizeLimit(options.limit)
-    const minScore = this.toOptionalNumber(options.minScore) ?? 0
-
-    const anchor = await this.resolveAnchor(truck, options.destinationLat, options.destinationLng)
-    const candidates = await this.findCandidateLoads(truck, anchor, radiusKm)
-
+    const anchor = await this.resolveAnchor(truck, options)
+    const contactUnlocked = await this.hasContactAccess(requestingUserId)
+    const candidates = await this.findCandidateLoads(truck, anchor, radiusKm, contactUnlocked)
     const preferredDestinations = this.toStringArray(truck.preferredDestinations)
-    const tonnageCapacity = this.toNumber(truck.tonnageCapacity)
+    const tonnageCapacity = this.optionalNumber(truck.tonnageCapacity) ?? 0
+    const currentLocation = this.coordinates(truck.currentLat, truck.currentLng)
 
-    // The scoring "truck" is positioned at the drop-off hub, not at its last
-    // known GPS ping: proximity must be measured from where the lorry goes empty.
     const hubTruck: TruckItem = {
-      id: String(truck.id),
-      registrationNumber: truck.registrationNumber ?? undefined,
-      bodyType: truck.bodyType ?? 'Open',
+      id: truck.id,
+      registrationNumber: truck.registrationNumber,
+      bodyType: truck.bodyType,
+      lengthFt: truck.lengthFt,
+      heightFt: truck.heightFt,
       tonnageCapacity,
-      currentLat: anchor.lat ?? this.toOptionalNumber(truck.currentLat),
-      currentLng: anchor.lng ?? this.toOptionalNumber(truck.currentLng),
+      currentLat: anchor.lat ?? undefined,
+      currentLng: anchor.lng ?? undefined,
       serviceableRadiusKm: radiusKm,
       preferredDestinations,
-      verificationStatus: truck.verificationStatus ?? undefined,
+      verificationStatus: truck.verificationStatus,
     }
 
-    const loadItems = candidates.map((load) => this.toLoadItem(load))
-    const opportunities = evaluateBackhaulOpportunities(
+    // Pass the SAME database proximity distance to both shared scoring engines.
+    // Recomputing it as a rounded road estimate would admit/rank loads outside
+    // the advertised radius, and used to mishandle valid zero coordinates.
+    const opportunities = candidates.flatMap((load) => evaluateBackhaulOpportunities(
       hubTruck,
-      loadItems,
-      anchor.lat !== null && anchor.lng !== null
-        ? { lat: anchor.lat, lng: anchor.lng, label: anchor.label }
-        : undefined,
-      { maxProximityKm: radiusKm, budget: true },
-    )
-
+      [this.toLoadItem(load)],
+      undefined,
+      { distanceKm: Number(load.pickupDistanceKm), maxProximityKm: radiusKm, budget: true },
+    ))
     const ranked = rankReturnLoadOpportunities(opportunities, hubTruck, { radiusKm, tonnageCapacity })
-    const filtered = ranked.filter((opportunity) => opportunity.rankScore >= minScore)
-
-    const contactUnlocked = await this.hasContactAccess(requestingUserId)
-    const rawById = new Map(candidates.map((load) => [String(load.id), load]))
+      .filter((opportunity) => opportunity.rankScore >= minScore)
+    const rawById = new Map(candidates.map((load) => [load.id, load]))
 
     return {
       truck: {
-        id: String(truck.id),
-        registrationNumber: truck.registrationNumber ?? null,
-        bodyType: truck.bodyType ?? 'Open',
+        id: truck.id,
+        registrationNumber: truck.registrationNumber,
+        bodyType: truck.bodyType,
         tonnageCapacity,
-        verificationStatus: truck.verificationStatus ?? null,
-        currentLat: this.toOptionalNumber(truck.currentLat) ?? null,
-        currentLng: this.toOptionalNumber(truck.currentLng) ?? null,
+        verificationStatus: truck.verificationStatus,
+        currentLat: currentLocation?.lat ?? null,
+        currentLng: currentLocation?.lng ?? null,
         preferredDestinations,
       },
       anchor,
       radiusKm,
       candidatesEvaluated: candidates.length,
-      totalRanked: filtered.length,
+      totalRanked: ranked.length,
       contactUnlocked,
       generatedAt: new Date().toISOString(),
       disclaimer:
-        'Indicative return-load opportunities. Freight values are benchmark estimates and every pickup remains subject to shipper confirmation.',
-      opportunities: filtered
-        .slice(0, limit)
-        .map((opportunity) =>
-          this.toOpportunityDto(opportunity, rawById.get(String(opportunity.loadId)), contactUnlocked, tonnageCapacity),
-        ),
+        'Indicative return-load opportunities, not confirmed bookings. Pickup proximity is spherical distance; freight and potential empty-run reduction are estimates subject to shipper confirmation.',
+      opportunities: ranked.slice(0, limit).map((opportunity) =>
+        this.toOpportunityDto(opportunity, rawById.get(opportunity.loadId), contactUnlocked, tonnageCapacity),
+      ),
     }
   }
 
-  // ────────────────────────────────────────────────
-  // Drop-off hub resolution
-  // ────────────────────────────────────────────────
-
-  /**
-   * Resolves the hub the lorry runs empty from, in priority order:
-   * 1. explicit `destinationLat`/`destinationLng` override from the client,
-   * 2. the unloading point of the most recent completed / in-flight booking,
-   * 3. the truck's last known GPS position,
-   * 4. the first declared preferred corridor (text-only, no coordinates).
-   */
-  private async resolveAnchor(
-    truck: any,
-    destinationLat?: number,
-    destinationLng?: number,
-  ): Promise<ReturnLoadAnchor> {
-    const lat = this.toOptionalNumber(destinationLat)
-    const lng = this.toOptionalNumber(destinationLng)
-    if (lat !== undefined && lng !== undefined) {
+  private async resolveAnchor(truck: ReturnLoadTruck, options: ReturnLoadsOptions): Promise<ReturnLoadAnchor> {
+    const override = this.coordinates(options.destinationLat, options.destinationLng)
+    if (override) {
       return {
-        lat,
-        lng,
+        ...override,
         label: 'Selected destination',
         source: 'query_override',
         detail: 'Drop-off hub supplied by the caller',
       }
     }
 
-    const booking = await this.findRecentDropOff(truck.id)
-    const bookingLat = this.toOptionalNumber(booking?.load?.unloadingLat)
-    const bookingLng = this.toOptionalNumber(booking?.load?.unloadingLng)
-    if (booking && bookingLat !== undefined && bookingLng !== undefined) {
+    // Restrict to completed trips. PostgreSQL sorts NULL timestamps first for
+    // DESC by default; explicit NULLS LAST prevents an undated row taking over.
+    const booking = await prisma.booking.findFirst({
+      where: { truckId: truck.id, truckOwnerId: truck.userId, status: 'Completed' },
+      orderBy: [{ completedAt: { sort: 'desc', nulls: 'last' } }, { updatedAt: 'desc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        status: true,
+        completedAt: true,
+        load: { select: { unloadingAddress: true, unloadingLat: true, unloadingLng: true } },
+      },
+    })
+    const destination = this.coordinates(booking?.load?.unloadingLat, booking?.load?.unloadingLng)
+    if (booking && destination) {
       return {
-        lat: bookingLat,
-        lng: bookingLng,
-        label: booking.load?.unloadingAddress || 'Last delivery destination',
+        ...destination,
+        label: booking.load.unloadingAddress || 'Last delivery destination',
         source: 'booking_destination',
-        bookingId: String(booking.id),
+        bookingId: booking.id,
         bookingStatus: booking.status,
-        droppedAt: booking.completedAt ? new Date(booking.completedAt).toISOString() : null,
-        detail: `Derived from ${booking.status === 'Completed' ? 'the last completed' : 'the current'} trip drop-off point`,
+        droppedAt: booking.completedAt?.toISOString() ?? null,
+        detail: 'Derived from the latest completed trip destination',
       }
     }
 
-    const currentLat = this.toOptionalNumber(truck.currentLat)
-    const currentLng = this.toOptionalNumber(truck.currentLng)
-    if (currentLat !== undefined && currentLng !== undefined) {
+    const current = this.coordinates(truck.currentLat, truck.currentLng)
+    if (current) {
       return {
-        lat: currentLat,
-        lng: currentLng,
+        ...current,
         label: 'Current vehicle position',
         source: 'truck_current_location',
-        detail: 'No recent trip destination on record — using the last known GPS position',
+        detail: 'No usable completed-trip destination — using the last known GPS position',
       }
     }
 
-    const preferred = this.toStringArray(truck.preferredDestinations)
-    if (preferred.length > 0) {
-      return {
-        lat: null,
-        lng: null,
-        label: preferred[0],
-        source: 'preferred_destination',
-        detail: 'No coordinates available — scanning the declared preferred corridors by name',
-      }
-    }
-
+    // A corridor name cannot prove proximity. Never turn missing coordinates
+    // into a nationwide load search or invent a 15 km default pickup distance.
     return {
       lat: null,
       lng: null,
       label: 'Unknown hub',
       source: 'unresolved',
-      detail: 'Add a current location, a preferred corridor, or complete a trip to sharpen return-load discovery',
+      detail: 'Add a valid vehicle location or complete a trip with destination coordinates to discover nearby return loads. Preferred corridors are used for ranking only.',
     }
   }
 
-  /** Most recent booking whose destination tells us where the lorry unloads. */
-  private async findRecentDropOff(truckId: string): Promise<any | null> {
-    try {
-      return await (prisma as any).booking.findFirst({
-        where: { truckId, status: { in: DROP_OFF_BOOKING_STATUSES } },
-        orderBy: [{ completedAt: 'desc' }, { updatedAt: 'desc' }],
-        select: {
-          id: true,
-          status: true,
-          completedAt: true,
-          load: {
-            select: {
-              unloadingAddress: true,
-              unloadingLat: true,
-              unloadingLng: true,
-            },
-          },
-        },
-      })
-    } catch (e) {
-      this.logger.warn(`Recent drop-off lookup failed for truck=${truckId}: ${(e as Error).message}`)
-      return null
-    }
-  }
-
-  // ────────────────────────────────────────────────
-  // Candidate discovery
-  // ────────────────────────────────────────────────
-
-  /**
-   * Open loads whose pickup sits within `radiusKm` of the drop-off hub and
-   * whose tonnage fits the lorry. The operator's own freight is excluded — a
-   * transporter must not be offered their own postings as a return haul.
-   */
-  private async findCandidateLoads(truck: any, anchor: ReturnLoadAnchor, radiusKm: number): Promise<any[]> {
-    const tonnageCapacity = this.toNumber(truck.tonnageCapacity)
-
-    if (anchor.lat === null || anchor.lng === null) {
-      return this.findCandidateLoadsByCorridor(truck, anchor, tonnageCapacity)
-    }
-
-    try {
-      const query = Prisma.sql`
-        SELECT
-          l.id,
-          l.user_id as "userId",
-          l.tonnage_required as "tonnageRequired",
-          l.loading_address as "loadingAddress",
-          l.loading_pin as "loadingPin",
-          l.loading_lat as "loadingLat",
-          l.loading_lng as "loadingLng",
-          l.unloading_address as "unloadingAddress",
-          l.unloading_pin as "unloadingPin",
-          l.unloading_lat as "unloadingLat",
-          l.unloading_lng as "unloadingLng",
-          l.truck_type as "truckType",
-          l.min_length_ft as "minLengthFt",
-          l.min_height_ft as "minHeightFt",
-          l.urgent,
-          l.max_price as "maxPrice",
-          l.expected_delivery_at as "expectedDeliveryAt",
-          l.created_at as "createdAt",
-          u.phone as "ownerPhone",
-          u.name as "ownerName",
-          ST_Distance(l.loading_point::geography, ST_SetSRID(ST_MakePoint(${anchor.lng}, ${anchor.lat}), 4326)::geography) / 1000 as "pickupDistanceKm"
-        FROM loads l
-        LEFT JOIN users u ON u.id = l.user_id
-        WHERE l.status = 'Open'
-          AND l.tonnage_required <= ${tonnageCapacity}
-          AND l.user_id <> ${truck.userId}
-          AND l.loading_point IS NOT NULL
-          AND ST_DWithin(l.loading_point::geography, ST_SetSRID(ST_MakePoint(${anchor.lng}, ${anchor.lat}), 4326)::geography, ${radiusKm * 1000})
-        ORDER BY "pickupDistanceKm" ASC
-        LIMIT ${CANDIDATE_QUERY_LIMIT}
-      `
-      const rows = await (prisma.$queryRaw as any)(query)
-      return (rows ?? []).map((row: any) => ({
-        ...row,
-        pickupDistanceKm: this.toNumber(row.pickupDistanceKm),
-      }))
-    } catch (e) {
-      this.logger.warn(`PostGIS return-load search failed, falling back to JS distance filter: ${(e as Error).message}`)
-      return this.findCandidateLoadsInMemory(truck, anchor, radiusKm, tonnageCapacity)
-    }
-  }
-
-  /** PostGIS-free fallback: fetch open loads and filter by Haversine distance. */
-  private async findCandidateLoadsInMemory(
-    truck: any,
+  private async findCandidateLoads(
+    truck: ReturnLoadTruck,
     anchor: ReturnLoadAnchor,
     radiusKm: number,
-    tonnageCapacity: number,
-  ): Promise<any[]> {
-    const loads = await (prisma as any).load.findMany({
-      where: {
-        status: 'Open',
-        tonnageRequired: { lte: tonnageCapacity },
-        userId: { not: truck.userId },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: CANDIDATE_QUERY_LIMIT,
-      include: { user: { select: { phone: true, name: true } } },
-    })
+    contactUnlocked: boolean,
+  ): Promise<CandidateLoad[]> {
+    const capacity = Number(truck.tonnageCapacity)
+    if (anchor.lat === null || anchor.lng === null || !Number.isFinite(capacity) || capacity <= 0) return []
 
-    return (loads ?? [])
-      .map((load: any) => {
-        const loadingLat = this.toOptionalNumber(load.loadingLat)
-        const loadingLng = this.toOptionalNumber(load.loadingLng)
-        const pickupDistanceKm =
-          loadingLat !== undefined && loadingLng !== undefined && anchor.lat !== null && anchor.lng !== null
-            ? calculateGeoDistance(anchor.lat, anchor.lng, loadingLat, loadingLng)
-            : undefined
-        return {
-          ...load,
-          ownerPhone: load.user?.phone ?? null,
-          ownerName: load.user?.name ?? null,
-          pickupDistanceKm,
-        }
-      })
-      .filter((load: any) => load.pickupDistanceKm === undefined || load.pickupDistanceKm <= radiusKm)
-  }
-
-  /**
-   * Corridor fallback used when neither the truck nor its trips expose
-   * coordinates: match open freight whose pickup city text matches one of the
-   * operator's declared preferred destinations.
-   */
-  private async findCandidateLoadsByCorridor(
-    truck: any,
-    anchor: ReturnLoadAnchor,
-    tonnageCapacity: number,
-  ): Promise<any[]> {
-    const preferred = this.toStringArray(truck.preferredDestinations)
-    const where: any = {
-      status: 'Open',
-      tonnageRequired: { lte: tonnageCapacity },
-      userId: { not: truck.userId },
-    }
-    if (preferred.length > 0) {
-      where.OR = preferred.map((destination) => ({
-        loadingAddress: { contains: destination, mode: 'insensitive' },
-      }))
-    }
-
+    let rows: CandidateLoad[]
     try {
-      const loads = await (prisma as any).load.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        take: CANDIDATE_QUERY_LIMIT,
-        include: { user: { select: { phone: true, name: true } } },
-      })
-      return (loads ?? []).map((load: any) => ({
-        ...load,
-        ownerPhone: load.user?.phone ?? null,
-        ownerName: load.user?.name ?? null,
-      }))
-    } catch (e) {
-      this.logger.warn(`Corridor return-load search failed for hub=${anchor.label}: ${(e as Error).message}`)
-      return []
+      rows = await prisma.$queryRaw<CandidateLoad[]>(this.candidateQuery(truck, anchor, radiusKm, contactUnlocked, true))
+    } catch {
+      // No PostGIS (or an older schema without the materialised point): the
+      // portable numeric-coordinate query still filters AND orders before LIMIT.
+      // Do not fetch the latest N loads and only then apply a proximity filter.
+      this.logger.warn('PostGIS return-load search unavailable; using bounded spherical-distance SQL')
+      try {
+        rows = await prisma.$queryRaw<CandidateLoad[]>(this.candidateQuery(truck, anchor, radiusKm, contactUnlocked, false))
+      } catch {
+        throw new ServiceUnavailableException('Return-load discovery is temporarily unavailable')
+      }
     }
+
+    // Defence in depth before shared engines (which also support estimated
+    // distances in other contexts). Missing/invalid distances never qualify.
+    return rows.filter((load) => {
+      const distance = this.optionalNumber(load.pickupDistanceKm)
+      const tonnage = Number(load.tonnageRequired)
+      return distance !== undefined && distance >= 0 && distance <= radiusKm &&
+        tonnage > 0 && tonnage <= capacity && load.userId !== truck.userId &&
+        Boolean(this.coordinates(load.loadingLat, load.loadingLng))
+    }).sort((a, b) => Number(a.pickupDistanceKm) - Number(b.pickupDistanceKm) || a.id.localeCompare(b.id))
+      .slice(0, CANDIDATE_QUERY_LIMIT)
   }
 
-  // ────────────────────────────────────────────────
-  // Paywall
-  // ────────────────────────────────────────────────
+  private candidateQuery(
+    truck: ReturnLoadTruck,
+    anchor: ReturnLoadAnchor,
+    radiusKm: number,
+    contactUnlocked: boolean,
+    usePostgis: boolean,
+  ): Prisma.Sql {
+    const hub = Prisma.sql`ST_SetSRID(ST_MakePoint(${anchor.lng}, ${anchor.lat}), 4326)::geography`
+    // Lat/lng-only loads are common before point backfills/triggers have run.
+    const pickup = Prisma.sql`COALESCE(l.loading_point, ST_SetSRID(ST_MakePoint(l.loading_lng, l.loading_lat), 4326)::geography)`
+    const distance = usePostgis
+      ? Prisma.sql`ST_Distance(${pickup}, ${hub}, false) / 1000.0`
+      : Prisma.sql`${EARTH_RADIUS_KM} * 2 * ASIN(SQRT(LEAST(1.0, GREATEST(0.0,
+          POWER(SIN(RADIANS(l.loading_lat - ${anchor.lat}) / 2), 2) +
+          COS(RADIANS(${anchor.lat})) * COS(RADIANS(l.loading_lat)) *
+          POWER(SIN(RADIANS(l.loading_lng - ${anchor.lng}) / 2), 2)
+        ))))`
+    const spatialFilter = usePostgis
+      ? Prisma.sql`AND ST_DWithin(${pickup}, ${hub}, ${radiusKm * 1000}, false)`
+      : Prisma.sql``
+    // PII is not even selected for a locked caller, including the fallback.
+    const contactFields = contactUnlocked ? Prisma.sql`, u.phone as "ownerPhone", u.name as "ownerName"` : Prisma.sql``
+    const contactJoin = contactUnlocked ? Prisma.sql`LEFT JOIN users u ON u.id = l.user_id` : Prisma.sql``
+    // Conservative latitude prefilter for the portable query; the exact
+    // spherical-distance predicate below handles longitude, poles and dateline.
+    const latitudeDelta = radiusKm / EARTH_RADIUS_KM * 180 / Math.PI + 0.001
 
-  /**
-   * Contact reveal requires an active paid subscription OR an in-flight
-   * 3-month free trial — the same gate the marketplace search applies.
-   */
-  private async hasContactAccess(userId?: string): Promise<boolean> {
-    if (!userId) return false
+    return Prisma.sql`
+      SELECT * FROM (
+        SELECT
+          l.id, l.user_id as "userId", l.tonnage_required as "tonnageRequired",
+          l.loading_address as "loadingAddress", l.loading_lat as "loadingLat", l.loading_lng as "loadingLng",
+          l.unloading_address as "unloadingAddress", l.unloading_lat as "unloadingLat", l.unloading_lng as "unloadingLng",
+          l.truck_type as "truckType", l.min_length_ft as "minLengthFt", l.min_height_ft as "minHeightFt",
+          l.urgent, l.max_price as "maxPrice", l.created_at as "createdAt",
+          ${distance} as "pickupDistanceKm"
+          ${contactFields}
+        FROM loads l
+        ${contactJoin}
+        WHERE l.status = 'Open'
+          AND l.user_id <> ${truck.userId}
+          AND l.tonnage_required > 0 AND l.tonnage_required <= ${Number(truck.tonnageCapacity)}
+          AND l.loading_lat BETWEEN -90 AND 90
+          AND l.loading_lng BETWEEN -180 AND 180
+          AND l.loading_lat BETWEEN ${Math.max(-90, anchor.lat - latitudeDelta)} AND ${Math.min(90, anchor.lat + latitudeDelta)}
+          ${spatialFilter}
+      ) candidates
+      WHERE "pickupDistanceKm" >= 0 AND "pickupDistanceKm" <= ${radiusKm}
+      ORDER BY "pickupDistanceKm" ASC, id ASC
+      LIMIT ${CANDIDATE_QUERY_LIMIT}
+    `
+  }
+
+  /** Read-only, paid-subscription gate. Trial-only access is intentionally insufficient. */
+  private async hasContactAccess(userId: string): Promise<boolean> {
     const now = new Date()
     try {
-      const subscription = await (prisma as any).subscription.findFirst({
-        where: { userId, status: 'active', expiresAt: { gt: now } },
+      return Boolean(await prisma.subscription.findFirst({
+        where: { userId, status: 'active', startedAt: { lte: now }, expiresAt: { gt: now } },
         select: { id: true },
-      })
-      if (subscription) return true
-    } catch (e) {
-      this.logger.warn(`Subscription lookup failed for user=${userId}: ${(e as Error).message}`)
-    }
-
-    try {
-      const user = await (prisma as any).user.findUnique({
-        where: { id: userId },
-        select: { trialStartedAt: true, trialEndsAt: true },
-      })
-      return Boolean(
-        user?.trialStartedAt && user?.trialEndsAt && new Date(user.trialEndsAt).getTime() > now.getTime(),
-      )
-    } catch (e) {
-      this.logger.warn(`Trial lookup failed for user=${userId}: ${(e as Error).message}`)
+      }))
+    } catch {
+      this.logger.warn('Return-load subscription lookup unavailable; keeping contacts masked')
       return false
     }
   }
 
-  // ────────────────────────────────────────────────
-  // Mapping helpers
-  // ────────────────────────────────────────────────
-
+  /** Explicit allowlist: never spread raw load/user records into the response. */
   private toOpportunityDto(
     opportunity: RankedReturnLoad,
-    rawLoad: any,
+    rawLoad: CandidateLoad | undefined,
     contactUnlocked: boolean,
     tonnageCapacity: number,
   ): ReturnLoadOpportunityDto {
-    const contact: ReturnLoadContact = contactUnlocked
-      ? {
-          locked: false,
-          name: opportunity.ownerName ?? null,
-          phone: opportunity.ownerPhone ?? null,
-        }
-      : {
-          locked: true,
-          name: null,
-          phone: null,
-          message: 'Subscribe or start your free trial to reveal shipper contact details.',
-        }
-
     return {
       loadId: opportunity.loadId,
       rank: opportunity.rank,
@@ -514,10 +392,10 @@ export class ReturnLoadsService {
       estimatedFreight: opportunity.estimatedFreight,
       benchmarkFreight: opportunity.benchmarkFreight,
       rateVsBenchmark: opportunity.rateVsBenchmark,
-      pickupDistanceFromDestinationKm: Math.round(opportunity.pickupDistanceFromDestinationKm * 10) / 10,
+      pickupDistanceFromDestinationKm: opportunity.pickupDistanceFromDestinationKm,
       potentialEmptyRunReductionKm: opportunity.potentialEmptyRunReductionKm,
       payloadUtilizationPct: opportunity.payloadUtilizationPct,
-      payloadCompatible: tonnageCapacity > 0 && opportunity.tonnageRequired <= tonnageCapacity,
+      payloadCompatible: opportunity.tonnageRequired > 0 && opportunity.tonnageRequired <= tonnageCapacity,
       bodyTypeCompatible: opportunity.bodyTypeCompatible,
       bodyTypeExact: opportunity.bodyTypeExact,
       budgetFit: opportunity.budgetFit,
@@ -525,73 +403,73 @@ export class ReturnLoadsService {
       urgent: Boolean(rawLoad?.urgent),
       postedAt: rawLoad?.createdAt ? new Date(rawLoad.createdAt).toISOString() : null,
       isReturnLoad: true,
-      contact,
+      contact: contactUnlocked
+        ? { locked: false, name: opportunity.ownerName ?? null, phone: opportunity.ownerPhone ?? null }
+        : { locked: true, name: null, phone: null, message: 'An active subscription is required to reveal shipper contact details.' },
       disclaimer: opportunity.disclaimer,
     }
   }
 
-  /** Normalises a Prisma model or raw SQL row into the shared {@link LoadItem} shape. */
-  private toLoadItem(load: any): LoadItem {
+  private toLoadItem(load: CandidateLoad): LoadItem {
+    const destination = this.coordinates(load.unloadingLat, load.unloadingLng)
     return {
-      id: String(load.id ?? ''),
-      tonnageRequired: this.toNumber(load.tonnageRequired ?? load.tonnage_required),
-      loadingAddress: load.loadingAddress ?? load.loading_address ?? undefined,
-      loadingPin: load.loadingPin ?? load.loading_pin ?? undefined,
-      loadingLat: this.toOptionalNumber(load.loadingLat ?? load.loading_lat),
-      loadingLng: this.toOptionalNumber(load.loadingLng ?? load.loading_lng),
-      unloadingAddress: load.unloadingAddress ?? load.unloading_address ?? undefined,
-      unloadingPin: load.unloadingPin ?? load.unloading_pin ?? undefined,
-      unloadingLat: this.toOptionalNumber(load.unloadingLat ?? load.unloading_lat),
-      unloadingLng: this.toOptionalNumber(load.unloadingLng ?? load.unloading_lng),
-      truckType: load.truckType ?? load.truck_type ?? 'Open',
-      minLengthFt: this.toOptionalNumber(load.minLengthFt ?? load.min_length_ft),
-      minHeightFt: this.toOptionalNumber(load.minHeightFt ?? load.min_height_ft),
-      urgent: Boolean(load.urgent),
-      maxPrice: this.toOptionalNumber(load.maxPrice ?? load.max_price) ?? null,
-      createdAt: load.createdAt
-        ? String(load.createdAt)
-        : load.created_at
-          ? String(load.created_at)
-          : undefined,
-      ownerPhone: load.ownerPhone ?? load.user?.phone ?? null,
-      ownerName: load.ownerName ?? load.user?.name ?? null,
+      id: load.id,
+      tonnageRequired: Number(load.tonnageRequired),
+      loadingAddress: load.loadingAddress,
+      loadingLat: Number(load.loadingLat),
+      loadingLng: Number(load.loadingLng),
+      unloadingAddress: load.unloadingAddress,
+      unloadingLat: destination?.lat,
+      unloadingLng: destination?.lng,
+      // Prisma maps this enum, but raw SQL returns the database label.
+      truckType: String(load.truckType) === 'Open body' ? 'OpenBody' : load.truckType,
+      minLengthFt: load.minLengthFt ?? undefined,
+      minHeightFt: load.minHeightFt ?? undefined,
+      urgent: load.urgent,
+      maxPrice: this.optionalNumber(load.maxPrice) ?? null,
+      createdAt: load.createdAt ? new Date(load.createdAt).toISOString() : undefined,
+      ownerPhone: load.ownerPhone ?? null,
+      ownerName: load.ownerName ?? null,
     }
   }
 
-  private normalizeRadius(radiusKm?: number): number {
-    const value = this.toOptionalNumber(radiusKm)
-    if (value === undefined) return RETURN_LOAD_DEFAULT_RADIUS_KM
-    return Math.min(RETURN_LOAD_MAX_RADIUS_KM, Math.max(1, Math.round(value)))
+  private validateOptions(options: ReturnLoadsOptions) {
+    const radiusKm = options.radiusKm ?? RETURN_LOAD_DEFAULT_RADIUS_KM
+    const limit = options.limit ?? RETURN_LOAD_DEFAULT_LIMIT
+    const minScore = options.minScore ?? 0
+    const inRange = (value: number, min: number, max: number) => Number.isFinite(value) && value >= min && value <= max
+    if (!inRange(radiusKm, 1, RETURN_LOAD_MAX_RADIUS_KM)) {
+      throw new BadRequestException(`radius must be between 1 and ${RETURN_LOAD_MAX_RADIUS_KM} km`)
+    }
+    if (!Number.isInteger(limit) || !inRange(limit, 1, RETURN_LOAD_MAX_LIMIT)) {
+      throw new BadRequestException(`limit must be an integer between 1 and ${RETURN_LOAD_MAX_LIMIT}`)
+    }
+    if (!inRange(minScore, 0, 100)) throw new BadRequestException('minScore must be between 0 and 100')
+    if ((options.destinationLat !== undefined || options.destinationLng !== undefined) &&
+        (!inRange(options.destinationLat, -90, 90) || !inRange(options.destinationLng, -180, 180))) {
+      throw new BadRequestException('destinationLat and destinationLng must be a valid coordinate pair')
+    }
+    return { radiusKm, limit, minScore }
   }
 
-  private normalizeLimit(limit?: number): number {
-    const value = this.toOptionalNumber(limit)
-    if (value === undefined) return RETURN_LOAD_DEFAULT_LIMIT
-    return Math.min(RETURN_LOAD_MAX_LIMIT, Math.max(1, Math.round(value)))
+  private coordinates(latValue: unknown, lngValue: unknown): { lat: number; lng: number } | null {
+    const lat = this.optionalNumber(latValue)
+    const lng = this.optionalNumber(lngValue)
+    return lat !== undefined && lng !== undefined && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null
   }
 
-  private toStringArray(value: any): string[] {
-    if (Array.isArray(value)) return value.map((entry) => String(entry)).filter(Boolean)
+  private optionalNumber(value: unknown): number | undefined {
+    if (value === null || value === undefined || value === '' || typeof value === 'boolean') return undefined
+    const number = Number(value)
+    return Number.isFinite(number) ? number : undefined
+  }
+
+  private toStringArray(value: unknown): string[] {
     if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value)
-        return Array.isArray(parsed) ? parsed.map((entry) => String(entry)).filter(Boolean) : []
-      } catch {
-        return value.trim() ? [value.trim()] : []
-      }
+      try { return this.toStringArray(JSON.parse(value)) } catch { return value.trim() ? [value.trim()] : [] }
     }
-    return []
-  }
-
-  private toNumber(value: any): number {
-    if (value === null || value === undefined) return 0
-    const n = Number(value)
-    return isNaN(n) ? 0 : n
-  }
-
-  private toOptionalNumber(value: any): number | undefined {
-    if (value === null || value === undefined || value === '') return undefined
-    const n = Number(value)
-    return isNaN(n) ? undefined : n
+    return Array.isArray(value)
+      ? value.filter((entry): entry is string => typeof entry === 'string').map((entry) => entry.trim()).filter(Boolean)
+      : []
   }
 }

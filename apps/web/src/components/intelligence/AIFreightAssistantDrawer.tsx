@@ -10,7 +10,8 @@ import { AssistantResponse, parseNaturalLanguageIntent } from '@/lib/intelligenc
 import { ReturnLoadOpportunityCard } from './ReturnLoadOpportunityCard'
 import { FreightRateEstimatorCard } from './FreightRateEstimatorCard'
 import { Button, Spinner } from '@/components/ui'
-import { api, matchesApi, trucksApi } from '@/lib/api'
+import { api } from '@/lib/api'
+import { fetchReturnLoadsAnswer } from '@/lib/intelligence/returnLoadAssistant'
 import { formatINR, cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 
@@ -82,19 +83,17 @@ export function AIFreightAssistantDrawer() {
       // dashboard — not a client-side re-computation.
       const intent = parseNaturalLanguageIntent(q)
       if (intent.operation === 'FIND_RETURN_LOADS') {
-        const backendAnswer = await fetchReturnLoadsFromApi(intent)
-        if (backendAnswer) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `assistant-${Date.now()}`,
-              sender: 'assistant',
-              text: backendAnswer.message,
-              response: backendAnswer,
-            },
-          ])
-          return
-        }
+        const backendAnswer = await fetchReturnLoadsAnswer(intent)
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-${Date.now()}`,
+            sender: 'assistant',
+            text: backendAnswer.message,
+            response: backendAnswer,
+          },
+        ])
+        return
       }
 
       // Fetch live context records to execute against
@@ -130,50 +129,6 @@ export function AIFreightAssistantDrawer() {
       toast.error('Assistant could not process query.')
     } finally {
       setLoading(false)
-    }
-  }
-
-  /**
-   * Calls `GET /matches/truck/:truckId/return-loads` for the operator's primary
-   * lorry. Returns `null` when the caller has no vehicle or the API is
-   * unavailable, so the assistant can fall back to the local engine.
-   */
-  const fetchReturnLoadsFromApi = async (
-    intent: ReturnType<typeof parseNaturalLanguageIntent>,
-  ): Promise<AssistantResponse | null> => {
-    try {
-      const trucksRes = await trucksApi.getMyTrucks()
-      const myTrucks: any[] = trucksRes.data || []
-      const primaryTruck = myTrucks.find((t) => t.verificationStatus === 'Verified') || myTrucks[0]
-      if (!primaryTruck?.id) return null
-
-      const res = await matchesApi.getReturnLoads(primaryTruck.id, { radius: 150, limit: 5 })
-      const { opportunities, anchor, radiusKm, contactUnlocked } = res.data
-      const hub = anchor?.label || intent.destination || 'your drop-off hub'
-
-      if (!opportunities || opportunities.length === 0) {
-        return {
-          intent,
-          message: `No open return loads are listed within ${radiusKm} km of ${hub} right now. Grounded strictly in live load board records.`,
-          returnLoads: [],
-          isRealDataOnly: true,
-        }
-      }
-
-      const lockNote = contactUnlocked
-        ? ''
-        : ' Shipper contact details stay masked until your subscription or free trial is active.'
-
-      return {
-        intent,
-        message: `Found ${opportunities.length} ranked return load(s) within ${radiusKm} km of ${hub} for ${
-          primaryTruck.registrationNumber || 'your lorry'
-        }. Top match scores ${Math.round(opportunities[0].rankScore)}% on deadhead distance, payload fit, body type, rate and corridor.${lockNote}`,
-        returnLoads: opportunities as any,
-        isRealDataOnly: true,
-      }
-    } catch {
-      return null
     }
   }
 

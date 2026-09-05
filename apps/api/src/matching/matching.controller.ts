@@ -13,10 +13,8 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { MatchingService, MatchStatus } from './matching.service'
-import { ReturnLoadsService } from './return-loads.service'
 import { CreateMatchDto, EvaluateMatchesDto } from './dto/create-match.dto'
 import { UpdateMatchStatusDto } from './dto/update-match-status.dto'
-import { ReturnLoadsQueryDto } from './dto/return-loads-query.dto'
 
 @ApiTags('Matching')
 @ApiBearerAuth()
@@ -25,7 +23,6 @@ import { ReturnLoadsQueryDto } from './dto/return-loads-query.dto'
 export class MatchingController {
   constructor(
     private readonly matchingService: MatchingService,
-    private readonly returnLoadsService: ReturnLoadsService,
   ) {}
 
   @Get('my-matches')
@@ -71,27 +68,6 @@ export class MatchingController {
   ) {
     const r = radius ? parseInt(radius, 10) : 50
     return this.matchingService.getMatchesForTruck(truckId, userId, r)
-  }
-
-  @Get('truck/:truckId/return-loads')
-  @ApiOperation({
-    summary:
-      'Return-load (backhaul) opportunities for a truck — open loads near the drop-off hub, ranked by deadhead distance, match score, payload fit, body type, rate and preferred corridor',
-    description:
-      'The drop-off hub is resolved from the destinationLat/destinationLng override, then the most recent completed/in-flight booking destination, then the truck GPS position, then its preferred corridors. Shipper contact details are masked unless the caller holds an active subscription or free trial.',
-  })
-  async getReturnLoadsForTruck(
-    @Param('truckId') truckId: string,
-    @CurrentUser('id') userId: string,
-    @Query() query: ReturnLoadsQueryDto,
-  ) {
-    return this.returnLoadsService.getReturnLoadsForTruck(truckId, userId, {
-      radiusKm: query.radius,
-      limit: query.limit,
-      minScore: query.minScore,
-      destinationLat: query.destinationLat,
-      destinationLng: query.destinationLng,
-    })
   }
 
   @Post('evaluate')

@@ -92,10 +92,19 @@ deterministic 100-point scale:
 
 Ordering is stable: `rankScore` desc → shorter deadhead → higher match score →
 `loadId`. The API serves this through
-`GET /matches/truck/:truckId/return-loads`
-(`apps/api/src/matching/return-loads.service.ts`), and the web dashboard,
-booking detail page and AI assistant consume that endpoint rather than
-recomputing locally.
+`GET /matching/truck/:truckId/return-loads` (also aliased under `/matches`,
+with the API's usual `/api/v1` prefix). The owned-truck service
+(`apps/api/src/matching/return-loads.service.ts`) defaults to a **50 km** radius
+and rejects values outside 1–50 km. It passes the measured database pickup
+`distanceKm` to `evaluateBackhaulOpportunities` for each candidate, so matching
+and backhaul ranking use the same spherical proximity rather than recomputing a
+rounded road estimate. Zero coordinates/distances are valid.
+
+The web dashboard, booking detail page and AI assistant consume this endpoint
+without substituting client estimates on failure. Candidate discovery,
+ownership, paid-subscription contact masking, and query limits stay in the API;
+the pure shared functions do not perform authorization or database filtering.
+See [the return-load API contract](../../../../docs/return-loads-api.md).
 
 ## Adding a new rule
 
