@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Building2,
   Check,
+  Repeat,
   ShieldCheck,
   Sparkles,
   Truck,
@@ -18,7 +19,12 @@ import { cn } from '@/lib/utils'
 const ROLE_ICONS: Record<string, typeof Building2> = {
   factory_owner: Building2,
   truck_driver: Truck,
+  // Transporters work both sides of the marketplace.
+  transporter: Repeat,
 }
+
+/** Fallback icon so a newly added role never renders `undefined` (build-safe). */
+const DEFAULT_ROLE_ICON = Building2
 
 /** The first, deliberately low-friction step of new-operator onboarding. */
 export default function RoleSelectPage() {
@@ -77,7 +83,7 @@ export default function RoleSelectPage() {
 
           <div className="grid gap-4 md:grid-cols-3">
             {REGISTRATION_ROLES.map((role) => {
-              const Icon = ROLE_ICONS[role.value]
+              const Icon = ROLE_ICONS[role.value] ?? DEFAULT_ROLE_ICON
               const selected = selectedRole === role.value
               return (
                 <button
