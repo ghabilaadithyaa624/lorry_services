@@ -22,6 +22,7 @@ import {
   MapPin,
 } from 'lucide-react'
 import { api, trucksApi, authApi, matchesApi } from '@/lib/api'
+import { isOwnListingRow } from '@/lib/marketplaceActions'
 import { ConfirmDialog } from '@/components/ui/Modal'
 import { Footer, LanguageToggle } from '@/components/layout'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
@@ -32,8 +33,10 @@ import { cn, formatINR, formatPhone, whatsappLink } from '@/lib/utils'
 
 interface FleetTruck {
   id: string
-  /** Owner user id (from the trucks API); used to gate Edit/Delete to own trucks. */
+  /** Owner user id (from the trucks API); legacy gate for Edit/Delete to own trucks. */
   userId?: string
+  /** Backend-computed ownership (Prompt 9) — preferred over the userId compare. */
+  isOwner?: boolean
   registrationNumber?: string | null
   bodyType: 'Open' | 'Container' | 'OpenBody' | string
   lengthFt?: number
@@ -259,11 +262,12 @@ export default function MyFleetPage() {
 
   /**
    * Owner gate — `/trucks/my-trucks` only returns the signed-in user's trucks,
-   * but the Edit/Delete controls stay hidden unless the card provably belongs
-   * to the current user (defence in depth alongside the server-side check).
+   * but the owner controls (Edit/Delete/Manage Documents) stay hidden unless
+   * the card is provably the current user's: the backend `isOwner` flag
+   * (Prompt 9) wins, with the legacy userId compare as fallback (defence in
+   * depth alongside the server-side check).
    */
-  const canManageTruck = (truck: FleetTruck) =>
-    !truck.userId || !user?.id || truck.userId === user.id
+  const canManageTruck = (truck: FleetTruck) => isOwnListingRow(truck, user?.id)
 
   const openEditModal = (truck: FleetTruck) => {
     setEditTruck(truck)
@@ -802,16 +806,19 @@ export default function MyFleetPage() {
 
                     {/* Icon Action Buttons (Compacts with badges) */}
                     <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
-                      {/* Upload KYC Docs button if pending */}
-                      {!isVerified && (
+                      {/* Manage Documents (owner only, Prompt 9): RC/Insurance
+                          upload & re-upload lives in the KYC modal. Pending
+                          verification trucks are nudged with the extra label. */}
+                      {canManageTruck(truck) && (
                         <button
                           type="button"
                           onClick={() => setUploadDocModalTruck(truck)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 border border-primary-500/30 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer"
-                          title="Upload RC & Insurance Document"
+                          title="Manage RC & Insurance documents"
+                          aria-label={`Manage documents for vehicle ${truck.registrationNumber || truck.bodyType}`}
                         >
                           <Upload className="w-3.5 h-3.5" />
-                          <span>Upload RC / KYC</span>
+                          <span>{isVerified ? 'Manage Documents' : 'Manage Documents — Upload RC / KYC'}</span>
                         </button>
                       )}
 

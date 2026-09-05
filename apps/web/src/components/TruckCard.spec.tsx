@@ -75,4 +75,83 @@ describe('TruckCard Component', () => {
 
     expect(unlockButton.props['aria-label']).toBe('Unlock contact details for truck MH-12-AB-1234')
   })
+
+  /* ── Prompt 9: owner cards render owner controls, never marketplace unlock ── */
+
+  it('hides Unlock Contact for the caller’s OWN truck and shows owner controls instead', () => {
+    useStateSpy.mockImplementation((initial: any) => [initial, jest.fn()])
+
+    const ownTruck: Truck = {
+      ...mockTruck,
+      owner: undefined, // no revealed contact on the search payload
+      isOwner: true,
+    }
+
+    const handleEdit = jest.fn()
+    const handleDelete = jest.fn()
+    const handleManageDocuments = jest.fn()
+    const handleBook = jest.fn()
+
+    const element = TruckCard({
+      truck: ownTruck,
+      onBook: handleBook,
+      onEdit: handleEdit,
+      onDelete: handleDelete,
+      onManageDocuments: handleManageDocuments,
+    })
+
+    const cardDiv = element.props.children[0]
+    const actionsArea = cardDiv.props.children[3]
+    const [contactContainer, buttonsContainer] = actionsArea.props.children
+
+    // Owner state is never "sealed until subscription unlock"
+    const contactMessage = (contactContainer as any).props?.children?.[1]?.props?.children
+    expect(JSON.stringify(contactMessage)).toContain('Your truck')
+
+    const buttons: any[] = buttonsContainer.props.children.filter(Boolean)
+    const labels = buttons.map((b) => b?.props?.['aria-label'])
+
+    expect(labels).toContain('Edit your truck MH-12-AB-1234')
+    expect(labels).toContain('Delete your truck MH-12-AB-1234')
+    expect(labels).toContain('Manage documents for your truck MH-12-AB-1234')
+    expect(labels).not.toContain('Unlock contact details for truck MH-12-AB-1234')
+    expect(labels).not.toContain('Book lorry MH-12-AB-1234')
+
+    buttons.find((b) => b?.props?.['aria-label'] === 'Edit your truck MH-12-AB-1234').props.onClick()
+    expect(handleEdit).toHaveBeenCalledWith(ownTruck)
+
+    buttons
+      .find((b) => b?.props?.['aria-label'] === 'Manage documents for your truck MH-12-AB-1234')
+      .props.onClick()
+    expect(handleManageDocuments).toHaveBeenCalledWith(ownTruck)
+
+    buttons.find((b) => b?.props?.['aria-label'] === 'Delete your truck MH-12-AB-1234').props.onClick()
+    expect(handleDelete).toHaveBeenCalledWith(ownTruck)
+
+    expect(handleBook).not.toHaveBeenCalled()
+  })
+
+  it('still offers Book Lorry (not owner controls) for a truck the caller does not own', () => {
+    useStateSpy.mockImplementation((initial: any) => [initial, jest.fn()])
+
+    const element = TruckCard({
+      truck: { ...mockTruck, owner: undefined, isOwner: false },
+      onBook: jest.fn(),
+      onEdit: jest.fn(),
+      onDelete: jest.fn(),
+      onManageDocuments: jest.fn(),
+    })
+
+    const cardDiv = element.props.children[0]
+    const actionsArea = cardDiv.props.children[3]
+    const buttonsContainer = actionsArea.props.children[1]
+    const buttons: any[] = buttonsContainer.props.children.filter(Boolean)
+    const labels = buttons.map((b) => b?.props?.['aria-label'])
+
+    expect(labels).toContain('Unlock contact details for truck MH-12-AB-1234')
+    expect(labels).toContain('Book lorry MH-12-AB-1234')
+    expect(labels).not.toContain('Edit your truck MH-12-AB-1234')
+    expect(labels).not.toContain('Delete your truck MH-12-AB-1234')
+    expect(labels).not.toContain('Manage documents for your truck MH-12-AB-1234')
+  })
 })

@@ -191,12 +191,12 @@ describe('LoadsService', () => {
   })
 
   describe('findByUser', () => {
-    it('should return paginated list of loads for a user', async () => {
+    it('should return paginated list of loads for a user stamped with isOwner=true (Prompt 9)', async () => {
       const mockLoads = [{ id: 'load-1' }]
       ;(prisma.load.findMany as jest.Mock).mockResolvedValueOnce(mockLoads)
 
       const result = await service.findByUser('user-123', LoadStatus.Open, 2, 10)
-      expect(result).toEqual(mockLoads)
+      expect(result).toEqual([{ id: 'load-1', isOwner: true }])
       expect(prisma.load.findMany).toHaveBeenCalledWith({
         where: { userId: 'user-123', status: LoadStatus.Open },
         skip: 10,
@@ -265,6 +265,7 @@ describe('LoadsService', () => {
       const result = await service.findOne('load-123', 'other-user')
       expect(result.user.name).toBeNull()
       expect(result.user.phone).toBeNull()
+      expect(result.isOwner).toBe(false)
     })
 
     it('should not mask contact info if requester is the owner', async () => {
@@ -278,6 +279,7 @@ describe('LoadsService', () => {
       const result = await service.findOne('load-123', 'owner-id')
       expect(result.user.name).toBe('John')
       expect(result.user.phone).toBe('123')
+      expect(result.isOwner).toBe(true)
     })
   })
 

@@ -11,9 +11,14 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
+  Pencil,
+  Trash2,
+  FolderOpen,
+  BadgeCheck,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { calculateMatchScore, MatchResult } from '@/lib/intelligence/matchingEngine'
+import { marketplaceCardActions } from '@/lib/marketplaceActions'
 import { ContactRevealModal } from './ContactRevealModal'
 import { VerifiedBadge } from './VerifiedBadge'
 import { cn, formatPhone, whatsappLink } from '@/lib/utils'
@@ -36,6 +41,8 @@ export interface Truck {
   registrationNumber?: string | null
   /** Optional commercial rate per tonne in INR, shown in the search engine card. */
   ratePerTon?: number
+  /** Backend-computed ownership (Prompt 9) — owner cards render owner controls. */
+  isOwner?: boolean
   owner?: {
     id: string
     name?: string
@@ -47,6 +54,10 @@ export interface Truck {
 interface TruckCardProps {
   truck: Truck
   onBook?: (truck: Truck) => void
+  /** Owner-only controls (Prompt 9): rendered only when `truck.isOwner` is true. */
+  onEdit?: (truck: Truck) => void
+  onDelete?: (truck: Truck) => void
+  onManageDocuments?: (truck: Truck) => void
   userLocation?: { lat: number; lng: number }
   userRole?: string
   searchParams?: {
@@ -61,6 +72,9 @@ interface TruckCardProps {
 export function TruckCard({
   truck,
   onBook,
+  onEdit,
+  onDelete,
+  onManageDocuments,
   match,
 }: TruckCardProps) {
   const [showPaywall, setShowPaywall] = useState(false)
@@ -118,6 +132,14 @@ export function TruckCard({
 
   const etaMinutes = truck.distanceKm ? Math.round((truck.distanceKm / 35) * 60) : 25
   const relativeTime = '5m ago'
+
+  // Prompt 9: owner cards render owner controls (Edit/Delete/Manage Documents)
+  // and never Unlock Contact / Book Lorry for the caller's own truck.
+  const ownsThisTruck = truck.isOwner === true
+  const cardActions = marketplaceCardActions('truck', ownsThisTruck)
+
+  const ownerActionButtonClasses =
+    'inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-900/80 hover:bg-surface-800 border border-white/10 text-white text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none cursor-pointer shadow-card'
 
   return (
     <>
@@ -236,7 +258,7 @@ export function TruckCard({
           </div>
         )}
 
-        {/* Actions Area: Contact / Book */}
+        {/* Actions Area: owner controls vs marketplace Contact / Book (Prompt 9) */}
         <div className="pt-4 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {contactData?.owner ? (
             <div className="flex flex-wrap items-center gap-3">
@@ -260,6 +282,14 @@ export function TruckCard({
                 <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
               </a>
             </div>
+          ) : ownsThisTruck ? (
+            /* Own truck — never sealed, never paywalled for the owner */
+            <div className="flex items-center gap-2.5 text-xs sm:text-sm text-surface-400 font-medium">
+              <div className="w-7 h-7 rounded-lg bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                <BadgeCheck className="w-3.5 h-3.5" aria-hidden="true" />
+              </div>
+              <span>Your truck — manage it from your fleet workspace</span>
+            </div>
           ) : (
             <div className="flex items-center gap-2.5 text-xs sm:text-sm text-surface-400 font-medium">
               <div className="w-7 h-7 rounded-lg bg-surface-950 text-surface-400 border border-white/10 flex items-center justify-center shrink-0">
@@ -270,7 +300,7 @@ export function TruckCard({
           )}
 
           <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
-            {!contactData?.owner && (
+            {cardActions.unlockContact && !contactData?.owner && (
               <button
                 type="button"
                 onClick={handleViewContact}
@@ -283,7 +313,7 @@ export function TruckCard({
               </button>
             )}
 
-            {onBook && (
+            {cardActions.contactOrBook && onBook && (
               <button
                 type="button"
                 onClick={() => onBook(truck)}
@@ -292,6 +322,42 @@ export function TruckCard({
               >
                 <span>Book Lorry</span>
                 <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            )}
+
+            {cardActions.edit && onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(truck)}
+                aria-label={`Edit your truck ${truck.registrationNumber || truck.bodyType}`}
+                className={ownerActionButtonClasses}
+              >
+                <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Edit</span>
+              </button>
+            )}
+
+            {cardActions.manage && onManageDocuments && (
+              <button
+                type="button"
+                onClick={() => onManageDocuments(truck)}
+                aria-label={`Manage documents for your truck ${truck.registrationNumber || truck.bodyType}`}
+                className={ownerActionButtonClasses}
+              >
+                <FolderOpen className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{cardActions.manageLabel}</span>
+              </button>
+            )}
+
+            {cardActions.remove && onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(truck)}
+                aria-label={`Delete your truck ${truck.registrationNumber || truck.bodyType}`}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-danger-950/40 hover:bg-danger-950/70 border border-danger-900/40 text-danger-300 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-danger-500 focus:outline-none cursor-pointer shadow-card"
+              >
+                <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Delete</span>
               </button>
             )}
           </div>

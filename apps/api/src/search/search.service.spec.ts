@@ -126,6 +126,43 @@ describe('SearchService', () => {
       expect(query.values).toContain(12)
       expect(query.values).toContain(100 * 1000) // custom radius in meters
     })
+
+    it('stamps every row with an isOwner flag computed against the caller (Prompt 9)', async () => {
+      ;(prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([])
+
+      await service.searchTrucks({ lat: 18.5204, lng: 73.8567, userId: 'user-77' })
+
+      const [query] = (prisma.$queryRaw as jest.Mock).mock.calls[0]
+      expect(query.text).toContain('(t.user_id = ')
+      expect(query.text).toContain(') as "isOwner"')
+      // The owner id is bound as a secure parameter — never interpolated.
+      expect(query.values).toContain('user-77')
+    })
+
+    it('unmasks only the caller’s OWN registration & contact — strangers stay masked', async () => {
+      ;(prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([])
+
+      await service.searchTrucks({ lat: 18.5204, lng: 73.8567, userId: 'user-77' })
+
+      const [query] = (prisma.$queryRaw as jest.Mock).mock.calls[0]
+      // Own rows: CASE WHEN the caller owns the truck → show own reg/contact.
+      expect(query.text).toContain('CASE WHEN t.user_id = ')
+      expect(query.text).toContain('THEN t.registration_number ELSE NULL END as "registrationNumber"')
+      expect(query.text).toContain('THEN u.phone ELSE NULL END as "ownerPhone"')
+      expect(query.text).toContain('THEN u.name ELSE NULL END as "ownerName"')
+      expect(query.text).toContain('LEFT JOIN users u ON u.id = t.user_id')
+    })
+
+    it('keeps the uuid comparison valid when no caller id reaches the service', async () => {
+      ;(prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([])
+
+      await service.searchTrucks({ lat: 18.5204, lng: 73.8567 })
+
+      const [query] = (prisma.$queryRaw as jest.Mock).mock.calls[0]
+      // NULL literal (not an empty-string param) → isOwner is false for all rows.
+      expect(query.text).toContain('t.user_id = NULL')
+      expect(query.text).toContain(') as "isOwner"')
+    })
   })
 
   describe('searchLoads', () => {
@@ -191,6 +228,29 @@ describe('SearchService', () => {
       expect(query.values).toContain('Trailer')
       expect(query.values).toContain(25)
       expect(query.values).toContain(30 * 1000)
+    })
+
+    it('stamps every row with an isOwner flag computed against the caller (Prompt 9)', async () => {
+      ;(prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([])
+
+      await service.searchLoads({ lat: 12.9716, lng: 77.5946, userId: 'user-88' })
+
+      const [query] = (prisma.$queryRaw as jest.Mock).mock.calls[0]
+      expect(query.text).toContain('(l.user_id = ')
+      expect(query.text).toContain(') as "isOwner"')
+      expect(query.values).toContain('user-88')
+    })
+
+    it('unmasks only the caller’s OWN contact — other factories stay masked', async () => {
+      ;(prisma.$queryRaw as jest.Mock).mockResolvedValueOnce([])
+
+      await service.searchLoads({ lat: 12.9716, lng: 77.5946, userId: 'user-88' })
+
+      const [query] = (prisma.$queryRaw as jest.Mock).mock.calls[0]
+      expect(query.text).toContain('CASE WHEN l.user_id = ')
+      expect(query.text).toContain('THEN u.phone ELSE NULL END as "ownerPhone"')
+      expect(query.text).toContain('THEN u.name ELSE NULL END as "ownerName"')
+      expect(query.text).toContain('LEFT JOIN users u ON u.id = l.user_id')
     })
   })
 

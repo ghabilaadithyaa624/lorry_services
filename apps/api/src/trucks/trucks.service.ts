@@ -165,7 +165,7 @@ export class TrucksService {
   }
 
   async findByUser(userId: string) {
-    return prisma.truck.findMany({
+    const rows = await prisma.truck.findMany({
       where: { userId },
       include: {
         documents: {
@@ -179,6 +179,12 @@ export class TrucksService {
       },
       orderBy: { createdAt: 'desc' },
     })
+
+    // Prompt 9: ownership signal for card action gating. The endpoint is
+    // owner-scoped by construction, so every row is the caller's — the
+    // explicit flag lets clients gate Edit/Delete/Manage Documents without
+    // comparing user ids (and without depending on `userId` being present).
+    return rows.map((row) => ({ ...row, isOwner: true }))
   }
 
   async findOne(id: string, requestingUserId?: string) {
@@ -213,7 +219,10 @@ export class TrucksService {
       truck.user.name = null as any
     }
 
-    return truck
+    // Prompt 9: explicit ownership flag so clients render owner controls
+    // (Edit/Delete/Manage Documents) vs marketplace actions
+    // (View/Unlock Contact/Book Lorry) without inspecting the owner's user id.
+    return { ...truck, isOwner }
   }
 
   async updateLocation(truckId: string, userId: string, address: string, role?: string | null) {

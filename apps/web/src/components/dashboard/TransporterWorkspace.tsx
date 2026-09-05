@@ -35,6 +35,8 @@ import { cn, formatINR, timeAgo } from '@/lib/utils'
 export interface TransporterLoadPost {
   id: string
   userId?: string
+  /** Backend-computed ownership (Prompt 9) — preferred over the userId compare. */
+  isOwner?: boolean
   loadingAddress: string
   unloadingAddress: string
   truckType: string
@@ -49,6 +51,8 @@ export interface TransporterLoadPost {
 export interface TransporterTruckPost {
   id: string
   userId?: string
+  /** Backend-computed ownership (Prompt 9) — preferred over the userId compare. */
+  isOwner?: boolean
   registrationNumber?: string | null
   bodyType: string
   lengthFt?: number
@@ -78,13 +82,18 @@ const TRUCK_TYPE_OPTIONS = ['Open', 'Container', 'OpenBody'] as const
 
 /**
  * Rows fetched from the "my posts" endpoints are scoped to the caller by the
- * API. When the row carries a userId it must match the session user before any
- * edit/delete control renders; a missing userId is trusted as an own row
+ * API. The backend `isOwner` flag (Prompt 9) wins when present; otherwise,
+ * when the row carries a userId it must match the session user before any
+ * edit/delete control renders, and a missing userId is trusted as an own row
  * because the list itself is ownership-scoped.
  */
-function isOwnPost(rowUserId: string | undefined, currentUserId?: string | null): boolean {
-  if (!rowUserId) return true
-  return !currentUserId || rowUserId === currentUserId
+function isOwnPost(
+  row: { isOwner?: boolean; userId?: string | null } | null | undefined,
+  currentUserId?: string | null
+): boolean {
+  if (typeof row?.isOwner === 'boolean') return row.isOwner
+  if (!row?.userId) return true
+  return !currentUserId || row.userId === currentUserId
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -214,7 +223,7 @@ export function MyFreightPostsPanel({ loads, loading, currentUserId, onRefresh }
       ) : (
         <div className="space-y-3">
           {loads.map((load) => {
-            const own = isOwnPost(load.userId, currentUserId)
+            const own = isOwnPost(load, currentUserId)
             const mutable = own && load.status === 'Open'
             return (
               <div
@@ -249,7 +258,15 @@ export function MyFreightPostsPanel({ loads, loading, currentUserId, onRefresh }
                 </div>
 
                 {own && (
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-center">
+                    <Link
+                      href="/my-loads"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-900 hover:bg-surface-800 border border-white/10 text-surface-200 hover:text-white text-xs font-bold transition-colors cursor-pointer"
+                      aria-label={`Manage load ${load.loadingAddress} to ${load.unloadingAddress}`}
+                    >
+                      <ClipboardList className="w-3.5 h-3.5" />
+                      <span>Manage</span>
+                    </Link>
                     <button
                       type="button"
                       onClick={() => setEditing(load)}
@@ -500,7 +517,7 @@ export function MyTruckPostsPanel({ trucks, loading, currentUserId, onRefresh }:
       ) : (
         <div className="space-y-3">
           {trucks.map((truck) => {
-            const own = isOwnPost(truck.userId, currentUserId)
+            const own = isOwnPost(truck, currentUserId)
             const deletable = own && !truck.activeBooking
             return (
               <div
@@ -527,7 +544,15 @@ export function MyTruckPostsPanel({ trucks, loading, currentUserId, onRefresh }:
                 </div>
 
                 {own && (
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-center">
+                    <Link
+                      href="/my-trucks"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-900 hover:bg-surface-800 border border-white/10 text-surface-200 hover:text-white text-xs font-bold transition-colors cursor-pointer"
+                      aria-label={`Manage documents for truck ${truck.registrationNumber || truck.id}`}
+                    >
+                      <Briefcase className="w-3.5 h-3.5" />
+                      <span>Manage Documents</span>
+                    </Link>
                     <button
                       type="button"
                       onClick={() => setEditing(truck)}

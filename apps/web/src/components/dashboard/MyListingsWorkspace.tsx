@@ -6,10 +6,12 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowTopRightOnSquareIcon,
   ClipboardDocumentListIcon,
+  FolderOpenIcon,
   PencilSquareIcon,
   PlusCircleIcon,
   TrashIcon,
   TruckIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline'
 import { loadsApi, trucksApi } from '@/lib/api'
 import {
@@ -54,6 +56,8 @@ import { getListingsAccess, type ListingsTabKey } from '@/lib/roles'
 export interface ListingLoadRow {
   id: string
   userId?: string
+  /** Backend-computed ownership (Prompt 9) — preferred over the userId compare. */
+  isOwner?: boolean
   loadingAddress: string
   unloadingAddress: string
   loadingPin?: string | null
@@ -75,6 +79,8 @@ export interface ListingLoadRow {
 export interface ListingTruckRow {
   id: string
   userId?: string
+  /** Backend-computed ownership (Prompt 9) — preferred over the userId compare. */
+  isOwner?: boolean
   registrationNumber?: string | null
   bodyType: string
   lengthFt?: number | null
@@ -90,16 +96,18 @@ export interface ListingTruckRow {
 }
 
 /**
- * Rows from the ownership-scoped endpoints that carry a `userId` must match
- * the session user before destructive controls render; a missing `userId` is
+ * Ownership gate for rows from the ownership-scoped endpoints: an explicit
+ * backend `isOwner` flag (Prompt 9) wins; otherwise a `userId` must match the
+ * session user before destructive controls render, and a missing `userId` is
  * trusted as an own row because the list endpoint itself is owner-scoped.
  */
 export function isOwnRecord(
-  rowUserId: string | undefined,
+  row: { isOwner?: boolean; userId?: string | null } | null | undefined,
   currentUserId?: string | null
 ): boolean {
-  if (!rowUserId) return true
-  return !currentUserId || rowUserId === currentUserId
+  if (typeof row?.isOwner === 'boolean') return row.isOwner
+  if (!row?.userId) return true
+  return !currentUserId || row.userId === currentUserId
 }
 
 const LOAD_STATUS_TONE: Record<string, BadgeVariant> = {
@@ -203,7 +211,7 @@ export function ListingsFreightPanel({
       ) : (
         <ul className="space-y-3">
           {loads.map((load) => {
-            const own = isOwnRecord(load.userId, currentUserId)
+            const own = isOwnRecord(load, currentUserId)
             // Server refuses load edits once a load leaves Open — mirror it here.
             const mutable = own && load.status === 'Open'
             return (
@@ -248,6 +256,16 @@ export function ListingsFreightPanel({
 
                     {mutable && (
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          leftIcon={<WrenchScrewdriverIcon className="w-4 h-4" />}
+                          as="a"
+                          href="/my-loads"
+                          aria-label={`Manage load ${load.loadingAddress} to ${load.unloadingAddress}`}
+                        >
+                          Manage
+                        </Button>
                         <Button
                           variant="secondary"
                           size="sm"
@@ -535,7 +553,7 @@ export function ListingsTruckPanel({
       ) : (
         <ul className="space-y-3">
           {trucks.map((truck) => {
-            const own = isOwnRecord(truck.userId, currentUserId)
+            const own = isOwnRecord(truck, currentUserId)
             const verification = VERIFICATION_TONE[truck.verificationStatus] ?? 'default'
             const docCount = truck.documents?.length ?? 0
             return (
@@ -593,7 +611,17 @@ export function ListingsTruckPanel({
                     </div>
 
                     {own && (
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-center">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          leftIcon={<FolderOpenIcon className="w-4 h-4" />}
+                          as="a"
+                          href="/my-trucks"
+                          aria-label={`Manage documents for truck ${truck.registrationNumber || truck.id}`}
+                        >
+                          Manage Documents
+                        </Button>
                         <Button
                           variant="secondary"
                           size="sm"
