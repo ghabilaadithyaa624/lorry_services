@@ -27,6 +27,7 @@ export interface BookingData {
   balanceConfirmedAt?: string | null
   ewayBillNumber?: string | null
   ewayBillStatus?: string | null
+  ewayBillValidUpto?: string | null
   liabilityAccepted: boolean
   liabilityAcceptedAt?: string | null
   status: 'Pending' | 'Confirmed' | 'InTransit' | 'Completed' | 'Cancelled' | string
@@ -83,11 +84,18 @@ export interface ShipmentRiskAssessment {
     balanceAmount: number
   }
   riskSummary: string
+  /** Hours since the latest checkpoint crossing (or trip start when none crossed) while InTransit; null otherwise. */
+  lastCheckpointAgeHours: number | null
+  /** Hours past the expected delivery window while the booking is incomplete; null otherwise. */
+  deliveryOverdueHours: number | null
+  /** True when an attached E-Way Bill has expired (status Expired/Invalid or lapsed validity) on an active booking. */
+  isEwayBillExpired: boolean
 }
 
 const assessmentCache = new WeakMap<BookingData, ShipmentRiskAssessment>()
 
-const SIX_HOURS_MS = 6 * 60 * 60 * 1000
+const MS_PER_HOUR = 60 * 60 * 1000
+const SIX_HOURS_MS = 6 * MS_PER_HOUR
 
 export function assessShipmentIntelligence(
   booking: BookingData,
@@ -97,7 +105,9 @@ export function assessShipmentIntelligence(
     return assessmentCache.get(booking)!
   }
 
-  const checkpoints = booking.checkpoints || []
+  const checkpoints = (booking.checkpoints || [])
+    .slice()
+    .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
   const totalCheckpoints = Math.max(checkpoints.length, 5)
   const crossedCheckpoints = checkpoints.filter(cp => Boolean(cp.crossedAt || cp.crossed))
   const crossedCount = crossedCheckpoints.length
@@ -122,19 +132,26 @@ export function assessShipmentIntelligence(
     }
   }
 
+  // The staleness baseline is the latest crossed checkpoint timestamp; when no
+  // checkpoint has recorded a crossing yet, the trip start (`startedAt`) stands
+  // in so a vehicle that never checks in is still caught after 6 hours.
+  const startedTimeRaw = booking.startedAt ? new Date(booking.startedAt).getTime() : NaN
+  const stalenessBaseline =
+    latestCrossedTime !== null ? latestCrossedTime : !isNaN(startedTimeRaw) ? startedTimeRaw : null
+
   let isCheckpointStale = false
-  if (booking.status === 'InTransit') {
-    if (latestCrossedTime !== null) {
-      if (referenceTime - latestCrossedTime > SIX_HOURS_MS) {
-        isCheckpointStale = true
-      }
-    } else if (booking.startedAt) {
-      const startedTime = new Date(booking.startedAt).getTime()
-      if (!isNaN(startedTime) && referenceTime - startedTime > SIX_HOURS_MS) {
-        isCheckpointStale = true
-      }
-    }
+  if (
+    booking.status === 'InTransit' &&
+    stalenessBaseline !== null &&
+    referenceTime - stalenessBaseline > SIX_HOURS_MS
+  ) {
+    isCheckpointStale = true
   }
+
+  const lastCheckpointAgeHours =
+    booking.status === 'InTransit' && stalenessBaseline !== null
+      ? Math.round((Math.max(0, referenceTime - stalenessBaseline) / MS_PER_HOUR) * 10) / 10
+      : null
 
   // 2. Expected delivery time passed check:
   const rawExpectedDelivery =
@@ -144,10 +161,12 @@ export function assessShipmentIntelligence(
     booking.expectedDeliveryTime ||
     (booking as any).expectedDelivery
   let isExpectedDeliveryPassed = false
+  let deliveryOverdueHours: number | null = null
   if (rawExpectedDelivery && booking.status !== 'Completed' && booking.status !== 'Cancelled') {
     const deliveryTime = new Date(rawExpectedDelivery).getTime()
     if (!isNaN(deliveryTime) && referenceTime > deliveryTime) {
       isExpectedDeliveryPassed = true
+      deliveryOverdueHours = Math.round(((referenceTime - deliveryTime) / MS_PER_HOUR) * 10) / 10
     }
   }
 
@@ -157,6 +176,25 @@ export function assessShipmentIntelligence(
       booking.whatsappStatus === 'Failed' ||
       (booking as any).whatsapp_trigger_status === 'Failed') &&
     booking.status !== 'Cancelled'
+
+  // 4. E-Way Bill lifecycle check: a booked consignment above the GST threshold
+  // must carry an *active* E-Way Bill — an attached number whose validity has
+  // lapsed is as blocking at a state-border check as a missing one.
+  const isEwayBillMissing =
+    !booking.ewayBillNumber && booking.status !== 'Cancelled' && booking.status !== 'Completed'
+  const ewayStatus = (booking.ewayBillStatus || '').trim().toLowerCase()
+  let ewayBillValidUptoTime: number | null = null
+  if (booking.ewayBillValidUpto) {
+    const validUpto = new Date(booking.ewayBillValidUpto).getTime()
+    if (!isNaN(validUpto)) ewayBillValidUptoTime = validUpto
+  }
+  const isEwayBillExpired =
+    Boolean(booking.ewayBillNumber) &&
+    booking.status !== 'Cancelled' &&
+    booking.status !== 'Completed' &&
+    (ewayStatus === 'expired' ||
+      ewayStatus === 'invalid' ||
+      (ewayBillValidUptoTime !== null && referenceTime > ewayBillValidUptoTime))
 
   const requiredActions: ShipmentRiskAssessment['requiredActions'] = []
 
@@ -210,11 +248,19 @@ export function assessShipmentIntelligence(
     })
   }
 
-  // 6. Check E-Way Bill compliance
-  if (!booking.ewayBillNumber && booking.status !== 'Cancelled' && booking.status !== 'Completed') {
+  // 6. Check E-Way Bill compliance: missing number or lapsed validity
+  if (isEwayBillMissing) {
     requiredActions.push({
       title: 'E-Way Bill Number Missing',
       description: 'Indian GST regulations require an active E-Way Bill for consignments above ₹50,000.',
+      urgency: 'MEDIUM',
+      actionType: 'EWAY_BILL',
+    })
+  } else if (isEwayBillExpired) {
+    requiredActions.push({
+      title: 'E-Way Bill Expired',
+      description:
+        'The attached E-Way Bill has expired or its validity window has lapsed. Generate a fresh E-Way Bill before the next state-border check post.',
       urgency: 'MEDIUM',
       actionType: 'EWAY_BILL',
     })
@@ -274,11 +320,21 @@ export function assessShipmentIntelligence(
     badgeVariant = 'warning'
     riskSummary = 'Shipment attention required: Automated WhatsApp trigger failed.'
     whyReason = 'WhatsApp trigger failed'
-  } else if (!booking.ewayBillNumber) {
+  } else if (!booking.ewayBillNumber || isEwayBillExpired) {
     statusTier = 'ATTENTION REQUIRED'
     badgeVariant = 'warning'
-    riskSummary = 'Shipment attention required: E-Way Bill documentation missing.'
-    whyReason = 'E-Way Bill missing'
+    if (!booking.ewayBillNumber) {
+      riskSummary = 'Shipment attention required: E-Way Bill documentation missing.'
+      whyReason = 'E-Way Bill missing'
+    } else {
+      riskSummary = 'Shipment attention required: E-Way Bill validity has expired.'
+      whyReason = 'E-Way Bill expired'
+    }
+  } else if (booking.status === 'Pending') {
+    statusTier = 'LOW RISK'
+    badgeVariant = 'info'
+    riskSummary = 'Booking created. Awaiting counterparty confirmation before dispatch.'
+    whyReason = 'Booking pending confirmation'
   } else if (crossedCount === 0 && booking.status === 'Confirmed') {
     statusTier = 'LOW RISK'
     badgeVariant = 'info'
@@ -311,6 +367,9 @@ export function assessShipmentIntelligence(
       balanceAmount,
     },
     riskSummary,
+    lastCheckpointAgeHours,
+    deliveryOverdueHours,
+    isEwayBillExpired,
   }
 
   if (!options) {

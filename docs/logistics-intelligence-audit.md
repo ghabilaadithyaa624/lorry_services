@@ -139,11 +139,16 @@ Exposed via `GET /api/v1/matching/truck/:truckId/return-loads`:
 - **Paywall Protection**: Shipper `name` and `phone` are masked (`locked: true`) unless the requesting user holds an active, started and unexpired subscription. Trial-only accounts remain masked on this endpoint. The truck must belong to the caller regardless of subscription status. See [return-loads-api.md](return-loads-api.md) for the full contract.
 
 ### 5.4 Shipment Risk & Attention Classifier (`shipmentIntelligence.ts`)
-Classifies active booking journeys into operational health states:
-- `ACTION_REQUIRED`: Advance payment unconfirmed (`advanceConfirmed: false`), missing E-Way bill on active booking, or pending POD balance payment.
-- `ATTENTION_REQUIRED`: More than 6 hours without checkpoint update while in transit.
-- `ON_TRACK`: Checkpoints progressing on schedule with advance confirmed.
-- `COMPLETED`: 5/5 checkpoints crossed, POD verified, and balance confirmed.
+Classifies booking journeys into operational health states. Conditions are evaluated in priority order (highest first), and the winning tier always carries an explicit `whyReason`:
+
+1. **`COMPLETED`** — Booking completed and POD balance confirmed.
+2. **`ACTION REQUIRED`** — Completed but delivery balance not confirmed, or the 50% loading advance is unconfirmed after the booking reached `Confirmed`/`InTransit`.
+3. **`DELAYED`** — `expectedDeliveryAt` passed while the booking is not completed, or an `InTransit` vehicle whose latest checkpoint `crossedAt` (falling back to `startedAt` while no checkpoint has been crossed) is strictly older than 6 hours.
+4. **`ATTENTION REQUIRED`** — WhatsApp dispatch trigger `Failed`, E-Way Bill number missing on an active booking, or an attached E-Way Bill whose lifecycle has lapsed (`ewayBillStatus` Expired/Invalid or `ewayBillValidUpto` in the past).
+5. **`LOW RISK`** — Booking cancelled, still `Pending` counterparty confirmation, or `Confirmed` awaiting the first checkpoint check-in.
+6. **`ON TRACK`** — Checkpoints progressing on schedule with advance confirmed.
+
+Every assessment exposes `statusTier`, `badgeVariant`, `whyReason`, `riskSummary`, `requiredActions` (urgency + typed action: `CONFIRM_ADVANCE`, `CONFIRM_BALANCE`, `EWAY_BILL`, `WHATSAPP_RETRY`, `DELAY_INVESTIGATION`, `OVERDUE_DELIVERY`), the 50/50 commercial milestone split, delay magnitudes (`lastCheckpointAgeHours`, `deliveryOverdueHours`, `isEwayBillExpired`), and corridor milestone progress (`crossedCount`/`totalCheckpoints`, current location, next milestone, indicative ETA). `summarizeActiveShipmentsControlTower` aggregates the tiers for the Shipment Control Tower (`/tracking`) and booking deal room (`/booking/[id]`).
 
 ### 5.5 Operational Action Center (`actionCenterEngine.ts`)
 Shared task derivation engine consumed across Next.js and Vite dashboards:

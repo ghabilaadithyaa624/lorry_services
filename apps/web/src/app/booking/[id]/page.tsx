@@ -8,7 +8,6 @@ import {
   ExclamationTriangleIcon,
   SparklesIcon,
   ArrowPathIcon,
-  CurrencyRupeeIcon,
 } from '@heroicons/react/24/outline'
 import { api, bookingsApi, matchesApi, type ReturnLoadOpportunity } from '@/lib/api'
 import { format } from 'date-fns'
@@ -19,7 +18,7 @@ import { ReturnLoadOpportunityCard, DigitalDocumentChainCard } from '@/component
 import { BookingComplianceCard } from '@/components/compliance/BookingComplianceCard'
 import { normalizeRole } from '@/lib/roles'
 import { toast } from '@/lib/toast'
-import { cn, formatINR, whatsappLink } from '@/lib/utils'
+import { cn, whatsappLink } from '@/lib/utils'
 import { PaymentSplitCard } from '@/components/PaymentSplitCard'
 import { RatingModal } from '@/components/RatingModal'
 
@@ -349,9 +348,20 @@ export default function BookingDetailPage() {
                 </p>
               )}
             </div>
-            <span className="text-xs font-mono font-bold text-primary-400 bg-primary-500/10 px-3 py-1 rounded-full border border-primary-500/20">
-              {intelligence.progressPercent}% Corridor Completed
-            </span>
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+              {intelligence.statusTier === 'DELAYED' && (
+                <span className="text-xs font-mono font-bold text-rose-300 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/30">
+                  {intelligence.deliveryOverdueHours !== null
+                    ? `⏱ ${intelligence.deliveryOverdueHours}h past delivery window`
+                    : intelligence.lastCheckpointAgeHours !== null
+                    ? `⏱ ${intelligence.lastCheckpointAgeHours}h since last checkpoint`
+                    : '⏱ Schedule overrun'}
+                </span>
+              )}
+              <span className="text-xs font-mono font-bold text-primary-400 bg-primary-500/10 px-3 py-1 rounded-full border border-primary-500/20">
+                {intelligence.progressPercent}% Corridor Completed
+              </span>
+            </div>
           </div>
 
           {/* Progress Bar */}
@@ -378,8 +388,21 @@ export default function BookingDetailPage() {
             </div>
             <div className="p-3.5 rounded-xl bg-surface-950/80 border border-white/5 space-y-1">
               <span className="text-surface-400 block text-[10px] font-mono uppercase tracking-widest">E-Way Bill</span>
-              <span className="font-bold text-emerald-400 font-mono block">
-                {booking.ewayBillNumber ? `✓ #${booking.ewayBillNumber}` : 'Pending Entry'}
+              <span
+                className={cn(
+                  'font-bold font-mono block truncate',
+                  !booking.ewayBillNumber
+                    ? 'text-amber-400'
+                    : intelligence.isEwayBillExpired
+                    ? 'text-rose-400'
+                    : 'text-emerald-400'
+                )}
+              >
+                {!booking.ewayBillNumber
+                  ? '🟡 Pending Entry'
+                  : intelligence.isEwayBillExpired
+                  ? `✗ Expired #${booking.ewayBillNumber}`
+                  : `✓ #${booking.ewayBillNumber}`}
               </span>
             </div>
           </div>

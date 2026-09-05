@@ -455,6 +455,217 @@ describe('Shipment & Transit Intelligence Unit Tests', () => {
         expect(assessment.whyReason).toBe('Booking cancelled')
         expect(assessment.requiredActions).toHaveLength(0)
       })
+
+      it('10. ATTENTION REQUIRED: E-Way Bill expired (validity window lapsed)', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          ewayBillNumber: 'EWAY-999888777',
+          ewayBillValidUpto: '2026-09-04T08:00:00Z', // 4 hours before nowRef
+          checkpoints: [
+            { id: 'cp-1', seq: 1, name: 'CP 1', lat: 10, lng: 10, crossedAt: '2026-09-04T11:00:00Z' },
+          ],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('ATTENTION REQUIRED')
+        expect(assessment.badgeVariant).toBe('warning')
+        expect(assessment.whyReason).toBe('E-Way Bill expired')
+        expect(assessment.riskSummary).toBe('Shipment attention required: E-Way Bill validity has expired.')
+        expect(assessment.isEwayBillExpired).toBe(true)
+        const ewayAction = assessment.requiredActions.find(a => a.actionType === 'EWAY_BILL')
+        expect(ewayAction?.title).toBe('E-Way Bill Expired')
+        expect(ewayAction?.urgency).toBe('MEDIUM')
+      })
+
+      it('10b. ATTENTION REQUIRED: ewayBillStatus reports Expired', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          ewayBillStatus: 'Expired',
+          checkpoints: [
+            { id: 'cp-1', seq: 1, name: 'CP 1', lat: 10, lng: 10, crossedAt: '2026-09-04T11:00:00Z' },
+          ],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('ATTENTION REQUIRED')
+        expect(assessment.whyReason).toBe('E-Way Bill expired')
+        expect(assessment.isEwayBillExpired).toBe(true)
+      })
+
+      it('10c. should NOT flag expiry when ewayBillValidUpto is in the future', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          ewayBillValidUpto: '2026-09-05T08:00:00Z',
+          checkpoints: [
+            { id: 'cp-1', seq: 1, name: 'CP 1', lat: 10, lng: 10, crossedAt: '2026-09-04T11:00:00Z' },
+          ],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('ON TRACK')
+        expect(assessment.isEwayBillExpired).toBe(false)
+        expect(assessment.requiredActions.find(a => a.actionType === 'EWAY_BILL')).toBeUndefined()
+      })
+
+      it('10d. should NOT flag E-Way Bill expiry on a completed booking', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'Completed',
+          balanceConfirmed: true,
+          ewayBillValidUpto: '2026-09-04T08:00:00Z',
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('COMPLETED')
+        expect(assessment.isEwayBillExpired).toBe(false)
+      })
+
+      it('11. LOW RISK: Pending booking awaiting confirmation (advance action still surfaced)', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'Pending',
+          advanceConfirmed: false,
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('LOW RISK')
+        expect(assessment.badgeVariant).toBe('info')
+        expect(assessment.whyReason).toBe('Booking pending confirmation')
+        expect(assessment.riskSummary).toBe('Booking created. Awaiting counterparty confirmation before dispatch.')
+        // Advance is only ACTION REQUIRED once the booking is Confirmed/InTransit,
+        // but the operational task itself is still listed for the shipper.
+        expect(assessment.requiredActions.find(a => a.actionType === 'CONFIRM_ADVANCE')).toBeDefined()
+      })
+
+      it('12. COMPLETED booking is never classified as DELAYED even with stale checkpoints and overdue delivery', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'Completed',
+          balanceConfirmed: true,
+          expectedDeliveryAt: '2026-09-04T10:00:00Z',
+          checkpoints: [
+            { id: 'cp-1', seq: 1, name: 'CP 1', lat: 10, lng: 10, crossedAt: '2026-09-04T04:00:00Z' }, // 8 hours stale
+          ],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('COMPLETED')
+        expect(assessment.requiredActions.find(a => a.actionType === 'DELAY_INVESTIGATION')).toBeUndefined()
+        expect(assessment.requiredActions.find(a => a.actionType === 'OVERDUE_DELIVERY')).toBeUndefined()
+        expect(assessment.deliveryOverdueHours).toBeNull()
+        expect(assessment.lastCheckpointAgeHours).toBeNull()
+      })
+    })
+
+    describe('6-Hour Checkpoint Delay Boundaries', () => {
+      it('should NOT flag delayed when the latest checkpoint is exactly 6 hours old', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          checkpoints: [
+            { id: 'cp-1', seq: 1, name: 'CP 1', lat: 10, lng: 10, crossedAt: '2026-09-04T06:00:00Z' }, // exactly 6h
+          ],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('ON TRACK')
+        expect(assessment.lastCheckpointAgeHours).toBe(6)
+        expect(assessment.requiredActions.find(a => a.actionType === 'DELAY_INVESTIGATION')).toBeUndefined()
+      })
+
+      it('should flag delayed one minute past the 6-hour threshold', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          checkpoints: [
+            { id: 'cp-1', seq: 1, name: 'CP 1', lat: 10, lng: 10, crossedAt: '2026-09-04T05:59:00Z' }, // 6h 01m
+          ],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('DELAYED')
+        expect(assessment.whyReason).toBe('InTransit and latest checkpoint crossedAt older than 6 hours')
+        expect(assessment.lastCheckpointAgeHours).toBeGreaterThanOrEqual(6)
+      })
+
+      it('should use the most recent crossedAt even when checkpoint timestamps arrive out of chronological order', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          checkpoints: [
+            { id: 'cp-2', seq: 2, name: 'CP 2', lat: 11, lng: 11, crossedAt: '2026-09-04T04:30:00Z' }, // 7.5h ago
+            { id: 'cp-1', seq: 1, name: 'CP 1', lat: 10, lng: 10, crossedAt: '2026-09-04T04:00:00Z' }, // 8h ago
+          ],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('DELAYED')
+        expect(assessment.lastCheckpointAgeHours).toBe(7.5)
+      })
+
+      it('should NOT flag delay when InTransit started less than 6 hours ago with no crossings yet', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          startedAt: '2026-09-04T09:00:00Z', // 3h ago
+          checkpoints: [],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('ON TRACK')
+        expect(assessment.lastCheckpointAgeHours).toBe(3)
+      })
+
+      it('should NOT flag delay when InTransit has no checkpoints and no startedAt to anchor staleness', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          checkpoints: [],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('ON TRACK')
+        expect(assessment.lastCheckpointAgeHours).toBeNull()
+      })
+
+      it('should derive milestone names from seq order even when the payload is unsorted', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          checkpoints: [
+            { id: 'cp-3', seq: 3, name: 'Tumkur Toll', lat: 13.3, lng: 77.1, crossedAt: '2026-09-04T11:15:00Z' },
+            { id: 'cp-1', seq: 1, name: 'Hosur Gate', lat: 12.7, lng: 77.8, crossedAt: '2026-09-04T11:00:00Z' },
+            { id: 'cp-2', seq: 2, name: 'Chitradurga Bypass', lat: 14.2, lng: 76.4, crossedAt: null },
+          ],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.crossedCount).toBe(2)
+        expect(assessment.currentLocationName).toBe('Tumkur Toll')
+        expect(assessment.nextMilestoneName).toBe('Chitradurga Bypass')
+        expect(assessment.statusTier).toBe('ON TRACK')
+      })
+    })
+
+    describe('Delay Magnitude Exposure', () => {
+      it('should expose deliveryOverdueHours when the expected delivery window has passed', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          expectedDeliveryAt: '2026-09-04T09:30:00Z', // 2.5h overdue
+          checkpoints: [
+            { id: 'cp-1', seq: 1, name: 'CP 1', lat: 10, lng: 10, crossedAt: '2026-09-04T11:00:00Z' },
+          ],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.statusTier).toBe('DELAYED')
+        expect(assessment.deliveryOverdueHours).toBe(2.5)
+      })
+
+      it('should return null deliveryOverdueHours when the delivery window is still in the future', () => {
+        const booking: BookingData = {
+          ...baseBooking,
+          status: 'InTransit',
+          expectedDeliveryAt: '2026-09-04T18:00:00Z',
+          checkpoints: [
+            { id: 'cp-1', seq: 1, name: 'CP 1', lat: 10, lng: 10, crossedAt: '2026-09-04T11:00:00Z' },
+          ],
+        }
+        const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+        expect(assessment.deliveryOverdueHours).toBeNull()
+        expect(assessment.statusTier).toBe('ON TRACK')
+      })
     })
   })
 
