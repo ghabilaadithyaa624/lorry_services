@@ -22,7 +22,8 @@ import { api, locationApi } from '@/lib/api'
 import { Footer, Navbar } from '@/components/layout'
 import { VerifiedBadge } from '@/components/VerifiedBadge'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
-import { Badge, Button, Card, EmptyState, Input, Select, Skeleton, Spinner } from '@/components/ui'
+import { Badge, Button, Card, Input, Select, Skeleton, Spinner } from '@/components/ui'
+import { DemoPreviewCards, SearchEmptyState, TelemetryCell } from '@/components/search'
 import { MatchScoreBadge } from '@/components/intelligence'
 import {
   calculateMatchScore,
@@ -31,6 +32,16 @@ import {
   MatchSortOption,
   MatchResult,
 } from '@/lib/intelligence'
+import { hasClientSession } from '@/lib/subscription'
+import {
+  bodyTypeLabel,
+  buildMarketplaceQuery,
+  marketplaceEndpoint,
+  resolveSearchEmptyVariant,
+  searchUrlForMode,
+  type HubSuggestion,
+  type SearchMode,
+} from '@/lib/searchEmptyState'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, formatPhone, whatsappLink } from '@/lib/utils'
 import { StructuredData } from '@/components/seo/StructuredData'
@@ -72,8 +83,6 @@ interface LoadResult {
   match?: MatchResult
 }
 
-type SearchMode = 'trucks' | 'loads'
-
 const SORT_OPTIONS: Array<{ id: MatchSortOption; label: string }> = [
   { id: 'BEST_MATCH', label: 'Best Match' },
   { id: 'NEAREST', label: 'Nearest' },
@@ -88,43 +97,6 @@ function getRelativeTimestamp(id: string): string {
   const minutes = (hash % 45) + 3
   if (minutes < 60) return `${minutes}m ago`
   return `${Math.floor(minutes / 60)}h ago`
-}
-
-/**
- * Monospace telemetry readout cell (docs/LORRYCARRY_DESIGN_SYSTEM.md §4, §8.3).
- * Dense operational values render in a deep well with a mono uppercase label.
- */
-function TelemetryCell({
-  label,
-  icon,
-  value,
-  valueClassName,
-}: {
-  label: string
-  icon?: React.ReactNode
-  value: React.ReactNode
-  valueClassName?: string
-}) {
-  return (
-    <div className="bg-sunken/60 rounded-xl p-3 border border-white/5">
-      <div className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-widest text-muted">
-        {label}
-      </div>
-      <div
-        className={cn(
-          'text-sm sm:text-base font-bold text-ink font-mono mt-0.5 flex items-center gap-1',
-          valueClassName
-        )}
-      >
-        {icon && (
-          <span className="shrink-0 inline-flex" aria-hidden="true">
-            {icon}
-          </span>
-        )}
-        <span className="min-w-0">{value}</span>
-      </div>
-    </div>
-  )
 }
 
 function SearchPageContent() {
@@ -150,6 +122,20 @@ function SearchPageContent() {
   >([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const suggestionsRef = useRef<HTMLDivElement>(null)
+  const locationInputRef = useRef<HTMLInputElement>(null)
+
+  /**
+   * Empty-state bookkeeping.
+   *
+   * `hasSearched` separates "no query has run yet" from "a query ran and the
+   * marketplace returned nothing" — without it the panel claims a result count
+   * the operator never asked for. `searchError` keeps a failed query from being
+   * reported as an empty marketplace.
+   */
+  const [hasSearched, setHasSearched] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  /** `false` until the session probe runs, so SSR markup and first paint match. */
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // Booking modal state
   const [selectedTruckForBooking, setSelectedTruckForBooking] = useState<TruckResult | null>(null)
@@ -163,6 +149,12 @@ function SearchPageContent() {
       setMode('trucks')
     }
   }, [searchParams])
+
+  // Probe the local session once mounted so the empty state can route signed-in
+  // operators straight to their forms instead of bouncing them through /login.
+  useEffect(() => {
+    setIsAuthenticated(hasClientSession())
+  }, [])
 
   // Click outside to dismiss suggestions
   useEffect(() => {
@@ -254,6 +246,11 @@ function SearchPageContent() {
         } finally {
           setGpsLoading(false)
         }
+
+        // A GPS fix is a search intent — run the query with the fresh
+        // coordinates instead of waiting for another Search click. They are
+        // passed explicitly because setLat/setLng have not committed yet.
+        handleSearch({ lat: latStr, lng: lngStr })
       },
       (error) => {
         setGpsLoading(false)
@@ -310,12 +307,34 @@ function SearchPageContent() {
     }
   }
 
-  const handleSearch = async () => {
-    let searchLat = lat
-    let searchLng = lng
+  /**
+   * Run a marketplace query.
+   *
+   * `overrides` exists because the empty state and the GPS handler both need to
+   * search with values that were just committed through `setState` — and are
+   * therefore not visible in this closure yet. Reading them from state instead
+   * would silently query the *previous* radius, which is how "Expand Search to
+   * 200 km" used to re-run a 50 km query.
+   */
+  const handleSearch = async (
+    overrides: {
+      lat?: string
+      lng?: string
+      radius?: string
+      locationLabel?: string
+      truckType?: string
+      tonnage?: string
+    } = {}
+  ) => {
+    const effectiveLabel = overrides.locationLabel ?? locationLabel
+    const effectiveRadius = overrides.radius ?? radius
+    const effectiveTruckType = overrides.truckType ?? truckType
+    const effectiveTonnage = overrides.tonnage ?? tonnage
+    let searchLat = overrides.lat ?? lat
+    let searchLng = overrides.lng ?? lng
 
-    if ((!searchLat || !searchLng) && locationLabel && locationLabel.trim().length >= 2) {
-      const coordMatch = locationLabel
+    if ((!searchLat || !searchLng) && effectiveLabel && effectiveLabel.trim().length >= 2) {
+      const coordMatch = effectiveLabel
         .trim()
         .match(/^([0-9.]+)\s*°?\s*[NS]?\s*,\s*([0-9.]+)\s*°?\s*[EW]?$/i)
       if (coordMatch) {
@@ -326,7 +345,7 @@ function SearchPageContent() {
       } else {
         setLoading(true)
         try {
-          const geoRes = await locationApi.geocode(locationLabel.trim())
+          const geoRes = await locationApi.geocode(effectiveLabel.trim())
           if (geoRes.data?.lat && geoRes.data?.lng) {
             searchLat = geoRes.data.lat.toString()
             searchLng = geoRes.data.lng.toString()
@@ -349,27 +368,30 @@ function SearchPageContent() {
     }
 
     setLoading(true)
+    setSearchError(null)
     setRawResults([])
 
     try {
-      const endpoint = mode === 'trucks' ? '/search/trucks' : '/search/loads'
-      const params = new URLSearchParams({
+      const endpoint = marketplaceEndpoint(mode)
+      const query = buildMarketplaceQuery({
         lat: searchLat,
         lng: searchLng,
-        radius,
+        radius: effectiveRadius,
+        truckType: effectiveTruckType,
+        tonnage: effectiveTonnage,
+        mode,
       })
 
-      if (truckType) params.append('truckType', truckType)
-      if (tonnage) {
-        if (mode === 'trucks') params.append('minTonnage', tonnage)
-        else params.append('maxTonnage', tonnage)
-      }
-
-      const res = await api.get(`${endpoint}?${params.toString()}`)
+      const res = await api.get(`${endpoint}?${query}`)
       setRawResults(res.data || [])
+      setHasSearched(true)
     } catch {
       toast.error('Failed to fetch search results. Please try again.')
       setRawResults([])
+      setHasSearched(true)
+      setSearchError(
+        'The search service did not respond, so no result count is available for this query.'
+      )
     } finally {
       setLoading(false)
     }
@@ -406,6 +428,57 @@ function SearchPageContent() {
       setRevealing(null)
     }
   }
+
+  // ── Empty-state affordances ───────────────────────────────────────────────
+  // Each of these mutates a filter *and* re-runs the query with the new value,
+  // so the guidance panel never leaves the operator looking at a stale grid.
+
+  const focusLocationInput = () => {
+    locationInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    locationInputRef.current?.focus({ preventScroll: true })
+  }
+
+  const handleHubSelect = (hub: HubSuggestion) => {
+    setLocationLabel(hub.query)
+    setLat('')
+    setLng('')
+    setSearchError(null)
+    handleSearch({ lat: '', lng: '', locationLabel: hub.query })
+  }
+
+  const handleRadiusSelect = (nextRadius: string) => {
+    setRadius(nextRadius)
+    handleSearch({ radius: nextRadius })
+  }
+
+  const handleTruckTypeSelect = (nextTruckType: string) => {
+    setTruckType(nextTruckType)
+    handleSearch({ truckType: nextTruckType })
+  }
+
+  const handleResetFilters = () => {
+    setTruckType('')
+    setTonnage('')
+    handleSearch({ truckType: '', tonnage: '' })
+  }
+
+  const handleSwitchMode = (nextMode: SearchMode) => {
+    setMode(nextMode)
+    setRawResults([])
+    setHasSearched(false)
+    setSearchError(null)
+    router.replace(searchUrlForMode(nextMode))
+  }
+
+  const gpsSupported =
+    typeof window !== 'undefined' && typeof navigator !== 'undefined' && Boolean(navigator.geolocation)
+
+  /** Why the result grid is empty — drives the guidance panel variant. */
+  const emptyVariant = resolveSearchEmptyVariant({
+    hasSearched,
+    hasLocation: Boolean(locationLabel.trim()),
+    searchError,
+  })
 
   // Calculate Match Score for every item and sort deterministically
   const targetLoadTonnage = tonnage ? parseFloat(tonnage) : 10
@@ -527,11 +600,7 @@ function SearchPageContent() {
                 type="button"
                 aria-selected={mode === 'trucks'}
                 aria-controls="panel-marketplace-results"
-                onClick={() => {
-                  setMode('trucks')
-                  router.replace('/search?type=truck')
-                  setRawResults([])
-                }}
+                onClick={() => handleSwitchMode('trucks')}
                 className={cn(
                   'pb-3.5 text-sm sm:text-base font-bold flex items-center gap-2 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none',
                   mode === 'trucks'
@@ -549,11 +618,7 @@ function SearchPageContent() {
                 type="button"
                 aria-selected={mode === 'loads'}
                 aria-controls="panel-marketplace-results"
-                onClick={() => {
-                  setMode('loads')
-                  router.replace('/search?type=load')
-                  setRawResults([])
-                }}
+                onClick={() => handleSwitchMode('loads')}
                 className={cn(
                   'pb-3.5 text-sm sm:text-base font-bold flex items-center gap-2 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none',
                   mode === 'loads'
@@ -571,12 +636,17 @@ function SearchPageContent() {
               {/* Loading Point */}
               <div className="md:col-span-5 relative" ref={suggestionsRef}>
                 <Input
+                  ref={locationInputRef}
+                  id="search-location-input"
                   label={mode === 'trucks' ? 'Loading Point / Hub' : 'Consignment Origin'}
                   type="text"
                   value={locationLabel}
                   onChange={(e) => {
                     const val = e.target.value
                     setLocationLabel(val)
+                    // A new loading point invalidates the previous query outcome,
+                    // including any failure message tied to it.
+                    setSearchError(null)
                     if (!val.trim()) {
                       setLat('')
                       setLng('')
@@ -662,7 +732,7 @@ function SearchPageContent() {
               <div className="md:col-span-2">
                 <Button
                   type="button"
-                  onClick={handleSearch}
+                  onClick={() => handleSearch()}
                   loading={loading}
                   loadingText="Searching freight marketplace"
                   fullWidth
@@ -722,17 +792,50 @@ function SearchPageContent() {
           <div id="panel-marketplace-results" role="tabpanel" aria-labelledby={mode === 'trucks' ? 'tab-trucks' : 'tab-loads'} className="space-y-4">
             <Card padding="none" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:px-6">
               <div className="flex flex-wrap items-center gap-2.5">
+                {/*
+                  The count is only stated once a query has actually run.
+                  Before that, "Found 0 trucks" reads as an empty marketplace
+                  when in fact nothing was ever queried.
+                */}
                 <p className="text-sm sm:text-base text-body font-medium" aria-live="polite">
-                  Found{' '}
-                  <strong className="text-ink font-bold font-mono text-base sm:text-lg">
-                    {sortedResults.length}
-                  </strong>{' '}
-                  {mode === 'trucks' ? 'trucks' : 'loads'} within <span className="font-mono text-ink">{radius}</span> km
+                  {emptyVariant === 'error' ? (
+                    <>
+                      Last query did not complete —{' '}
+                      <strong className="text-ink font-bold">no result count available</strong>
+                    </>
+                  ) : hasSearched ? (
+                    <>
+                      Found{' '}
+                      <strong className="text-ink font-bold font-mono text-base sm:text-lg">
+                        {sortedResults.length}
+                      </strong>{' '}
+                      {mode === 'trucks' ? 'trucks' : 'loads'} within{' '}
+                      <span className="font-mono text-ink">{radius}</span> km
+                      {locationLabel.trim() ? (
+                        <>
+                          {' '}
+                          near <span className="text-ink">{locationLabel.trim()}</span>
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      No search run yet —{' '}
+                      <span className="text-ink">
+                        {locationLabel.trim()
+                          ? `query ${mode === 'trucks' ? 'trucks' : 'loads'} near ${locationLabel.trim()}`
+                          : 'set a loading point to query the live marketplace'}
+                      </span>
+                    </>
+                  )}
                 </p>
-                <Badge variant="primary" size="sm">
-                  <Sparkles className="w-3 h-3" aria-hidden="true" />
-                  <span>Smart Ranked</span>
-                </Badge>
+
+                {sortedResults.length > 0 && (
+                  <Badge variant="primary" size="sm">
+                    <Sparkles className="w-3 h-3" aria-hidden="true" />
+                    <span>Smart Ranked</span>
+                  </Badge>
+                )}
               </div>
 
               {/* Sort Control */}
@@ -782,20 +885,41 @@ function SearchPageContent() {
                 ))}
               </div>
             ) : sortedResults.length === 0 ? (
-              /* ── Zero-Results Empty State ── */
-              <EmptyState
-                icon={mode === 'trucks' ? Truck : Package}
-                title={`No matching ${mode === 'trucks' ? 'trucks' : 'freight loads'} found within ${radius} km`}
-                description="Try expanding your search radius to 100 km or 200 km to discover more active freight matches across the regional corridor."
-                primaryAction={{
-                  label: 'Expand Search to 200 km',
-                  onClick: () => {
-                    setRadius('200')
-                    handleSearch()
-                  },
-                }}
-                className="py-10 sm:py-14"
-              />
+              /* ── Zero results: actionable guidance, then labelled samples ── */
+              <div className="space-y-6">
+                <SearchEmptyState
+                  mode={mode}
+                  variant={emptyVariant}
+                  radius={radius}
+                  truckType={truckType}
+                  locationLabel={locationLabel}
+                  searchError={searchError}
+                  gpsSupported={gpsSupported}
+                  gpsLoading={gpsLoading}
+                  isAuthenticated={isAuthenticated}
+                  onDetectLocation={detectLocation}
+                  onFocusLocationInput={focusLocationInput}
+                  onHubSelect={handleHubSelect}
+                  onRadiusSelect={handleRadiusSelect}
+                  onTruckTypeSelect={handleTruckTypeSelect}
+                  onResetFilters={handleResetFilters}
+                  onRetry={() => handleSearch()}
+                  onSwitchMode={handleSwitchMode}
+                />
+
+                {/*
+                  Sample cards live only inside the zero-result branch, and the
+                  component itself returns null when real results exist — live
+                  and demo listings can never be interleaved.
+                */}
+                <DemoPreviewCards
+                  mode={mode}
+                  realResultCount={sortedResults.length}
+                  isAuthenticated={isAuthenticated}
+                  targetTonnage={targetLoadTonnage}
+                  truckType={truckType}
+                />
+              </div>
             ) : (
               /* ── 5. Result Cards Grid ── */
               <div className="grid grid-cols-1 gap-4">
@@ -869,12 +993,7 @@ function SearchPageContent() {
 
                                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted font-medium">
                                   <span className="font-semibold text-body">
-                                    {truck.bodyType === 'Open'
-                                      ? 'Open Body'
-                                      : truck.bodyType === 'Container'
-                                      ? 'Closed Container'
-                                      : 'Open Body Trailer'}{' '}
-                                    Truck
+                                    {bodyTypeLabel(truck.bodyType)} Truck
                                   </span>
                                   {truck.lengthFt && (
                                     <span>
