@@ -7,10 +7,13 @@
  * so the page needs to distinguish *why* the grid is empty and route them
  * somewhere useful.
  *
- * This module is deliberately dependency-free (no `next/*`, no React) so it can
- * be unit-tested in the node jest environment and reused from the page and the
- * empty-state components alike.
+ * This module is deliberately free of framework imports (no `next/*`, no React)
+ * so it can be unit-tested in the node jest environment and reused from the page
+ * and the empty-state components alike. The one internal dependency is
+ * `@/lib/roles`, which is pure TypeScript.
  */
+
+import { canManageFreight, canManageFleet } from '@/lib/roles'
 
 /** Marketplace search mode. `trucks` = I need a vehicle, `loads` = I need freight. */
 export type SearchMode = 'trucks' | 'loads'
@@ -141,10 +144,132 @@ export function loginRedirectUrl(target: string, fallback = '/search'): string {
   return `/login?redirect=${needsEncoding ? encodeURIComponent(path) : path}`
 }
 
-/** Authenticated destination a shipper is sent to for posting freight. */
-export const POST_LOAD_PATH = '/need-load'
-/** Authenticated destination a transporter is sent to for listing a vehicle. */
-export const REGISTER_VEHICLE_PATH = '/need-vehicle'
+/**
+ * Canonical publish destinations.
+ *
+ * These are the same URLs the navbar and the dashboard sidebar use
+ * (`dashboardNav.POST_FREIGHT` / `REGISTER_TRUCK`), so an operator who clicks
+ * "Post Freight" from an empty search lands on the same form they would reach
+ * from anywhere else. `/register-truck` forwards to the fleet workspace, which
+ * owns the registration form.
+ */
+export const POST_FREIGHT_PATH = '/post-load'
+export const REGISTER_TRUCK_PATH = '/register-truck'
+
+/** Public-facing label used everywhere else in the product (navbar, sidebar). */
+export const POST_FREIGHT_LABEL = 'Post Freight'
+export const REGISTER_TRUCK_LABEL = 'Register Truck'
+
+// ── Publish CTAs ────────────────────────────────────────────────────────────
+
+/** The two sides an operator can create supply on. */
+export type MarketplaceCtaKind = 'post-freight' | 'register-truck'
+
+export interface MarketplaceCta {
+  kind: MarketplaceCtaKind
+  label: string
+  /** Authenticated destination. */
+  path: string
+  /** `path` for a signed-in operator, `/login?redirect=…` otherwise. */
+  href: string
+  /** Rendered as the filled button; the rest render as secondary actions. */
+  primary: boolean
+  /** One-line reason shown with the CTA row. */
+  hint: string
+}
+
+export interface MarketplaceCtaSet {
+  /** CTAs the visitor may act on, primary side first. */
+  ctas: MarketplaceCta[]
+  /** The filled action, i.e. `ctas[0]`. */
+  primary?: MarketplaceCta
+  /**
+   * The side withheld because the signed-in role cannot use it, with the line
+   * that explains why. `null` for anonymous visitors and for both-sides roles
+   * (transporter, admin) — see the middleware's freight/fleet RBAC, which would
+   * bounce a factory owner off `/register-truck` and a driver off `/post-load`.
+   */
+  hidden?: { kind: MarketplaceCtaKind; label: string; note: string }
+}
+
+export interface MarketplaceCtaOptions {
+  /** Which marketplace tab is open — decides which side leads. */
+  mode: SearchMode
+  /** Canonical or legacy role label from the persisted session, if any. */
+  role?: string | null
+  /** Whether a browser session exists. */
+  isAuthenticated?: boolean
+}
+
+/**
+ * Which publish CTAs an operator should be offered, in priority order.
+ *
+ * A visitor searching **trucks** needs capacity, so the action that creates the
+ * match is publishing freight; a visitor searching **loads** needs cargo, so it
+ * is registering a vehicle. The other side stays visible whenever the account
+ * can use it — transporters and admins operate both sides, and an anonymous
+ * visitor picks a role at signup.
+ *
+ * A side the role cannot use is *withheld with an explanation* rather than
+ * rendered as a button: linking it would send a factory owner to
+ * `/register-truck`, where the middleware immediately bounces them to their own
+ * dashboard.
+ */
+export function resolveMarketplaceCtas({
+  mode,
+  role,
+  isAuthenticated = false,
+}: MarketplaceCtaOptions): MarketplaceCtaSet {
+  // An unresolved session has no proven restrictions yet — the visitor chooses
+  // a role during signup, so both sides stay discoverable.
+  const mayPostFreight = role ? canManageFreight(role) : true
+  const mayRegisterTruck = role ? canManageFleet(role) : true
+
+  const freight: MarketplaceCta = {
+    kind: 'post-freight',
+    label: POST_FREIGHT_LABEL,
+    path: POST_FREIGHT_PATH,
+    href: isAuthenticated ? POST_FREIGHT_PATH : loginRedirectUrl(POST_FREIGHT_PATH),
+    primary: false,
+    hint: 'Publish your tonnage and route so verified transporters nearby come to you.',
+  }
+
+  const fleet: MarketplaceCta = {
+    kind: 'register-truck',
+    label: REGISTER_TRUCK_LABEL,
+    path: REGISTER_TRUCK_PATH,
+    href: isAuthenticated ? REGISTER_TRUCK_PATH : loginRedirectUrl(REGISTER_TRUCK_PATH),
+    primary: false,
+    hint: 'List your vehicle and preferred corridors so shippers searching this hub find you.',
+  }
+
+  // Truck mode: the visitor is short a vehicle, so freight leads. Load mode:
+  // they are short cargo, so the fleet side leads.
+  const ordered = mode === 'trucks' ? [freight, fleet] : [fleet, freight]
+  const available = ordered.filter(
+    (cta) => (cta.kind === 'post-freight' ? mayPostFreight : mayRegisterTruck)
+  )
+  const withheld = ordered.find(
+    (cta) => !(cta.kind === 'post-freight' ? mayPostFreight : mayRegisterTruck)
+  )
+
+  available.forEach((cta, index) => {
+    cta.primary = index === 0
+  })
+
+  const hidden = withheld
+    ? {
+        kind: withheld.kind,
+        label: withheld.label,
+        note:
+          withheld.kind === 'post-freight'
+            ? 'Freight posting is available on shipper and transporter accounts — this account lists vehicles.'
+            : 'Vehicle registration is available on driver and transporter accounts — this account posts freight.',
+      }
+    : undefined
+
+  return { ctas: available, primary: available[0], hidden }
+}
 
 // ── Copy ────────────────────────────────────────────────────────────────────
 

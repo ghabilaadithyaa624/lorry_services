@@ -204,15 +204,54 @@ describe('SearchEmptyState', () => {
   describe('CTA routing', () => {
     it('sends anonymous operators through login to the publish forms', () => {
       const html = renderToStaticMarkup(SearchEmptyState(propsWith({})))
-      expect(anchorWithHref(html, '/login?redirect=/need-load')).toContain('Post a load')
-      expect(anchorWithHref(html, '/login?redirect=/need-vehicle')).toContain('Register your truck')
+      expect(anchorWithHref(html, '/login?redirect=/post-load')).toContain('Post Freight')
+      expect(anchorWithHref(html, '/login?redirect=/register-truck')).toContain('Register Truck')
     })
 
     it('routes signed-in operators straight to the forms', () => {
       const html = renderToStaticMarkup(SearchEmptyState(propsWith({ isAuthenticated: true })))
-      expect(anchorWithHref(html, '/need-load')).toContain('Post a load')
-      expect(anchorWithHref(html, '/need-vehicle')).toContain('Register your truck')
+      expect(anchorWithHref(html, '/post-load')).toContain('Post Freight')
+      expect(anchorWithHref(html, '/register-truck')).toContain('Register Truck')
       expect(html).not.toContain('href="/login')
+    })
+
+    it('leads with the side that creates the missing supply for the open tab', () => {
+      // Truck mode: the visitor is short a vehicle, so freight leads.
+      const trucks = renderToStaticMarkup(SearchEmptyState(propsWith({ mode: 'trucks' })))
+      expect(trucks.indexOf('Post Freight')).toBeLessThan(trucks.indexOf('Register Truck'))
+      // Load mode: the visitor is short cargo, so the fleet side leads.
+      const loads = renderToStaticMarkup(SearchEmptyState(propsWith({ mode: 'loads' })))
+      expect(loads.indexOf('Register Truck')).toBeLessThan(loads.indexOf('Post Freight'))
+    })
+
+    it('gives a transporter both CTAs on either tab', () => {
+      const modes: Array<'trucks' | 'loads'> = ['trucks', 'loads']
+      modes.forEach((mode) => {
+        const html = renderToStaticMarkup(
+          SearchEmptyState(propsWith({ mode, role: 'transporter', isAuthenticated: true }))
+        )
+        expect(anchorWithHref(html, '/post-load')).toContain('Post Freight')
+        expect(anchorWithHref(html, '/register-truck')).toContain('Register Truck')
+        expect(html).not.toContain('available on shipper and transporter accounts')
+        expect(html).not.toContain('available on driver and transporter accounts')
+      })
+    })
+
+    it('explains instead of linking a side the signed-in role cannot use', () => {
+      // A factory owner sent to /register-truck is bounced by the middleware.
+      const shipper = renderToStaticMarkup(
+        SearchEmptyState(propsWith({ mode: 'loads', role: 'factory_owner', isAuthenticated: true }))
+      )
+      expect(shipper).not.toContain('href="/register-truck"')
+      expect(shipper).toContain('Vehicle registration is available on driver and transporter accounts')
+      expect(anchorWithHref(shipper, '/post-load')).toContain('Post Freight')
+
+      const driver = renderToStaticMarkup(
+        SearchEmptyState(propsWith({ mode: 'trucks', role: 'truck_driver', isAuthenticated: true }))
+      )
+      expect(driver).not.toContain('href="/post-load"')
+      expect(driver).toContain('Freight posting is available on shipper and transporter accounts')
+      expect(anchorWithHref(driver, '/register-truck')).toContain('Register Truck')
     })
 
     it('explains why publishing helps on each side of the marketplace', () => {

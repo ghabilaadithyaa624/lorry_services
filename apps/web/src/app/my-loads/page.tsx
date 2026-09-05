@@ -22,6 +22,7 @@ import {
   ConfirmDialog,
 } from '@/components/ui'
 import { OperationalEmptyState } from '@/components/intelligence'
+import { readClientSessionRole } from '@/lib/subscription'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
 import { EditLoadModal } from '@/components/freight/EditLoadModal'
 import { toast } from '@/lib/toast'
@@ -136,6 +137,17 @@ function MyLoadsContent() {
   const [editingLoad, setEditingLoad] = useState<Load | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Load | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
+  /**
+   * Shippers and transporters both reach this page, and a transporter runs both
+   * sides of the marketplace — the empty-state guidance describes that workflow
+   * instead of the shipper-only one. Read after mount so SSR markup matches.
+   */
+  const [sessionRole, setSessionRole] = useState<'factory_owner' | 'transporter'>('factory_owner')
+
+  useEffect(() => {
+    const role = readClientSessionRole()
+    setSessionRole(role === 'transporter' || role === 'admin' ? 'transporter' : 'factory_owner')
+  }, [])
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
@@ -348,13 +360,21 @@ function MyLoadsContent() {
           </GlassPanel>
         ) : filteredLoads.length === 0 ? (
           <OperationalEmptyState
-            role="factory_owner"
+            role={sessionRole}
             title="No freight posted"
-            description="Publish your cargo tonnage and warehouse coordinates to activate direct 50 km proximity matching with verified transporters."
-            actionLabel="Post your first load"
+            description={
+              sessionRole === 'transporter'
+                ? 'Publish your cargo tonnage and warehouse coordinates — or list the vehicle that should carry it — to activate direct 50 km proximity matching on both sides of the marketplace.'
+                : 'Publish your cargo tonnage and warehouse coordinates to activate direct 50 km proximity matching with verified transporters.'
+            }
+            actionLabel={sessionRole === 'transporter' ? 'Post Freight' : 'Post your first load'}
             actionHref="/post-load"
-            secondaryActionLabel="Explore available lorries"
-            secondaryActionHref="/search?type=truck"
+            secondaryActionLabel={
+              sessionRole === 'transporter' ? 'Register Truck' : 'Explore available lorries'
+            }
+            secondaryActionHref={
+              sessionRole === 'transporter' ? '/register-truck' : '/search?type=truck'
+            }
           />
         ) : (
           <div className="space-y-4">

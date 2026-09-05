@@ -20,12 +20,11 @@ import {
   DEMO_LOAD_PREVIEWS,
   DEMO_TRUCK_PREVIEWS,
   LOGIN_LIVE_MARKETPLACE_CTA,
-  POST_LOAD_PATH,
-  REGISTER_VEHICLE_PATH,
   SAMPLE_PREVIEW_DISCLAIMER,
   SAMPLE_PREVIEW_LABEL,
   bodyTypeLabel,
   loginRedirectUrl,
+  resolveMarketplaceCtas,
   searchUrlForMode,
   type SearchMode,
 } from '@/lib/searchEmptyState'
@@ -41,6 +40,14 @@ export interface DemoPreviewCardsProps {
   realResultCount: number
   /** Whether a browser session exists — decides between login CTAs and real ones. */
   isAuthenticated?: boolean
+  /**
+   * Canonical or legacy role label from the persisted session.
+   *
+   * Decides which publish CTA leads and whether the other side is offered at
+   * all — a transporter sees both Post Freight and Register Truck, a factory
+   * owner only Post Freight, a driver only Register Truck.
+   */
+  role?: string | null
   /** Target consignment weight used for the sample match scores. */
   targetTonnage?: number
   /** Vehicle body filter, used for the sample match scores. */
@@ -65,6 +72,7 @@ export function DemoPreviewCards({
   mode,
   realResultCount,
   isAuthenticated = false,
+  role = null,
   targetTonnage = 10,
   truckType,
   className,
@@ -76,12 +84,13 @@ export function DemoPreviewCards({
   const bodyTypeForMatch = (truckType as 'Open' | 'Container' | 'OpenBody') || 'Open'
 
   const liveSearchHref = loginRedirectUrl(searchUrlForMode(mode))
-  // A shipper searching for trucks publishes freight; a transporter searching
-  // for loads publishes a vehicle.
-  const publishPath = isTruckMode ? POST_LOAD_PATH : REGISTER_VEHICLE_PATH
-  const publishLabel = isTruckMode ? 'Post a load' : 'Register your truck'
-  const alternatePath = isTruckMode ? REGISTER_VEHICLE_PATH : POST_LOAD_PATH
-  const alternateLabel = isTruckMode ? 'Register your truck' : 'Post a load'
+  /**
+   * Publish CTAs for this role and tab. The hrefs are already login-gated for
+   * anonymous visitors, and a side the signed-in role cannot use is withheld
+   * with an explanation instead of being linked to a route the middleware
+   * would bounce them off.
+   */
+  const ctaSet = resolveMarketplaceCtas({ mode, role, isAuthenticated })
 
   return (
     <section
@@ -197,7 +206,10 @@ export function DemoPreviewCards({
                     />
                   </div>
 
-                  <SampleSealedContactRow />
+                  <SampleSealedContactRow
+                    isAuthenticated={isAuthenticated}
+                    liveSearchHref={liveSearchHref}
+                  />
                 </Card>
               )
             })
@@ -288,7 +300,10 @@ export function DemoPreviewCards({
                     <TelemetryCell label="Body Requirement" value={load.truckType} />
                   </div>
 
-                  <SampleSealedContactRow />
+                  <SampleSealedContactRow
+                    isAuthenticated={isAuthenticated}
+                    liveSearchHref={liveSearchHref}
+                  />
                 </Card>
               )
             })}
@@ -303,69 +318,86 @@ export function DemoPreviewCards({
         </p>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          {isAuthenticated ? (
-            <>
-              <Button
-                as="a"
-                href={publishPath}
-                size="sm"
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />}
-              >
-                {publishLabel}
-              </Button>
-              <Button as="a" href={alternatePath} variant="secondary" size="sm">
-                {alternateLabel}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                as="a"
-                href={liveSearchHref}
-                size="sm"
-                leftIcon={<LogIn className="w-3.5 h-3.5" aria-hidden="true" />}
-              >
-                {LOGIN_LIVE_MARKETPLACE_CTA}
-              </Button>
-              <Button
-                as="a"
-                href={loginRedirectUrl(publishPath)}
-                variant="secondary"
-                size="sm"
-              >
-                {publishLabel}
-              </Button>
-              <Button
-                as="a"
-                href={loginRedirectUrl(alternatePath)}
-                variant="secondary"
-                size="sm"
-              >
-                {alternateLabel}
-              </Button>
-            </>
+          {/*
+            Anonymous visitors are offered the live marketplace first — the
+            samples exist to show what they are logging into.
+          */}
+          {!isAuthenticated && (
+            <Button
+              as="a"
+              href={liveSearchHref}
+              size="sm"
+              leftIcon={<LogIn className="w-3.5 h-3.5" aria-hidden="true" />}
+            >
+              {LOGIN_LIVE_MARKETPLACE_CTA}
+            </Button>
           )}
+
+          {ctaSet.ctas.map((cta) => (
+            <Button
+              key={cta.kind}
+              as="a"
+              href={cta.href}
+              variant={cta.primary && isAuthenticated ? 'primary' : 'secondary'}
+              size="sm"
+              data-cta={cta.kind}
+              rightIcon={
+                cta.primary && isAuthenticated ? (
+                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                ) : undefined
+              }
+            >
+              {cta.label}
+            </Button>
+          ))}
         </div>
       </Card>
+
+      {ctaSet.hidden && (
+        <p className="text-[11px] text-subtle leading-relaxed">{ctaSet.hidden.note}</p>
+      )}
     </section>
   )
+}
+
+interface SampleSealedContactRowProps {
+  /** Anonymous visitors get the live-marketplace CTA on every sample card. */
+  isAuthenticated: boolean
+  /** `/login?redirect=/search?type=…` for the current tab. */
+  liveSearchHref: string
 }
 
 /**
  * Sealed-contact row for a sample card.
  *
  * Deliberately renders *no* digits and *no* WhatsApp link: a preview must never
- * look like it has unlocked a real carrier's phone number.
+ * look like it has unlocked a real carrier's phone number. The only affordance
+ * it carries is the login CTA, and only for visitors without a session.
  */
-function SampleSealedContactRow() {
+function SampleSealedContactRow({ isAuthenticated, liveSearchHref }: SampleSealedContactRowProps) {
   return (
-    <div className="pt-4 border-t border-white/10 flex items-center justify-between gap-3">
+    <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
       <div className="flex items-center gap-2.5 text-xs sm:text-sm text-muted font-medium">
         <div className="w-7 h-7 rounded-lg bg-sunken border border-white/10 text-subtle flex items-center justify-center shrink-0">
           <Lock className="w-3.5 h-3.5" aria-hidden="true" />
         </div>
         <span>Contact sealed — sample listing, no reachable number</span>
       </div>
+
+      {/*
+        Every sample card carries the login CTA, not just the section footer,
+        so a visitor who stops reading at the first card still has the one
+        action that turns this preview into a real search.
+      */}
+      {!isAuthenticated && (
+        <a
+          href={liveSearchHref}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-primary-500 hover:text-primary-400 transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 rounded-badge px-1 -mx-1"
+        >
+          <LogIn className="w-3.5 h-3.5" aria-hidden="true" />
+          {LOGIN_LIVE_MARKETPLACE_CTA}
+        </a>
+      )}
     </div>
   )
 }

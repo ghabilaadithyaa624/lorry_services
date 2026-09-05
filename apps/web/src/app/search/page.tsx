@@ -37,7 +37,7 @@ import {
   MatchSortOption,
   MatchResult,
 } from '@/lib/intelligence'
-import { hasClientSession } from '@/lib/subscription'
+import { hasClientSession, readClientSessionRole } from '@/lib/subscription'
 import {
   isOwnerOfMarketplaceRow,
   marketplaceCardActions,
@@ -157,6 +157,12 @@ function SearchPageContent() {
   const [searchError, setSearchError] = useState<string | null>(null)
   /** `false` until the session probe runs, so SSR markup and first paint match. */
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  /**
+   * Role from the persisted session, resolved after mount for the same reason.
+   * It only orders/gates the publish CTAs (Post Freight vs Register Truck) —
+   * the middleware and API re-check it server-side.
+   */
+  const [sessionRole, setSessionRole] = useState<string | null>(null)
 
   // Booking modal state
   const [selectedTruckForBooking, setSelectedTruckForBooking] = useState<TruckResult | null>(null)
@@ -206,6 +212,7 @@ function SearchPageContent() {
   // operators straight to their forms instead of bouncing them through /login.
   useEffect(() => {
     setIsAuthenticated(hasClientSession())
+    setSessionRole(readClientSessionRole() ?? null)
   }, [])
 
   // Click outside to dismiss suggestions
@@ -949,6 +956,7 @@ function SearchPageContent() {
                   gpsSupported={gpsSupported}
                   gpsLoading={gpsLoading}
                   isAuthenticated={isAuthenticated}
+                  role={sessionRole}
                   onDetectLocation={detectLocation}
                   onFocusLocationInput={focusLocationInput}
                   onHubSelect={handleHubSelect}
@@ -968,6 +976,7 @@ function SearchPageContent() {
                   mode={mode}
                   realResultCount={sortedResults.length}
                   isAuthenticated={isAuthenticated}
+                  role={sessionRole}
                   targetTonnage={targetLoadTonnage}
                   truckType={truckType}
                 />
