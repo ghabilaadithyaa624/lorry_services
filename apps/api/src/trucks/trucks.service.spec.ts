@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common'
+import { ConflictException, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common'
 import { TrucksService } from './trucks.service'
 import { MapmyIndiaService } from '../common/services/mapmyindia.service'
 import { VahanService } from '../common/services/vahan.service'
@@ -248,16 +248,24 @@ describe('TrucksService', () => {
       size: 1024,
     } as any
 
-    it('should throw NotFoundException if truck does not exist or user is not authorized', async () => {
-      ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce(null)
+    it('should throw NotFoundException if truck does not exist', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(null)
 
       await expect(
         service.uploadDocument(truckId, userId, file, 'RC', 'MH12RC123')
       ).rejects.toThrow(NotFoundException)
     })
 
+    it('should throw ForbiddenException if a non-admin uploads to another user\'s truck', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId: 'owner-999' })
+
+      await expect(
+        service.uploadDocument(truckId, userId, file, 'RC', 'MH12RC123')
+      ).rejects.toThrow(ForbiddenException)
+    })
+
     it('should throw ConflictException if file validation fails', async () => {
-      ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce({ id: truckId })
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId })
       mockS3Service.validateFile.mockReturnValueOnce({ valid: false, error: 'File too large' })
 
       await expect(
@@ -266,7 +274,7 @@ describe('TrucksService', () => {
     })
 
     it('should upload to S3 and save document record without docNumber', async () => {
-      ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce({ id: truckId })
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId })
       mockS3Service.validateFile.mockReturnValueOnce({ valid: true })
       mockS3Service.uploadFile.mockResolvedValueOnce({
         url: 'https://s3/ins.pdf',
@@ -292,7 +300,7 @@ describe('TrucksService', () => {
     })
 
     it('should upload to S3 and save RC document record', async () => {
-      ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce({ id: truckId })
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId })
       mockS3Service.validateFile.mockReturnValueOnce({ valid: true })
       mockS3Service.uploadFile.mockResolvedValueOnce({
         url: 'https://s3/rc.pdf',
@@ -411,16 +419,25 @@ describe('TrucksService', () => {
     const truckId = 'truck-123'
     const userId = 'user-123'
 
-    it('should throw NotFoundException if truck does not exist for user', async () => {
-      ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce(null)
+    it('should throw NotFoundException if truck does not exist', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce(null)
 
       await expect(
         service.updateLocation(truckId, userId, 'Mumbai')
       ).rejects.toThrow(NotFoundException)
     })
 
+    it('should throw ForbiddenException if a non-admin updates another user\'s truck', async () => {
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId: 'owner-999' })
+
+      await expect(
+        service.updateLocation(truckId, userId, 'Mumbai')
+      ).rejects.toThrow(ForbiddenException)
+      expect(prisma.truck.update).not.toHaveBeenCalled()
+    })
+
     it('should throw NotFoundException if address geocoding fails', async () => {
-      ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce({ id: truckId })
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId })
       mockMapmyIndiaService.geocodeAddress.mockResolvedValueOnce(null)
 
       await expect(
@@ -429,7 +446,7 @@ describe('TrucksService', () => {
     })
 
     it('should handle $executeRaw errors gracefully in updateLocation', async () => {
-      ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce({ id: truckId })
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId })
       mockMapmyIndiaService.geocodeAddress.mockResolvedValueOnce({ lat: 19.0760, lng: 72.8777 })
 
       const mockUpdatedTruck = { id: truckId, currentLat: 19.0760, currentLng: 72.8777 }
@@ -442,7 +459,7 @@ describe('TrucksService', () => {
     })
 
     it('should update location and PostGIS coordinates using safe $executeRaw', async () => {
-      ;(prisma.truck.findFirst as jest.Mock).mockResolvedValueOnce({ id: truckId })
+      ;(prisma.truck.findUnique as jest.Mock).mockResolvedValueOnce({ id: truckId, userId })
       mockMapmyIndiaService.geocodeAddress.mockResolvedValueOnce({ lat: 19.0760, lng: 72.8777 })
 
       const mockUpdatedTruck = { id: truckId, currentLat: 19.0760, currentLng: 72.8777 }

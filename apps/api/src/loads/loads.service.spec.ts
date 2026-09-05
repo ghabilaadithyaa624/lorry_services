@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { NotFoundException } from '@nestjs/common'
+import { NotFoundException, ForbiddenException } from '@nestjs/common'
 import { LoadsService } from './loads.service'
 import { MapmyIndiaService } from '../common/services/mapmyindia.service'
 import { prisma, LoadStatus } from '@lorrycarry/database'
@@ -282,17 +282,30 @@ describe('LoadsService', () => {
   })
 
   describe('updateStatus', () => {
-    it('should throw NotFoundException if load not found or unauthorized', async () => {
-      ;(prisma.load.findFirst as jest.Mock).mockResolvedValueOnce(null)
+    it('should throw NotFoundException if load not found', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(null)
 
       await expect(
         service.updateStatus('load-123', 'user-123', LoadStatus.Cancelled)
       ).rejects.toThrow(NotFoundException)
     })
 
-    it('should successfully update load status', async () => {
-      const mockLoad = { id: 'load-123', status: LoadStatus.Open }
-      ;(prisma.load.findFirst as jest.Mock).mockResolvedValueOnce(mockLoad)
+    it('should throw ForbiddenException if a non-admin edits another user\'s load', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'owner-999',
+        status: LoadStatus.Open,
+      })
+
+      await expect(
+        service.updateStatus('load-123', 'user-123', LoadStatus.Cancelled)
+      ).rejects.toThrow(ForbiddenException)
+      expect(prisma.load.update).not.toHaveBeenCalled()
+    })
+
+    it('should successfully update load status for the owner', async () => {
+      const mockLoad = { id: 'load-123', userId: 'user-123', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
       ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({
         ...mockLoad,
         status: LoadStatus.Cancelled,
@@ -305,18 +318,52 @@ describe('LoadsService', () => {
         data: { status: LoadStatus.Cancelled },
       })
     })
+
+    it('should allow an admin to update another user\'s load status', async () => {
+      const mockLoad = { id: 'load-123', userId: 'owner-999', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({
+        ...mockLoad,
+        status: LoadStatus.Cancelled,
+      })
+
+      const result = await service.updateStatus('load-123', 'admin-1', LoadStatus.Cancelled, 'admin')
+      expect(result.status).toBe(LoadStatus.Cancelled)
+    })
   })
 
   describe('delete', () => {
-    it('should throw NotFoundException if load is not Open or not owned', async () => {
-      ;(prisma.load.findFirst as jest.Mock).mockResolvedValueOnce(null)
+    it('should throw NotFoundException if load not found', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(null)
 
       await expect(service.delete('load-123', 'user-123')).rejects.toThrow(NotFoundException)
     })
 
-    it('should successfully delete open load', async () => {
-      const mockLoad = { id: 'load-123', status: LoadStatus.Open }
-      ;(prisma.load.findFirst as jest.Mock).mockResolvedValueOnce(mockLoad)
+    it('should throw ForbiddenException if a non-admin deletes another user\'s load', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'owner-999',
+        status: LoadStatus.Open,
+      })
+
+      await expect(service.delete('load-123', 'user-123')).rejects.toThrow(ForbiddenException)
+      expect(prisma.load.delete).not.toHaveBeenCalled()
+    })
+
+    it('should throw NotFoundException if the load is not Open', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'user-123',
+        status: LoadStatus.Matched,
+      })
+
+      await expect(service.delete('load-123', 'user-123')).rejects.toThrow(NotFoundException)
+      expect(prisma.load.delete).not.toHaveBeenCalled()
+    })
+
+    it('should successfully delete open load owned by the user', async () => {
+      const mockLoad = { id: 'load-123', userId: 'user-123', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
 
       const result = await service.delete('load-123', 'user-123')
       expect(result).toEqual({ success: true })

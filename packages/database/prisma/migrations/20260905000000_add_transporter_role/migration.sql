@@ -1,0 +1,14 @@
+-- Add the `transporter` role to the canonical UserRole enum.
+--
+-- Transporters operate on BOTH sides of the marketplace: they post freight
+-- loads (like factory owners) AND list trucks (like truck drivers). Ownership
+-- is still enforced per record at the service layer, so a transporter can only
+-- edit/delete their own loads and trucks.
+--
+-- Safety notes:
+--  * This is a purely additive change — `ALTER TYPE ... ADD VALUE` appends a new
+--    label without touching existing rows or dropping the type, so no data can
+--    be orphaned and the change is backwards compatible.
+--  * `IF NOT EXISTS` keeps the migration idempotent/re-runnable against
+--    databases that already have the value.
+ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'transporter';

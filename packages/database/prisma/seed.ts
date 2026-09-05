@@ -50,6 +50,14 @@ async function main() {
     },
   });
 
+  const transporter1 = await prisma.user.create({
+    data: {
+      phone: '+919876543230',
+      name: 'Konkan Freight Movers (Imran Shaikh)',
+      role: UserRole.transporter,
+    },
+  });
+
   const adminUser = await prisma.user.create({
     data: {
       phone: '+919999999999',
@@ -89,6 +97,17 @@ async function main() {
       status: SubscriptionStatus.active,
       startedAt: new Date(),
       expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  await prisma.subscription.create({
+    data: {
+      userId: transporter1.id,
+      plan: 'Transporter Pro Unlimited',
+      status: SubscriptionStatus.active,
+      startedAt: new Date(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      autoRenew: true,
     },
   });
 
@@ -134,6 +153,26 @@ async function main() {
     },
   });
 
+  // Transporters operate on both sides: this load is posted by a transporter.
+  const load3 = await prisma.load.create({
+    data: {
+      userId: transporter1.id,
+      tonnageRequired: 20.0,
+      loadingAddress: 'JNPT Container Freight Station, Navi Mumbai, Maharashtra',
+      loadingPin: '400707',
+      unloadingAddress: 'Electronic City Phase 1, Bangalore, Karnataka',
+      unloadingPin: '560100',
+      truckType: TruckType.Container,
+      minLengthFt: 32,
+      minHeightFt: 8,
+      urgent: false,
+      maxPrice: 72000,
+      expectedDeliveryAt: new Date(Date.now() + 96 * 60 * 60 * 1000),
+      advancePayable: 22000,
+      status: LoadStatus.Open,
+    },
+  });
+
   // Update geospatial points via PostGIS raw queries if database PostGIS is available
   try {
     await prisma.$executeRawUnsafe(
@@ -141,6 +180,9 @@ async function main() {
     );
     await prisma.$executeRawUnsafe(
       `UPDATE loads SET loading_point = ST_SetSRID(ST_MakePoint(73.9260, 18.5089), 4326)::geography, unloading_point = ST_SetSRID(ST_MakePoint(77.5450, 13.0280), 4326)::geography WHERE id = '${load2.id}'`
+    );
+    await prisma.$executeRawUnsafe(
+      `UPDATE loads SET loading_point = ST_SetSRID(ST_MakePoint(72.9490, 18.9490), 4326)::geography, unloading_point = ST_SetSRID(ST_MakePoint(77.6600, 12.8450), 4326)::geography WHERE id = '${load3.id}'`
     );
   } catch (err) {
     console.log('⚠️ PostGIS geometry update deferred (ensure PostGIS extension is active on Postgres connection)');
@@ -229,12 +271,30 @@ async function main() {
     },
   });
 
+  // Transporters can also list vehicles — this truck is owned by a transporter.
+  const truck3 = await prisma.truck.create({
+    data: {
+      userId: transporter1.id,
+      registrationNumber: 'MH 04 KT 7788',
+      bodyType: TruckType.Container,
+      lengthFt: 32,
+      heightFt: 8,
+      tonnageCapacity: 22.0,
+      serviceableRadiusKm: 80,
+      preferredDestinations: ['Bangalore', 'Chennai', 'Hyderabad'],
+      verificationStatus: VerificationStatus.Pending,
+    },
+  });
+
   try {
     await prisma.$executeRawUnsafe(
       `UPDATE trucks SET current_location = ST_SetSRID(ST_MakePoint(74.2237, 16.7050), 4326)::geography WHERE id = '${truck1.id}'` // Near Kolhapur
     );
     await prisma.$executeRawUnsafe(
       `UPDATE trucks SET current_location = ST_SetSRID(ST_MakePoint(73.8567, 18.5204), 4326)::geography WHERE id = '${truck2.id}'` // Pune City
+    );
+    await prisma.$executeRawUnsafe(
+      `UPDATE trucks SET current_location = ST_SetSRID(ST_MakePoint(72.9490, 18.9490), 4326)::geography WHERE id = '${truck3.id}'` // Navi Mumbai
     );
   } catch (err) {
     console.log('⚠️ PostGIS truck location update deferred');

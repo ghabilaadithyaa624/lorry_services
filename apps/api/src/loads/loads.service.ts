@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { prisma, LoadStatus, UserRole } from '@lorrycarry/database'
 import { MapmyIndiaService } from '../common/services/mapmyindia.service'
+import { normalizeRole } from '../common/utils/roles.util'
 import { CreateLoadDto } from './dto/create-load.dto'
 
 @Injectable()
@@ -120,14 +121,29 @@ export class LoadsService {
     return load
   }
 
-  async updateStatus(id: string, userId: string, status: LoadStatus) {
-    const load = await prisma.load.findFirst({
-      where: { id, userId },
-    })
+  /**
+   * Ownership gate for mutating a load. A load may only be modified by the user
+   * who posted it (`load.userId === currentUser.id`) or by an admin. This is the
+   * single source of truth for load write authorization, so transporters (who
+   * can post loads) can never edit or delete another user's load.
+   */
+  private async assertLoadOwnership(id: string, userId: string, role?: string | null) {
+    const load = await prisma.load.findUnique({ where: { id } })
 
     if (!load) {
-      throw new NotFoundException('Load not found or not authorized')
+      throw new NotFoundException('Load not found')
     }
+
+    const isAdmin = normalizeRole(role) === UserRole.admin
+    if (load.userId !== userId && !isAdmin) {
+      throw new ForbiddenException('You can only modify your own loads')
+    }
+
+    return load
+  }
+
+  async updateStatus(id: string, userId: string, status: LoadStatus, role?: string | null) {
+    await this.assertLoadOwnership(id, userId, role)
 
     return prisma.load.update({
       where: { id },
@@ -135,13 +151,11 @@ export class LoadsService {
     })
   }
 
-  async delete(id: string, userId: string) {
-    const load = await prisma.load.findFirst({
-      where: { id, userId, status: LoadStatus.Open },
-    })
+  async delete(id: string, userId: string, role?: string | null) {
+    const load = await this.assertLoadOwnership(id, userId, role)
 
-    if (!load) {
-      throw new NotFoundException('Load not found or cannot be deleted')
+    if (load.status !== LoadStatus.Open) {
+      throw new NotFoundException('Load cannot be deleted')
     }
 
     await prisma.load.delete({ where: { id } })

@@ -32,7 +32,7 @@ export class TrucksController {
   ) {}
 
   @Post()
-  @Roles(UserRole.truck_driver)
+  @Roles(UserRole.truck_driver, UserRole.transporter)
   @ApiOperation({ summary: 'Register a new truck (Need Vehicle) — triggers tonnage/route/budget matching & WhatsApp' })
   async create(
     @Body() dto: CreateTruckDto,
@@ -52,7 +52,7 @@ export class TrucksController {
   }
 
   @Post(':id/documents/:type')
-  @Roles(UserRole.truck_driver)
+  @Roles(UserRole.truck_driver, UserRole.transporter)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload RC or Insurance document' })
@@ -61,13 +61,14 @@ export class TrucksController {
     @Param('type') docType: 'RC' | 'Insurance',
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
     @Body('docNumber') docNumber?: string
   ) {
-    return this.trucksService.uploadDocument(truckId, userId, file, docType, docNumber)
+    return this.trucksService.uploadDocument(truckId, userId, file, docType, docNumber, role)
   }
 
   @Get('my-trucks')
-  @Roles(UserRole.truck_driver)
+  @Roles(UserRole.truck_driver, UserRole.transporter)
   @ApiOperation({ summary: 'Get my registered trucks' })
   async findMyTrucks(@CurrentUser('id') userId: string) {
     return this.trucksService.findByUser(userId)
@@ -83,14 +84,15 @@ export class TrucksController {
   }
 
   @Patch(':id/location')
-  @Roles(UserRole.truck_driver)
+  @Roles(UserRole.truck_driver, UserRole.transporter)
   @ApiOperation({ summary: 'Update truck current location — re-evaluates proximity matches' })
   async updateLocation(
     @Param('id') id: string,
     @Body('address') address: string,
-    @CurrentUser('id') userId: string
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole
   ) {
-    const updated = await this.trucksService.updateLocation(id, userId, address)
+    const updated = await this.trucksService.updateLocation(id, userId, address, role)
     if (this.matchingService) {
       setImmediate(async () => {
         try {
