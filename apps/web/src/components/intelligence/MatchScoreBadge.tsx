@@ -64,7 +64,7 @@ export function MatchScoreBadge({
       {isDetailsVisible && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute z-40 left-0 sm:right-0 sm:left-auto mt-2 w-80 sm:w-96 bg-panel rounded-2xl border border-white/10 p-4 text-xs shadow-modal animate-fade-in divide-y divide-white/10 text-white font-sans"
+          className="absolute z-40 left-0 sm:right-0 sm:left-auto mt-2 w-80 sm:w-96 bg-overlay/95 backdrop-blur-xl rounded-2xl border border-hairline p-4 text-xs shadow-modal animate-fade-in divide-y divide-hairline text-ink font-sans"
         >
           {/* Header */}
           <div className="pb-3 flex items-center justify-between">
@@ -72,7 +72,7 @@ export function MatchScoreBadge({
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-primary-400 bg-primary-500/10 px-2 py-0.5 rounded-md border border-primary-500/20">
                 Match Intelligence
               </span>
-              <span className="text-xs font-bold text-white">
+              <span className="text-xs font-bold text-ink">
                 Deterministic Score
               </span>
             </div>
@@ -84,7 +84,7 @@ export function MatchScoreBadge({
                 type="button"
                 aria-label="Close match breakdown"
                 onClick={() => setExpanded(false)}
-                className="p-1 text-surface-400 hover:text-white rounded-md"
+                className="p-1 text-muted hover:text-ink rounded-md"
               >
                 <XMarkIcon className="w-4 h-4" />
               </button>
@@ -151,9 +151,9 @@ export function MatchScoreBadge({
           )}
 
           {/* Footer note */}
-          <div className="pt-2.5 flex items-center justify-between text-[10px] text-surface-400 font-mono">
+          <div className="pt-2.5 flex items-center justify-between text-[10px] text-muted font-mono">
             <span className="flex items-center gap-1">
-              <InformationCircleIcon className="w-3.5 h-3.5 text-surface-400" />
+              <InformationCircleIcon className="w-3.5 h-3.5 text-muted" />
               Empirical Rule-Based Fit
             </span>
             <span>Zero Black-Box Scoring</span>

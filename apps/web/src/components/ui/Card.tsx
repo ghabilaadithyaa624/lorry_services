@@ -55,7 +55,9 @@ const paddingClasses: Record<CardPadding, string> = {
 
 const surfaceClasses: Record<CardSurface, string> = {
   solid: 'bg-panel border border-hairline',
-  glass: 'glass',
+  // Glass card per docs/LORRYCARRY_DESIGN_SYSTEM.md §8/§11:
+  // frosted panel with deep command-centre shadow.
+  glass: 'glass shadow-modal',
 }
 
 /**

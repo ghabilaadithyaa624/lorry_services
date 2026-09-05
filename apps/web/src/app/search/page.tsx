@@ -107,7 +107,7 @@ function TelemetryCell({
 }) {
   return (
     <div className="bg-sunken/60 rounded-xl p-3 border border-white/5">
-      <div className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-widest text-subtle">
+      <div className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-widest text-muted">
         {label}
       </div>
       <div
@@ -509,7 +509,7 @@ function SearchPageContent() {
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-ink tracking-tight">
               Marketplace Freight Discovery
             </h1>
             <p className="text-sm sm:text-base text-muted mt-1.5 max-w-3xl leading-relaxed">
@@ -695,7 +695,7 @@ function SearchPageContent() {
 
               {/* Quick Weight Chips */}
               <div className="flex items-center gap-1.5">
-                <span className="text-subtle text-[11px] font-mono uppercase tracking-widest hidden sm:inline">Presets:</span>
+                <span className="text-muted text-[11px] font-mono uppercase tracking-widest hidden sm:inline">Presets:</span>
                 {[5, 10, 16, 25, 40].map((t) => (
                   <button
                     key={t}
@@ -722,7 +722,7 @@ function SearchPageContent() {
           <div id="panel-marketplace-results" role="tabpanel" aria-labelledby={mode === 'trucks' ? 'tab-trucks' : 'tab-loads'} className="space-y-4">
             <Card padding="none" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:px-6">
               <div className="flex flex-wrap items-center gap-2.5">
-                <p className="text-sm sm:text-base text-body font-medium">
+                <p className="text-sm sm:text-base text-body font-medium" aria-live="polite">
                   Found{' '}
                   <strong className="text-ink font-bold font-mono text-base sm:text-lg">
                     {sortedResults.length}
@@ -927,7 +927,7 @@ function SearchPageContent() {
                           {/* Preferred Corridors (if specified) */}
                           {truck.preferredDestinations && truck.preferredDestinations.length > 0 && (
                             <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-subtle">
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted">
                                 Corridors:
                               </span>
                               {truck.preferredDestinations.map((dest, i) => (
