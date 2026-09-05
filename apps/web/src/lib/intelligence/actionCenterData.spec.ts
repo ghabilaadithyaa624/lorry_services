@@ -45,6 +45,19 @@ describe('fetchOperationalSnapshot', () => {
     expect(getActionCenterUnavailableSources(snapshot)).toEqual([])
   })
 
+  it('fetches both marketplace sides for transporters', async () => {
+    const snapshot = await fetchOperationalSnapshot('transporter')
+    expect(get.mock.calls.map(([url]) => url)).toEqual([
+      '/subscriptions/status', '/notifications', '/bookings/my-bookings',
+      '/trucks/my-trucks', '/users/documents', '/loads/my-loads',
+    ])
+    // Own listings and own fleet arrive together — one workspace, both sides.
+    expect(snapshot.loads).toEqual([])
+    expect(snapshot.trucks).toEqual(responses['/trucks/my-trucks'])
+    expect(deriveDashboardActionTasks(snapshot)).toEqual([])
+    expect(getActionCenterUnavailableSources(snapshot)).toEqual([])
+  })
+
   it('restricts admin requests to real moderation aggregates', async () => {
     const snapshot = await fetchOperationalSnapshot('admin')
     expect(get).toHaveBeenCalledTimes(1)

@@ -33,7 +33,7 @@ import { AIFreightAssistantDrawer, ActionCenterMenu } from '@/components/intelli
 import { useOperationalTasks } from '@/lib/intelligence/useOperationalTasks'
 import { useI18n } from '@/lib/i18n'
 import { cn, formatPhone } from '@/lib/utils'
-import { getRoleLabel, isAdminRole, isVehicleSideRole } from '@/lib/roles'
+import { getRoleLabel, isAdminRole, isTransporterRole, isVehicleSideRole } from '@/lib/roles'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -107,6 +107,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
   }, [pathname])
 
   const isTruckDriver = isVehicleSideRole(user?.role)
+  const isTransporter = isTransporterRole(user?.role)
   const isAdmin = isAdminRole(user?.role)
 
   const factoryOwnerNav: NavItem[] = [
@@ -138,6 +139,26 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: t('nav.settings'), href: '/settings', icon: Cog6ToothIcon },
   ]
 
+  /**
+   * Transporter workspace — both sides of the marketplace from one account:
+   * post freight like a factory owner and manage a fleet like a truck driver.
+   */
+  const transporterNav: NavItem[] = [
+    { name: t('dash.overview'), href: '/dashboard/transporter', icon: HomeIcon },
+    { name: t('nav.postFreight'), href: '/post-load', icon: PlusCircleIcon },
+    { name: t('dash.myLoads'), href: '/my-loads', icon: ClipboardDocumentListIcon },
+    { name: t('dash.myFleet'), href: '/my-trucks', icon: TruckIcon },
+    { name: t('nav.findTrucks'), href: '/search?type=truck', icon: MagnifyingGlassIcon },
+    { name: t('nav.findLoads'), href: '/search?type=load', icon: MagnifyingGlassIcon },
+    { name: t('dash.bookings'), href: '/bookings', icon: BriefcaseIcon },
+    { name: t('dash.tracking'), href: '/tracking', icon: MapIcon },
+    { name: t('dash.analytics'), href: '/analytics', icon: ChartBarIcon },
+    { name: t('dash.documents'), href: '/documents', icon: DocumentCheckIcon },
+    { name: t('nav.notifications'), href: '/notifications', icon: BellAlertIcon, badgeKey: 'notifications' },
+    { name: t('dash.subscription'), href: '/subscribe', icon: CreditCardIcon },
+    { name: t('nav.settings'), href: '/settings', icon: Cog6ToothIcon },
+  ]
+
   const adminNav: NavItem[] = [
     { name: 'Control tower', href: '/admin/dashboard', icon: ShieldCheckIcon },
     { name: 'KYC queue', href: '/admin/kyc', icon: DocumentCheckIcon },
@@ -151,14 +172,20 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     { name: 'Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
   ]
 
-  const navItems = isAdmin ? adminNav : isTruckDriver ? truckDriverNav : factoryOwnerNav
+  const navItems = isAdmin
+    ? adminNav
+    : isTransporter
+      ? transporterNav
+      : isTruckDriver
+        ? truckDriverNav
+        : factoryOwnerNav
 
   const roleLabel = getRoleLabel(user?.role)
 
   /** Exact match for section roots, prefix match for nested routes. */
   const isActiveRoute = (href: string) => {
     const path = href.split('?')[0]
-    const roots = ['/admin/dashboard', '/dashboard/factory-owner', '/dashboard/truck-driver']
+    const roots = ['/admin/dashboard', '/dashboard/factory-owner', '/dashboard/truck-driver', '/dashboard/transporter']
     if (roots.includes(path)) return pathname === path
     return pathname === path || pathname.startsWith(`${path}/`)
   }

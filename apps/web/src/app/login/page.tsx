@@ -330,6 +330,9 @@ function LoginForm() {
                   <div>
                     <p className="text-xs font-semibold text-muted">Setting up your workspace as</p>
                     <p className="text-sm font-extrabold text-ink">{activeRole?.label || 'LorryCarry operator'}</p>
+                    {activeRole && (
+                      <p className="mt-0.5 text-xs leading-relaxed text-body">{activeRole.description}</p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3 flex items-center gap-2 border-t border-primary-500/20 pt-3 text-xs text-body">

@@ -3,6 +3,7 @@ import type { FreightEstimate, PricingInput } from './intelligence/pricingEngine
 import type { MatchResult } from './intelligence/matchingEngine'
 import type { NationalLogisticsSummary } from './intelligence/nationalLogisticsEngine'
 import { isPublicPath } from './publicRoutes'
+import { normalizeRole } from './roles'
 import type { PublicRegistrationRole } from './roles'
 
 // Use the same-origin rewrite by default so browser requests work behind a
@@ -793,9 +794,12 @@ export const locationApi = {
 }
 
 export const setAuthCookies = (accessToken: string, role: string) => {
-  // Set cookies for middleware
+  // Middleware and route protection read the `userRole` cookie. Persist the
+  // normalized (canonical) role so stale legacy labels never reach the cookie
+  // and transporters/admins resolve to the right dashboard on the next request.
+  const canonicalRole = normalizeRole(role) ?? role
   document.cookie = `accessToken=${accessToken}; path=/; max-age=${7 * 24 * 60 * 60}`
-  document.cookie = `userRole=${role}; path=/; max-age=${7 * 24 * 60 * 60}`
+  document.cookie = `userRole=${canonicalRole}; path=/; max-age=${7 * 24 * 60 * 60}`
   csrfToken = null
   fetchingCsrfPromise = null
 }

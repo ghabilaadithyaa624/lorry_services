@@ -25,7 +25,7 @@ import { DashboardSummaryCards } from '@/components/dashboard/DashboardSummaryCa
 import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
 import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
-import { getRoleLabel, isVehicleSideRole, normalizeRole, type AnyUserRole, type AppUserRole } from '@/lib/roles'
+import { getRoleLabel, isTransporterRole, isVehicleSideRole, normalizeRole, type AnyUserRole, type AppUserRole } from '@/lib/roles'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
 import { ActionCenterCard } from '@/components/intelligence'
@@ -173,6 +173,10 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
   const effectiveRole = normalizeRole(roleOverride || user?.role)
   const isTruckDriver = isVehicleSideRole(effectiveRole)
+  // Transporters manage both sides: own loads *and* an owned fleet, so their
+  // workspace reads the fleet from the operational snapshot like drivers do.
+  const isTransporter = isTransporterRole(effectiveRole)
+  const showsOwnFleet = isTruckDriver || isTransporter
   // Kept as an alias for existing JSX; the transporter/driver split is gone.
   const isTruckOwner = isTruckDriver
   const isTrial = subscriptionStatus?.isTrial === true
@@ -191,7 +195,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
       const [snapshotRes, activityRes, nearbyRes] = await Promise.allSettled([
         fetchOperationalSnapshot(effectiveRole, request.signal),
         usersApi.getActivity(),
-        isTruckDriver
+        showsOwnFleet
           ? Promise.resolve(undefined)
           : api.get('/search/trucks?lat=19.0760&lng=72.8777&radius=100', { signal: request.signal }),
       ])
@@ -201,7 +205,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
       setActionSnapshot(snapshot)
       setLoads(dashboardRows<LoadItem>(snapshot.loads))
       setTrips(dashboardRows<TripBooking>(snapshot.bookings))
-      const fleet = isTruckDriver
+      const fleet = showsOwnFleet
         ? snapshot.trucks
         : nearbyRes.status === 'fulfilled' ? nearbyRes.value?.data : undefined
       setTrucks(dashboardRows<TruckItem>(fleet))
@@ -216,7 +220,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
     } finally {
       if (!request.signal.aborted && id === requestId.current) setLoading(false)
     }
-  }, [effectiveRole, isTruckDriver])
+  }, [effectiveRole, showsOwnFleet])
 
   useEffect(() => {
     // The persisted role must arrive before the generic /dashboard loads data.
@@ -267,10 +271,13 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
   // Telemetry Aggregates
   const activeLoadCount = loads.filter((l) => l.status === 'Open' || l.status === 'Matched').length
-  const inTransitCount = isTruckDriver
+  // Transporters book trucks against their own posts, so — like drivers — their
+  // transit/completion story lives in the trips feed rather than the load list.
+  const countsFromTrips = isTruckDriver || isTransporter
+  const inTransitCount = countsFromTrips
     ? trips.filter((t) => t.status === 'InTransit').length
     : loads.filter((l) => l.status === 'InTransit').length
-  const completedCount = isTruckDriver
+  const completedCount = countsFromTrips
     ? trips.filter((t) => t.status === 'Completed').length
     : loads.filter((l) => l.status === 'Completed').length
   const fleetSize = trucks.length
@@ -457,21 +464,50 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                 <span>Live Freight Network Online</span>
               </span>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary-500/10 text-primary-400 border border-primary-500/20 text-xs font-semibold font-mono">
-                {isTruckDriver ? 'Truck driver workspace' : 'Factory owner workspace'}
+                {isTransporter
+                  ? 'Transporter workspace · both sides'
+                  : isTruckDriver
+                    ? 'Truck driver workspace'
+                    : 'Factory owner workspace'}
               </span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Good morning, {user?.name || (isTruckDriver ? 'Truck driver' : 'Factory owner')}
+              Good morning, {user?.name || (isTransporter ? 'Transporter' : isTruckDriver ? 'Truck driver' : 'Factory owner')}
             </h1>
             <p className="text-xs sm:text-sm text-surface-400">
               Direct marketplace operating command • Zero middleman brokerage
             </p>
           </div>
 
-          {/* Role-Dependent Primary Action Buttons */}
+          {/* Role-Dependent Primary Action Buttons. Transporters act on both
+              sides: posting freight and listing trucks live in one workspace. */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            {isTruckOwner ? (
+            {isTransporter ? (
+              <>
+                <Link
+                  href="/need-load"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Post Freight Load</span>
+                </Link>
+                <Link
+                  href="/need-vehicle"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>List a Truck</span>
+                </Link>
+                <Link
+                  href="/search?type=truck"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-900/80 hover:bg-surface-800 border border-white/10 text-surface-200 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none shadow-card"
+                >
+                  <Search className="w-4 h-4 text-primary-400" />
+                  <span>Find Lorries</span>
+                </Link>
+              </>
+            ) : isTruckOwner ? (
               <>
                 <Link
                   href="/need-vehicle"
@@ -599,7 +635,49 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
 
         {/* ── Telemetry Stats Grid (Compact Telemetry Readouts) ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-          {isTruckDriver ? (
+          {isTransporter ? (
+            <>
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
+                  ACTIVE FREIGHT POSTS
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
+                  {loading ? '...' : activeLoadCount}
+                </div>
+                <div className="text-xs text-surface-400 mt-0.5">Open & matched loads</div>
+              </div>
+
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
+                  TRUCK LISTINGS
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400 mt-1">
+                  {loading ? '...' : `${fleetSize} Vehicles`}
+                </div>
+                <div className="text-xs text-surface-400 mt-0.5">{verifiedTruckCount} Vahan verified</div>
+              </div>
+
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
+                  LIVE CONSIGNMENTS
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-primary-400 mt-1">
+                  {loading ? '...' : inTransitCount}
+                </div>
+                <div className="text-xs text-surface-400 mt-0.5">Active across both sides</div>
+              </div>
+
+              <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
+                <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
+                  COMPLETED TRIPS
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
+                  {loading ? '...' : completedCount}
+                </div>
+                <div className="text-xs text-surface-400 mt-0.5">POD verified delivery</div>
+              </div>
+            </>
+          ) : isTruckDriver ? (
             <>
               <div className="bg-panel rounded-2xl border border-white/10 p-4 sm:p-5 shadow-modal hover:border-white/20 transition-all">
                 <div className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-surface-400">
@@ -1006,11 +1084,15 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary-400" />
                 <h3 className="text-base font-bold text-white">
-                  {isTruckDriver ? 'Return-load opportunities' : 'Nearby Matched Lorries'}
+                  {showsOwnFleet
+                    ? isTransporter
+                      ? 'Return loads for your fleet'
+                      : 'Return-load opportunities'
+                    : 'Nearby Matched Lorries'}
                 </h3>
               </div>
               <Link
-                href={isTruckDriver ? '/search?type=load&sort=RETURN_LOAD' : '/search?type=truck'}
+                href={showsOwnFleet ? '/search?type=load&sort=RETURN_LOAD' : '/search?type=truck'}
                 className="text-xs font-semibold text-primary-400 hover:text-primary-300 inline-flex items-center gap-1"
               >
                 <span>View all</span>
@@ -1018,7 +1100,7 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
               </Link>
             </div>
 
-            {isTruckDriver ? (
+            {showsOwnFleet ? (
               <ReturnLoadsPanel trucks={trucks} />
             ) : (
               <div className="space-y-3">
