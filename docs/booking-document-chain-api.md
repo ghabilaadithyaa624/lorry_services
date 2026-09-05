@@ -134,7 +134,8 @@ Server-side guards:
 1. caller must be a booking counterparty,
 2. `key` must belong to **this booking + stage** (prefix `booking-documents/<bookingId>/<STAGE>/`)
    and its extension must match `contentType`,
-3. the object must actually exist in storage (`HeadObject`) — phantom rows are rejected,
+3. the object must actually exist in storage (`HeadObject`) — phantom rows are rejected; storage
+   outages fail closed with a retryable server error rather than creating an unverifiable row,
 4. re-registering the same key is **idempotent** (returns the existing row).
 
 **200 response:** the created `BookingDocument` (same shape as list items above), with
