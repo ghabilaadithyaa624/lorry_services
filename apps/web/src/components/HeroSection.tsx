@@ -3,6 +3,7 @@
 import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
 interface HeroSectionProps {
@@ -11,6 +12,18 @@ interface HeroSectionProps {
   backgroundImageUrl?: string
 }
 
+/**
+ * HeroSection — public homepage hero.
+ *
+ * Keeps the LorryCarry dark, cinematic highway identity while presenting the
+ * product in a structured B2B SaaS pattern:
+ *   eyebrow pill → headline → subtext → dual marketplace CTA → pricing link →
+ *   factual capability ticks.
+ *
+ * Every claim rendered here is a shipped platform capability (Vahan
+ * verification, 50 km proximity matching, direct WhatsApp alerts, zero broker
+ * commission) — no invented scale, geography or certification claims.
+ */
 export default function HeroSection({
   headline,
   subtext,
@@ -39,10 +52,10 @@ export default function HeroSection({
 
       {/* Semi-Transparent Overlays for Optimal Text Readability & Brand Warmth */}
       {/* 1. Base dark vignette overlay */}
-      <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[1.5px]" aria-hidden="true" />
-      {/* 2. Gradient overlay: Darker on bottom and top to blend with fixed header */}
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-[1.5px]" aria-hidden="true" />
+      {/* 2. Gradient overlay: darker on bottom and top to blend with the fixed header and page body */}
       <div
-        className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/65 to-slate-950/95"
+        className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/60 to-slate-950/95"
         aria-hidden="true"
       />
       {/* 3. Subtle brand orange ambient glow in the center */}
@@ -53,21 +66,21 @@ export default function HeroSection({
 
       {/* Foreground Content */}
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24 text-center">
-        {/* Trust Badge Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/20 backdrop-blur-md text-xs sm:text-sm text-orange-200 mb-6 sm:mb-8 transition-colors shadow-sm">
-          <span className="flex h-2 w-2 relative">
+        {/* Eyebrow trust pill — factual positioning only */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-xs sm:text-sm mb-6 sm:mb-8 shadow-sm">
+          <span className="flex h-2 w-2 relative" aria-hidden="true">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
           </span>
           <span className="font-semibold text-white tracking-wide uppercase text-[11px] sm:text-xs">
             {t('hero.directPortal')}
           </span>
-          <span className="text-white/40">•</span>
+          <span className="text-white/40" aria-hidden="true">•</span>
           <span className="text-orange-300 font-medium">{t('hero.zeroBroker')}</span>
         </div>
 
         {/* Primary Headline */}
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight sm:leading-tight lg:leading-tight mb-6 drop-shadow-sm">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight sm:leading-tight lg:leading-tight mb-6 drop-shadow-sm text-balance">
           {englishHeadline ? (
             <>
               {headlineText.split('Direct Freight')[0]}
@@ -82,16 +95,16 @@ export default function HeroSection({
         </h1>
 
         {/* Subtext */}
-        <p className="max-w-3xl mx-auto text-base sm:text-xl text-gray-200 sm:text-gray-100 font-normal leading-relaxed mb-10 drop-shadow">
+        <p className="max-w-2xl mx-auto text-base sm:text-xl text-gray-200 sm:text-gray-100 font-normal leading-relaxed mb-10 drop-shadow text-balance">
           {subtextText}
         </p>
 
         {/* Action Buttons: Find Trucks & Find Loads */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 mb-12 sm:mb-14">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5">
           {/* Primary CTA: Find Trucks */}
           <Link
             href="/search?type=truck"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white font-bold text-base sm:text-lg px-8 py-4 rounded-xl shadow-xl shadow-orange-500/30 hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all focus:outline-none focus:ring-4 focus:ring-primary-500/30"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white font-bold text-base sm:text-lg px-8 py-4 rounded-xl shadow-xl shadow-orange-500/30 hover:shadow-orange-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-500/30"
           >
             {/* Truck Icon */}
             <svg
@@ -100,6 +113,7 @@ export default function HeroSection({
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2.2}
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -113,7 +127,7 @@ export default function HeroSection({
           {/* Secondary High-Contrast CTA: Find Loads */}
           <Link
             href="/search?type=load"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white font-bold text-base sm:text-lg px-8 py-4 rounded-xl border border-white/30 backdrop-blur-md hover:border-white/50 shadow-lg shadow-black/20 hover:scale-[1.02] active:scale-[0.98] transition-all focus:outline-none focus:ring-4 focus:ring-white/20"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white font-bold text-base sm:text-lg px-8 py-4 rounded-xl border border-white/30 backdrop-blur-md hover:border-white/50 shadow-lg shadow-black/20 hover:scale-[1.02] active:scale-[0.98] transition-all focus:outline-none focus-visible:ring-4 focus-visible:ring-white/20"
           >
             {/* Load / Cargo Box Icon */}
             <svg
@@ -122,6 +136,7 @@ export default function HeroSection({
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2.2}
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -133,22 +148,33 @@ export default function HeroSection({
           </Link>
         </div>
 
-        {/* Highway Corridors & Verification Trust Tickers */}
-        <div className="pt-6 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto text-xs sm:text-sm text-gray-300 font-medium">
+        {/* Quiet pricing escape hatch — standard B2B SaaS tertiary CTA */}
+        <div className="mt-5 sm:mt-6">
+          <Link
+            href="/subscribe"
+            className="inline-flex items-center gap-1.5 text-sm text-gray-300 hover:text-white font-medium transition-colors underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded"
+          >
+            {t('nav.pricing')}
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+          </Link>
+        </div>
+
+        {/* Factual capability ticks — shipped platform capabilities only */}
+        <div className="mt-10 sm:mt-12 pt-6 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto text-xs sm:text-sm text-gray-300 font-medium">
           <div className="flex items-center justify-center gap-2">
-            <span className="text-emerald-400 font-bold">✓</span>
+            <span className="text-emerald-400 font-bold" aria-hidden="true">✓</span>
             <span>{t('hero.vahanVerified')}</span>
           </div>
           <div className="flex items-center justify-center gap-2">
-            <span className="text-emerald-400 font-bold">✓</span>
+            <span className="text-emerald-400 font-bold" aria-hidden="true">✓</span>
             <span>{t('hero.radiusMatch')}</span>
           </div>
           <div className="flex items-center justify-center gap-2">
-            <span className="text-emerald-400 font-bold">✓</span>
+            <span className="text-emerald-400 font-bold" aria-hidden="true">✓</span>
             <span>{t('hero.whatsappAlerts')}</span>
           </div>
           <div className="flex items-center justify-center gap-2">
-            <span className="text-emerald-400 font-bold">✓</span>
+            <span className="text-emerald-400 font-bold" aria-hidden="true">✓</span>
             <span>{t('hero.zeroCommission')}</span>
           </div>
         </div>
