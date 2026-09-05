@@ -220,14 +220,35 @@ Component classes in `globals.css` (also mirrored by the React `Button` variants
 
 ## 10. Navigation Bar & Layout Shells
 
-- **Navbar** (`layout/Navbar.tsx`): glass shell over the canvas; logo = "Lorry" + orange "Carry"
-  (`text-primary-500`) with the orange truck icon badge; nav links support EN/தமிழ்/हिन्दी via
-  `LanguageToggle` and link to `/search?type=truck`, `/search?type=load`, `/subscribe`, `/tracking`.
+- **Navbar** (`layout/Navbar.tsx`): B2B SaaS-style public header (LocoNav-style structure,
+  LorryCarry identity) built as a glass shell over the canvas.
+  - **Logo left**, then the தமிழ் | हिन्दी | English `LanguageToggle`.
+  - **Products mega menu** — a 2-column card grid of the six LorryCarry modules (Freight
+    Marketplace, Fleet Listings, Trip Control Tower, Compliance, Payments & Subscription,
+    Admin Operations). Each card shows an icon, title, one-line description and link.
+    Rendered by `ProductsMegaMenu` inside `Navbar.tsx`.
+  - **Solutions / Resources / Company dropdowns** — labelled link lists rendered by
+    `SimpleDropdownMenu`. Solutions links to role-specific surfaces (shippers, carriers,
+    corridors, procurement, analytics); Resources links to Help, Tracking, Security;
+    Company links to Request Demo, Contact, Privacy, Terms.
+  - **Right side**: Sign in (anonymous) or bell + profile menu (signed in), with the
+    bright orange "Post Freight" CTA pinned at every breakpoint.
+  - **Pricing & Plans** is a direct link to `/subscribe` (not a dropdown).
+  - **Accessibility**: every menu is a disclosure pattern with `aria-expanded` /
+    `aria-controls`, closes on Escape or focus-out (returning focus to its trigger),
+    and every interactive element has a visible focus ring.
+  - **CTA routing**: Post Freight → `/post-load` (middleware sends anonymous visitors
+    through `/login?redirect=/post-load`), Pricing → `/subscribe`, Sign in → `/login`.
+  - **Single source of truth**: nav sections and module cards are defined in
+    `layout/navigation.ts` (`NAV_SECTIONS`, `PRODUCT_MODULES`, `CTA_ROUTES`), consumed
+    by the navbar, hero and homepage; every href points at a page that exists in
+    `src/app/**`.
 - **Sidebars** (`DashboardLayout.tsx`, admin console): fixed width (`w-64`), theme panel fill with
   hairline border. Active item: orange gradient text/border treatment with `shadow-glow-primary`;
   inactive: muted text, `hover:bg-wash` rows.
 - **Mobile**: sidebars collapse into a backdrop drawer (`animate-slide-in-left`) with the bottom nav bar
-  (glass + hairline) shown instead. Use logical-property utilities in all chrome components.
+  (glass + hairline) shown instead. The public navbar collapses into a full-screen mobile drawer
+  below `lg` with the same section hierarchy. Use logical-property utilities in all chrome components.
 
 ---
 
@@ -353,3 +374,32 @@ sidebars below `lg`.
   `bg-gradient-to-r from-primary-950/60 via-purple-950/40 to-surface-950 border border-purple-500/40`
   (dark theme) with `shadow-card`, and neutral tone tokens (`success | primary | warning | danger`)
   from `@lorrycarry/shared` mapped to Tailwind classes in the app layer only.
+
+---
+
+## 21. Public Website & SaaS-Style Marketing Surfaces
+
+The public-facing routes (`/`, `/search`, `/subscribe`, `/request-demo`, `/corridors`,
+`/procurement`, `/help`, `/privacy`, `/terms`, `/security`) use the same LorryCarry design
+system but lean toward a **SaaS marketing** treatment rather than the dark command-center
+aesthetic of the authenticated dashboards:
+
+- **Light-first surfaces**: public pages use `bg-canvas` (slate-50) with white panels,
+  gray-900 headings and LorryCarry Orange accents. The dark "Kinetic Command" theme is
+  available for authenticated dashboards but the public site stays light by default.
+- **Hero + marketing modules** (homepage): photographic hero band, search console,
+  reference corridor directory, telemetry preview cards, FAQ accordion, footer.
+- **B2B Request Demo page** (`/request-demo`): lead-capture form with role-aware
+  copy (shipper vs carrier vs transporter), a 3-step process explainer and WhatsApp
+  hand-off to the published support desk. Uses the same `Card`, `Button`, `Input`,
+  `Select`, `Textarea` primitives with the SaaS-style light surface treatment.
+- **Pricing page** (`/subscribe`): plan comparison grid with the 90-day free trial
+  terms, subscription tiers and the Cashfree/Razorpay/Stripe checkout flow.
+
+> **Design philosophy**: the public site borrows the structural patterns common to B2B
+> logistics SaaS products (mega menu, role-based Solutions links, demo request CTA)
+> while staying within LorryCarry's own design tokens — no imported design systems or
+> third-party component libraries. The homepage uses a photographic hero (not 3D/WebGL),
+> the same LorryCarry Orange brand colour, and the semantic surface/text tokens defined
+> in §2.
+

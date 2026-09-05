@@ -14,9 +14,11 @@
 
 ## 1. Executive Summary
 
-LorryCarry is an open, direct freight marketplace connecting Indian cargo owners (shippers, factories, traders) and verified lorry operators (truck drivers, fleet owners) without broker commissions.
+LorryCarry is an open, direct freight marketplace connecting Indian cargo owners (shippers, factories, traders), verified lorry operators (truck drivers, fleet owners) and transporters (who operate on both sides of the marketplace — posting loads and listing trucks from a unified workspace) without broker commissions.
 
 This audit documents the transition of LorryCarry from a transactional CRUD application into a **Logistics Intelligence Platform**. The intelligence layer is powered by deterministic algorithms in `@lorrycarry/shared`, dedicated NestJS backend endpoints, and interactive Next.js 15 frontends (the Expo mobile workspace is a thin REST client and does not import the shared intelligence engines).
+
+**Transporter unified workspace.** The `transporter` role operates on both sides of the marketplace: it can post freight loads (like a `factory_owner`) and list trucks (like a `truck_driver`), all from a single dashboard at `/dashboard/transporter`. Write access remains ownership-scoped — a transporter can only edit or delete its own loads and trucks — enforced by the service layer regardless of the broader `@Roles` route grant. Each listing is owned by a single user, so only the owner (or an admin) can modify it.
 
 ---
 
@@ -47,7 +49,7 @@ Inspected from `packages/database/prisma/schema.prisma`:
 
 | Model | Fields & Key Capabilities | Intelligence Asset & Usage |
 |---|---|---|
-| **User** | `id`, `phone`, `name`, `role` (`factory_owner`, `truck_driver`, `admin`), `trialStartedAt`, `trialEndsAt`, `trialConvertedAt` | Identity verification, paywall gating, 90-day free trial entitlement tracking. |
+| **User** | `id`, `phone`, `name`, `role` (`factory_owner`, `truck_driver`, `transporter`, `admin`), `trialStartedAt`, `trialEndsAt`, `trialConvertedAt` | Identity verification, paywall gating, 90-day free trial entitlement tracking. `factory_owner` posts loads; `truck_driver` lists trucks; `transporter` posts both from a unified workspace; `admin` oversees the platform. |
 | **UserPreference** | `theme`, `language`, `currency`, `distanceUnit`, `notifyWhatsapp`, `notifySms`, `notifyPush`, `defaultRadiusKm`, `preferredBodyType` | User-tailored search radius, notification preferences, UI localization. |
 | **NotificationReceipt** | `userId`, `notificationKey`, `readAt` | Unified read tracking across stored and dynamically derived notifications. |
 | **Load** | `tonnageRequired`, `loadingAddress`, `loadingPin`, `loadingLat`, `loadingLng`, `loadingPoint` (PostGIS), `unloadingAddress`, `unloadingPin`, `unloadingLat`, `unloadingLng`, `unloadingPoint` (PostGIS), `truckType`, `minLengthFt`, `minHeightFt`, `urgent`, `maxPrice`, `advancePayable`, `expectedDeliveryAt`, `status` | Spatial radius matching (`ST_DWithin`), budget ceiling comparison, urgency matching, tonnage fit. |
@@ -161,7 +163,11 @@ Every assessment exposes `statusTier`, `badgeVariant`, `whyReason`, `riskSummary
 Shared task derivation engine rendered by `ActionCenterCard` / `ActionCenterMenu` on the Web dashboard shell (`/dashboard/*`, `UnifiedDashboard`) and on the Next.js Admin console (`/admin/dashboard`). The standalone Vite admin SPA does not import the shared engine — it reads the same data via `GET /api/v1/admin/*`:
 - **Factory Owner Tasks**: Pending loading advance payments, missing E-Way bill assignments, unassigned open freight postings, delivered shipments awaiting balance release, expiring subscriptions/trial.
 - **Truck Driver Tasks**: Vehicle KYC document verification pending/rejected, expiring RC/Insurance documents, FASTag low balance alert, confirmed bookings awaiting advance payment from shipper, return-load opportunities.
+- **Transporter Tasks** (unified workspace at `/dashboard/transporter`): Combines factory-owner and truck-driver operational tasks — load postings, truck KYC, return-load opportunities and booking milestones — in one dashboard.
 - **Admin Tasks**: Pending truck KYC document review queue, unresolved counterparty disputes, pending trip document review queue.
+
+**Owner-only listing management.** Each freight load and truck listing belongs to the user who created it. The `factory_owner` side can manage only its own loads, the `truck_driver` side only its own trucks, and the `transporter` workspace shows both its own loads and its own trucks — but never another user's listings.
+
 - **Priority Sorting**: `HIGH` → `MEDIUM` → `LOW` with direct operational deep-links.
 
 ### 5.6 National Admin Intelligence Aggregation (`GET /api/v1/admin/intelligence`)
