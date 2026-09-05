@@ -1,6 +1,6 @@
 # 🚚 LorryCarry — Direct Freight & Truck Marketplace
 
-LorryCarry is a high-performance freight logistics monorepo platform connecting factory owners (shippers/cargo owners) and truck drivers (transporters/fleet operators) directly across India with zero broker commissions. Built with **NestJS**, **Next.js 15 (App Router)**, **PostgreSQL (PostGIS)**, **Redis**, **Cashfree Payments**, **Gupshup WhatsApp API / MSG91**, and **MapmyIndia / Mappls**.
+LorryCarry is a high-performance freight logistics monorepo platform connecting factory owners (shippers/cargo owners), truck drivers (fleet operators) and transporters (who operate on both sides of the marketplace) directly across India with zero broker commissions. Built with **NestJS**, **Next.js 15 (App Router)**, **PostgreSQL (PostGIS)**, **Redis**, **Cashfree Payments**, **Gupshup WhatsApp API / MSG91**, and **MapmyIndia / Mappls**.
 
 ---
 
@@ -42,6 +42,7 @@ LorryCarry is a high-performance freight logistics monorepo platform connecting 
 - **Booking Dispute Management**: In-flight dispute filing (`Payment`, `CargoDamage`, `Delay`, `Document`, `Other`) with priority levels (`Low`, `Medium`, `High`, `Critical`), counterparty evidence, and admin investigation audit trails.
 - **Subscription Paywall & 90-Day Free Trial**: Expiry-driven access control. Every new account is auto-granted a one-time **90-day free trial** that unlocks search contact reveals. Booking creation is gated on an **active paid subscription** (`POST /api/v1/bookings` returns `SUBSCRIPTION_REQUIRED` otherwise), and return-load shipper contacts additionally require a paid subscription (trial-only accounts stay masked there). Plans: **Monthly ₹999** · **Quarterly ₹2,499** · **Annual ₹7,999** (all "unlimited"), with Cashfree, Razorpay, and Stripe checkout and HMAC/SDK-verified webhooks.
 - **Multi-Channel Notification Center**: Granular delivery logging for WhatsApp, SMS, and push notifications via Gupshup / MSG91, backed by user preferences and in-app notification read receipts.
+- **Transporter Unified Workspace**: A dedicated `transporter` role that operates on both sides of the marketplace — posting freight loads (like a `factory_owner`) and listing trucks (like a `truck_driver`) from a single dashboard at `/dashboard/transporter`. Write access remains ownership-scoped: a transporter can only edit or delete its own loads and trucks. Permission helpers `canManageLoads` / `canManageTrucks` (in `apps/api/src/common/utils/roles.util.ts`) centralize the "who may post what" decision.
 - **Dual Admin Portals**:
   - **Next.js Admin Console** (`/admin/*` inside the web app): Full-featured operations console with KPI analytics, KYC document queue, listing controls, dispute resolution, time-scoped revenue charts, and empirical national freight intelligence (`/admin/intelligence`, `/admin/risk`).
   - **Vite React Admin SPA** (`apps/admin` on port 3011): Dedicated lightweight admin portal (React Router DOM, Lucide icons, Recharts) mirroring the shared dashboard/KYC/listings/subscriptions/users/bookings/disputes/analytics views; the Next.js console additionally hosts the intelligence and risk monitors.
@@ -120,30 +121,41 @@ Run the suite with `npm test` (Turborepo) or `npm --prefix packages/shared test`
 | :--- | :--- | :--- |
 | **NestJS Backend API** | `http://localhost:3002/api/v1` | REST API service |
 | **OpenAPI / Swagger UI** | `http://localhost:3002/api/docs` | Interactive Swagger API documentation |
-| **Main Web Portal** | `http://localhost:3010` | Marketplace landing page and search |
+| **Main Web Portal** | `http://localhost:3010` | SaaS-style public website (homepage, search, corridors, procurement, pricing, request demo, help, security, privacy, terms) |
+| **Request Demo Page** | `http://localhost:3010/request-demo` | Public B2B lead form — role-aware demo walkthrough request with WhatsApp hand-off |
 | **Unified Dashboard Router** | `http://localhost:3010/dashboard` | Role-aware dashboard dispatcher |
 | **Factory Owner Dashboard** | `http://localhost:3010/dashboard/factory-owner` | Canonical shipper dashboard (load management, matching trucks) |
-| **Truck Driver Dashboard** | `http://localhost:3010/dashboard/truck-driver` | Canonical transporter dashboard (fleet, return loads, earnings) |
+| **Truck Driver Dashboard** | `http://localhost:3010/dashboard/truck-driver` | Canonical fleet-operator dashboard (fleet, return loads, earnings) |
+| **Transporter Dashboard** | `http://localhost:3010/dashboard/transporter` | Unified both-sides workspace (freight postings + truck listings in one dashboard) |
 | **Next.js Admin Console** | `http://localhost:3010/admin` | Full operational management console |
 | **Vite Admin Dashboard** | `http://localhost:3011` | Standalone Vite + React admin interface |
 | **Prisma Studio** | `http://localhost:5555` | Database management GUI (`npm run db:studio`) |
 
 ### Canonical User Roles & Legacy Route Aliases
 
-The platform operates on a normalized **Factory Owner ↔ Truck Driver** model:
+The platform operates on a **Factory Owner · Truck Driver · Transporter** model, where the transporter is a both-sides operator who may post freight loads AND list trucks from one workspace:
 
 | Canonical Role (`UserRole`) | Business Persona | Canonical Dashboard Route | Legacy Role Aliases (Normalized) |
 | :--- | :--- | :--- | :--- |
-| `factory_owner` | Cargo owner / Shipper / Factory | `/dashboard/factory-owner` | `load_owner` |
-| `truck_driver` | Lorry owner-operator / Transporter | `/dashboard/truck-driver` | `truck_owner`, `driver` |
+| `factory_owner` | Cargo owner / Shipper / Factory — posts freight loads | `/dashboard/factory-owner` | `load_owner` |
+| `truck_driver` | Lorry owner-operator / Fleet driver — lists trucks and runs trips | `/dashboard/truck-driver` | `truck_owner`, `driver` |
+| `transporter` | Both-sides operator — posts loads AND lists trucks (unified workspace) | `/dashboard/transporter` | — |
 | `admin` | Platform operator / KYC verifier | `/admin/dashboard` | — |
+
+**Permissions summary:**
+- `factory_owner` may post and manage freight loads; cannot list trucks.
+- `truck_driver` may list and manage trucks; cannot post loads.
+- `transporter` may post loads **and** list trucks, all from the unified `/dashboard/transporter` workspace; ownership-scoped edits (a transporter may only modify their own loads and trucks).
+- `admin` has full platform oversight (KYC verification, dispute resolution, intelligence, user management).
+
+Permission helpers `canManageLoads` / `canManageTrucks` (in `apps/api/src/common/utils/roles.util.ts`) centralize the "who may post what" decision. Write access is always ownership-scoped at the service layer.
 
 **Legacy Route Redirects:**
 - `/dashboard/load-owner` → 307 Redirect to `/dashboard/factory-owner`
 - `/dashboard/truck-owner` → 307 Redirect to `/dashboard/truck-driver`
 - `/dashboard/driver` → 307 Redirect to `/dashboard/truck-driver`
 
-**Database migration path.** The `UserRole` enum contains only the three canonical values. Existing rows are converted by [`20260904000000_canonicalize_user_roles`](packages/database/prisma/migrations/20260904000000_canonicalize_user_roles/migration.sql): `load_owner` → `factory_owner`, `truck_owner` → `truck_driver`, and `driver` → `truck_driver`. Legacy rows are backfilled *before* the old enum type is dropped, so no row is ever orphaned, and the `CASE` mapping makes the migration re-runnable against a database that skipped the earlier in-place rename.
+**Database migration path.** The `UserRole` enum contains the four canonical values (`factory_owner`, `truck_driver`, `transporter`, `admin`). The `transporter` role was introduced alongside the canonicalization migration [`20260904000000_canonicalize_user_roles`](packages/database/prisma/migrations/20260904000000_canonicalize_user_roles/migration.sql), which also converted legacy rows: `load_owner` → `factory_owner`, `truck_owner` → `truck_driver`, and `driver` → `truck_driver`. Legacy rows are backfilled *before* the old enum type is dropped, so no row is ever orphaned, and the `CASE` mapping makes the migration re-runnable against a database that skipped the earlier in-place rename.
 
 **Normalization at the boundary.** Deployed clients, cached cookies and long-lived JWTs may still carry a legacy label, so every entry point normalizes before use — `normalizeRole()` in [`apps/web/src/lib/roles.ts`](apps/web/src/lib/roles.ts), [`apps/mobile/src/lib/roles.ts`](apps/mobile/src/lib/roles.ts), [`packages/shared/src/types/index.ts`](packages/shared/src/types/index.ts) and [`apps/api/src/common/utils/roles.util.ts`](apps/api/src/common/utils/roles.util.ts) (used by `RolesGuard`). Legacy labels are **never persisted**: only canonical roles are written to the database, cookies or storage.
 
@@ -157,8 +169,8 @@ never pointed at a URL that answers with a login redirect.
 
 | Visibility | Routes |
 | :--- | :--- |
-| **Public** (no session required) | `/`, `/login`, `/role-select`, `/search` (+ `/search/trucks`, `/search/loads`), `/privacy`, `/terms`, `/security`, `/help`, `/subscribe`, `/subscription`, `/api/*`, `/images/*`, `/_next/*`, `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest`, `/favicon.ico`, `/icon.png`, `/apple-icon.png` |
-| **Protected** (307 → `/login?redirect=<path>`) | `/dashboard/*`, `/admin/*`, `/my-loads`, `/my-trucks`, `/bookings`, `/booking/*`, `/documents`, `/notifications`, `/settings`, `/profile` |
+| **Public** (no session required) | `/`, `/login`, `/role-select`, `/search` (+ `/search/trucks`, `/search/loads`), `/privacy`, `/terms`, `/security`, `/help`, `/subscribe`, `/subscription`, `/request-demo`, `/api/*`, `/images/*`, `/_next/*`, `/robots.txt`, `/sitemap.xml`, `/manifest.webmanifest`, `/favicon.ico`, `/icon.png`, `/apple-icon.png` |
+| **Protected** (307 → `/login?redirect=<path>`) | `/dashboard/*`, `/admin/*`, `/my-loads`, `/my-trucks`, `/my-listings`, `/bookings`, `/booking/*`, `/documents`, `/notifications`, `/settings`, `/profile` |
 | **Default-deny** | Every other path (`/tracking`, `/analytics`, `/post-load`, …) requires a session unless it is added to the public allowlist |
 
 Prefix matching is segment-aware: `/terms` and `/terms/archive` are public, `/terms-of-service` is not.
@@ -179,7 +191,7 @@ The Next.js Admin Portal (`http://localhost:3010/admin`) and Vite Admin SPA (`ht
 | `/admin/kyc` | `/kyc` | Pending RC and Insurance KYC document queue with Verify/Reject modal and notes |
 | `/admin/listings` | `/listings` | Active freight loads and registered trucks directory with direct truck verification |
 | `/admin/subscriptions` | `/subscriptions` | Subscription directory with active/expired filtering and manual plan extension |
-| `/admin/users` | `/users` | User management directory with role filtering (`factory_owner`, `truck_driver`, `admin`) |
+| `/admin/users` | `/users` | User management directory with role filtering (`factory_owner`, `truck_driver`, `transporter`, `admin`) |
 | `/admin/bookings` | `/bookings` | Comprehensive commercial booking records with route details, pricing, and lifecycle state |
 | `/admin/disputes` | `/disputes` | Dispute queue sorted by priority (`Critical` → `Low`) with investigation and resolution tools |
 | `/admin/analytics` | `/analytics` | Time-scoped trip completion trends, revenue breakdown, and corridor efficiency heatmaps |
@@ -218,21 +230,21 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 ### 3. Freight Loads (`/api/v1/loads`)
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/loads` | Factory Owner | Post new freight load with automated geocoding & PostGIS points |
-| `GET` | `/api/v1/loads/my-loads` | Factory Owner | List freight loads posted by authenticated user with booking counts |
+| `POST` | `/api/v1/loads` | Factory Owner, Transporter | Post new freight load with automated geocoding & PostGIS points |
+| `GET` | `/api/v1/loads/my-loads` | Factory Owner, Transporter | List freight loads posted by authenticated user with booking counts |
 | `GET` | `/api/v1/loads/:id` | Authenticated | Retrieve load details, pickup/drop coordinates, and commercial budget |
-| `PATCH` | `/api/v1/loads/:id/status` | Factory Owner | Update load status (`Open`, `Matched`, `InTransit`, `Completed`, `Cancelled`) |
-| `DELETE` | `/api/v1/loads/:id` | Factory Owner | Delete load posting (if no active bookings exist) |
+| `PATCH` | `/api/v1/loads/:id/status` | Factory Owner, Transporter | Update load status (`Open`, `Matched`, `InTransit`, `Completed`, `Cancelled`) |
+| `DELETE` | `/api/v1/loads/:id` | Factory Owner, Transporter | Delete load posting (if no active bookings exist) |
 
 ### 4. Truck Fleet Management (`/api/v1/trucks`)
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/trucks` | Truck Driver | Register vehicle with capacity, body type, location, and preferred corridors |
-| `GET` | `/api/v1/trucks/my-trucks` | Truck Driver | List registered trucks with KYC document verification status |
+| `POST` | `/api/v1/trucks` | Truck Driver, Transporter | Register vehicle with capacity, body type, location, and preferred corridors |
+| `GET` | `/api/v1/trucks/my-trucks` | Truck Driver, Transporter | List registered trucks with KYC document verification status |
 | `GET` | `/api/v1/trucks/:id` | Authenticated | Retrieve truck details, specifications, and compliance checklist |
-| `POST` | `/api/v1/trucks/:id/documents/:type`| Truck Driver | Upload RC or Insurance document record for a truck |
+| `POST` | `/api/v1/trucks/:id/documents/:type`| Truck Driver, Transporter | Upload RC or Insurance document record for a truck |
 | `POST` | `/api/v1/documents/generate-upload-url` | Authenticated | Generate a pre-signed S3 upload URL for direct vehicle/KYC document upload |
-| `PATCH` | `/api/v1/trucks/:id/location` | Truck Driver | Update the truck's current location from an `address` string (server-side Mappls geocode → lat/lng + PostGIS point) and re-evaluate proximity matches |
+| `PATCH` | `/api/v1/trucks/:id/location` | Truck Driver, Transporter | Update the truck's current location from an `address` string (server-side Mappls geocode → lat/lng + PostGIS point) and re-evaluate proximity matches |
 
 ### 5. Geospatial Search & Contact Reveal (`/api/v1/search`)
 | Method | Endpoint | Access | Description |
@@ -272,8 +284,8 @@ All backend REST endpoints are served under the global prefix `/api/v1`.
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/compliance/trucks/:id` | Owner / Admin | Retrieve complete vehicle compliance checklist (RC, insurance, fitness, permit, FASTag) |
-| `POST` | `/api/v1/compliance/trucks/:id/validate-rc` | Truck Driver / Admin | Trigger Vahan RC check via the external provider API (or deterministic sandbox fallback when `VAHAN_API_KEY` is unset) |
-| `PATCH` | `/api/v1/compliance/trucks/:id/fastag` | Truck Driver / Admin | Report FASTag readiness status (`Active`, `LowBalance`, `Inactive`, `Unknown`) |
+| `POST` | `/api/v1/compliance/trucks/:id/validate-rc` | Truck Driver, Transporter, Admin | Trigger Vahan RC check via the external provider API (or deterministic sandbox fallback when `VAHAN_API_KEY` is unset) |
+| `PATCH` | `/api/v1/compliance/trucks/:id/fastag` | Truck Driver, Transporter, Admin | Report FASTag readiness status (`Active`, `LowBalance`, `Inactive`, `Unknown`) |
 | `GET` | `/api/v1/compliance/bookings/:id` | Booking Party / Admin | Retrieve trip compliance checklist including E-Way Bill status |
 | `POST` | `/api/v1/compliance/bookings/:id/eway-bill` | Factory Owner / Admin | Attach or update 12-digit GSTN E-Way Bill number and expiry timestamp |
 
