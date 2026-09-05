@@ -69,20 +69,20 @@ export function BookingTermsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-fadeIn cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn cursor-pointer"
       onClick={onClose}
     >
       <div 
         role="dialog"
         aria-modal="true"
         aria-labelledby="booking-terms-title"
-        className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transform transition-all cursor-default"
+        className="relative w-full max-w-lg bg-overlay/95 backdrop-blur-xl rounded-modal border border-hairline shadow-modal overflow-hidden transform transition-all cursor-default"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-hairline bg-sunken/60">
           <div className="flex items-center space-x-2">
-            <div className="p-2 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400">
+            <div className="p-2 rounded-lg bg-primary-500/10 text-primary-400 border border-primary-500/20">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -95,7 +95,7 @@ export function BookingTermsModal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            className="text-muted hover:text-ink p-1 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -105,31 +105,31 @@ export function BookingTermsModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Selected Truck Card */}
-          <div className="p-4 rounded-xl bg-orange-50/60 dark:bg-primary-950/20 border border-orange-100 dark:border-primary-900/40 space-y-1">
+          <div className="p-4 rounded-xl bg-primary-500/10 border border-primary-500/20 space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-primary-700 dark:text-primary-400 uppercase tracking-wider">
                 Selected Truck
               </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300">
                 Verified Transporter
               </span>
             </div>
-            <p className="text-base font-bold text-ink">
+            <p className="text-base font-bold text-ink font-mono">
               {truckInfo.registrationNumber}
             </p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              {truckInfo.bodyType} • Transporter: <span className="font-medium text-gray-800 dark:text-gray-200">{truckInfo.ownerName}</span>
+            <p className="text-xs text-muted">
+              {truckInfo.bodyType} • Transporter: <span className="font-medium text-body">{truckInfo.ownerName}</span>
             </p>
           </div>
 
           {/* Form Inputs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="agreedPrice" className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                Agreed Freight Price (₹) <span className="text-rose-500">*</span>
+              <label htmlFor="agreedPrice" className="block text-xs font-semibold text-body mb-1">
+                Agreed Freight Price (₹) <span className="text-danger-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 dark:text-gray-400 text-sm font-semibold">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-muted text-sm font-semibold">
                   ₹
                 </span>
                 <input
@@ -147,8 +147,8 @@ export function BookingTermsModal({
             </div>
 
             <div>
-              <label htmlFor="ewayBillNumber" className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                E-Way Bill Number <span className="text-gray-400 font-normal">(Optional)</span>
+              <label htmlFor="ewayBillNumber" className="block text-xs font-semibold text-body mb-1">
+                E-Way Bill Number <span className="text-subtle font-normal">(Optional)</span>
               </label>
               <input
                 id="ewayBillNumber"
@@ -162,11 +162,11 @@ export function BookingTermsModal({
           </div>
 
           {/* Payment Terms */}
-          <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 space-y-2">
-            <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
+          <div className="p-4 rounded-xl bg-sunken/60 border border-hairline space-y-2">
+            <h4 className="text-xs font-bold text-ink uppercase tracking-wider font-mono">
               Standard Commercial Terms
             </h4>
-            <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
+            <ul className="text-xs text-body space-y-1.5 leading-relaxed">
               <li className="flex items-start space-x-2">
                 <span className="font-bold text-primary-600 dark:text-primary-400">1.</span>
                 <span>
@@ -195,9 +195,9 @@ export function BookingTermsModal({
               id="liabilityAccepted"
               checked={liabilityAccepted}
               onChange={(e) => setLiabilityAccepted(e.target.checked)}
-              className="mt-1 h-4 w-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500 cursor-pointer"
+              className="mt-1 h-4 w-4 text-primary-500 rounded border-hairline-strong focus:ring-primary-500/30 cursor-pointer"
             />
-            <label htmlFor="liabilityAccepted" className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed cursor-pointer select-none">
+            <label htmlFor="liabilityAccepted" className="text-xs text-body leading-relaxed cursor-pointer select-none">
               I accept the commercial payment terms and confirm that the transporter is liable 
               for any damage to cargo during transit. I understand this is a direct 
               booking without broker involvement.
@@ -208,7 +208,7 @@ export function BookingTermsModal({
             <div
               role="alert"
               aria-live="polite"
-              className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300"
+              className="p-3 rounded-lg bg-danger-500/10 border border-danger-500/25 text-xs text-danger-600 dark:text-danger-300"
             >
               {error}
             </div>

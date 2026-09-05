@@ -68,7 +68,10 @@ export function EmptyState({
     <div
       className={cn(
         'text-center flex flex-col items-center',
-        variant === 'card' && 'p-8 sm:p-12 bg-panel rounded-card border border-hairline shadow-card',
+        // Operational empty state per docs/LORRYCARRY_DESIGN_SYSTEM.md §15:
+        // dark glass panel with hairline border and modal shadow.
+        variant === 'card' &&
+          'p-8 sm:p-12 bg-panel/80 backdrop-blur-xl rounded-card border border-hairline shadow-modal',
         variant === 'inline' && 'py-10 px-4',
         className
       )}
