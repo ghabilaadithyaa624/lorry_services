@@ -21,10 +21,12 @@ const REQUIRED_PUBLIC_ROUTES = [
   '/search',
   '/search/trucks',
   '/search/loads',
+  '/subscribe',
   '/privacy',
   '/terms',
   '/security',
   '/help',
+  '/request-demo',
   '/login',
   '/role-select',
   '/robots.txt',
@@ -125,7 +127,7 @@ describe('sitemap()', () => {
     expect(paths).not.toContain(path)
   })
 
-  it.each(['/', '/search', '/search/trucks', '/subscribe', '/privacy', '/terms', '/help'])(
+  it.each(['/', '/search', '/search/trucks', '/subscribe', '/privacy', '/terms', '/help', '/request-demo'])(
     'includes the indexable public route %s',
     (path) => {
       expect(paths).toContain(path)

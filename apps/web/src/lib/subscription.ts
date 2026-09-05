@@ -1,6 +1,7 @@
 'use client'
 
 import { api, subscriptionsApi } from '@/lib/api'
+import { normalizeRole, type AppUserRole } from '@/lib/roles'
 
 export type PaymentProvider = 'cashfree' | 'razorpay' | 'stripe'
 
@@ -142,14 +143,17 @@ export async function verifyOrder(orderId: string) {
 }
 
 /**
- * Client-side session probe used by the **public** pricing pages.
+ * Client-side session probe used by the **public** pages.
  *
- * `/subscribe` and `/subscription` are public (see `@/lib/publicRoutes`) so
- * anonymous visitors can read plans and pricing. They must not call the
- * authenticated entitlement endpoints, and they must not start a checkout.
- * This helper answers "is there a session in this browser?" without hitting the
- * API — it is a UX gate only. Real enforcement stays server-side: the
- * `/subscriptions/initiate` endpoint requires a valid bearer token.
+ * `/subscribe`, `/subscription`, `/help` and `/security` are public (see
+ * `@/lib/publicRoutes`) so anonymous visitors can read pricing, the help centre
+ * and the security page. Public pages must not call authenticated endpoints on
+ * mount — an anonymous visitor's `/users/me`, `/subscriptions/status` or
+ * entitlement call always answers 401, which used to surface as an error
+ * banner (and, before the allowlist existed, a redirect) on pages anyone may
+ * read. This helper answers "is there a session in this browser?" without
+ * hitting the API — it is a UX gate only. Real enforcement stays server-side:
+ * `/subscriptions/initiate` and friends require a valid bearer token.
  */
 export function hasClientSession(): boolean {
   if (typeof window === 'undefined') return false
@@ -157,6 +161,30 @@ export function hasClientSession(): boolean {
     return Boolean(window.localStorage.getItem('accessToken'))
   } catch {
     return false
+  }
+}
+
+/**
+ * Role from the persisted browser session, normalized — or `undefined`.
+ *
+ * Login stores the signed-in user as JSON in `localStorage.user` (see
+ * `app/login/page.tsx`), which is the same source `useOperationalTasks` and the
+ * Post Freight modal read. Public pages use this to tailor CTAs — which publish
+ * action leads, and which side of the marketplace is even available — without
+ * firing an authenticated `/users/me` that would 401 for anonymous visitors.
+ *
+ * It is a UX signal only. The middleware and the API re-check the role from the
+ * cookie/JWT on every protected request, so a stale or tampered value can never
+ * grant access.
+ */
+export function readClientSessionRole(): AppUserRole | undefined {
+  if (typeof window === 'undefined') return undefined
+  try {
+    const stored = window.localStorage.getItem('user')
+    if (!stored) return undefined
+    return normalizeRole(JSON.parse(stored)?.role)
+  } catch {
+    return undefined
   }
 }
 

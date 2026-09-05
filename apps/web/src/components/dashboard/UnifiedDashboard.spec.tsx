@@ -137,6 +137,21 @@ describe('UnifiedDashboard → live Operational Action Center', () => {
     expect(renderToStaticMarkup(panel)).toContain('Action data unavailable')
   })
 
+  it('opens both marketplace sides for the transporter workspace', async () => {
+    responses['/loads/my-loads'] = [{ id: 'l-1', status: 'Open', _count: { bookings: 0 } }]
+    const panel = await load({ roleOverride: 'transporter' })
+    const urls = get.mock.calls.map(([url]) => url)
+    // One workspace: own freight posts and own truck listings together…
+    expect(urls).toContain('/loads/my-loads')
+    expect(urls).toContain('/trucks/my-trucks')
+    expect(urls).toContain('/users/documents')
+    // …and the fleet panel reads the transporter's own trucks, never a nearby
+    // search result that happens to belong to someone else.
+    expect(urls).not.toContain('/search/trucks?lat=19.0760&lng=72.8777&radius=100')
+    expect(panel.props.tasks.map((task: any) => task.id)).toContain('open-loads-match')
+    expect(panel.props.unavailableSources).toEqual([])
+  })
+
   it('refreshes from the API and clears resolved actions', async () => {
     responses['/bookings/my-bookings'] = [{ id: 'b-1', status: 'Completed', advanceConfirmed: true, balanceConfirmed: false, agreedPrice: 30000 }]
     const panel = await load({ roleOverride: 'factory_owner' })

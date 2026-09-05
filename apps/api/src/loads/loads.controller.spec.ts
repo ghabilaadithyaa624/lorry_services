@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { LoadsController } from './loads.controller'
 import { LoadsService } from './loads.service'
-import { LoadStatus } from '@prisma/client'
+import { LoadStatus } from '@lorrycarry/database'
 import { CreateLoadDto } from './dto/create-load.dto'
 
 describe('LoadsController', () => {
@@ -12,6 +12,7 @@ describe('LoadsController', () => {
     create: jest.fn(),
     findByUser: jest.fn(),
     findOne: jest.fn(),
+    update: jest.fn(),
     updateStatus: jest.fn(),
     delete: jest.fn(),
   }
@@ -100,17 +101,44 @@ describe('LoadsController', () => {
     })
   })
 
+  describe('update', () => {
+    it('should call loadsService.update with id, dto, userId and role', async () => {
+      const id = 'load-1'
+      const userId = 'user-123'
+      const role = 'factory_owner' as any
+      const dto = { tonnageRequired: 22, maxPrice: 71000 }
+      const mockResult = { id, ...dto }
+      mockLoadsService.update.mockResolvedValue(mockResult)
+
+      const result = await controller.update(id, dto, userId, role)
+
+      expect(loadsService.update).toHaveBeenCalledWith(id, userId, dto, role)
+      expect(result).toEqual(mockResult)
+    })
+
+    it('should pass an admin role through so the service can manage any load', async () => {
+      const id = 'load-1'
+      const dto = { urgent: true }
+      mockLoadsService.update.mockResolvedValue({ id, urgent: true })
+
+      await controller.update(id, dto, 'admin-1', 'admin' as any)
+
+      expect(loadsService.update).toHaveBeenCalledWith(id, 'admin-1', dto, 'admin')
+    })
+  })
+
   describe('updateStatus', () => {
     it('should call loadsService.updateStatus with correct parameters', async () => {
       const id = 'load-1'
       const userId = 'user-123'
+      const role = 'factory_owner' as any
       const status = LoadStatus.Matched
       const mockResult = { id, status }
       mockLoadsService.updateStatus.mockResolvedValue(mockResult)
 
-      const result = await controller.updateStatus(id, status, userId)
+      const result = await controller.updateStatus(id, status, userId, role)
 
-      expect(loadsService.updateStatus).toHaveBeenCalledWith(id, userId, status)
+      expect(loadsService.updateStatus).toHaveBeenCalledWith(id, userId, status, role)
       expect(result).toEqual(mockResult)
     })
   })
@@ -119,12 +147,13 @@ describe('LoadsController', () => {
     it('should call loadsService.delete with correct parameters', async () => {
       const id = 'load-1'
       const userId = 'user-123'
+      const role = 'factory_owner' as any
       const mockResult = { id }
       mockLoadsService.delete.mockResolvedValue(mockResult)
 
-      const result = await controller.delete(id, userId)
+      const result = await controller.delete(id, userId, role)
 
-      expect(loadsService.delete).toHaveBeenCalledWith(id, userId)
+      expect(loadsService.delete).toHaveBeenCalledWith(id, userId, role)
       expect(result).toEqual(mockResult)
     })
   })

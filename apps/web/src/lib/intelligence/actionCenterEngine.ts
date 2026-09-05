@@ -241,9 +241,12 @@ export function getActionCenterUnavailableSources(snapshot: DashboardActionCente
   if (!mapEntitlement(snapshot.entitlement).subscription) unavailable.push('Subscription')
   if (!mapBookings(snapshot.bookings)) unavailable.push('Trips')
   if (!mapNotifications(snapshot.notifications)) unavailable.push('WhatsApp alerts')
-  if (role === 'factory_owner') {
+  // Freight side: factory owners and (both-side) transporters.
+  if (role === 'factory_owner' || role === 'transporter') {
     if (!mapLoads(snapshot.loads)) unavailable.push('Loads')
-  } else {
+  }
+  // Fleet side: truck drivers and transporters.
+  if (role === 'truck_driver' || role === 'transporter') {
     const trucks = mapTrucks(snapshot.trucks)
     if (!trucks) unavailable.push('Fleet')
     // /trucks/my-trucks embeds each truck's documents. That is sufficient even

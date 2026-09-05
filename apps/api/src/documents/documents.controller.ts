@@ -1,8 +1,9 @@
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DocumentsService } from './documents.service';
 import { GenerateUploadUrlDto } from './dto/generate-upload-url.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('Documents')
 @Controller('documents')
@@ -13,8 +14,7 @@ export class DocumentsController {
 
   @Post('generate-upload-url')
   @ApiOperation({ summary: 'Generate a pre-signed S3 upload URL for a document' })
-  async generateUploadUrl(@Request() req, @Body() dto: GenerateUploadUrlDto) {
-    const userId = req.user.userId;
+  async generateUploadUrl(@CurrentUser('id') userId: string, @Body() dto: GenerateUploadUrlDto) {
     return this.documentsService.generateUploadUrl(
       userId,
       dto.entityId,

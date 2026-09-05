@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, TruckType, LoadStatus, VerificationStatus } from '@prisma/client'
+import { PrismaClient, UserRole, TruckType, LoadStatus, VerificationStatus } from './client'
 
 const prisma = new PrismaClient()
 

@@ -40,6 +40,13 @@ const roles: Array<{ value: RegistrationRole; icon: string; title: string; capti
     caption: 'ON THE ROAD',
     description: 'List vehicles, find loads, avoid empty runs, and manage bookings.',
   },
+  {
+    value: 'transporter',
+    icon: '🔁',
+    title: 'Transporter',
+    caption: 'BOTH SIDES',
+    description: 'Manage both freight postings and truck listings from one workspace.',
+  },
 ]
 
 export function RoleSelectScreen({ route }: RoleSelectProps) {

@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@lorrycarry/database'
 
 /**
  * Canonical roles are `factory_owner`, `truck_driver` and `admin`
@@ -18,6 +18,7 @@ export const LEGACY_ROLE_MAP: Record<string, UserRole> = {
 export const CANONICAL_ROLES: UserRole[] = [
   UserRole.factory_owner,
   UserRole.truck_driver,
+  UserRole.transporter,
   UserRole.admin,
 ]
 
@@ -25,6 +26,25 @@ export const CANONICAL_ROLES: UserRole[] = [
 export const PUBLIC_REGISTRATION_ROLES: UserRole[] = [
   UserRole.factory_owner,
   UserRole.truck_driver,
+  UserRole.transporter,
+]
+
+/**
+ * Roles allowed to create/list/manage their own freight loads.
+ * Factory owners post loads; transporters operate on both sides.
+ */
+export const LOAD_MANAGER_ROLES: UserRole[] = [
+  UserRole.factory_owner,
+  UserRole.transporter,
+]
+
+/**
+ * Roles allowed to create/list/manage their own trucks.
+ * Truck drivers list vehicles; transporters operate on both sides.
+ */
+export const TRUCK_MANAGER_ROLES: UserRole[] = [
+  UserRole.truck_driver,
+  UserRole.transporter,
 ]
 
 /**
@@ -37,12 +57,37 @@ export function normalizeRole(role?: string | null): UserRole | undefined {
   return LEGACY_ROLE_MAP[role]
 }
 
-/** Vehicle side of the marketplace (truck drivers / transporters). */
+/** Transporters operate on BOTH sides of the marketplace. */
+export function isTransporterRole(role?: string | null): boolean {
+  return normalizeRole(role) === UserRole.transporter
+}
+
+/**
+ * Vehicle side of the marketplace (truck drivers). Kept single-role so callers
+ * that assume mutual exclusivity with the freight side keep working. Use
+ * `canManageTrucks` to include transporters for vehicle-listing permissions.
+ */
 export function isVehicleSideRole(role?: string | null): boolean {
   return normalizeRole(role) === UserRole.truck_driver
 }
 
-/** Freight side of the marketplace (factory owners / shippers). */
+/**
+ * Freight side of the marketplace (factory owners). Kept single-role so callers
+ * that assume mutual exclusivity with the vehicle side keep working. Use
+ * `canManageLoads` to include transporters for load-posting permissions.
+ */
 export function isFreightSideRole(role?: string | null): boolean {
   return normalizeRole(role) === UserRole.factory_owner
+}
+
+/** Whether a role may create/list/manage freight loads. */
+export function canManageLoads(role?: string | null): boolean {
+  const r = normalizeRole(role)
+  return r === UserRole.factory_owner || r === UserRole.transporter || r === UserRole.admin
+}
+
+/** Whether a role may create/list/manage trucks. */
+export function canManageTrucks(role?: string | null): boolean {
+  const r = normalizeRole(role)
+  return r === UserRole.truck_driver || r === UserRole.transporter || r === UserRole.admin
 }

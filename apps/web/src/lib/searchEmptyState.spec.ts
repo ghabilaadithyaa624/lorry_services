@@ -3,9 +3,11 @@ import {
   DEMO_TRUCK_PREVIEWS,
   INDUSTRIAL_HUB_SUGGESTIONS,
   LOGIN_LIVE_MARKETPLACE_CTA,
-  POST_LOAD_PATH,
+  POST_FREIGHT_LABEL,
+  POST_FREIGHT_PATH,
   RADIUS_STEPS_KM,
-  REGISTER_VEHICLE_PATH,
+  REGISTER_TRUCK_LABEL,
+  REGISTER_TRUCK_PATH,
   SAMPLE_PREVIEW_DISCLAIMER,
   SAMPLE_PREVIEW_LABEL,
   bodyTypeLabel,
@@ -15,6 +17,7 @@ import {
   marketplaceEndpoint,
   nextRadiusStep,
   oppositeMode,
+  resolveMarketplaceCtas,
   resolveSearchEmptyVariant,
   searchTypeParam,
   searchUrlForMode,
@@ -153,8 +156,9 @@ describe('buildMarketplaceQuery', () => {
 
 describe('loginRedirectUrl', () => {
   it('routes the publish CTAs exactly as specified', () => {
-    expect(loginRedirectUrl(POST_LOAD_PATH)).toBe('/login?redirect=/need-load')
-    expect(loginRedirectUrl(REGISTER_VEHICLE_PATH)).toBe('/login?redirect=/need-vehicle')
+    // The same destinations the navbar and dashboard sidebar use.
+    expect(loginRedirectUrl(POST_FREIGHT_PATH)).toBe('/login?redirect=/post-load')
+    expect(loginRedirectUrl(REGISTER_TRUCK_PATH)).toBe('/login?redirect=/register-truck')
   })
 
   it('encodes a target that carries its own query string', () => {
@@ -272,5 +276,99 @@ describe('bodyTypeLabel', () => {
     expect(bodyTypeLabel('Open')).toBe('Open Body')
     expect(bodyTypeLabel('Container')).toBe('Closed Container')
     expect(bodyTypeLabel('OpenBody')).toBe('Open Body Trailer')
+  })
+})
+
+describe('resolveMarketplaceCtas', () => {
+  const kinds = (options: Parameters<typeof resolveMarketplaceCtas>[0]) =>
+    resolveMarketplaceCtas(options).ctas.map((cta) => cta.kind)
+
+  it('leads with the side that creates the missing supply for the open tab', () => {
+    // Searching trucks => the visitor is short a vehicle, so they post freight.
+    expect(kinds({ mode: 'trucks' })).toEqual(['post-freight', 'register-truck'])
+    // Searching loads => the visitor is short cargo, so they register a vehicle.
+    expect(kinds({ mode: 'loads' })).toEqual(['register-truck', 'post-freight'])
+  })
+
+  it('marks only the leading CTA as primary', () => {
+    const { ctas } = resolveMarketplaceCtas({ mode: 'trucks' })
+    expect(ctas.filter((cta) => cta.primary)).toHaveLength(1)
+    expect(ctas[0].primary).toBe(true)
+    expect(ctas[1].primary).toBe(false)
+  })
+
+  it('uses the product-wide CTA labels and canonical destinations', () => {
+    const { ctas } = resolveMarketplaceCtas({ mode: 'trucks', isAuthenticated: true })
+    const labels = ctas.map((cta) => cta.label)
+    expect(labels).toContain(POST_FREIGHT_LABEL)
+    expect(labels).toContain(REGISTER_TRUCK_LABEL)
+    expect(labels).toEqual(['Post Freight', 'Register Truck'])
+    expect(ctas.map((cta) => cta.path)).toEqual(['/post-load', '/register-truck'])
+  })
+
+  it('gates every CTA through login for anonymous visitors', () => {
+    const { ctas } = resolveMarketplaceCtas({ mode: 'trucks' })
+    expect(ctas.map((cta) => cta.href)).toEqual([
+      '/login?redirect=/post-load',
+      '/login?redirect=/register-truck',
+    ])
+  })
+
+  it('links signed-in operators straight to the forms', () => {
+    const { ctas } = resolveMarketplaceCtas({ mode: 'loads', isAuthenticated: true })
+    expect(ctas.map((cta) => cta.href)).toEqual(['/register-truck', '/post-load'])
+  })
+
+  describe('role gating', () => {
+    it('gives transporters both sides — Post Freight and Register Truck', () => {
+      const set = resolveMarketplaceCtas({ mode: 'loads', role: 'transporter', isAuthenticated: true })
+      expect(set.ctas.map((cta) => cta.label)).toEqual(['Register Truck', 'Post Freight'])
+      expect(set.hidden).toBeUndefined()
+    })
+
+    it('gives admins both sides too', () => {
+      const set = resolveMarketplaceCtas({ mode: 'trucks', role: 'admin', isAuthenticated: true })
+      expect(set.ctas.map((cta) => cta.kind)).toEqual(['post-freight', 'register-truck'])
+    })
+
+    it('normalizes legacy role labels before gating', () => {
+      // truck_owner is the pre-cleanup label for truck_driver.
+      const set = resolveMarketplaceCtas({ mode: 'trucks', role: 'truck_owner', isAuthenticated: true })
+      expect(set.ctas.map((cta) => cta.kind)).toEqual(['register-truck'])
+    })
+
+    it('withholds vehicle registration from a shipper and says why', () => {
+      const set = resolveMarketplaceCtas({
+        mode: 'loads',
+        role: 'factory_owner',
+        isAuthenticated: true,
+      })
+      // /register-truck would bounce a factory owner back to their dashboard.
+      expect(set.ctas.map((cta) => cta.kind)).toEqual(['post-freight'])
+      expect(set.primary?.label).toBe('Post Freight')
+      expect(set.hidden?.kind).toBe('register-truck')
+      expect(set.hidden?.note).toContain('driver and transporter accounts')
+    })
+
+    it('withholds freight posting from a driver and says why', () => {
+      const set = resolveMarketplaceCtas({ mode: 'trucks', role: 'truck_driver', isAuthenticated: true })
+      expect(set.ctas.map((cta) => cta.kind)).toEqual(['register-truck'])
+      expect(set.hidden?.kind).toBe('post-freight')
+      expect(set.hidden?.note).toContain('shipper and transporter accounts')
+    })
+
+    it('keeps both sides for an unresolved session — the role is chosen at signup', () => {
+      const set = resolveMarketplaceCtas({ mode: 'trucks', role: null })
+      expect(set.ctas.map((cta) => cta.kind)).toEqual(['post-freight', 'register-truck'])
+      expect(set.hidden).toBeUndefined()
+    })
+
+    it('never returns an empty CTA list', () => {
+      for (const mode of ['trucks', 'loads'] as const) {
+        for (const role of ['factory_owner', 'truck_driver', 'transporter', 'admin', null]) {
+          expect(resolveMarketplaceCtas({ mode, role }).ctas.length).toBeGreaterThan(0)
+        }
+      }
+    })
   })
 })

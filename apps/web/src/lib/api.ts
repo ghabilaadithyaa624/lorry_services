@@ -3,6 +3,8 @@ import type { FreightEstimate, PricingInput } from './intelligence/pricingEngine
 import type { MatchResult } from './intelligence/matchingEngine'
 import type { NationalLogisticsSummary } from './intelligence/nationalLogisticsEngine'
 import { isPublicPath } from './publicRoutes'
+import { normalizeRole } from './roles'
+import type { PublicRegistrationRole } from './roles'
 
 // Use the same-origin rewrite by default so browser requests work behind a
 // preview/proxy host. Direct API origins remain configurable for deployments.
@@ -158,7 +160,7 @@ export const authApi = {
   requestOtp: (phone: string, channel: 'whatsapp' | 'sms' = 'whatsapp') =>
     api.post('/auth/otp/request', { phone, channel }),
 
-  verifyOtp: (phone: string, otp: string, role?: 'factory_owner' | 'truck_driver') =>
+  verifyOtp: (phone: string, otp: string, role?: PublicRegistrationRole) =>
     api.post('/auth/otp/verify', { phone, otp, role }),
 
   refreshToken: (refreshToken: string) =>
@@ -352,9 +354,51 @@ export const bookingsApi = {
   ) => api.post(`/bookings/${id}/disputes`, data),
 }
 
+// Loads API — freight-side posts (factory owners and transporters)
+export const loadsApi = {
+  getMyLoads: (params?: { status?: string; page?: number; limit?: number }) =>
+    api.get('/loads/my-loads', { params }),
+  /** Edit an open load (owner only server-side). */
+  updateLoad: (
+    loadId: string,
+    data: {
+      loadingAddress?: string
+      loadingPin?: string
+      unloadingAddress?: string
+      unloadingPin?: string
+      tonnageRequired?: number
+      truckType?: string
+      urgent?: boolean
+      maxPrice?: number
+      minLengthFt?: number
+      minHeightFt?: number
+      expectedDeliveryAt?: string
+    },
+  ) => api.patch(`/loads/${loadId}`, data),
+  /** Delete an open load (owner only server-side). */
+  deleteLoad: (loadId: string) => api.delete(`/loads/${loadId}`),
+}
+
 // Trucks & Documents API
 export const trucksApi = {
   getMyTrucks: () => api.get('/trucks/my-trucks'),
+  /** Edit the revisable specs of an owned truck (owner only server-side). */
+  updateTruck: (
+    truckId: string,
+    data: {
+      bodyType?: string
+      lengthFt?: number
+      heightFt?: number
+      tonnageCapacity?: number
+      serviceableRadiusKm?: number
+      preferredDestinations?: string[]
+    },
+  ) => api.patch(`/trucks/${truckId}`, data),
+  /** Move an owned truck's current location (re-geocodes & re-runs proximity matching, owner only). */
+  updateTruckLocation: (truckId: string, address: string) =>
+    api.patch(`/trucks/${truckId}/location`, { address }),
+  /** Delete an owned truck (blocked server-side while bookings are active). */
+  deleteTruck: (truckId: string) => api.delete(`/trucks/${truckId}`),
   uploadDocument: (truckId: string, docType: 'RC' | 'Insurance', file: File, docNumber?: string) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -792,9 +836,12 @@ export const locationApi = {
 }
 
 export const setAuthCookies = (accessToken: string, role: string) => {
-  // Set cookies for middleware
+  // Middleware and route protection read the `userRole` cookie. Persist the
+  // normalized (canonical) role so stale legacy labels never reach the cookie
+  // and transporters/admins resolve to the right dashboard on the next request.
+  const canonicalRole = normalizeRole(role) ?? role
   document.cookie = `accessToken=${accessToken}; path=/; max-age=${7 * 24 * 60 * 60}`
-  document.cookie = `userRole=${role}; path=/; max-age=${7 * 24 * 60 * 60}`
+  document.cookie = `userRole=${canonicalRole}; path=/; max-age=${7 * 24 * 60 * 60}`
   csrfToken = null
   fetchingCsrfPromise = null
 }

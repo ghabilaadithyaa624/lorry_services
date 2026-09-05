@@ -2,7 +2,7 @@
  * Canonical user roles — mirrors the Prisma `UserRole` enum and
  * docs/database-schema-design.md.
  */
-export type AppUserRole = 'factory_owner' | 'truck_driver' | 'admin'
+export type AppUserRole = 'factory_owner' | 'truck_driver' | 'transporter' | 'admin'
 
 /**
  * Legacy labels that may still be present in cached sessions, cookies or JWTs
@@ -35,7 +35,13 @@ export const DEFAULT_DASHBOARD = '/dashboard/factory-owner'
  */
 export function normalizeRole(role?: string | null): AppUserRole | undefined {
   if (!role) return undefined
-  if (role === 'factory_owner' || role === 'truck_driver' || role === 'admin') return role
+  if (
+    role === 'factory_owner' ||
+    role === 'truck_driver' ||
+    role === 'transporter' ||
+    role === 'admin'
+  )
+    return role
   return LEGACY_ROLE_MAP[role as LegacyUserRole]
 }
 
@@ -65,6 +71,17 @@ export const REGISTRATION_ROLES: RegistrationRoleOption[] = [
     benefits: ['Find return loads', 'Manage vehicles and bookings'],
     dashboard: '/dashboard/truck-driver',
   },
+  {
+    value: 'transporter',
+    label: 'Transporter',
+    eyebrow: 'BOTH SIDES',
+    description: 'Manage both freight postings and truck listings from one workspace.',
+    benefits: [
+      'Post freight and list trucks side by side',
+      'One workspace for loads, fleet and bookings',
+    ],
+    dashboard: '/dashboard/transporter',
+  },
 ]
 
 export function getRoleLabel(role?: string | null): string {
@@ -73,6 +90,8 @@ export function getRoleLabel(role?: string | null): string {
       return 'Factory owner'
     case 'truck_driver':
       return 'Truck driver'
+    case 'transporter':
+      return 'Transporter'
     case 'admin':
       return 'Administrator'
     default:
@@ -80,9 +99,16 @@ export function getRoleLabel(role?: string | null): string {
   }
 }
 
+/**
+ * Post-login / post-signup landing routes:
+ * - factory_owner -> /dashboard/factory-owner
+ * - truck_driver  -> /dashboard/truck-driver
+ * - transporter   -> /dashboard/transporter
+ * - admin         -> /admin/dashboard
+ */
 export function getDashboardForRole(role?: string | null): string {
   const canonical = normalizeRole(role)
-  if (canonical === 'admin') return '/admin'
+  if (canonical === 'admin') return '/admin/dashboard'
   return REGISTRATION_ROLES.find((option) => option.value === canonical)?.dashboard || DEFAULT_DASHBOARD
 }
 
@@ -94,7 +120,66 @@ export function isFreightSideRole(role?: string | null): boolean {
   return normalizeRole(role) === 'factory_owner'
 }
 
+/** Both-sides operators: post freight AND list trucks from one workspace. */
+export function isTransporterRole(role?: string | null): boolean {
+  return normalizeRole(role) === 'transporter'
+}
+
+/**
+ * Mirrors the API RBAC (`LOAD_MANAGER_ROLES` in apps/api roles.util): shippers
+ * and transporters may create/manage freight postings; admins keep override.
+ */
+export function canManageFreight(role?: string | null): boolean {
+  const canonical = normalizeRole(role)
+  return canonical === 'factory_owner' || canonical === 'transporter' || canonical === 'admin'
+}
+
+/**
+ * Mirrors the API RBAC (`TRUCK_MANAGER_ROLES` in apps/api roles.util): drivers
+ * and transporters may list/manage trucks; admins keep override.
+ */
+export function canManageFleet(role?: string | null): boolean {
+  const canonical = normalizeRole(role)
+  return canonical === 'truck_driver' || canonical === 'transporter' || canonical === 'admin'
+}
+
 /** Platform operators. Normalized so stale sessions are evaluated consistently. */
 export function isAdminRole(role?: string | null): boolean {
   return normalizeRole(role) === 'admin'
+}
+
+/* ── Unified "My Listings" workspace (/my-listings) ────────────────────── */
+
+/** Tabs rendered on the unified My Listings page. */
+export type ListingsTabKey = 'freight' | 'trucks'
+
+export interface ListingsAccess {
+  /** The role may list and manage its own freight posts (mirrors API RBAC). */
+  canFreight: boolean
+  /** The role may list and manage its own truck posts (mirrors API RBAC). */
+  canFleet: boolean
+  /** Tab opened on first visit — the side the role actually operates. */
+  defaultTab: ListingsTabKey
+}
+
+/**
+ * Tab access for the unified My Listings page.
+ *
+ * Product decision: both tabs stay visible for every role. A role that
+ * cannot manage a side still sees the tab, but the panel renders an
+ * onboarding CTA (e.g. "Register as transporter") instead of data — the
+ * two-sided value proposition stays discoverable while no request is ever
+ * sent to an endpoint the API would reject (factory owners get 403 on
+ * `/trucks/my-trucks`, truck drivers on `/loads/my-loads`).
+ */
+export function getListingsAccess(role?: string | null): ListingsAccess {
+  const canFreight = canManageFreight(role)
+  const canFleet = canManageFleet(role)
+  return {
+    canFreight,
+    canFleet,
+    // Drivers lead with their fleet; shippers, transporters and unknown or
+    // partially-resolved sessions lead with freight.
+    defaultTab: canFleet && !canFreight ? 'trucks' : 'freight',
+  }
 }

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -11,10 +12,11 @@ import {
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger'
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@lorrycarry/database'
 import { Optional } from '@nestjs/common'
 import { TrucksService } from './trucks.service'
 import { CreateTruckDto } from './dto/create-truck.dto'
+import { UpdateTruckDto } from './dto/update-truck.dto'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { Roles } from '../common/decorators/roles.decorator'
@@ -32,7 +34,7 @@ export class TrucksController {
   ) {}
 
   @Post()
-  @Roles(UserRole.truck_driver)
+  @Roles(UserRole.truck_driver, UserRole.transporter)
   @ApiOperation({ summary: 'Register a new truck (Need Vehicle) — triggers tonnage/route/budget matching & WhatsApp' })
   async create(
     @Body() dto: CreateTruckDto,
@@ -52,7 +54,7 @@ export class TrucksController {
   }
 
   @Post(':id/documents/:type')
-  @Roles(UserRole.truck_driver)
+  @Roles(UserRole.truck_driver, UserRole.transporter, UserRole.admin)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload RC or Insurance document' })
@@ -61,13 +63,14 @@ export class TrucksController {
     @Param('type') docType: 'RC' | 'Insurance',
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
     @Body('docNumber') docNumber?: string
   ) {
-    return this.trucksService.uploadDocument(truckId, userId, file, docType, docNumber)
+    return this.trucksService.uploadDocument(truckId, userId, file, docType, docNumber, role)
   }
 
   @Get('my-trucks')
-  @Roles(UserRole.truck_driver)
+  @Roles(UserRole.truck_driver, UserRole.transporter)
   @ApiOperation({ summary: 'Get my registered trucks' })
   async findMyTrucks(@CurrentUser('id') userId: string) {
     return this.trucksService.findByUser(userId)
@@ -82,15 +85,28 @@ export class TrucksController {
     return this.trucksService.findOne(id, userId)
   }
 
+  @Patch(':id')
+  @Roles(UserRole.truck_driver, UserRole.transporter, UserRole.admin)
+  @ApiOperation({ summary: 'Edit truck specifications (owner or admin only)' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateTruckDto,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole
+  ) {
+    return this.trucksService.update(id, userId, dto, role)
+  }
+
   @Patch(':id/location')
-  @Roles(UserRole.truck_driver)
+  @Roles(UserRole.truck_driver, UserRole.transporter, UserRole.admin)
   @ApiOperation({ summary: 'Update truck current location — re-evaluates proximity matches' })
   async updateLocation(
     @Param('id') id: string,
     @Body('address') address: string,
-    @CurrentUser('id') userId: string
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole
   ) {
-    const updated = await this.trucksService.updateLocation(id, userId, address)
+    const updated = await this.trucksService.updateLocation(id, userId, address, role)
     if (this.matchingService) {
       setImmediate(async () => {
         try {
@@ -101,5 +117,16 @@ export class TrucksController {
       })
     }
     return updated
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.truck_driver, UserRole.transporter, UserRole.admin)
+  @ApiOperation({ summary: 'Delete truck (owner or admin only; blocked with active bookings)' })
+  async delete(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole
+  ) {
+    return this.trucksService.delete(id, userId, role)
   }
 }

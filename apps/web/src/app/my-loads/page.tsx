@@ -5,11 +5,13 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   PlusCircleIcon,
   TrashIcon,
+  PencilSquareIcon,
   MagnifyingGlassIcon,
   ArrowPathIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline'
-import { api, matchesApi } from '@/lib/api'
+import { api, usersApi, loadsApi, matchesApi } from '@/lib/api'
+import { isOwnListingRow } from '@/lib/marketplaceActions'
 import { DashboardLayout } from '@/components/layout'
 import {
   Badge,
@@ -17,21 +19,32 @@ import {
   GlassPanel,
   TelemetryMetric,
   Skeleton,
+  ConfirmDialog,
 } from '@/components/ui'
 import { OperationalEmptyState } from '@/components/intelligence'
+import { readClientSessionRole } from '@/lib/subscription'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
+import { EditLoadModal } from '@/components/freight/EditLoadModal'
 import { toast } from '@/lib/toast'
 import { cn, formatINR, timeAgo, formatPhone, whatsappLink } from '@/lib/utils'
 
 interface Load {
   id: string
+  userId?: string
+  /** Backend-computed ownership (Prompt 9) — preferred over the userId compare. */
+  isOwner?: boolean
   tonnageRequired: number
   loadingAddress: string
+  loadingPin?: string | null
   unloadingAddress: string
+  unloadingPin?: string | null
   truckType: string
   status: 'Open' | 'Matched' | 'Assigned' | 'Booked' | 'Pickup' | 'InTransit' | 'Delivered' | 'Completed' | 'Cancelled'
   urgent: boolean
-  maxPrice?: number
+  maxPrice?: number | null
+  minLengthFt?: number | null
+  minHeightFt?: number | null
+  expectedDeliveryAt?: string | null
   distanceKm?: number
   createdAt: string
   _count?: { bookings: number }
@@ -120,6 +133,21 @@ function MyLoadsContent() {
   const [activeFilter, setActiveFilter] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedMatches, setExpandedMatches] = useState<Record<string, { loading: boolean; items: any[] }>>({})
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [editingLoad, setEditingLoad] = useState<Load | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Load | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  /**
+   * Shippers and transporters both reach this page, and a transporter runs both
+   * sides of the marketplace — the empty-state guidance describes that workflow
+   * instead of the shipper-only one. Read after mount so SSR markup matches.
+   */
+  const [sessionRole, setSessionRole] = useState<'factory_owner' | 'transporter'>('factory_owner')
+
+  useEffect(() => {
+    const role = readClientSessionRole()
+    setSessionRole(role === 'transporter' || role === 'admin' ? 'transporter' : 'factory_owner')
+  }, [])
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
@@ -129,6 +157,11 @@ function MyLoadsContent() {
 
   useEffect(() => {
     fetchLoads()
+    // Resolve the signed-in user id so action buttons render only for own loads.
+    usersApi
+      .getProfile()
+      .then((res) => setCurrentUserId(res.data?.id ?? null))
+      .catch(() => setCurrentUserId(null))
   }, [])
 
   const fetchLoads = async () => {
@@ -146,14 +179,29 @@ function MyLoadsContent() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this posted load?')) return
+  /**
+   * Owner gate — `/loads/my-loads` only returns the signed-in user's posts, but
+   * the owner controls (Edit/Delete/Manage) stay hidden unless the row is
+   * provably the current user's: the backend `isOwner` flag (Prompt 9) wins,
+   * with the legacy userId compare as fallback (defence in depth alongside the
+   * server-side check).
+   */
+  const canManage = (load: Load) => isOwnListingRow(load, currentUserId)
+
+  const canEdit = (load: Load) => canManage(load) && load.status === 'Open'
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleteBusy(true)
     try {
-      await api.delete(`/loads/${id}`)
-      setLoads((prev) => prev.filter((l) => l.id !== id))
+      await loadsApi.deleteLoad(deleteTarget.id)
+      setLoads((prev) => prev.filter((l) => l.id !== deleteTarget.id))
       toast.success('Load removed successfully')
+      setDeleteTarget(null)
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to delete load')
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
@@ -312,13 +360,21 @@ function MyLoadsContent() {
           </GlassPanel>
         ) : filteredLoads.length === 0 ? (
           <OperationalEmptyState
-            role="factory_owner"
+            role={sessionRole}
             title="No freight posted"
-            description="Publish your cargo tonnage and warehouse coordinates to activate direct 50 km proximity matching with verified transporters."
-            actionLabel="Post your first load"
+            description={
+              sessionRole === 'transporter'
+                ? 'Publish your cargo tonnage and warehouse coordinates — or list the vehicle that should carry it — to activate direct 50 km proximity matching on both sides of the marketplace.'
+                : 'Publish your cargo tonnage and warehouse coordinates to activate direct 50 km proximity matching with verified transporters.'
+            }
+            actionLabel={sessionRole === 'transporter' ? 'Post Freight' : 'Post your first load'}
             actionHref="/post-load"
-            secondaryActionLabel="Explore available lorries"
-            secondaryActionHref="/search?type=truck"
+            secondaryActionLabel={
+              sessionRole === 'transporter' ? 'Register Truck' : 'Explore available lorries'
+            }
+            secondaryActionHref={
+              sessionRole === 'transporter' ? '/register-truck' : '/search?type=truck'
+            }
           />
         ) : (
           <div className="space-y-4">
@@ -380,15 +436,20 @@ function MyLoadsContent() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => toggleMatches(load.id)}
-                        leftIcon={<SparklesIcon className="w-4 h-4" />}
-                        className="border-white/10 hover:border-white/20"
-                      >
-                        {expandedMatches[load.id] ? 'Hide matches' : 'Match lorries ≤50km'}
-                      </Button>
+                      {/* Owner control (Prompt 9): opens the per-load management
+                          panel (matched lorries ≤50km, quotes, lifecycle). */}
+                      {canManage(load) && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => toggleMatches(load.id)}
+                          leftIcon={<SparklesIcon className="w-4 h-4" />}
+                          className="border-white/10 hover:border-white/20"
+                          aria-label={`Manage load ${load.loadingAddress} to ${load.unloadingAddress}`}
+                        >
+                          {expandedMatches[load.id] ? 'Hide' : 'Manage'}
+                        </Button>
+                      )}
                       <Button
                         variant="secondary"
                         size="sm"
@@ -398,12 +459,25 @@ function MyLoadsContent() {
                         Marketplace
                       </Button>
 
-                      {load.status === 'Open' && (
+                      {canEdit(load) && (
                         <button
                           type="button"
-                          onClick={() => handleDelete(load.id)}
+                          onClick={() => setEditingLoad(load)}
+                          className="p-2 text-surface-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors cursor-pointer border border-white/10"
+                          title="Edit this load"
+                          aria-label={`Edit load ${load.loadingAddress} to ${load.unloadingAddress}`}
+                        >
+                          <PencilSquareIcon className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {canEdit(load) && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(load)}
                           className="p-2 text-danger-400 hover:bg-danger-950/40 rounded-xl transition-colors cursor-pointer border border-danger-900/40"
                           title="Delete this load"
+                          aria-label={`Delete load ${load.loadingAddress} to ${load.unloadingAddress}`}
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -487,6 +561,39 @@ function MyLoadsContent() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation gate — destructive and irreversible */}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onClose={() => (deleteBusy ? undefined : setDeleteTarget(null))}
+        onConfirm={handleDelete}
+        title="Delete this load?"
+        destructive
+        loading={deleteBusy}
+        confirmLabel="Delete load"
+        message={
+          <>
+            This permanently removes{' '}
+            <span className="font-semibold text-ink">
+              {deleteTarget?.loadingAddress} → {deleteTarget?.unloadingAddress}
+            </span>{' '}
+            from the marketplace. Nearby lorries will no longer see this freight, and this
+            cannot be undone.
+          </>
+        }
+      />
+
+      {/* Owner-only editor for an open load */}
+      {editingLoad && (
+        <EditLoadModal
+          load={editingLoad}
+          onClose={() => setEditingLoad(null)}
+          onSaved={async () => {
+            setEditingLoad(null)
+            await fetchLoads()
+          }}
+        />
+      )}
     </DashboardLayout>
   )
 }

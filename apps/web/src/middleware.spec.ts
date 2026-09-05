@@ -74,10 +74,12 @@ describeWithMiddleware('web middleware', () => {
       '/search',
       '/search/trucks',
       '/search/loads',
+      '/subscribe',
       '/privacy',
       '/terms',
       '/security',
       '/help',
+      '/request-demo',
       '/robots.txt',
       '/sitemap.xml',
       '/manifest.webmanifest',
@@ -117,10 +119,12 @@ describeWithMiddleware('web middleware', () => {
       '/dashboard',
       '/dashboard/factory-owner',
       '/dashboard/truck-driver',
+      '/dashboard/transporter',
       '/admin',
       '/admin/users',
       '/my-loads',
       '/my-trucks',
+      '/my-listings',
       '/bookings',
       '/booking/booking_123',
       '/documents',
@@ -153,12 +157,22 @@ describeWithMiddleware('web middleware', () => {
       expect(locationOf(response).pathname).toBe('/dashboard/truck-driver')
     })
 
-    it('sends a signed-in admin away from /login to /admin', async () => {
+    it('sends a signed-in admin away from /login to the admin dashboard', async () => {
       const response = await runMiddleware(
         buildRequest('/login', { accessToken: 'token', userRole: 'admin' })
       )
 
-      expect(locationOf(response).pathname).toBe('/admin')
+      expect(response.status).toBe(307)
+      expect(locationOf(response).pathname).toBe('/admin/dashboard')
+    })
+
+    it('sends a signed-in transporter to the both-sides workspace', async () => {
+      const response = await runMiddleware(
+        buildRequest('/login', { accessToken: 'token', userRole: 'transporter' })
+      )
+
+      expect(response.status).toBe(307)
+      expect(locationOf(response).pathname).toBe('/dashboard/transporter')
     })
 
     it('resolves /dashboard to the dashboard of the cookie role', async () => {
@@ -168,6 +182,15 @@ describeWithMiddleware('web middleware', () => {
 
       expect(response.status).toBe(307)
       expect(locationOf(response).pathname).toBe('/dashboard/factory-owner')
+    })
+
+    it('resolves /dashboard for transporters to their own workspace', async () => {
+      const response = await runMiddleware(
+        buildRequest('/dashboard', { accessToken: 'token', userRole: 'transporter' })
+      )
+
+      expect(response.status).toBe(307)
+      expect(locationOf(response).pathname).toBe('/dashboard/transporter')
     })
 
     it('still maps legacy dashboard routes onto the canonical dashboard', async () => {
@@ -235,6 +258,19 @@ describeWithMiddleware('web middleware', () => {
       }
     })
 
+    it('opens the unified /my-listings page to every operator role', async () => {
+      // Both tabs render for every role (one side may show an onboarding CTA),
+      // so no role redirect is needed — in-page gating handles the access.
+      for (const userRole of ['factory_owner', 'truck_driver', 'transporter']) {
+        const response = await runMiddleware(
+          buildRequest('/my-listings', { accessToken: 'token', userRole })
+        )
+
+        expect(response.status).toBe(200)
+        expect(response.headers.get('location')).toBeNull()
+      }
+    })
+
     it('keeps freight-side screens away from truck drivers', async () => {
       const response = await runMiddleware(
         buildRequest('/my-loads', { accessToken: 'token', userRole: 'truck_driver' })
@@ -251,6 +287,65 @@ describeWithMiddleware('web middleware', () => {
 
       expect(response.status).toBe(307)
       expect(locationOf(response).pathname).toBe('/dashboard/factory-owner')
+    })
+
+    describe('transporters work both sides of the marketplace', () => {
+      it.each(['/post-load', '/need-load', '/my-loads'])(
+        'opens the freight-side workflow %s to a transporter',
+        async (path) => {
+          const response = await runMiddleware(
+            buildRequest(path, { accessToken: 'token', userRole: 'transporter' })
+          )
+
+          expect(response.status).toBe(200)
+        }
+      )
+
+      it.each(['/register-truck', '/need-vehicle', '/my-trucks'])(
+        'opens the fleet-side workflow %s to a transporter',
+        async (path) => {
+          const response = await runMiddleware(
+            buildRequest(path, { accessToken: 'token', userRole: 'transporter' })
+          )
+
+          expect(response.status).toBe(200)
+        }
+      )
+
+      it('serves /dashboard/transporter to transporters and admins', async () => {
+        for (const userRole of ['transporter', 'admin']) {
+          const response = await runMiddleware(
+            buildRequest('/dashboard/transporter', { accessToken: 'token', userRole })
+          )
+
+          expect(response.status).toBe(200)
+        }
+      })
+
+      it('keeps single-side role dashboards away from transporters', async () => {
+        for (const path of ['/dashboard/factory-owner', '/dashboard/truck-driver']) {
+          const response = await runMiddleware(
+            buildRequest(path, { accessToken: 'token', userRole: 'transporter' })
+          )
+
+          expect(response.status).toBe(307)
+          expect(locationOf(response).pathname).toBe('/dashboard/transporter')
+        }
+      })
+
+      it('keeps the transporter workspace away from single-side roles', async () => {
+        const asOwner = await runMiddleware(
+          buildRequest('/dashboard/transporter', { accessToken: 'token', userRole: 'factory_owner' })
+        )
+        expect(asOwner.status).toBe(307)
+        expect(locationOf(asOwner).pathname).toBe('/dashboard/factory-owner')
+
+        const asDriver = await runMiddleware(
+          buildRequest('/dashboard/transporter', { accessToken: 'token', userRole: 'truck_driver' })
+        )
+        expect(asDriver.status).toBe(307)
+        expect(locationOf(asDriver).pathname).toBe('/dashboard/truck-driver')
+      })
     })
   })
 
@@ -349,6 +444,7 @@ describeWithMiddleware('web middleware', () => {
         '/terms',
         '/security',
         '/help',
+        '/request-demo',
         '/search',
         '/login',
         '/dashboard',

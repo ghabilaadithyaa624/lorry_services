@@ -1,6 +1,6 @@
 import { IsString, IsNumber, IsOptional, IsEnum, IsArray, Min, Max } from 'class-validator'
 import { ApiProperty } from '@nestjs/swagger'
-import { TruckType } from '@prisma/client'
+import { TruckType } from '@lorrycarry/database'
 
 export class CreateTruckDto {
   @ApiProperty({ example: 'MH12AB1234' })

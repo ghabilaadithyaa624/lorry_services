@@ -35,7 +35,6 @@ describe('DocumentsController', () => {
   describe('generateUploadUrl', () => {
     it('should generate an upload url for a document', async () => {
       const mockUserId = 'user-123';
-      const mockReq = { user: { userId: mockUserId } };
       const dto: GenerateUploadUrlDto = {
         entityId: 'entity-123',
         entityType: 'TRUCK',
@@ -51,7 +50,7 @@ describe('DocumentsController', () => {
 
       jest.spyOn(service, 'generateUploadUrl').mockResolvedValue(mockResponse);
 
-      const result = await controller.generateUploadUrl(mockReq, dto);
+      const result = await controller.generateUploadUrl(mockUserId, dto);
 
       expect(service.generateUploadUrl).toHaveBeenCalledWith(
         mockUserId,

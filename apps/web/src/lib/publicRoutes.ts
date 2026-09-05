@@ -9,6 +9,8 @@
  *  - `src/lib/api.ts`    — stops the 401 handler from bouncing anonymous
  *                          visitors off public pages that render the app shell
  *
+ * Marketing extras such as `/request-demo` live in `PUBLIC_PATH_PREFIXES`.
+ *
  * This module is intentionally dependency-free (no `next/*` imports) so it can
  * be loaded from the edge middleware runtime and from plain unit tests.
  *
@@ -46,6 +48,8 @@ export const PUBLIC_PATH_PREFIXES: readonly string[] = [
   // Public pricing / checkout entry points.
   '/subscribe', // covers /subscribe/callback
   '/subscription',
+  // B2B Request Demo lead form.
+  '/request-demo',
   // Static assets + framework payloads.
   '/images',
   '/_next',
@@ -62,6 +66,7 @@ export const PROTECTED_PATH_PREFIXES: readonly string[] = [
   '/dashboard',
   '/my-loads',
   '/my-trucks',
+  '/my-listings',
   '/bookings',
   '/booking',
   '/documents',

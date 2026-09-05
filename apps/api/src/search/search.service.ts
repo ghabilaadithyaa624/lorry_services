@@ -7,6 +7,12 @@ export class SearchService {
   /**
    * Find trucks within radius of a location
    * Returns SUMMARY data only (PII masked for non-subscribers)
+   *
+   * Ownership (Prompt 9): every row carries an `isOwner` boolean computed
+   * against the caller instead of the owner's user id — cards never need the
+   * raw user detail to decide between owner controls and marketplace actions.
+   * The owner's OWN rows also return their own registration number and phone
+   * (their data, so their card never shows "Unlock Contact" for their truck).
    */
   async searchTrucks(params: {
     lat: number
@@ -19,6 +25,10 @@ export class SearchService {
     const { lat, lng, radiusKm = 50, truckType, minTonnage, userId } = params
     
     const radiusMeters = radiusKm * 1000
+
+    // NULL literal keeps the uuid comparison valid when no caller id reached
+    // the service (compare-to-NULL is always false → isOwner false).
+    const ownerKey = userId ? Prisma.sql`${userId}` : Prisma.sql`NULL`
 
     const whereConditions: Prisma.Sql[] = [
       Prisma.sql`ST_DWithin(t.current_location::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${radiusMeters})`,
@@ -49,11 +59,14 @@ export class SearchService {
         t.vahan_validated_at as "vahanVerifiedAt",
         t.fastag_status as "fastagStatus",
         ST_Distance(t.current_location::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography) / 1000 as "distanceKm",
-        -- MASKED: user_id, registration_number hidden for non-subscribers
-        NULL as "registrationNumber",
-        NULL as "ownerPhone",
-        NULL as "ownerName"
+        -- Ownership signal for card action gating (Prompt 9): boolean, never the owner's user id
+        (t.user_id = ${ownerKey}) as "isOwner",
+        -- MASKED for everyone else; owners see their OWN registration & contact
+        CASE WHEN t.user_id = ${ownerKey} THEN t.registration_number ELSE NULL END as "registrationNumber",
+        CASE WHEN t.user_id = ${ownerKey} THEN u.phone ELSE NULL END as "ownerPhone",
+        CASE WHEN t.user_id = ${ownerKey} THEN u.name ELSE NULL END as "ownerName"
       FROM trucks t
+      LEFT JOIN users u ON u.id = t.user_id
       WHERE ${whereClause}
       ORDER BY "distanceKm" ASC
       LIMIT 50
@@ -65,6 +78,10 @@ export class SearchService {
 
   /**
    * Find loads within radius of a location
+   *
+   * Ownership (Prompt 9): rows carry `isOwner` (computed, no user id exposed)
+   * and the caller's OWN rows include their own phone/name so an owner's card
+   * never shows "Unlock Contact" for their own post.
    */
   async searchLoads(params: {
     lat: number
@@ -77,6 +94,10 @@ export class SearchService {
     const { lat, lng, radiusKm = 50, truckType, maxTonnage, userId } = params
     
     const radiusMeters = radiusKm * 1000
+
+    // NULL literal keeps the uuid comparison valid when no caller id reached
+    // the service (compare-to-NULL is always false → isOwner false).
+    const ownerKey = userId ? Prisma.sql`${userId}` : Prisma.sql`NULL`
 
     const whereConditions: Prisma.Sql[] = [
       Prisma.sql`ST_DWithin(l.loading_point::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${radiusMeters})`,
@@ -109,10 +130,13 @@ export class SearchService {
         l.expected_delivery_at as "expectedDeliveryAt",
         l.advance_payable as "advancePayable",
         ST_Distance(l.loading_point::geography, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography) / 1000 as "distanceKm",
-        -- MASKED: user_id hidden
-        NULL as "ownerPhone",
-        NULL as "ownerName"
+        -- Ownership signal for card action gating (Prompt 9): boolean, never the owner's user id
+        (l.user_id = ${ownerKey}) as "isOwner",
+        -- MASKED for everyone else; owners see their OWN contact
+        CASE WHEN l.user_id = ${ownerKey} THEN u.phone ELSE NULL END as "ownerPhone",
+        CASE WHEN l.user_id = ${ownerKey} THEN u.name ELSE NULL END as "ownerName"
       FROM loads l
+      LEFT JOIN users u ON u.id = l.user_id
       WHERE ${whereClause}
       ORDER BY 
         l.urgent DESC,

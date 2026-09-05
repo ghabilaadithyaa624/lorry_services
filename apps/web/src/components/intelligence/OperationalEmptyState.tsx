@@ -16,7 +16,14 @@ import { cn } from '@/lib/utils'
 interface OperationalEmptyStateProps {
   title: string
   description: string
-  role: 'factory_owner' | 'truck_driver'
+  /**
+   * Which operating workflow the guidance cards should describe.
+   *
+   * Transporters run both sides of the marketplace, so they get their own
+   * four-step flow instead of being squeezed into the shipper or driver one.
+   * Unknown or legacy labels fall back to the shipper flow.
+   */
+  role: 'factory_owner' | 'truck_driver' | 'transporter' | 'admin'
   actionLabel?: string
   actionHref?: string
   secondaryActionLabel?: string
@@ -50,7 +57,19 @@ export function OperationalEmptyState({
     { step: '04', title: 'Standard 50/50 Terms', desc: 'Receive advance and confirmed balance on POD', icon: CheckBadgeIcon },
   ]
 
-  const steps = role === 'factory_owner' ? factoryOwnerWorkflow : truckDriverWorkflow
+  const transporterWorkflow = [
+    { step: '01', title: 'Post Freight or List a Truck', desc: 'Create demand or supply from one workspace', icon: TruckIcon },
+    { step: '02', title: 'Two-Sided Matching', desc: 'Loads match your fleet, freight matches shippers', icon: MagnifyingGlassIcon },
+    { step: '03', title: 'Direct WhatsApp Contact', desc: 'Close both ends of the trip without middlemen', icon: ChatBubbleLeftRightIcon },
+    { step: '04', title: 'Track 5-Stage Milestones', desc: 'Follow every consignment to POD and settlement', icon: CheckBadgeIcon },
+  ]
+
+  const steps =
+    role === 'transporter' || role === 'admin'
+      ? transporterWorkflow
+      : role === 'truck_driver'
+        ? truckDriverWorkflow
+        : factoryOwnerWorkflow
 
   return (
     <div className={cn('bg-panel rounded-[20px] border border-white/10 p-6 sm:p-8 shadow-modal text-center space-y-6 font-sans', className)}>

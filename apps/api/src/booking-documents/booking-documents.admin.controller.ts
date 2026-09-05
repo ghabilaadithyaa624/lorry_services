@@ -1,6 +1,6 @@
 import { Controller, Get, Patch, Param, Query, Body, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@lorrycarry/database'
 import { BookingDocumentsService } from './booking-documents.service'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'

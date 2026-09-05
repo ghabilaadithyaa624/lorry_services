@@ -77,7 +77,12 @@ export function PostFreightModal({ open, onClose, user }: PostFreightModalProps)
   const userRole: PostFreightRole | null =
     (() => {
       const canonical = normalizeRole(user?.role)
-      return canonical && canonical !== 'admin' ? canonical : null
+      // Transporters can post BOTH loads and trucks, so — like anonymous
+      // operators — they start on the role chooser instead of being locked
+      // into a single side. Admins never post.
+      return canonical === 'factory_owner' || canonical === 'truck_driver'
+        ? canonical
+        : null
     })()
 
   // Signed-in operators land directly on their role's form; anonymous

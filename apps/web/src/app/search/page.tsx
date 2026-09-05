@@ -17,12 +17,17 @@ import {
   Phone,
   ExternalLink,
   CircleDollarSign,
+  Eye,
+  Pencil,
+  Trash2,
+  FolderOpen,
+  BadgeCheck,
 } from 'lucide-react'
-import { api, locationApi } from '@/lib/api'
+import { api, locationApi, loadsApi, trucksApi } from '@/lib/api'
 import { Footer, Navbar } from '@/components/layout'
 import { VerifiedBadge } from '@/components/VerifiedBadge'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
-import { Badge, Button, Card, Input, Select, Skeleton, Spinner } from '@/components/ui'
+import { Badge, Button, Card, ConfirmDialog, Input, Select, Skeleton, Spinner } from '@/components/ui'
 import { DemoPreviewCards, SearchEmptyState, TelemetryCell } from '@/components/search'
 import { MatchScoreBadge } from '@/components/intelligence'
 import {
@@ -32,7 +37,13 @@ import {
   MatchSortOption,
   MatchResult,
 } from '@/lib/intelligence'
-import { hasClientSession } from '@/lib/subscription'
+import { hasClientSession, readClientSessionRole } from '@/lib/subscription'
+import {
+  isOwnerOfMarketplaceRow,
+  marketplaceCardActions,
+  type MarketplaceCardActions,
+} from '@/lib/marketplaceActions'
+
 import {
   bodyTypeLabel,
   buildMarketplaceQuery,
@@ -66,6 +77,8 @@ interface TruckResult {
   ownerPhone: string | null
   ownerName: string | null
   preferredDestinations?: string[]
+  /** Backend-computed ownership (Prompt 9) — drives owner vs marketplace actions. */
+  isOwner?: boolean
   match?: MatchResult
 }
 
@@ -74,12 +87,20 @@ interface LoadResult {
   tonnageRequired: number
   loadingAddress: string
   unloadingAddress: string
+  loadingPin?: string | null
+  unloadingPin?: string | null
+  minLengthFt?: number | null
+  minHeightFt?: number | null
+  expectedDeliveryAt?: string | null
+  advancePayable?: number | null
   truckType: 'Open' | 'Container' | 'OpenBody'
   urgent: boolean
   maxPrice: number | null
   distanceKm: number
   ownerPhone: string | null
   ownerName: string | null
+  /** Backend-computed ownership (Prompt 9) — drives owner vs marketplace actions. */
+  isOwner?: boolean
   match?: MatchResult
 }
 
@@ -136,9 +157,46 @@ function SearchPageContent() {
   const [searchError, setSearchError] = useState<string | null>(null)
   /** `false` until the session probe runs, so SSR markup and first paint match. */
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  /**
+   * Role from the persisted session, resolved after mount for the same reason.
+   * It only orders/gates the publish CTAs (Post Freight vs Register Truck) —
+   * the middleware and API re-check it server-side.
+   */
+  const [sessionRole, setSessionRole] = useState<string | null>(null)
 
   // Booking modal state
   const [selectedTruckForBooking, setSelectedTruckForBooking] = useState<TruckResult | null>(null)
+
+  /**
+   * Owner-side card state (Prompt 9): the non-owner "View" disclosure and the
+   * delete confirmation gate for the caller's OWN listings that surface in
+   * search results. Edit/Manage deep-link to the owner workspaces
+   * (/my-loads, /my-trucks) where the full editors live.
+   */
+  const [viewingId, setViewingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<
+    { kind: 'load' | 'truck'; id: string; label: string } | null
+  >(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDeleteListing = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      if (deleteTarget.kind === 'truck') {
+        await trucksApi.deleteTruck(deleteTarget.id)
+      } else {
+        await loadsApi.deleteLoad(deleteTarget.id)
+      }
+      setRawResults((prev) => prev.filter((item) => item.id !== deleteTarget.id))
+      toast.success('Your listing was removed from the marketplace')
+      setDeleteTarget(null)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to delete listing')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   // Sync mode with URL params if they change
   useEffect(() => {
@@ -154,6 +212,7 @@ function SearchPageContent() {
   // operators straight to their forms instead of bouncing them through /login.
   useEffect(() => {
     setIsAuthenticated(hasClientSession())
+    setSessionRole(readClientSessionRole() ?? null)
   }, [])
 
   // Click outside to dismiss suggestions
@@ -897,6 +956,7 @@ function SearchPageContent() {
                   gpsSupported={gpsSupported}
                   gpsLoading={gpsLoading}
                   isAuthenticated={isAuthenticated}
+                  role={sessionRole}
                   onDetectLocation={detectLocation}
                   onFocusLocationInput={focusLocationInput}
                   onHubSelect={handleHubSelect}
@@ -916,6 +976,7 @@ function SearchPageContent() {
                   mode={mode}
                   realResultCount={sortedResults.length}
                   isAuthenticated={isAuthenticated}
+                  role={sessionRole}
                   targetTonnage={targetLoadTonnage}
                   truckType={truckType}
                 />
@@ -937,6 +998,13 @@ function SearchPageContent() {
                       const isVerified = truck.verificationStatus === 'Verified'
                       const etaMinutes = Math.max(12, Math.round((truck.distanceKm || 12) * 2.2))
                       const relativeTime = getRelativeTimestamp(truck.id)
+
+                      // Prompt 9: the caller's own truck renders owner
+                      // controls (Edit/Delete/Manage Documents); everyone
+                      // else's renders marketplace actions (View/Unlock/Book).
+                      const ownsThisTruck = isOwnerOfMarketplaceRow(truck)
+                      const cardActions: MarketplaceCardActions = marketplaceCardActions('truck', ownsThisTruck)
+                      const isViewingTruck = viewingId === truck.id
 
                       return (
                         <Card
@@ -970,6 +1038,13 @@ function SearchPageContent() {
                                     validatedAt={truck.vahanVerifiedAt}
                                     variant="dark"
                                   />
+
+                                  {ownsThisTruck && (
+                                    <Badge variant="success" size="sm">
+                                      <BadgeCheck className="w-3 h-3" aria-hidden="true" />
+                                      <span>Your listing</span>
+                                    </Badge>
+                                  )}
 
                                   {isTopRecommendation && (
                                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-pill bg-gradient-to-r from-primary-500 to-amber-500 text-white text-[11px] font-bold uppercase tracking-wider shadow-glow-primary">
@@ -1060,10 +1135,11 @@ function SearchPageContent() {
                             </div>
                           )}
 
-                          {/* ── Contact Section (SEALED) ── */}
+                          {/* ── Contact Section: owner sees own details, others see sealed state ── */}
                           <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             {truck.ownerPhone ? (
-                              /* Unlocked Contact state after paid subscription reveal */
+                              /* Own listing (owner's own contact, never paywalled) or unlocked
+                                 contact state after paid subscription reveal */
                               <div className="flex flex-wrap items-center gap-3">
                                 <span className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono font-bold text-xs border border-emerald-500/25">
                                   <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -1084,6 +1160,14 @@ function SearchPageContent() {
                                   <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
                                 </a>
                               </div>
+                            ) : ownsThisTruck ? (
+                              /* Own truck with no contact on file — still never "sealed" */
+                              <div className="flex items-center gap-2.5 text-xs sm:text-sm text-muted font-medium">
+                                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                  <BadgeCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                                </div>
+                                <span>Your truck — manage it from your fleet workspace</span>
+                              </div>
                             ) : (
                               /* Sealed Contact state per monetization model */
                               <div className="flex items-center gap-2.5 text-xs sm:text-sm text-muted font-medium">
@@ -1094,9 +1178,22 @@ function SearchPageContent() {
                               </div>
                             )}
 
-                            {/* Action Buttons */}
+                            {/* Action Buttons — owner controls vs marketplace actions (Prompt 9) */}
                             <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
-                              {!truck.ownerPhone && (
+                              {cardActions.view && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  aria-pressed={isViewingTruck}
+                                  leftIcon={<Eye className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() => setViewingId(isViewingTruck ? null : truck.id)}
+                                >
+                                  {isViewingTruck ? 'Hide details' : 'View'}
+                                </Button>
+                              )}
+
+                              {cardActions.unlockContact && !truck.ownerPhone && (
                                 <Button
                                   type="button"
                                   variant="secondary"
@@ -1110,17 +1207,87 @@ function SearchPageContent() {
                                 </Button>
                               )}
 
-                              <Button
-                                type="button"
-                                variant="primary"
-                                size="sm"
-                                rightIcon={<ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />}
-                                onClick={() => setSelectedTruckForBooking(truck)}
-                              >
-                                Book Lorry
-                              </Button>
+                              {cardActions.contactOrBook && (
+                                <Button
+                                  type="button"
+                                  variant="primary"
+                                  size="sm"
+                                  rightIcon={<ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() => setSelectedTruckForBooking(truck)}
+                                >
+                                  Book Lorry
+                                </Button>
+                              )}
+
+                              {cardActions.edit && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  leftIcon={<Pencil className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() => router.push('/my-trucks')}
+                                  aria-label={`Edit your truck ${truck.registrationNumber || truck.bodyType}`}
+                                >
+                                  Edit
+                                </Button>
+                              )}
+
+                              {cardActions.manage && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  leftIcon={<FolderOpen className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() => router.push('/my-trucks')}
+                                  aria-label={`Manage documents for your truck ${truck.registrationNumber || truck.bodyType}`}
+                                >
+                                  {cardActions.manageLabel}
+                                </Button>
+                              )}
+
+                              {cardActions.remove && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  leftIcon={<Trash2 className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      kind: 'truck',
+                                      id: truck.id,
+                                      label: truck.registrationNumber || truck.bodyType,
+                                    })
+                                  }
+                                  className="text-danger-600 dark:text-danger-400 border-danger-500/25 hover:bg-danger-500/5"
+                                  aria-label={`Delete your truck ${truck.registrationNumber || truck.bodyType}`}
+                                >
+                                  Delete
+                                </Button>
+                              )}
                             </div>
                           </div>
+
+                          {/* Non-owner detail disclosure (View) */}
+                          {cardActions.view && isViewingTruck && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3">
+                              <TelemetryCell
+                                label="Deck Length"
+                                value={truck.lengthFt ? `${truck.lengthFt} ft` : '—'}
+                              />
+                              <TelemetryCell
+                                label="Deck Height"
+                                value={truck.heightFt ? `${truck.heightFt} ft` : '—'}
+                              />
+                              <TelemetryCell
+                                label="Serviceable Radius"
+                                value={truck.serviceableRadiusKm ? `${truck.serviceableRadiusKm} km` : '—'}
+                              />
+                              <TelemetryCell
+                                label="Payload Capacity"
+                                value={`${truck.tonnageCapacity || 16} T`}
+                              />
+                            </div>
+                          )}
                         </Card>
                       )
                     })
@@ -1133,6 +1300,13 @@ function SearchPageContent() {
                         tonnage: load.tonnageRequired,
                         truckType: load.truckType,
                       })
+
+                      // Prompt 9: the caller's own load renders owner controls
+                      // (Edit/Delete/Manage); other factories' loads render
+                      // marketplace actions (View/Unlock Contact/Contact).
+                      const ownsThisLoad = isOwnerOfMarketplaceRow(load)
+                      const cardActions: MarketplaceCardActions = marketplaceCardActions('load', ownsThisLoad)
+                      const isViewingLoad = viewingId === load.id
 
                       return (
                         <Card
@@ -1163,6 +1337,13 @@ function SearchPageContent() {
                                   {load.urgent && (
                                     <Badge variant="danger" size="sm">
                                       <span>Urgent Load</span>
+                                    </Badge>
+                                  )}
+
+                                  {ownsThisLoad && (
+                                    <Badge variant="success" size="sm">
+                                      <BadgeCheck className="w-3 h-3" aria-hidden="true" />
+                                      <span>Your listing</span>
                                     </Badge>
                                   )}
                                 </div>
@@ -1206,7 +1387,7 @@ function SearchPageContent() {
                             <TelemetryCell label="Body Requirement" value={load.truckType} />
                           </div>
 
-                          {/* Sealed Contact Row */}
+                          {/* Sealed Contact Row: owner sees own details, others stay sealed */}
                           <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             {load.ownerPhone ? (
                               <div className="flex flex-wrap items-center gap-3">
@@ -1229,6 +1410,14 @@ function SearchPageContent() {
                                   <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
                                 </a>
                               </div>
+                            ) : ownsThisLoad ? (
+                              /* Own load with no contact on file — still never "sealed" */
+                              <div className="flex items-center gap-2.5 text-xs sm:text-sm text-muted font-medium">
+                                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                  <BadgeCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                                </div>
+                                <span>Your freight post — manage it from My loads</span>
+                              </div>
                             ) : (
                               <div className="flex items-center gap-2.5 text-xs sm:text-sm text-muted font-medium">
                                 <div className="w-7 h-7 rounded-lg bg-sunken border border-white/10 text-subtle flex items-center justify-center shrink-0">
@@ -1238,21 +1427,114 @@ function SearchPageContent() {
                               </div>
                             )}
 
-                            {!load.ownerPhone && (
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                className="self-end sm:self-auto"
-                                loading={revealing === load.id}
-                                loadingText="Unlocking contact details"
-                                leftIcon={<Lock className="w-3.5 h-3.5" aria-hidden="true" />}
-                                onClick={() => handleReveal(load.id, 'load')}
-                              >
-                                {revealing === load.id ? 'Unlocking...' : 'Unlock Contact'}
-                              </Button>
-                            )}
+                            {/* Action Buttons — owner controls vs marketplace actions (Prompt 9) */}
+                            <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
+                              {cardActions.view && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  aria-pressed={isViewingLoad}
+                                  leftIcon={<Eye className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() => setViewingId(isViewingLoad ? null : load.id)}
+                                >
+                                  {isViewingLoad ? 'Hide details' : 'View'}
+                                </Button>
+                              )}
+
+                              {cardActions.unlockContact && !load.ownerPhone && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  loading={revealing === load.id}
+                                  loadingText="Unlocking contact details"
+                                  leftIcon={<Lock className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() => handleReveal(load.id, 'load')}
+                                >
+                                  {revealing === load.id ? 'Unlocking...' : 'Unlock Contact'}
+                                </Button>
+                              )}
+
+                              {cardActions.edit && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  leftIcon={<Pencil className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() => router.push('/my-loads')}
+                                  aria-label={`Edit your load ${load.loadingAddress} to ${load.unloadingAddress}`}
+                                >
+                                  Edit
+                                </Button>
+                              )}
+
+                              {cardActions.manage && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  leftIcon={<FolderOpen className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() => router.push('/my-loads')}
+                                  aria-label={`Manage your load ${load.loadingAddress} to ${load.unloadingAddress}`}
+                                >
+                                  {cardActions.manageLabel}
+                                </Button>
+                              )}
+
+                              {cardActions.remove && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  leftIcon={<Trash2 className="w-3.5 h-3.5" aria-hidden="true" />}
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      kind: 'load',
+                                      id: load.id,
+                                      label: `${load.loadingAddress} → ${load.unloadingAddress}`,
+                                    })
+                                  }
+                                  className="text-danger-600 dark:text-danger-400 border-danger-500/25 hover:bg-danger-500/5"
+                                  aria-label={`Delete your load ${load.loadingAddress} to ${load.unloadingAddress}`}
+                                >
+                                  Delete
+                                </Button>
+                              )}
+                            </div>
                           </div>
+
+                          {/* Non-owner detail disclosure (View) */}
+                          {cardActions.view && isViewingLoad && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3">
+                              <TelemetryCell
+                                label="Loading PIN"
+                                value={load.loadingPin || '—'}
+                              />
+                              <TelemetryCell
+                                label="Unloading PIN"
+                                value={load.unloadingPin || '—'}
+                              />
+                              <TelemetryCell
+                                label="Min Deck"
+                                value={
+                                  load.minLengthFt || load.minHeightFt
+                                    ? `${load.minLengthFt || '—'}ft × ${load.minHeightFt || '—'}ft`
+                                    : 'Any'
+                                }
+                              />
+                              <TelemetryCell
+                                label="Expected Delivery"
+                                value={
+                                  load.expectedDeliveryAt
+                                    ? new Date(load.expectedDeliveryAt).toLocaleDateString('en-IN')
+                                    : load.advancePayable
+                                    ? `Advance ${formatINR(load.advancePayable)}`
+                                    : 'Flexible'
+                                }
+                              />
+                            </div>
+                          )}
                         </Card>
                       )
                     })}
@@ -1281,6 +1563,29 @@ function SearchPageContent() {
                 router.push('/my-loads')
               }
             }}
+          />
+        )}
+
+        {/* Owner-side delete gate — destructive and irreversible server-side */}
+        {deleteTarget && (
+          <ConfirmDialog
+            open
+            onClose={() => (deleting ? undefined : setDeleteTarget(null))}
+            onConfirm={handleDeleteListing}
+            title={deleteTarget.kind === 'truck' ? 'Delete this truck listing?' : 'Delete this load?'}
+            destructive
+            loading={deleting}
+            confirmLabel={deleteTarget.kind === 'truck' ? 'Delete truck' : 'Delete load'}
+            message={
+              <span>
+                This permanently removes{' '}
+                <span className="font-semibold">
+                  {deleteTarget.kind === 'truck' ? deleteTarget.label : deleteTarget.label}
+                </span>{' '}
+                from the marketplace. Nearby operators will no longer see it, and this cannot be
+                undone.
+              </span>
+            }
           />
         )}
 

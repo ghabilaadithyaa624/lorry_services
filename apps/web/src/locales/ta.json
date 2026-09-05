@@ -9,10 +9,10 @@
   "hero.radiusMatch": "50km சுற்றுப் பகுதி பொருத்தம்",
   "hero.whatsappAlerts": "நேரடி WhatsApp எச்சரிக்கைகள்",
   "hero.zeroCommission": "பூஜ்ஜிய பங்குதாரர் கமிஷன்",
-
   "nav.findTrucks": "சரக்கு வண்டிகள் தேடு",
   "nav.findLoads": "சுமைகள் தேடு",
   "nav.pricing": "விலை & திட்டங்கள்",
+  "nav.requestDemo": "டெமோ கோருங்கள்",
   "nav.controlTower": "கட்டுப்பாட்டு அறை",
   "nav.postFreight": "சரக்குகளை இடுகை",
   "nav.signIn": "உள்நுழைக",
@@ -20,7 +20,6 @@
   "nav.profileAccount": "சுயவிவரம் & கணக்கு",
   "nav.notifications": "அறிவிப்புகள்",
   "nav.settings": "அமைப்புகள்",
-
   "footer.platform": "தளம்",
   "footer.solutions": "தீர்வுகள்",
   "footer.corridors": "வழித்தடங்கள்",
@@ -32,7 +31,6 @@
   "footer.whatsappHelpline": "WhatsApp உதவி எண்",
   "footer.termsOfService": "சேவை விதிமுறைகள்",
   "footer.privacyPolicy": "தனியுரிமை & தரவு பாதுகாப்பு",
-
   "common.menu": "பட்டி",
   "common.profile": "சுயவிவரம்",
   "common.helpSupport": "உதவி & ஆதரவு",
@@ -41,10 +39,10 @@
   "common.cancel": "ரத்துசெய்",
   "common.loading": "ஏற்றுகிறது…",
   "common.close": "மூடு",
-
   "dash.overview": "மேலோட்டம்",
   "dash.myLoads": "எனது சுமைகள்",
   "dash.myFleet": "எனது வாகன குழு",
+  "dash.myListings": "எனது பட்டியல்கள்",
   "dash.bookings": "முன்பதிவுகள்",
   "dash.tracking": "கண்காணிப்பு",
   "dash.analytics": "பகுப்பாய்வு",
@@ -55,12 +53,21 @@
   "dash.roleLoadOwner": "சுமை உரிமையாளர்",
   "dash.roleTruckOwner": "வாகன உரிமையாளர்",
   "dash.roleAdmin": "நிர்வாகி",
-
   "mobileNav.home": "முகப்பு",
   "mobileNav.search": "தேடல்",
   "mobileNav.fleet": "வாகன குழு",
   "mobileNav.loads": "சுமைகள்",
-
   "settings.language.title": "மொழி & அளவீடுகள்",
-  "settings.language.description": "மொழி தேர்வு உங்கள் கணக்கில் சேமிக்கப்படுகிறது. இடைமுக மொழிபெயர்ப்பு படிப்படியாக அறிமுகப்படுத்தப்படுகிறது."
+  "settings.language.description": "மொழி தேர்வு உங்கள் கணக்கில் சேமிக்கப்படுகிறது. இடைமுக மொழிபெயர்ப்பு படிப்படியாக அறிமுகப்படுத்தப்படுகிறது.",
+  "dash.dashboard": "டாஷ்போர்டு",
+  "dash.myTrucks": "என் வாகனங்கள்",
+  "nav.registerTruck": "வாகனம் பதிவு",
+  "admin.nav.kyc": "KYC வரிசை",
+  "admin.nav.listings": "பட்டியல்கள்",
+  "admin.nav.disputes": "தகராறுகள்",
+  "admin.nav.subscriptions": "சந்தாக்கள்",
+  "admin.nav.users": "பயனர்கள்",
+  "admin.nav.intelligence": "நுண்ணறிவு",
+  "admin.nav.risk": "இடர்",
+  "mobileNav.bookings": "முன்பதிவுகள்"
 }

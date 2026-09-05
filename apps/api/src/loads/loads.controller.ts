@@ -11,9 +11,10 @@ import {
 } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { Optional } from '@nestjs/common'
-import { LoadStatus, UserRole } from '@prisma/client'
+import { LoadStatus, UserRole } from '@lorrycarry/database'
 import { LoadsService } from './loads.service'
 import { CreateLoadDto } from './dto/create-load.dto'
+import { UpdateLoadDto } from './dto/update-load.dto'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { Roles } from '../common/decorators/roles.decorator'
@@ -31,7 +32,7 @@ export class LoadsController {
   ) {}
 
   @Post()
-  @Roles(UserRole.factory_owner)
+  @Roles(UserRole.factory_owner, UserRole.transporter)
   @ApiOperation({ summary: 'Post a new load (Need Load) — triggers tonnage/route/budget matching & WhatsApp' })
   async create(
     @Body() dto: CreateLoadDto,
@@ -52,7 +53,7 @@ export class LoadsController {
   }
 
   @Get('my-loads')
-  @Roles(UserRole.factory_owner)
+  @Roles(UserRole.factory_owner, UserRole.transporter)
   @ApiOperation({ summary: 'Get my posted loads with pagination' })
   async findMyLoads(
     @CurrentUser('id') userId: string,
@@ -77,24 +78,38 @@ export class LoadsController {
     return this.loadsService.findOne(id, userId)
   }
 
+  @Patch(':id')
+  @Roles(UserRole.factory_owner, UserRole.transporter, UserRole.admin)
+  @ApiOperation({ summary: 'Edit an open load (owner or admin only)' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateLoadDto,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole
+  ) {
+    return this.loadsService.update(id, userId, dto, role)
+  }
+
   @Patch(':id/status')
-  @Roles(UserRole.factory_owner)
-  @ApiOperation({ summary: 'Update load status' })
+  @Roles(UserRole.factory_owner, UserRole.transporter, UserRole.admin)
+  @ApiOperation({ summary: 'Update load status (owner or admin only)' })
   async updateStatus(
     @Param('id') id: string,
     @Body('status') status: LoadStatus,
-    @CurrentUser('id') userId: string
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole
   ) {
-    return this.loadsService.updateStatus(id, userId, status)
+    return this.loadsService.updateStatus(id, userId, status, role)
   }
 
   @Delete(':id')
-  @Roles(UserRole.factory_owner)
-  @ApiOperation({ summary: 'Delete load (only if Open)' })
+  @Roles(UserRole.factory_owner, UserRole.transporter, UserRole.admin)
+  @ApiOperation({ summary: 'Delete load (owner or admin only, and only if Open)' })
   async delete(
     @Param('id') id: string,
-    @CurrentUser('id') userId: string
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole
   ) {
-    return this.loadsService.delete(id, userId)
+    return this.loadsService.delete(id, userId, role)
   }
 }

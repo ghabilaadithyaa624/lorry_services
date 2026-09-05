@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { NotFoundException } from '@nestjs/common'
+import { NotFoundException, ForbiddenException } from '@nestjs/common'
 import { LoadsService } from './loads.service'
 import { MapmyIndiaService } from '../common/services/mapmyindia.service'
 import { prisma, LoadStatus } from '@lorrycarry/database'
@@ -191,12 +191,12 @@ describe('LoadsService', () => {
   })
 
   describe('findByUser', () => {
-    it('should return paginated list of loads for a user', async () => {
+    it('should return paginated list of loads for a user stamped with isOwner=true (Prompt 9)', async () => {
       const mockLoads = [{ id: 'load-1' }]
       ;(prisma.load.findMany as jest.Mock).mockResolvedValueOnce(mockLoads)
 
       const result = await service.findByUser('user-123', LoadStatus.Open, 2, 10)
-      expect(result).toEqual(mockLoads)
+      expect(result).toEqual([{ id: 'load-1', isOwner: true }])
       expect(prisma.load.findMany).toHaveBeenCalledWith({
         where: { userId: 'user-123', status: LoadStatus.Open },
         skip: 10,
@@ -265,6 +265,7 @@ describe('LoadsService', () => {
       const result = await service.findOne('load-123', 'other-user')
       expect(result.user.name).toBeNull()
       expect(result.user.phone).toBeNull()
+      expect(result.isOwner).toBe(false)
     })
 
     it('should not mask contact info if requester is the owner', async () => {
@@ -278,21 +279,35 @@ describe('LoadsService', () => {
       const result = await service.findOne('load-123', 'owner-id')
       expect(result.user.name).toBe('John')
       expect(result.user.phone).toBe('123')
+      expect(result.isOwner).toBe(true)
     })
   })
 
   describe('updateStatus', () => {
-    it('should throw NotFoundException if load not found or unauthorized', async () => {
-      ;(prisma.load.findFirst as jest.Mock).mockResolvedValueOnce(null)
+    it('should throw NotFoundException if load not found', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(null)
 
       await expect(
         service.updateStatus('load-123', 'user-123', LoadStatus.Cancelled)
       ).rejects.toThrow(NotFoundException)
     })
 
-    it('should successfully update load status', async () => {
-      const mockLoad = { id: 'load-123', status: LoadStatus.Open }
-      ;(prisma.load.findFirst as jest.Mock).mockResolvedValueOnce(mockLoad)
+    it('should throw ForbiddenException if a non-admin edits another user\'s load', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'owner-999',
+        status: LoadStatus.Open,
+      })
+
+      await expect(
+        service.updateStatus('load-123', 'user-123', LoadStatus.Cancelled)
+      ).rejects.toThrow(ForbiddenException)
+      expect(prisma.load.update).not.toHaveBeenCalled()
+    })
+
+    it('should successfully update load status for the owner', async () => {
+      const mockLoad = { id: 'load-123', userId: 'user-123', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
       ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({
         ...mockLoad,
         status: LoadStatus.Cancelled,
@@ -305,24 +320,311 @@ describe('LoadsService', () => {
         data: { status: LoadStatus.Cancelled },
       })
     })
+
+    it('should allow an admin to update another user\'s load status', async () => {
+      const mockLoad = { id: 'load-123', userId: 'owner-999', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({
+        ...mockLoad,
+        status: LoadStatus.Cancelled,
+      })
+
+      const result = await service.updateStatus('load-123', 'admin-1', LoadStatus.Cancelled, 'admin')
+      expect(result.status).toBe(LoadStatus.Cancelled)
+    })
+  })
+
+  describe('update', () => {
+    it('should throw NotFoundException if load not found', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(null)
+
+      await expect(
+        service.update('load-123', 'user-123', { tonnageRequired: 20 })
+      ).rejects.toThrow(NotFoundException)
+    })
+
+    it('should throw ForbiddenException if a non-admin edits another user\'s load', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'owner-999',
+        status: LoadStatus.Open,
+      })
+
+      await expect(
+        service.update('load-123', 'user-123', { tonnageRequired: 20 })
+      ).rejects.toThrow(ForbiddenException)
+      expect(prisma.load.update).not.toHaveBeenCalled()
+    })
+
+    it('should refuse edits once the load has left Open status', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'user-123',
+        status: LoadStatus.InTransit,
+      })
+
+      await expect(
+        service.update('load-123', 'user-123', { tonnageRequired: 20 })
+      ).rejects.toThrow(ForbiddenException)
+      expect(prisma.load.update).not.toHaveBeenCalled()
+    })
+
+    it('should persist only the provided fields for the owner', async () => {
+      const mockLoad = { id: 'load-123', userId: 'user-123', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({
+        ...mockLoad,
+        tonnageRequired: 20,
+        maxPrice: 52000,
+      })
+
+      const result = await service.update('load-123', 'user-123', {
+        tonnageRequired: 20,
+        maxPrice: 52000,
+      })
+      expect(result.tonnageRequired).toBe(20)
+      expect(prisma.load.update).toHaveBeenCalledWith({
+        where: { id: 'load-123' },
+        data: { tonnageRequired: 20, maxPrice: 52000 },
+        include: { _count: { select: { bookings: true } } },
+      })
+    })
+
+    it('should allow an admin to edit another user\'s open load', async () => {
+      const mockLoad = { id: 'load-123', userId: 'owner-999', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({ ...mockLoad, urgent: true })
+
+      const result = await service.update('load-123', 'admin-1', { urgent: true }, 'admin')
+      expect(result.urgent).toBe(true)
+    })
+
+    it('should let a transporter update their own load', async () => {
+      const mockLoad = { id: 'load-123', userId: 'transporter-1', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({
+        ...mockLoad,
+        tonnageRequired: 22,
+        maxPrice: 71000,
+      })
+
+      const result = await service.update(
+        'load-123',
+        'transporter-1',
+        { tonnageRequired: 22, maxPrice: 71000 },
+        'transporter'
+      )
+      expect(result.tonnageRequired).toBe(22)
+      expect(prisma.load.update).toHaveBeenCalledWith({
+        where: { id: 'load-123' },
+        data: { tonnageRequired: 22, maxPrice: 71000 },
+        include: { _count: { select: { bookings: true } } },
+      })
+    })
+
+    it('should reject a transporter editing another user\'s load', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'owner-999',
+        status: LoadStatus.Open,
+      })
+
+      await expect(
+        service.update('load-123', 'transporter-1', { tonnageRequired: 22 }, 'transporter')
+      ).rejects.toThrow(ForbiddenException)
+      expect(prisma.load.update).not.toHaveBeenCalled()
+    })
+
+    it('should persist an edited expected delivery date', async () => {
+      const when = new Date('2026-04-01T09:30:00.000Z')
+      const mockLoad = { id: 'load-123', userId: 'user-123', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({
+        ...mockLoad,
+        expectedDeliveryAt: when,
+      })
+
+      await service.update('load-123', 'user-123', {
+        // Transport payloads carry ISO strings; the service normalizes to Date.
+        expectedDeliveryAt: when.toISOString() as unknown as Date,
+      })
+      expect(prisma.load.update).toHaveBeenCalledWith({
+        where: { id: 'load-123' },
+        data: { expectedDeliveryAt: when },
+        include: { _count: { select: { bookings: true } } },
+      })
+    })
+
+    it('should re-geocode and persist an edited loading address (owner)', async () => {
+      const mockLoad = {
+        id: 'load-123',
+        userId: 'user-123',
+        status: LoadStatus.Open,
+        loadingAddress: 'Chakan MIDC',
+        loadingPin: '410501',
+        loadingLat: 18.5204,
+        loadingLng: 73.8567,
+        unloadingAddress: 'Peenya Industrial Area',
+        unloadingPin: '560058',
+        unloadingLat: 12.9716,
+        unloadingLng: 77.5946,
+      }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce(mockLoad)
+      mockMapmyIndiaService.geocodeAddress.mockResolvedValueOnce({ lat: 19.076, lng: 72.8777 })
+      mockMapmyIndiaService.calculateDistance.mockReturnValueOnce(850)
+      ;(prisma.$executeRaw as jest.Mock).mockResolvedValueOnce(1)
+
+      const result = await service.update('load-123', 'user-123', {
+        loadingAddress: 'Andheri East',
+        loadingPin: '400069',
+      })
+
+      expect(mockMapmyIndiaService.geocodeAddress).toHaveBeenCalledWith('Andheri East, 400069')
+      expect(prisma.load.update).toHaveBeenCalledWith({
+        where: { id: 'load-123' },
+        data: {
+          loadingAddress: 'Andheri East',
+          loadingPin: '400069',
+          loadingLat: 19.076,
+          loadingLng: 72.8777,
+        },
+        include: { _count: { select: { bookings: true } } },
+      })
+
+      // Only the loading PostGIS point is refreshed
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1)
+      const args = (prisma.$executeRaw as jest.Mock).mock.calls[0][0]
+      expect(args.join('')).toContain('loading_point = ST_SetSRID')
+      expect(args.join('')).not.toContain('unloading_point = ST_SetSRID')
+      expect((prisma.$executeRaw as jest.Mock).mock.calls[0][1]).toBe(72.8777)
+      expect((prisma.$executeRaw as jest.Mock).mock.calls[0][2]).toBe(19.076)
+
+      // Corridor distance recomputed against the new coordinate
+      expect((result as any).distanceKm).toBe(850)
+    })
+
+    it('should re-geocode both endpoints when both addresses are edited', async () => {
+      const mockLoad = {
+        id: 'load-123',
+        userId: 'user-123',
+        status: LoadStatus.Open,
+        loadingAddress: 'Chakan MIDC',
+        loadingPin: '410501',
+        unloadingAddress: 'Peenya Industrial Area',
+        unloadingPin: '560058',
+      }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce(mockLoad)
+      mockMapmyIndiaService.geocodeAddress
+        .mockResolvedValueOnce({ lat: 18.6, lng: 73.7 }) // loading
+        .mockResolvedValueOnce({ lat: 13.0, lng: 77.5 }) // unloading
+      ;(prisma.$executeRaw as jest.Mock).mockResolvedValueOnce(1)
+
+      await service.update('load-123', 'user-123', {
+        loadingAddress: 'New Loading Point',
+        unloadingAddress: 'New Unloading Point',
+      })
+
+      expect(mockMapmyIndiaService.geocodeAddress).toHaveBeenNthCalledWith(1, 'New Loading Point, 410501')
+      expect(mockMapmyIndiaService.geocodeAddress).toHaveBeenNthCalledWith(2, 'New Unloading Point, 560058')
+
+      const args = (prisma.$executeRaw as jest.Mock).mock.calls[0]
+      expect(args[0].join('')).toContain('loading_point = ST_SetSRID')
+      expect(args[0].join('')).toContain('unloading_point = ST_SetSRID')
+      expect(args[1]).toBe(73.7)
+      expect(args[3]).toBe(77.5)
+      expect(args[5]).toBe('load-123')
+    })
+
+    it('should reject the whole edit when a new address cannot be geocoded', async () => {
+      const mockLoad = {
+        id: 'load-123',
+        userId: 'user-123',
+        status: LoadStatus.Open,
+        loadingAddress: 'Chakan MIDC',
+        loadingPin: '410501',
+      }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      mockMapmyIndiaService.geocodeAddress.mockResolvedValueOnce(null)
+
+      await expect(
+        service.update('load-123', 'user-123', { loadingAddress: 'Nowhere' })
+      ).rejects.toThrow(NotFoundException)
+      expect(prisma.load.update).not.toHaveBeenCalled()
+      expect(prisma.$executeRaw).not.toHaveBeenCalled()
+    })
   })
 
   describe('delete', () => {
-    it('should throw NotFoundException if load is not Open or not owned', async () => {
-      ;(prisma.load.findFirst as jest.Mock).mockResolvedValueOnce(null)
+    it('should throw NotFoundException if load not found', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(null)
 
       await expect(service.delete('load-123', 'user-123')).rejects.toThrow(NotFoundException)
     })
 
-    it('should successfully delete open load', async () => {
-      const mockLoad = { id: 'load-123', status: LoadStatus.Open }
-      ;(prisma.load.findFirst as jest.Mock).mockResolvedValueOnce(mockLoad)
+    it('should throw ForbiddenException if a non-admin deletes another user\'s load', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'owner-999',
+        status: LoadStatus.Open,
+      })
+
+      await expect(service.delete('load-123', 'user-123')).rejects.toThrow(ForbiddenException)
+      expect(prisma.load.delete).not.toHaveBeenCalled()
+    })
+
+    it('should throw NotFoundException if the load is not Open', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'user-123',
+        status: LoadStatus.Matched,
+      })
+
+      await expect(service.delete('load-123', 'user-123')).rejects.toThrow(NotFoundException)
+      expect(prisma.load.delete).not.toHaveBeenCalled()
+    })
+
+    it('should successfully delete open load owned by the user', async () => {
+      const mockLoad = { id: 'load-123', userId: 'user-123', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
 
       const result = await service.delete('load-123', 'user-123')
       expect(result).toEqual({ success: true })
       expect(prisma.load.delete).toHaveBeenCalledWith({
         where: { id: 'load-123' },
       })
+    })
+
+    it('should let a transporter delete their own open load', async () => {
+      const mockLoad = { id: 'load-123', userId: 'transporter-1', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+
+      const result = await service.delete('load-123', 'transporter-1', 'transporter')
+      expect(result).toEqual({ success: true })
+      expect(prisma.load.delete).toHaveBeenCalledWith({ where: { id: 'load-123' } })
+    })
+
+    it('should reject a transporter deleting another user\'s load', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'owner-999',
+        status: LoadStatus.Open,
+      })
+
+      await expect(
+        service.delete('load-123', 'transporter-1', 'transporter')
+      ).rejects.toThrow(ForbiddenException)
+      expect(prisma.load.delete).not.toHaveBeenCalled()
+    })
+
+    it('should allow an admin to delete another user\'s open load', async () => {
+      const mockLoad = { id: 'load-123', userId: 'owner-999', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+
+      const result = await service.delete('load-123', 'admin-1', 'admin')
+      expect(result).toEqual({ success: true })
+      expect(prisma.load.delete).toHaveBeenCalledWith({ where: { id: 'load-123' } })
     })
   })
 })

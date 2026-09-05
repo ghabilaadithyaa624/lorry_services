@@ -17,13 +17,11 @@ import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import {
   INDUSTRIAL_HUB_SUGGESTIONS,
-  POST_LOAD_PATH,
-  REGISTER_VEHICLE_PATH,
   VEHICLE_BODY_TYPES,
   bodyTypeLabel,
   getSearchEmptyCopy,
-  loginRedirectUrl,
   oppositeMode,
+  resolveMarketplaceCtas,
   searchUrlForMode,
   widerRadiusSteps,
   type HubSuggestion,
@@ -48,6 +46,15 @@ export interface SearchEmptyStateProps {
   gpsLoading?: boolean
   /** Whether a browser session exists — login redirects vs direct routes. */
   isAuthenticated?: boolean
+  /**
+   * Canonical or legacy role label from the persisted session.
+   *
+   * Decides which publish CTAs are offered: transporters and admins operate
+   * both sides, a factory owner posts freight, a driver registers vehicles.
+   * Withheld sides are explained instead of linked, so nobody is sent to a
+   * route the middleware would bounce them off.
+   */
+  role?: string | null
   onDetectLocation: () => void
   onFocusLocationInput: () => void
   onHubSelect: (hub: HubSuggestion) => void
@@ -130,6 +137,7 @@ export function SearchEmptyState({
   gpsSupported = true,
   gpsLoading = false,
   isAuthenticated = false,
+  role = null,
   onDetectLocation,
   onFocusLocationInput,
   onHubSelect,
@@ -150,10 +158,12 @@ export function SearchEmptyState({
   const widerRadii = widerRadiusSteps(radius)
   const otherMode = oppositeMode(mode)
 
-  const publishHref = isAuthenticated ? POST_LOAD_PATH : loginRedirectUrl(POST_LOAD_PATH)
-  const registerHref = isAuthenticated
-    ? REGISTER_VEHICLE_PATH
-    : loginRedirectUrl(REGISTER_VEHICLE_PATH)
+  /**
+   * Publish CTAs for this role and tab: primary side first, any side the
+   * account cannot use withheld with an explanation (see
+   * `resolveMarketplaceCtas`).
+   */
+  const ctaSet = resolveMarketplaceCtas({ mode, role, isAuthenticated })
 
   return (
     <div
@@ -305,24 +315,25 @@ export function SearchEmptyState({
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-2.5">
-          <Button
-            as="a"
-            href={publishHref}
-            size="sm"
-            leftIcon={<Factory className="w-3.5 h-3.5" aria-hidden="true" />}
-          >
-            Post a load
-          </Button>
-
-          <Button
-            as="a"
-            href={registerHref}
-            variant="secondary"
-            size="sm"
-            leftIcon={<Truck className="w-3.5 h-3.5" aria-hidden="true" />}
-          >
-            Register your truck
-          </Button>
+          {ctaSet.ctas.map((cta) => (
+            <Button
+              key={cta.kind}
+              as="a"
+              href={cta.href}
+              variant={cta.primary ? 'primary' : 'secondary'}
+              size="sm"
+              data-cta={cta.kind}
+              leftIcon={
+                cta.kind === 'post-freight' ? (
+                  <Factory className="w-3.5 h-3.5" aria-hidden="true" />
+                ) : (
+                  <Truck className="w-3.5 h-3.5" aria-hidden="true" />
+                )
+              }
+            >
+              {cta.label}
+            </Button>
+          ))}
 
           <Button
             variant="ghost"
@@ -335,8 +346,19 @@ export function SearchEmptyState({
           </Button>
         </div>
 
+        {/*
+          A side the signed-in role cannot use is explained, never linked:
+          the middleware redirects a factory owner off /register-truck and a
+          driver off /post-load, so a button there would be a dead end.
+        */}
+        {ctaSet.hidden && (
+          <p className="text-[11px] text-subtle text-center max-w-lg leading-relaxed">
+            {ctaSet.hidden.note}
+          </p>
+        )}
+
         <p className="text-[11px] text-subtle text-center max-w-lg leading-relaxed">
-          {isTruckMode
+          {ctaSet.primary?.kind === 'post-freight'
             ? `Publishing a load puts your requirement in front of verified transporters, and the ${bodyTypeLabel(truckType || 'Open')} fleet nearby can bid on it.`
             : 'Listing your vehicle publishes your capacity and preferred corridors to shippers searching this hub.'}
         </p>

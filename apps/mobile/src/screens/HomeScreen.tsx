@@ -17,7 +17,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { bookingsApi, getApiErrorMessage } from '../services/api'
 import type { BookingSummary } from '../services/types'
 import { WEB_URL } from '../config'
-import { getRoleLabel, isVehicleSideRole } from '../lib/roles'
+import { getRoleLabel, isTransporterRole, isVehicleSideRole } from '../lib/roles'
 
 interface BookingStats {
   active: number
@@ -40,6 +40,9 @@ export function HomeScreen() {
   const { user, logout, entitlement, entitlementLoading, entitlementError, refreshEntitlement } = useAuth()
   const navigation = useNavigation<any>()
   const vehicleSide = isVehicleSideRole(user?.role)
+  // Transporters see the freight-side handoff by default, but their quick
+  // actions cover both posting and listing.
+  const transporter = isTransporterRole(user?.role)
 
   const [stats, setStats] = useState<BookingStats | null>(null)
   const [statsError, setStatsError] = useState<string | null>(null)
@@ -180,25 +183,36 @@ export function HomeScreen() {
           </View>
         )}
 
-        {/* Quick Actions */}
+        {/* Quick Actions. Each card hands off to the matching web flow; a
+            transporter runs both sides, so they get one action per side. */}
         <View style={styles.actionsContainer}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionGrid}>
             <TouchableOpacity
               style={styles.actionCard}
               accessibilityRole="button"
-              onPress={() => openOnWeb(vehicleSide ? '/need-load' : '/search', vehicleSide ? 'Find loads' : 'Find transporters')}
+              onPress={() =>
+                openOnWeb(
+                  transporter ? '/post-load' : vehicleSide ? '/need-load' : '/search',
+                  transporter ? 'Post load' : vehicleSide ? 'Find loads' : 'Find transporters',
+                )
+              }
             >
-              <Text style={styles.actionIcon}>🔍</Text>
-              <Text style={styles.actionText}>{vehicleSide ? 'Find Loads' : 'Find Transporters'}</Text>
+              <Text style={styles.actionIcon}>{transporter ? '📦' : '🔍'}</Text>
+              <Text style={styles.actionText}>{transporter ? 'Post Freight Load' : vehicleSide ? 'Find Loads' : 'Find Transporters'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionCard}
               accessibilityRole="button"
-              onPress={() => openOnWeb(vehicleSide ? '/my-trucks' : '/post-load', vehicleSide ? 'Register vehicle' : 'Post load')}
+              onPress={() =>
+                openOnWeb(
+                  transporter ? '/need-vehicle' : vehicleSide ? '/my-trucks' : '/post-load',
+                  transporter ? 'List a truck' : vehicleSide ? 'Register vehicle' : 'Post load',
+                )
+              }
             >
-              <Text style={styles.actionIcon}>➕</Text>
-              <Text style={styles.actionText}>{vehicleSide ? 'Register Vehicle' : 'Post Load'}</Text>
+              <Text style={styles.actionIcon}>{transporter ? '🚛' : '➕'}</Text>
+              <Text style={styles.actionText}>{transporter ? 'List a Truck' : vehicleSide ? 'Register Vehicle' : 'Post Load'}</Text>
             </TouchableOpacity>
           </View>
         </View>
