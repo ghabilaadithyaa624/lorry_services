@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger'
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@lorrycarry/database'
 import { Optional } from '@nestjs/common'
 import { TrucksService } from './trucks.service'
 import { CreateTruckDto } from './dto/create-truck.dto'

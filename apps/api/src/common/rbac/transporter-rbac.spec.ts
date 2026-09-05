@@ -18,7 +18,7 @@
  */
 import { Reflector } from '@nestjs/core'
 import { ExecutionContext, ForbiddenException } from '@nestjs/common'
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@lorrycarry/database'
 
 import { RolesGuard } from '../guards/roles.guard'
 import { ROLES_KEY } from '../decorators/roles.decorator'

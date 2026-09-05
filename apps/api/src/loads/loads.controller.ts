@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { Optional } from '@nestjs/common'
-import { LoadStatus, UserRole } from '@prisma/client'
+import { LoadStatus, UserRole } from '@lorrycarry/database'
 import { LoadsService } from './loads.service'
 import { CreateLoadDto } from './dto/create-load.dto'
 import { UpdateLoadDto } from './dto/update-load.dto'
