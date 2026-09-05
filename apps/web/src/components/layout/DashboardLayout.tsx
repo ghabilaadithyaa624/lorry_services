@@ -30,6 +30,7 @@ import { Avatar } from '@/components/ui'
 import { ProfileMenu, type ProfileMenuUser } from './ProfileMenu'
 import { LanguageToggle } from './LanguageToggle'
 import { AIFreightAssistantDrawer, ActionCenterMenu } from '@/components/intelligence'
+import { useOperationalTasks } from '@/lib/intelligence/useOperationalTasks'
 import { useI18n } from '@/lib/i18n'
 import { cn, formatPhone } from '@/lib/utils'
 import { getRoleLabel, isAdminRole, isVehicleSideRole } from '@/lib/roles'
@@ -64,6 +65,8 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
   const [unreadCount, setUnreadCount] = useState(0)
   const [verified, setVerified] = useState(false)
   const [subscriptionActive, setSubscriptionActive] = useState(false)
+  // Desktop and mobile buttons share the same live operational snapshot.
+  const operationalActions = useOperationalTasks({ role: user?.role })
 
   useEffect(() => {
     try {
@@ -256,7 +259,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
             <LanguageToggle compact className="hidden lg:inline-flex" />
 
             {/* Operational Action Center — pending KYC, payments, E-Way Bill… */}
-            <ActionCenterMenu role={user?.role} />
+            <ActionCenterMenu role={user?.role} state={operationalActions} />
 
             <Link
               href="/notifications"
@@ -300,7 +303,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
 
           <div className="flex items-center gap-1.5">
             {/* Operational Action Center — compact popover on small screens */}
-            <ActionCenterMenu role={user?.role} maxVisible={3} />
+            <ActionCenterMenu role={user?.role} state={operationalActions} maxVisible={3} />
 
             <Link
               href="/notifications"

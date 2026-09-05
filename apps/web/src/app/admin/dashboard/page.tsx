@@ -16,9 +16,9 @@ import { formatINR } from '@/lib/utils'
 
 import { FreightNetworkDiagram } from '@/components/ui/FreightNetworkDiagram'
 import { ActionCenterCard } from '@/components/intelligence'
-import { deriveDashboardActionTasks } from '@/lib/intelligence/actionCenterEngine'
+import { deriveDashboardActionTasks, getActionCenterUnavailableSources, type DashboardAdminStatsLike } from '@/lib/intelligence/actionCenterEngine'
 
-interface Stats {
+interface Stats extends DashboardAdminStatsLike {
   totalUsers: number
   totalLoads: number
   totalTrucks: number
@@ -100,13 +100,8 @@ export default function AdminDashboardPage() {
   const verifiedTrucksCount = Math.max(0, stats.totalTrucks - stats.pendingDocuments)
 
   // Operational Action Center — moderation work derived from real aggregates.
-  const actionCenterTasks = deriveDashboardActionTasks({
-    role: 'admin',
-    adminStats: {
-      pendingDocuments: stats.pendingDocuments,
-      expiredTrials: stats.expiredTrials,
-    },
-  })
+  const actionSnapshot = { role: 'admin', adminStats: stats }
+  const actionCenterTasks = deriveDashboardActionTasks(actionSnapshot)
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans">
@@ -151,7 +146,12 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* ── OPERATIONAL ACTION CENTER (real moderation queues) ── */}
-      <ActionCenterCard tasks={actionCenterTasks} showWhenEmpty />
+      <ActionCenterCard
+        tasks={actionCenterTasks}
+        unavailableSources={getActionCenterUnavailableSources(actionSnapshot)}
+        onRetry={fetchStats}
+        showWhenEmpty
+      />
 
       {/* ── 7 PRIMARY REQUIRED KPI CARDS ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 font-mono">

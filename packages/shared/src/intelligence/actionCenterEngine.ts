@@ -41,14 +41,17 @@ export interface ActionCenterLoad {
   status: string
   tonnageRequired: number
   loadingAddress: string
+  /** Total bookings on the load, including historical cancellations. */
+  bookingCount?: number
 }
 
 export interface ActionCenterBooking {
   id: string
   status: string
-  advanceConfirmed: boolean
-  balanceConfirmed: boolean
-  agreedPrice: number | string
+  loadId?: string
+  advanceConfirmed?: boolean
+  balanceConfirmed?: boolean
+  agreedPrice?: number | string | null
   ewayBillNumber?: string | null
   ewayBillStatus?: string | null
   /** Outbound WhatsApp dispatch trigger state, when the API exposes it. */
@@ -125,9 +128,11 @@ function toTime(value?: Date | string | number | null): number | null {
   return Number.isFinite(time) ? time : null
 }
 
-function formatRupees(amount: number | string): string {
-  const numeric = Math.round(Number(amount) || 0)
-  return `₹${numeric.toLocaleString('en-IN')}`
+/** Never turn an absent or invalid agreed price into a fabricated ₹0 due. */
+function halfFreight(amount?: number | string | null): string | undefined {
+  const numeric = Number(amount)
+  if (!Number.isFinite(numeric) || numeric <= 0) return undefined
+  return `₹${Math.round(numeric * 0.5).toLocaleString('en-IN')}`
 }
 
 /** Short human reference for a trip, matching the dashboard trip chips. */
@@ -166,10 +171,10 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
     const sub = params.subscription
     const expiresAtTime = toTime(sub?.expiresAt)
     const daysRemaining =
-      sub?.daysRemaining !== undefined && sub?.daysRemaining !== null
-        ? sub.daysRemaining
-        : expiresAtTime !== null
-          ? Math.ceil((expiresAtTime - now) / DAY_MS)
+      expiresAtTime !== null
+        ? Math.ceil((expiresAtTime - now) / DAY_MS)
+        : typeof sub?.daysRemaining === 'number' && Number.isFinite(sub.daysRemaining)
+          ? sub.daysRemaining
           : null
     const statusExpired = normalize(sub?.status) === 'expired'
     const dateExpired = expiresAtTime !== null && expiresAtTime <= now
@@ -225,26 +230,23 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
     const trucks = params.trucks
     const fleetDocuments = Array.isArray(params.documents) ? params.documents : []
 
-    // Only reason about documents when at least one document source was
-    // supplied — otherwise a still-loading dashboard would report every RC as
-    // missing.
-    const hasDocumentSignal =
-      Array.isArray(params.documents) ||
-      trucks.some((truck) => Array.isArray(truck.documents))
-
     trucks.forEach((truck) => {
+      if (!truck.id) return
+      // A nested document list covers this truck only, not the entire fleet.
+      const hasDocumentSignal =
+        Array.isArray(params.documents) || Array.isArray(truck.documents)
       const verification = normalize(truck.verificationStatus)
 
       if (verification === 'pending') {
         tasks.push({
           id: `kyc-pending-${truck.id}`,
-          title: `RC Verification Pending: ${truck.registrationNumber}`,
+          title: `Vehicle KYC Pending: ${truck.registrationNumber}`,
           description:
-            'Upload your clear RC copy and Insurance certificate to activate direct marketplace matching.',
+            'Vehicle verification is pending. Review the RC and insurance status for this lorry; uploaded documents may still be under review.',
           category: 'COMPLIANCE',
           urgency: 'HIGH',
-          actionUrl: `/dashboard/truck-driver`,
-          actionLabel: 'Upload Documents',
+          actionUrl: '/documents',
+          actionLabel: 'Review Verification',
         })
       } else if (verification === 'rejected') {
         tasks.push({
@@ -292,7 +294,7 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
             id: `doc-rejected-${rejected.id || `${normalize(type)}-${truck.id}`}`,
             title: `${label} Rejected: ${truck.registrationNumber}`,
             description:
-              'The uploaded copy was unreadable or expired. Upload a fresh scan to restore compliance clearance.',
+              'Review the compliance notes and upload a corrected copy to restore verification clearance.',
             category: 'COMPLIANCE',
             urgency: 'HIGH',
             actionUrl: '/documents',
@@ -301,7 +303,8 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
           return
         }
 
-        const pending = matches[0]
+        const pending = matches.find((doc) => normalize(doc.verificationStatus) === 'pending')
+        if (!pending) return // An unknown status is not evidence of a pending review.
         tasks.push({
           id: `doc-unverified-${pending.id || `${normalize(type)}-${truck.id}`}`,
           title: `${label} Awaiting Verification: ${truck.registrationNumber}`,
@@ -323,7 +326,7 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
           'Add your vehicle with its RC details and serviceable radius to start receiving matched freight on your corridor.',
         category: 'DISPATCH',
         urgency: 'HIGH',
-        actionUrl: '/need-vehicle',
+        actionUrl: '/my-trucks',
         actionLabel: 'Register Truck',
       })
     }
@@ -333,63 +336,63 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
   if (!isAdmin && params.bookings) {
     params.bookings.forEach((booking) => {
       const status = normalize(booking.status)
-      if (status === 'cancelled') return
+      if (!booking.id || !['pending', 'confirmed', 'intransit', 'in_transit', 'completed'].includes(status)) return
 
       const isCompleted = status === 'completed'
       const isDispatched = status === 'confirmed' || status === 'intransit' || status === 'in_transit'
+      const amount = halfFreight(booking.agreedPrice)
+      const bookingUrl = `/booking/${encodeURIComponent(booking.id)}`
 
-      // 3a. Loading advance (50%) — released by the shipper.
-      if (!booking.advanceConfirmed) {
+      // 3a. Loading advance (50%) — released by the shipper. Missing flags are
+      // unknown, not false: partial API records must not invent payment dues.
+      if (booking.advanceConfirmed === false) {
         if (isFactoryOwner) {
           tasks.push({
             id: `advance-pending-${booking.id}`,
-            title: `Loading Advance Due: ${formatRupees(Number(booking.agreedPrice) * 0.5)}`,
-            description:
-              'Confirm standard 50% loading advance release to authorize transporter dispatch.',
+            title: `Loading Advance Due: ${amount ?? routeLabel(booking)}`,
+            description: `${routeLabel(booking)}: confirm the 50% loading advance release to authorize dispatch.`,
             category: 'PAYMENT',
             urgency: 'HIGH',
-            actionUrl: `/booking/${booking.id}`,
+            actionUrl: bookingUrl,
             actionLabel: 'Confirm Advance',
           })
         } else if (isTruckDriver && !isCompleted) {
           tasks.push({
             id: `advance-awaiting-${booking.id}`,
             title: `Advance Not Released: ${routeLabel(booking)}`,
-            description: `The shipper has not confirmed the 50% loading advance of ${formatRupees(
-              Number(booking.agreedPrice) * 0.5
-            )}. Follow up before loading the consignment.`,
+            description: `The shipper has not confirmed the 50% loading advance${amount ? ` of ${amount}` : ''}. Follow up before loading the consignment.`,
             category: 'PAYMENT',
             urgency: 'MEDIUM',
-            actionUrl: `/booking/${booking.id}`,
+            actionUrl: bookingUrl,
             actionLabel: 'Open Trip',
           })
         }
       }
 
       // 3b. Delivery balance (50%) on a completed trip.
-      if (isCompleted && !booking.balanceConfirmed) {
+      if (isCompleted && booking.balanceConfirmed === false) {
         if (isFactoryOwner) {
           tasks.push({
             id: `balance-pending-${booking.id}`,
-            title: `Delivery Balance Due: ${formatRupees(Number(booking.agreedPrice) * 0.5)}`,
+            title: `Delivery Balance Due: ${amount ?? routeLabel(booking)}`,
             description: `${routeLabel(
               booking
             )} is delivered. Release the remaining 50% balance against the POD to close the trip.`,
             category: 'PAYMENT',
             urgency: 'HIGH',
-            actionUrl: `/booking/${booking.id}`,
+            actionUrl: bookingUrl,
             actionLabel: 'Release Balance',
           })
         } else if (isTruckDriver) {
           tasks.push({
             id: `balance-awaiting-${booking.id}`,
-            title: `Balance Payment Pending: ${formatRupees(Number(booking.agreedPrice) * 0.5)}`,
+            title: `Balance Payment Pending: ${amount ?? routeLabel(booking)}`,
             description: `Trip ${tripRef(
               booking.id
             )} is delivered but the shipper has not confirmed the balance. Share the POD and follow up.`,
             category: 'PAYMENT',
             urgency: 'HIGH',
-            actionUrl: `/booking/${booking.id}`,
+            actionUrl: bookingUrl,
             actionLabel: 'Request Balance',
           })
         }
@@ -397,18 +400,20 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
 
       // 3c. E-Way Bill compliance for dispatched consignments.
       const ewayStatus = normalize(booking.ewayBillStatus)
+      const hasEwaySignal = booking.ewayBillNumber !== undefined || booking.ewayBillStatus != null
       const ewayGenerated =
-        Boolean(booking.ewayBillNumber) || ewayStatus === 'generated' || ewayStatus === 'valid'
-      if (isDispatched && !ewayGenerated) {
+        Boolean(booking.ewayBillNumber?.trim()) || ['active', 'generated', 'valid'].includes(ewayStatus)
+      if (isDispatched && hasEwaySignal && !ewayGenerated) {
         tasks.push({
           id: `eway-missing-${booking.id}`,
           title: `E-Way Bill Missing: ${routeLabel(booking)}`,
-          description:
-            'Consignments above the state threshold must carry a valid E-Way Bill. Attach the 12-digit number before the lorry moves.',
+          description: isFactoryOwner
+            ? 'No E-Way Bill is recorded. Check whether one is required for this consignment and attach it before dispatch.'
+            : 'No E-Way Bill is recorded. Ask the shipper to confirm applicability and provide the bill before moving the consignment.',
           category: 'COMPLIANCE',
           urgency: 'HIGH',
-          actionUrl: `/booking/${booking.id}`,
-          actionLabel: 'Add E-Way Bill',
+          actionUrl: bookingUrl,
+          actionLabel: isFactoryOwner ? 'Add E-Way Bill' : 'Review E-Way Bill',
         })
       }
 
@@ -421,8 +426,8 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
             'The counterparty was not reached on WhatsApp. Verify the number or call directly so dispatch is not delayed.',
           category: 'DISPATCH',
           urgency: 'MEDIUM',
-          actionUrl: `/booking/${booking.id}`,
-          actionLabel: 'Retry Contact',
+          actionUrl: bookingUrl,
+          actionLabel: 'Review Contact',
         })
       }
     })
@@ -430,27 +435,35 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
 
   // ── 4. Open, still unmatched freight (shipper) ───────────────────────────
   if (isFactoryOwner && params.loads) {
-    const openLoads = params.loads.filter((l) => l.status === 'Open')
+    const openLoads = params.loads.filter((load) => {
+      if (!load.id || normalize(load.status) !== 'open') return false
+      const bookings = params.bookings?.filter((booking) => booking.loadId === load.id)
+      // Do not advertise already-booked loads from a racing dashboard snapshot.
+      if (bookings?.some((booking) => normalize(booking.status) !== 'cancelled')) return false
+      // A reopened load with only cancelled bookings is unmatched again. When
+      // booking details failed to load, respect the server's non-zero count.
+      return !load.bookingCount || (bookings !== undefined && bookings.length >= load.bookingCount)
+    })
     if (openLoads.length > 0) {
       tasks.push({
         id: 'open-loads-match',
-        title: `${openLoads.length} Active Freight Requirement${openLoads.length === 1 ? '' : 's'}`,
+        title: `${openLoads.length} Open Load${openLoads.length === 1 ? '' : 's'} Awaiting a Match`,
         description:
-          'Matching trucks are available within your loading corridor. Review quotes and contact drivers directly.',
+          'These freight requirements are still open. Search for suitable lorries and review availability with drivers.',
         category: 'DISPATCH',
         urgency: 'LOW',
         actionUrl: '/search?type=truck',
-        actionLabel: 'Search Available Lorries',
+        actionLabel: 'Find Lorries',
       })
     }
   }
 
   // ── 5. Failed WhatsApp notifications from the alert feed ─────────────────
   if (params.notifications) {
-    const failed = params.notifications.filter((n) => {
+    const failed = Array.from(new Map(params.notifications.map((n) => [n.id, n])).values()).filter((n) => {
       const status = normalize(n.providerStatus)
       const channel = normalize(n.channel)
-      return channel === 'whatsapp' && (status === 'failed' || status === 'undelivered')
+      return Boolean(n.id) && channel === 'whatsapp' && (status === 'failed' || status === 'undelivered')
     })
 
     if (failed.length > 0) {
@@ -525,7 +538,8 @@ export function deriveOperationalTasks(params: DeriveOperationalTasksParams): Op
     }
   }
 
-  const sorted = tasks.sort((a, b) => URGENCY_RANK[a.urgency] - URGENCY_RANK[b.urgency])
+  const sorted = Array.from(new Map(tasks.map((task) => [task.id, task])).values())
+    .sort((a, b) => URGENCY_RANK[a.urgency] - URGENCY_RANK[b.urgency])
 
   return typeof params.maxTasks === 'number' && params.maxTasks >= 0
     ? sorted.slice(0, params.maxTasks)

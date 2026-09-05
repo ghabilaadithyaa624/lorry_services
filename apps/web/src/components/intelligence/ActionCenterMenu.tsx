@@ -3,13 +3,15 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { BoltIcon } from '@heroicons/react/24/outline'
 import { ActionCenterCard } from './ActionCenterCard'
-import { useOperationalTasks } from '@/lib/intelligence/useOperationalTasks'
+import { useOperationalTasks, type UseOperationalTasksResult } from '@/lib/intelligence/useOperationalTasks'
 import { cn } from '@/lib/utils'
 
 interface ActionCenterMenuProps {
   /** Role override — otherwise resolved from the persisted session. */
   role?: string | null
-  /** Number of tasks rendered inside the popover before the "+N more" line. */
+  /** Share one fetch cycle between responsive shell entry points. */
+  state?: UseOperationalTasksResult
+  /** Number of tasks before the expandable remainder. */
   maxVisible?: number
   className?: string
 }
@@ -22,8 +24,9 @@ interface ActionCenterMenuProps {
  * overview page) surfaces pending KYC, payment, E-Way Bill, subscription and
  * dispatch work derived from live API data.
  */
-export function ActionCenterMenu({ role, maxVisible = 4, className }: ActionCenterMenuProps) {
-  const { tasks, summary, loading, loaded } = useOperationalTasks({ role })
+export function ActionCenterMenu({ role, state, maxVisible = 4, className }: ActionCenterMenuProps) {
+  const fetched = useOperationalTasks({ role, enabled: !state })
+  const { tasks, summary, loading, loaded, unavailableSources, refresh } = state ?? fetched
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -51,8 +54,8 @@ export function ActionCenterMenu({ role, maxVisible = 4, className }: ActionCent
     }
   }, [open])
 
-  // Nothing pending and nothing loading: keep the shell uncluttered.
-  if (!loading && tasks.length === 0) return null
+  // Once loaded, keep the empty/error state reachable from every dashboard.
+  if (!loading && !loaded) return null
 
   const count = summary.total
   const hasUrgent = summary.high > 0
@@ -98,7 +101,9 @@ export function ActionCenterMenu({ role, maxVisible = 4, className }: ActionCent
         >
           <ActionCenterCard
             tasks={tasks}
-            loading={loading && !loaded}
+            loading={loading}
+            unavailableSources={unavailableSources}
+            onRetry={refresh}
             maxVisible={maxVisible}
             showWhenEmpty
             className="shadow-modal"

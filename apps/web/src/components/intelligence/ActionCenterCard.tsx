@@ -10,19 +10,65 @@ import {
   ArrowRightIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline'
-import { OperationalTask } from '@/lib/intelligence/actionCenterEngine'
-import { Badge } from '@/components/ui'
+import type { OperationalTask } from '@/lib/intelligence/actionCenterEngine'
+import { Badge, type BadgeVariant } from '@/components/ui'
 import { cn } from '@/lib/utils'
 
 interface ActionCenterCardProps {
   tasks: OperationalTask[]
   className?: string
-  /** Show only the N most urgent tasks with a "+N more" footer. */
+  /** Remaining tasks stay accessible in a keyboard-operable disclosure. */
   maxVisible?: number
-  /** Renders a lightweight skeleton while the dashboard data is in flight. */
   loading?: boolean
-  /** Render a positive "all clear" panel instead of nothing when idle. */
   showWhenEmpty?: boolean
+  /** Failed/unknown sources must not be presented as an all-clear result. */
+  unavailableSources?: readonly string[]
+  onRetry?: () => void
+}
+
+const urgencyBadge: Record<OperationalTask['urgency'], BadgeVariant> = {
+  HIGH: 'danger',
+  MEDIUM: 'warning',
+  LOW: 'info',
+}
+
+function TaskItem({ task }: { task: OperationalTask }) {
+  const Icon = task.category === 'COMPLIANCE' ? ShieldExclamationIcon
+    : task.category === 'PAYMENT' ? CreditCardIcon
+    : task.category === 'DISPATCH' ? TruckIcon : BellAlertIcon
+
+  return (
+    <li className="p-4 rounded-2xl bg-sunken border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-card">
+      <div className="flex items-start gap-3 min-w-0">
+        <div className={cn(
+          'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border',
+          task.urgency === 'HIGH'
+            ? 'bg-danger-500/10 text-danger-500 border-danger-500/30'
+            : 'bg-primary-500/10 text-primary-500 border-primary-500/30'
+        )}>
+          <Icon className="w-4 h-4" aria-hidden="true" />
+        </div>
+        <div className="min-w-0">
+          <h4 className="text-xs font-mono tabular-nums font-bold text-ink break-words">{task.title}</h4>
+          <p className="text-xs text-muted mt-1 leading-relaxed">{task.description}</p>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <Badge variant={urgencyBadge[task.urgency]} size="sm" className="font-mono">
+              {task.urgency}
+            </Badge>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-muted">{task.category}</span>
+          </div>
+        </div>
+      </div>
+      <Link
+        href={task.actionUrl}
+        aria-label={`${task.actionLabel} for ${task.title}`}
+        className="inline-flex min-h-[44px] items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 text-white shadow-glow-primary text-xs font-bold shrink-0 transition-colors border border-primary-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-panel"
+      >
+        <span>{task.actionLabel}</span>
+        <ArrowRightIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+      </Link>
+    </li>
+  )
 }
 
 export function ActionCenterCard({
@@ -31,140 +77,87 @@ export function ActionCenterCard({
   maxVisible,
   loading = false,
   showWhenEmpty = false,
+  unavailableSources = [],
+  onRetry,
 }: ActionCenterCardProps) {
+  const panelClass = cn('bg-panel rounded-[20px] border border-white/10 p-5 sm:p-6 shadow-modal space-y-4 font-sans', className)
   if (loading) {
     return (
-      <div
-        className={cn(
-          'bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal space-y-3 font-sans',
-          className
-        )}
-        aria-busy="true"
-        aria-label="Loading operational action center"
-      >
+      <section className={panelClass} aria-busy="true" aria-label="Loading operational action center">
         <div className="h-3 w-48 rounded bg-white/10 animate-pulse" />
         <div className="h-16 rounded-2xl bg-white/5 animate-pulse" />
         <div className="h-16 rounded-2xl bg-white/5 animate-pulse" />
-      </div>
+      </section>
     )
   }
 
-  if (!tasks || tasks.length === 0) {
-    if (!showWhenEmpty) return null
-
-    return (
-      <div
-        className={cn(
-          'bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal font-sans flex items-start gap-3',
-          className
-        )}
-      >
-        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shrink-0">
-          <CheckCircleIcon className="w-4 h-4" aria-hidden="true" />
-        </div>
-        <div className="space-y-0.5">
-          <h3 className="text-xs font-mono font-bold text-ink uppercase tracking-widest">
-            Operational Action Center
-          </h3>
-          <p className="text-sm font-bold text-ink">No urgent actions</p>
-          <p className="text-[11px] text-surface-300 leading-relaxed">
-            Compliance, payments and dispatch are all clear — your documents, trips and
-            subscription are in good standing. New actions will surface here automatically.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  const getTaskIcon = (category: OperationalTask['category']) => {
-    switch (category) {
-      case 'COMPLIANCE':
-        return ShieldExclamationIcon
-      case 'PAYMENT':
-        return CreditCardIcon
-      case 'DISPATCH':
-        return TruckIcon
-      default:
-        return BellAlertIcon
-    }
-  }
-
-  const visibleTasks =
-    typeof maxVisible === 'number' && maxVisible > 0 ? tasks.slice(0, maxVisible) : tasks
-  const hiddenCount = tasks.length - visibleTasks.length
+  const incomplete = unavailableSources.length > 0
+  if (!tasks.length && !showWhenEmpty && !incomplete) return null
+  const visibleCount = typeof maxVisible === 'number' && maxVisible > 0 ? Math.floor(maxVisible) : tasks.length
+  const visibleTasks = tasks.slice(0, visibleCount)
+  const hiddenTasks = tasks.slice(visibleCount)
+  const highestUrgency = tasks.some((task) => task.urgency === 'HIGH') ? 'HIGH'
+    : tasks.some((task) => task.urgency === 'MEDIUM') ? 'MEDIUM' : 'LOW'
 
   return (
-    <div className={cn('bg-panel rounded-[20px] border border-white/10 p-6 shadow-modal space-y-4 font-sans', className)}>
-      <div className="flex items-center justify-between pb-3 border-b border-white/10">
+    <section className={panelClass} aria-label="Operational action center">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+          <div className="w-8 h-8 rounded-xl bg-primary-500/10 text-primary-500 flex items-center justify-center border border-primary-500/20 shrink-0">
             <BellAlertIcon className="w-4 h-4" aria-hidden="true" />
           </div>
-          <h3 className="text-xs font-mono font-bold text-ink uppercase tracking-widest">
-            Operational Action Center
-          </h3>
+          <h3 className="text-xs font-mono font-bold text-ink uppercase tracking-widest">Operational Action Center</h3>
         </div>
-        <Badge variant="warning" size="sm" className="font-mono text-[10px]">
-          {tasks.length} Action{tasks.length > 1 ? 's' : ''} Required
-        </Badge>
+        {tasks.length > 0 && (
+          <Badge variant={urgencyBadge[highestUrgency]} size="sm" className="font-mono tabular-nums">
+            {tasks.length} Action{tasks.length === 1 ? '' : 's'} Required
+          </Badge>
+        )}
       </div>
 
-      <div className="space-y-3">
-        {visibleTasks.map((task) => {
-          const Icon = getTaskIcon(task.category)
-          return (
-            <div
-              key={task.id}
-              className="p-4 rounded-2xl bg-surface-950/70 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-white/15 transition-all shadow-card"
-            >
-              <div className="flex items-start gap-3">
-                <div className={cn(
-                  'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border',
-                  task.urgency === 'HIGH'
-                    ? 'bg-danger-500/10 text-danger-400 border-danger-500/30'
-                    : 'bg-primary-500/10 text-primary-400 border-primary-500/30'
-                )}>
-                  <Icon className="w-4 h-4" aria-hidden="true" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-ink">
-                    {task.title}
-                  </h4>
-                  <p className="text-[11px] text-surface-300 mt-0.5 leading-relaxed">
-                    {task.description}
-                  </p>
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-surface-400 mt-1.5">
-                    <span
-                      className={cn(
-                        task.urgency === 'HIGH' ? 'text-danger-400' : 'text-primary-400'
-                      )}
-                    >
-                      {task.urgency}
-                    </span>
-                    <span aria-hidden="true"> · </span>
-                    <span>{task.category}</span>
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                href={task.actionUrl}
-                aria-label={`${task.actionLabel} for ${task.title}`}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-primary-500 hover:from-primary-600 hover:to-primary-700 text-white shadow-glow-primary text-xs font-bold shrink-0 transition-all cursor-pointer border border-primary-400/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-panel"
-              >
-                <span>{task.actionLabel}</span>
-                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              </Link>
-            </div>
-          )
-        })}
-      </div>
-
-      {hiddenCount > 0 && (
-        <p className="text-[10px] font-mono uppercase tracking-widest text-surface-400 pt-1">
-          +{hiddenCount} more action{hiddenCount > 1 ? 's' : ''} pending
-        </p>
+      {incomplete && (
+        <div role="status" className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 space-y-2">
+          <p className="text-sm font-bold text-ink">
+            {tasks.length ? 'Some action data is unavailable' : 'Action data unavailable'}
+          </p>
+          <p className="text-xs text-muted leading-relaxed">
+            Could not check: {unavailableSources.join(', ')}. Available records are still shown; retry to check the remaining actions.
+          </p>
+          {onRetry && (
+            <button type="button" onClick={onRetry} className="min-h-[44px] px-3 py-2 rounded-lg bg-primary-500 hover:bg-primary-600 text-white text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-panel">
+              Retry action data
+            </button>
+          )}
+        </div>
       )}
-    </div>
+
+      {!tasks.length && !incomplete && (
+        <div role="status" className="flex items-start gap-3">
+          <CheckCircleIcon className="w-6 h-6 text-success-500 shrink-0" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-bold text-ink">No urgent actions</p>
+            <p className="mt-1 text-xs text-muted leading-relaxed">
+              No pending actions were found in your latest operational data. New actions will appear here when your records update.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {visibleTasks.length > 0 && (
+        <ul className="space-y-3" aria-label="Priority actions">
+          {visibleTasks.map((task) => <TaskItem key={task.id} task={task} />)}
+        </ul>
+      )}
+      {hiddenTasks.length > 0 && (
+        <details className="group">
+          <summary className="min-h-[44px] py-3 cursor-pointer rounded-lg text-xs font-mono tabular-nums font-bold text-primary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+            Show {hiddenTasks.length} more action{hiddenTasks.length === 1 ? '' : 's'}
+          </summary>
+          <ul className="space-y-3 pt-2" aria-label="More actions">
+            {hiddenTasks.map((task) => <TaskItem key={task.id} task={task} />)}
+          </ul>
+        </details>
+      )}
+    </section>
   )
 }

@@ -58,12 +58,12 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
       expect(kycTasks).toHaveLength(1)
       expect(kycTasks[0]).toEqual({
         id: 'kyc-pending-truck-1',
-        title: 'RC Verification Pending: KA-01-MJ-1234',
-        description: 'Upload your clear RC copy and Insurance certificate to activate direct marketplace matching.',
+        title: 'Vehicle KYC Pending: KA-01-MJ-1234',
+        description: 'Vehicle verification is pending. Review the RC and insurance status for this lorry; uploaded documents may still be under review.',
         category: 'COMPLIANCE',
         urgency: 'HIGH',
-        actionUrl: '/dashboard/truck-driver',
-        actionLabel: 'Upload Documents',
+        actionUrl: '/documents',
+        actionLabel: 'Review Verification',
       })
     })
 
@@ -90,12 +90,12 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
 
   describe('Factory Owner Booking & Dispatch Tasks', () => {
     const mockBookings = [
-      { id: 'booking-1', status: 'Quoted', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 24000 },
+      { id: 'booking-1', status: 'Pending', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 24000 },
       { id: 'booking-2', status: 'Cancelled', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 15000 },
       { id: 'booking-3', status: 'In_Transit', advanceConfirmed: true, balanceConfirmed: false, agreedPrice: 30000 },
     ]
 
-    it('should generate advance pending payment tasks only for non-cancelled and non-confirmed bookings of a factory_owner', () => {
+    it('should generate advance pending payment tasks only for non-cancelled bookings with an unconfirmed advance of a factory_owner', () => {
       const result = deriveOperationalTasks({
         userRole: 'factory_owner',
         bookings: mockBookings,
@@ -106,7 +106,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
       expect(paymentTasks[0]).toEqual({
         id: 'advance-pending-booking-1',
         title: 'Loading Advance Due: ₹12,000',
-        description: 'Confirm standard 50% loading advance release to authorize transporter dispatch.',
+        description: 'TRIP-BOOKING-: confirm the 50% loading advance release to authorize dispatch.',
         category: 'PAYMENT',
         urgency: 'HIGH',
         actionUrl: '/booking/booking-1',
@@ -152,12 +152,12 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
       expect(reminderTask).toBeDefined()
       expect(reminderTask).toEqual({
         id: 'open-loads-match',
-        title: '2 Active Freight Requirements',
-        description: 'Matching trucks are available within your loading corridor. Review quotes and contact drivers directly.',
+        title: '2 Open Loads Awaiting a Match',
+        description: 'These freight requirements are still open. Search for suitable lorries and review availability with drivers.',
         category: 'DISPATCH',
         urgency: 'LOW',
         actionUrl: '/search?type=truck',
-        actionLabel: 'Search Available Lorries',
+        actionLabel: 'Find Lorries',
       })
     })
 
@@ -203,7 +203,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
           { id: 'load-1', status: 'Open', tonnageRequired: 15, loadingAddress: 'Mumbai' },
         ],
         bookings: [
-          { id: 'booking-1', status: 'Quoted', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 20000 },
+          { id: 'booking-1', status: 'Pending', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 20000 },
         ],
       })
 
@@ -324,7 +324,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
       })
 
       expect(result.map((t) => t.id)).toEqual(['fleet-empty'])
-      expect(result[0].actionUrl).toBe('/need-vehicle')
+      expect(result[0].actionUrl).toBe('/my-trucks')
     })
   })
 
@@ -376,7 +376,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
       const result = deriveOperationalTasks({
         userRole: 'factory_owner',
         bookings: [
-          { id: 'b-transit', status: 'InTransit', advanceConfirmed: true, balanceConfirmed: false, agreedPrice: 30000 },
+          { id: 'b-transit', status: 'InTransit', advanceConfirmed: true, balanceConfirmed: false, agreedPrice: 30000, ewayBillNumber: null },
           { id: 'b-pending', status: 'Pending', advanceConfirmed: true, balanceConfirmed: false, agreedPrice: 30000 },
         ],
       })
@@ -586,7 +586,7 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
       hasSubscription: false,
       loads: [{ id: 'load-1', status: 'Open', tonnageRequired: 9, loadingAddress: 'Pune' }],
       bookings: [
-        { id: 'b-1', status: 'Confirmed', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 10000 },
+        { id: 'b-1', status: 'Confirmed', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 10000, ewayBillNumber: null },
       ],
     }
 
@@ -613,11 +613,119 @@ describe('Action Center Engine — deriveOperationalTasks', () => {
         hasSubscription: false,
         loads: [{ id: 'load-1', status: 'Open', tonnageRequired: 9, loadingAddress: 'Pune' }],
         bookings: [
-          { id: 'b-1', status: 'Confirmed', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 10000 },
+          { id: 'b-1', status: 'Confirmed', advanceConfirmed: false, balanceConfirmed: false, agreedPrice: 10000, ewayBillNumber: null },
         ],
       })
 
       expect(summarizeOperationalTasks(tasks)).toEqual({ total: 4, high: 2, medium: 1, low: 1 })
     })
+  })
+})
+
+describe('Operational task regression cases', () => {
+  it('does not infer missing documents on one truck from another truck’s nested list', () => {
+    const tasks = deriveOperationalTasks({
+      userRole: 'truck_driver',
+      trucks: [
+        { id: 'known', registrationNumber: 'TN01AA0001', verificationStatus: 'Verified', documents: [] },
+        { id: 'unknown', registrationNumber: 'TN01AA0002', verificationStatus: 'Verified' },
+      ],
+    })
+    expect(tasks.map((task) => task.id)).toEqual(['doc-missing-rc-known', 'doc-missing-insurance-known'])
+  })
+
+  it('requires explicit payment and E-Way Bill signals on partial booking records', () => {
+    expect(deriveOperationalTasks({
+      userRole: 'factory_owner',
+      bookings: [
+        { id: 'partial', status: 'Confirmed', agreedPrice: 30000 },
+        { id: 'delivered', status: 'Completed', agreedPrice: 30000 },
+        { id: 'unknown-status', status: 'Unknown', advanceConfirmed: false, ewayBillNumber: null },
+      ],
+    })).toEqual([])
+  })
+
+  it.each([undefined, null, '', 'not-a-price', Infinity, -100])('does not fabricate monetary values from %p', (agreedPrice) => {
+    const tasks = deriveOperationalTasks({
+      userRole: 'factory_owner',
+      bookings: [{ id: 'trip-1', status: 'Pending', advanceConfirmed: false, agreedPrice }],
+    })
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0].title).toBe('Loading Advance Due: TRIP-TRIP-1')
+    expect(tasks[0].title).not.toContain('₹')
+  })
+
+  it('recognizes the API’s Active E-Way Bill status and treats whitespace as missing', () => {
+    const tasks = deriveOperationalTasks({
+      userRole: 'truck_driver',
+      bookings: [
+        { id: 'active', status: 'Confirmed', ewayBillStatus: 'Active' },
+        { id: 'blank', status: 'InTransit', ewayBillNumber: '   ', ewayBillStatus: 'Pending' },
+      ],
+    })
+    expect(tasks.map((task) => task.id)).toEqual(['eway-missing-blank'])
+    expect(tasks[0].actionLabel).toBe('Review E-Way Bill')
+    expect(tasks[0].description).toContain('Ask the shipper')
+  })
+
+  it('clears satisfied milestones and skips cancelled trips, even with failed triggers', () => {
+    expect(deriveOperationalTasks({
+      userRole: 'factory_owner',
+      bookings: [
+        { id: 'done', status: 'Completed', advanceConfirmed: true, balanceConfirmed: true },
+        { id: 'cancelled', status: 'Cancelled', advanceConfirmed: false, balanceConfirmed: false, ewayBillNumber: null, whatsappTriggerStatus: 'Failed' },
+      ],
+    })).toEqual([])
+  })
+
+  it('counts only open unmatched loads, allowing a reopened load with cancelled bookings', () => {
+    const base = { tonnageRequired: 10, loadingAddress: 'Salem' }
+    const tasks = deriveOperationalTasks({
+      userRole: 'factory_owner',
+      loads: [
+        { ...base, id: 'open', status: 'Open', bookingCount: 0 },
+        { ...base, id: 'racing', status: 'Open', bookingCount: 0 },
+        { ...base, id: 'reopened', status: ' Open ', bookingCount: 1 },
+        { ...base, id: 'unknown-bookings', status: 'Open', bookingCount: 2 },
+        { ...base, id: 'matched', status: 'Matched' },
+      ],
+      bookings: [
+        { id: 'active', loadId: 'racing', status: 'Confirmed' },
+        { id: 'old', loadId: 'reopened', status: 'Cancelled' },
+      ],
+    })
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0].title).toBe('2 Open Loads Awaiting a Match')
+    expect(tasks[0].description).not.toContain('Matching trucks are available')
+  })
+
+  it.each([
+    ['2026-09-13T00:00:00Z', undefined],
+    ['2026-09-12T00:00:00Z', 'sub-expiring'],
+    ['2026-09-05T00:00:01Z', 'sub-expiring'],
+    ['2026-09-05T00:00:00Z', 'sub-expired'],
+    ['2026-09-04T23:59:59Z', 'sub-expired'],
+  ])('uses the expiry instant %s instead of a stale days-remaining counter', (expiresAt, taskId) => {
+    const tasks = deriveOperationalTasks({
+      userRole: 'truck_driver',
+      now: '2026-09-05T00:00:00Z',
+      subscription: { isActive: true, expiresAt, daysRemaining: 90 },
+    })
+    expect(tasks.map((task) => task.id)).toEqual(taskId ? [taskId] : [])
+  })
+
+  it('deduplicates repeated records without changing the caller’s arrays', () => {
+    const booking = { id: 'b/1', status: 'Pending', advanceConfirmed: false, agreedPrice: 30000 }
+    const notification = { id: 'n-1', channel: 'whatsapp', providerStatus: 'Failed' }
+    const bookings = Object.freeze([booking, booking])
+    const tasks = deriveOperationalTasks({
+      userRole: 'factory_owner',
+      bookings: [...bookings],
+      notifications: [notification, notification, { id: 'sms', channel: 'sms', providerStatus: 'Failed' }],
+    })
+    expect(tasks.map((task) => task.id)).toEqual(['advance-pending-b/1', 'whatsapp-delivery-failed'])
+    expect(tasks[0].actionUrl).toBe('/booking/b%2F1')
+    expect(tasks[1].title).toBe('1 WhatsApp Alert Not Delivered')
+    expect(bookings).toEqual([booking, booking])
   })
 })
