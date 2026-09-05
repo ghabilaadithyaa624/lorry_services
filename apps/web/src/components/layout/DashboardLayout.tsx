@@ -5,26 +5,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   TruckIcon,
-  HomeIcon,
-  MagnifyingGlassIcon,
-  PlusCircleIcon,
-  ClipboardDocumentListIcon,
-  CreditCardIcon,
   Bars3Icon,
   XMarkIcon,
   ShieldCheckIcon,
   UserCircleIcon,
-  DocumentCheckIcon,
   BellAlertIcon,
-  ClockIcon,
-  Cog6ToothIcon,
-  MapIcon,
-  BriefcaseIcon,
-  ChartBarIcon,
-  ShieldExclamationIcon,
-  UsersIcon,
-  GlobeAsiaAustraliaIcon,
-  RectangleStackIcon,
 } from '@heroicons/react/24/outline'
 import { notificationsApi, usersApi } from '@/lib/api'
 import { Avatar } from '@/components/ui'
@@ -34,7 +19,8 @@ import { AIFreightAssistantDrawer, ActionCenterMenu } from '@/components/intelli
 import { useOperationalTasks } from '@/lib/intelligence/useOperationalTasks'
 import { useI18n } from '@/lib/i18n'
 import { cn, formatPhone } from '@/lib/utils'
-import { getRoleLabel, isAdminRole, isTransporterRole, isVehicleSideRole } from '@/lib/roles'
+import { getRoleLabel } from '@/lib/roles'
+import { getNavForRole, isNavItemActive, type DashboardNavItem } from '@/lib/dashboardNav'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -43,13 +29,6 @@ interface DashboardLayoutProps {
   action?: React.ReactNode
 }
 
-interface NavItem {
-  name: string
-  href: string
-  icon: React.ComponentType<{ className?: string }>
-  /** Rendered as a count pill (e.g. unread notifications). */
-  badgeKey?: 'notifications'
-}
 
 /**
  * Authenticated application shell.
@@ -107,103 +86,23 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
     setSidebarOpen(false)
   }, [pathname])
 
-  const isTruckDriver = isVehicleSideRole(user?.role)
-  const isTransporter = isTransporterRole(user?.role)
-  const isAdmin = isAdminRole(user?.role)
-
-  const factoryOwnerNav: NavItem[] = [
-    { name: t('dash.overview'), href: '/dashboard/factory-owner', icon: HomeIcon },
-    { name: t('nav.findTrucks'), href: '/search?type=truck', icon: MagnifyingGlassIcon },
-    { name: t('nav.postFreight'), href: '/post-load', icon: PlusCircleIcon },
-    { name: t('dash.myLoads'), href: '/my-loads', icon: ClipboardDocumentListIcon },
-    { name: t('dash.myListings'), href: '/my-listings', icon: RectangleStackIcon },
-    { name: t('dash.bookings'), href: '/bookings', icon: BriefcaseIcon },
-    { name: t('dash.tracking'), href: '/tracking', icon: MapIcon },
-    { name: t('dash.analytics'), href: '/analytics', icon: ChartBarIcon },
-    { name: t('dash.documents'), href: '/documents', icon: DocumentCheckIcon },
-    { name: t('dash.activity'), href: '/activity', icon: ClockIcon },
-    { name: t('nav.notifications'), href: '/notifications', icon: BellAlertIcon, badgeKey: 'notifications' },
-    { name: t('dash.subscription'), href: '/subscribe', icon: CreditCardIcon },
-    { name: t('nav.settings'), href: '/settings', icon: Cog6ToothIcon },
-  ]
-
-  const truckDriverNav: NavItem[] = [
-    { name: t('dash.overview'), href: '/dashboard/truck-driver', icon: HomeIcon },
-    { name: t('nav.findLoads'), href: '/search?type=load', icon: MagnifyingGlassIcon },
-    { name: t('dash.myFleet'), href: '/my-trucks', icon: TruckIcon },
-    { name: t('dash.myListings'), href: '/my-listings', icon: RectangleStackIcon },
-    { name: t('dash.bookings'), href: '/bookings', icon: BriefcaseIcon },
-    { name: t('dash.tracking'), href: '/tracking', icon: MapIcon },
-    { name: t('dash.analytics'), href: '/analytics', icon: ChartBarIcon },
-    { name: t('dash.documents'), href: '/documents', icon: DocumentCheckIcon },
-    { name: t('dash.activity'), href: '/activity', icon: ClockIcon },
-    { name: t('nav.notifications'), href: '/notifications', icon: BellAlertIcon, badgeKey: 'notifications' },
-    { name: t('dash.subscription'), href: '/subscribe', icon: CreditCardIcon },
-    { name: t('nav.settings'), href: '/settings', icon: Cog6ToothIcon },
-  ]
-
   /**
-   * Transporter workspace — both sides of the marketplace from one account:
-   * post freight like a factory owner and manage a fleet like a truck driver.
-   * "My listings" unifies both sides on one tabbed page, so it sits right
-   * under the overview for this role.
+   * Role navigation comes from `@/lib/dashboardNav` — the single source of
+   * truth shared with MobileBottomNav and guarded by `dashboardNav.spec.ts`.
    */
-  const transporterNav: NavItem[] = [
-    { name: t('dash.overview'), href: '/dashboard/transporter', icon: HomeIcon },
-    { name: t('dash.myListings'), href: '/my-listings', icon: RectangleStackIcon },
-    { name: t('nav.postFreight'), href: '/post-load', icon: PlusCircleIcon },
-    { name: t('dash.myLoads'), href: '/my-loads', icon: ClipboardDocumentListIcon },
-    { name: t('dash.myFleet'), href: '/my-trucks', icon: TruckIcon },
-    { name: t('nav.findTrucks'), href: '/search?type=truck', icon: MagnifyingGlassIcon },
-    { name: t('nav.findLoads'), href: '/search?type=load', icon: MagnifyingGlassIcon },
-    { name: t('dash.bookings'), href: '/bookings', icon: BriefcaseIcon },
-    { name: t('dash.tracking'), href: '/tracking', icon: MapIcon },
-    { name: t('dash.analytics'), href: '/analytics', icon: ChartBarIcon },
-    { name: t('dash.documents'), href: '/documents', icon: DocumentCheckIcon },
-    { name: t('nav.notifications'), href: '/notifications', icon: BellAlertIcon, badgeKey: 'notifications' },
-    { name: t('dash.subscription'), href: '/subscribe', icon: CreditCardIcon },
-    { name: t('nav.settings'), href: '/settings', icon: Cog6ToothIcon },
-  ]
-
-  const adminNav: NavItem[] = [
-    { name: 'Control tower', href: '/admin/dashboard', icon: ShieldCheckIcon },
-    { name: 'KYC queue', href: '/admin/kyc', icon: DocumentCheckIcon },
-    { name: 'Listings', href: '/admin/listings', icon: ClipboardDocumentListIcon },
-    { name: 'Bookings', href: '/admin/bookings', icon: BriefcaseIcon },
-    { name: 'Disputes', href: '/admin/disputes', icon: ShieldExclamationIcon },
-    { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCardIcon },
-    { name: 'Performance', href: '/admin/analytics', icon: ChartBarIcon },
-    { name: 'Users', href: '/admin/users', icon: UsersIcon },
-    { name: 'Intelligence', href: '/admin/intelligence', icon: GlobeAsiaAustraliaIcon },
-    { name: 'Risk', href: '/admin/risk', icon: ShieldExclamationIcon },
-  ]
-
-  const navItems = isAdmin
-    ? adminNav
-    : isTransporter
-      ? transporterNav
-      : isTruckDriver
-        ? truckDriverNav
-        : factoryOwnerNav
+  const navItems = getNavForRole(user?.role)
 
   const roleLabel = getRoleLabel(user?.role)
 
-  /** Exact match for section roots, prefix match for nested routes. */
-  const isActiveRoute = (href: string) => {
-    const path = href.split('?')[0]
-    const roots = ['/admin/dashboard', '/dashboard/factory-owner', '/dashboard/truck-driver', '/dashboard/transporter']
-    if (roots.includes(path)) return pathname === path
-    return pathname === path || pathname.startsWith(`${path}/`)
-  }
-
-  const renderNavLink = (item: NavItem, onNavigate?: () => void) => {
+  const renderNavLink = (item: DashboardNavItem, onNavigate?: () => void) => {
     const Icon = item.icon
-    const active = isActiveRoute(item.href)
+    const active = isNavItemActive(item.href, pathname)
+    const label = t(item.labelKey) === item.labelKey ? item.label : t(item.labelKey)
     const badge = item.badgeKey === 'notifications' ? unreadCount : 0
 
     return (
       <Link
-        key={item.name}
+        key={item.key}
         href={item.href}
         onClick={onNavigate}
         aria-current={active ? 'page' : undefined}
@@ -219,7 +118,7 @@ export function DashboardLayout({ children, title, subtitle, action }: Dashboard
           className={cn('w-[18px] h-[18px] shrink-0', active ? 'text-primary-500' : 'text-subtle')}
           aria-hidden="true"
         />
-        <span className="flex-1 min-w-0 truncate">{item.name}</span>
+        <span className="flex-1 min-w-0 truncate">{label}</span>
         {badge > 0 && (
           <span
             className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center"
