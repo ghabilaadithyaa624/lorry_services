@@ -348,6 +348,16 @@ export default function ControlTowerTrackingPage() {
             {filteredBookings.map((booking) => {
               const intel = assessShipmentIntelligence(booking)
 
+              // Prefer the real corridor checkpoint names; fall back to the
+              // generic 5-stage labels when a booking has no geofence data yet.
+              const corridorStages = (booking.checkpoints || [])
+                .slice(0, 5)
+                .map((cp: any) => cp?.name)
+                .filter(Boolean)
+              const stageLabels = corridorStages.length
+                ? corridorStages
+                : ['Loading Hub', 'Corridor Toll 1', 'Transit Hub', 'State Border', 'Unloading Point']
+
               return (
                 <div
                   key={booking.id}
@@ -408,6 +418,16 @@ export default function ControlTowerTrackingPage() {
                           <p className="text-[11px] text-surface-400">
                             {intel.riskSummary}
                           </p>
+                        )}
+                        {intel.statusTier === 'DELAYED' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-300 border border-rose-500/30 text-[10px] font-mono font-bold w-fit">
+                            <Clock className="w-3 h-3" />
+                            {intel.deliveryOverdueHours !== null
+                              ? `${intel.deliveryOverdueHours}h past delivery window`
+                              : intel.lastCheckpointAgeHours !== null
+                              ? `${intel.lastCheckpointAgeHours}h since last checkpoint`
+                              : 'Schedule overrun'}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -471,8 +491,11 @@ export default function ControlTowerTrackingPage() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {['Loading Hub', 'Corridor Toll 1', 'Transit Hub', 'State Border', 'Unloading Point'].map(
+                      <div
+                        className="grid gap-1.5"
+                        style={{ gridTemplateColumns: `repeat(${stageLabels.length}, minmax(0, 1fr))` }}
+                      >
+                        {stageLabels.map(
                           (cpName, idx) => {
                             const isDone = idx < intel.crossedCount
                             const isCurrent = idx === intel.crossedCount - 1

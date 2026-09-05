@@ -142,6 +142,62 @@ describe('Web Shipment Intelligence Bridge & Rules', () => {
       expect(assessment.statusTier).toBe('ON TRACK')
       expect(assessment.badgeVariant).toBe('success')
     })
+
+    it('9. Boundary: exactly 6 hours since last checkpoint is NOT delayed', () => {
+      const booking: BookingData = {
+        ...baseBooking,
+        status: 'InTransit',
+        checkpoints: [
+          { id: 'cp-1', seq: 1, name: 'Toll 1', lat: 12, lng: 77, crossedAt: '2026-09-04T06:00:00Z' }, // exactly 6h
+        ],
+      }
+      const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+      expect(assessment.statusTier).toBe('ON TRACK')
+      expect(assessment.lastCheckpointAgeHours).toBe(6)
+    })
+
+    it('10. ATTENTION REQUIRED: E-Way Bill expired (validity lapsed) via shared bridge', () => {
+      const booking: BookingData = {
+        ...baseBooking,
+        status: 'InTransit',
+        ewayBillValidUpto: '2026-09-04T08:00:00Z', // 4 hours before nowRef
+        checkpoints: [
+          { id: 'cp-1', seq: 1, name: 'Toll 1', lat: 12, lng: 77, crossedAt: '2026-09-04T11:00:00Z' },
+        ],
+      }
+      const assessment = assessShipmentIntelligence(booking, { now: nowRef })
+      expect(assessment.statusTier).toBe('ATTENTION REQUIRED')
+      expect(assessment.badgeVariant).toBe('warning')
+      expect(assessment.whyReason).toBe('E-Way Bill expired')
+      expect(assessment.riskSummary).toContain('E-Way Bill validity has expired')
+      expect(assessment.isEwayBillExpired).toBe(true)
+    })
+
+    it('exposes delay magnitudes for the control-tower UI (stale hours / overdue hours)', () => {
+      const staleBooking: BookingData = {
+        ...baseBooking,
+        status: 'InTransit',
+        checkpoints: [
+          { id: 'cp-1', seq: 1, name: 'Toll 1', lat: 12, lng: 77, crossedAt: '2026-09-04T03:30:00Z' }, // 8.5h ago
+        ],
+      }
+      const stale = assessShipmentIntelligence(staleBooking, { now: nowRef })
+      expect(stale.statusTier).toBe('DELAYED')
+      expect(stale.lastCheckpointAgeHours).toBe(8.5)
+      expect(stale.deliveryOverdueHours).toBeNull()
+
+      const overdueBooking: BookingData = {
+        ...baseBooking,
+        status: 'InTransit',
+        expectedDeliveryAt: '2026-09-04T09:00:00Z', // 3h overdue
+        checkpoints: [
+          { id: 'cp-1', seq: 1, name: 'Toll 1', lat: 12, lng: 77, crossedAt: '2026-09-04T11:00:00Z' },
+        ],
+      }
+      const overdue = assessShipmentIntelligence(overdueBooking, { now: nowRef })
+      expect(overdue.statusTier).toBe('DELAYED')
+      expect(overdue.deliveryOverdueHours).toBe(3)
+    })
   })
 
   describe('summarizeActiveShipmentsControlTower', () => {
