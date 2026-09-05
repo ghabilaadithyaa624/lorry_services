@@ -25,6 +25,11 @@ import { DashboardSummaryCards } from '@/components/dashboard/DashboardSummaryCa
 import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { TrialAccessBanner, type TrialStatus } from '@/components/dashboard/TrialAccessBanner'
 import { TrialCountdownBanner } from '@/components/subscription/TrialCountdownBanner'
+import {
+  MarketplaceShortcutsPanel,
+  MyFreightPostsPanel,
+  MyTruckPostsPanel,
+} from '@/components/dashboard/TransporterWorkspace'
 import { getRoleLabel, isTransporterRole, isVehicleSideRole, normalizeRole, type AnyUserRole, type AppUserRole } from '@/lib/roles'
 import { BookingTermsModal } from '@/components/BookingTermsModal'
 import { MatchesPanel } from '@/components/matching/MatchesPanel'
@@ -48,6 +53,7 @@ interface UserState {
 
 interface LoadItem {
   id: string
+  userId?: string
   loadingAddress: string
   loadingPin?: string
   loadingLat?: number
@@ -59,6 +65,7 @@ interface LoadItem {
   truckType: 'Open' | 'Container' | 'OpenBody'
   tonnageRequired: number
   maxPrice?: number
+  urgent?: boolean
   status: 'Open' | 'Matched' | 'InTransit' | 'Completed' | 'Cancelled'
   createdAt: string
   _count?: { bookings: number }
@@ -66,6 +73,7 @@ interface LoadItem {
 
 interface TruckItem {
   id: string
+  userId?: string
   registrationNumber: string
   bodyType: 'Open' | 'Container' | 'OpenBody'
   lengthFt?: number
@@ -76,6 +84,8 @@ interface TruckItem {
   serviceableRadiusKm?: number
   preferredDestinations?: string[]
   verificationStatus: 'Pending' | 'Verified' | 'Rejected'
+  createdAt?: string
+  activeBooking?: { id: string } | null
   documents?: Array<{ id: string; type: string; verificationStatus: string }>
 }
 
@@ -497,14 +507,21 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-xs sm:text-sm font-bold transition-all shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus:outline-none border border-primary-400/30"
                 >
                   <PlusCircle className="w-4 h-4" />
-                  <span>List a Truck</span>
+                  <span>Register Truck</span>
                 </Link>
                 <Link
                   href="/search?type=truck"
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-900/80 hover:bg-surface-800 border border-white/10 text-surface-200 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none shadow-card"
                 >
                   <Search className="w-4 h-4 text-primary-400" />
-                  <span>Find Lorries</span>
+                  <span>Find Trucks</span>
+                </Link>
+                <Link
+                  href="/search?type=load"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-900/80 hover:bg-surface-800 border border-white/10 text-surface-200 text-xs sm:text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-primary-500 focus:outline-none shadow-card"
+                >
+                  <Search className="w-4 h-4 text-primary-400" />
+                  <span>Find Loads</span>
                 </Link>
               </>
             ) : isTruckOwner ? (
@@ -545,12 +562,16 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
           </div>
         </div>
 
-        {/* ── 3. Requested overview cards: bookings, completed trips, earnings ── */}
+        {/* ── 3. Requested overview cards: bookings, completed trips, earnings ──
+            Transporters additionally see both "my posts" counts — they manage
+            freight and fleet from the same workspace. */}
         <DashboardSummaryCards
           activeBookings={activeTrips.length}
           completedTrips={completedTrips.filter((trip) => trip.status === 'Completed').length}
           earnings={earnings}
           loading={loading}
+          activeLoads={isTransporter ? activeLoadCount : undefined}
+          activeTrucks={isTransporter ? fleetSize : undefined}
         />
 
         {/* ── 3. Subscription Status & Upsell Card ── */}
@@ -763,6 +784,29 @@ export function UnifiedDashboard({ roleOverride }: UnifiedDashboardProps) {
             </>
           )}
         </div>
+
+        {/* ── 4a. Transporter both-sides workspace panels (Prompt 5):
+              own freight posts + own truck posts with edit/delete for own rows
+              only, plus a read-only marketplace shortcut. ── */}
+        {isTransporter && (
+          <>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8 items-start">
+              <MyFreightPostsPanel
+                loads={loads}
+                loading={loading || !sessionReady}
+                currentUserId={user?.id}
+                onRefresh={loadDashboard}
+              />
+              <MyTruckPostsPanel
+                trucks={trucks}
+                loading={loading || !sessionReady}
+                currentUserId={user?.id}
+                onRefresh={loadDashboard}
+              />
+            </div>
+            <MarketplaceShortcutsPanel />
+          </>
+        )}
 
         {/* ── 4b. Smart Matching Engine — Need Load ↔ Need Vehicle (tonnage/route/budget, ≤50km, WhatsApp trigger) ── */}
         <MatchesPanel role={isTruckDriver ? 'truck_driver' : 'factory_owner'} />

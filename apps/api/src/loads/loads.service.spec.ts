@@ -332,6 +332,72 @@ describe('LoadsService', () => {
     })
   })
 
+  describe('update', () => {
+    it('should throw NotFoundException if load not found', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(null)
+
+      await expect(
+        service.update('load-123', 'user-123', { tonnageRequired: 20 })
+      ).rejects.toThrow(NotFoundException)
+    })
+
+    it('should throw ForbiddenException if a non-admin edits another user\'s load', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'owner-999',
+        status: LoadStatus.Open,
+      })
+
+      await expect(
+        service.update('load-123', 'user-123', { tonnageRequired: 20 })
+      ).rejects.toThrow(ForbiddenException)
+      expect(prisma.load.update).not.toHaveBeenCalled()
+    })
+
+    it('should refuse edits once the load has left Open status', async () => {
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'load-123',
+        userId: 'user-123',
+        status: LoadStatus.InTransit,
+      })
+
+      await expect(
+        service.update('load-123', 'user-123', { tonnageRequired: 20 })
+      ).rejects.toThrow(ForbiddenException)
+      expect(prisma.load.update).not.toHaveBeenCalled()
+    })
+
+    it('should persist only the provided fields for the owner', async () => {
+      const mockLoad = { id: 'load-123', userId: 'user-123', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({
+        ...mockLoad,
+        tonnageRequired: 20,
+        maxPrice: 52000,
+      })
+
+      const result = await service.update('load-123', 'user-123', {
+        tonnageRequired: 20,
+        maxPrice: 52000,
+      })
+      expect(result.tonnageRequired).toBe(20)
+      expect(prisma.load.update).toHaveBeenCalledWith({
+        where: { id: 'load-123' },
+        data: { tonnageRequired: 20, maxPrice: 52000 },
+        include: { _count: { select: { bookings: true } } },
+      })
+    })
+
+    it('should allow an admin to edit another user\'s open load', async () => {
+      const mockLoad = { id: 'load-123', userId: 'owner-999', status: LoadStatus.Open }
+      ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(mockLoad)
+      ;(prisma.load.update as jest.Mock).mockResolvedValueOnce({ ...mockLoad, urgent: true })
+
+      const result = await service.update('load-123', 'admin-1', { urgent: true }, 'admin')
+      expect(result.urgent).toBe(true)
+    })
+  })
+
   describe('delete', () => {
     it('should throw NotFoundException if load not found', async () => {
       ;(prisma.load.findUnique as jest.Mock).mockResolvedValueOnce(null)

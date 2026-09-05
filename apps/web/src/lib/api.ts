@@ -354,9 +354,43 @@ export const bookingsApi = {
   ) => api.post(`/bookings/${id}/disputes`, data),
 }
 
+// Loads API — freight-side posts (factory owners and transporters)
+export const loadsApi = {
+  getMyLoads: (params?: { status?: string; page?: number; limit?: number }) =>
+    api.get('/loads/my-loads', { params }),
+  /** Edit an open load (owner only server-side). */
+  updateLoad: (
+    loadId: string,
+    data: {
+      tonnageRequired?: number
+      truckType?: string
+      urgent?: boolean
+      maxPrice?: number
+      minLengthFt?: number
+      minHeightFt?: number
+    },
+  ) => api.patch(`/loads/${loadId}`, data),
+  /** Delete an open load (owner only server-side). */
+  deleteLoad: (loadId: string) => api.delete(`/loads/${loadId}`),
+}
+
 // Trucks & Documents API
 export const trucksApi = {
   getMyTrucks: () => api.get('/trucks/my-trucks'),
+  /** Edit the revisable specs of an owned truck (owner only server-side). */
+  updateTruck: (
+    truckId: string,
+    data: {
+      bodyType?: string
+      lengthFt?: number
+      heightFt?: number
+      tonnageCapacity?: number
+      serviceableRadiusKm?: number
+      preferredDestinations?: string[]
+    },
+  ) => api.patch(`/trucks/${truckId}`, data),
+  /** Delete an owned truck (blocked server-side while bookings are active). */
+  deleteTruck: (truckId: string) => api.delete(`/trucks/${truckId}`),
   uploadDocument: (truckId: string, docType: 'RC' | 'Insurance', file: File, docNumber?: string) => {
     const formData = new FormData()
     formData.append('file', file)

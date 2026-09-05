@@ -3,6 +3,7 @@ import { prisma, LoadStatus, UserRole } from '@lorrycarry/database'
 import { MapmyIndiaService } from '../common/services/mapmyindia.service'
 import { normalizeRole } from '../common/utils/roles.util'
 import { CreateLoadDto } from './dto/create-load.dto'
+import { UpdateLoadDto } from './dto/update-load.dto'
 
 @Injectable()
 export class LoadsService {
@@ -140,6 +141,37 @@ export class LoadsService {
     }
 
     return load
+  }
+
+  async update(id: string, userId: string, dto: UpdateLoadDto, role?: string | null) {
+    const load = await this.assertLoadOwnership(id, userId, role)
+
+    if (load.status !== LoadStatus.Open) {
+      throw new ForbiddenException('Only open loads can be edited')
+    }
+
+    const data: Partial<{
+      tonnageRequired: number
+      truckType: typeof dto.truckType
+      urgent: boolean
+      maxPrice: number
+      minLengthFt: number
+      minHeightFt: number
+    }> = {}
+    if (dto.tonnageRequired !== undefined) data.tonnageRequired = dto.tonnageRequired
+    if (dto.truckType !== undefined) data.truckType = dto.truckType
+    if (dto.urgent !== undefined) data.urgent = dto.urgent
+    if (dto.maxPrice !== undefined) data.maxPrice = dto.maxPrice
+    if (dto.minLengthFt !== undefined) data.minLengthFt = dto.minLengthFt
+    if (dto.minHeightFt !== undefined) data.minHeightFt = dto.minHeightFt
+
+    return prisma.load.update({
+      where: { id },
+      data,
+      include: {
+        _count: { select: { bookings: true } },
+      },
+    })
   }
 
   async updateStatus(id: string, userId: string, status: LoadStatus, role?: string | null) {

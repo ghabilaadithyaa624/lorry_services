@@ -14,6 +14,7 @@ import { Optional } from '@nestjs/common'
 import { LoadStatus, UserRole } from '@prisma/client'
 import { LoadsService } from './loads.service'
 import { CreateLoadDto } from './dto/create-load.dto'
+import { UpdateLoadDto } from './dto/update-load.dto'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { Roles } from '../common/decorators/roles.decorator'
@@ -75,6 +76,18 @@ export class LoadsController {
     @CurrentUser('id') userId: string
   ) {
     return this.loadsService.findOne(id, userId)
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.factory_owner, UserRole.transporter)
+  @ApiOperation({ summary: 'Edit an open load (owner or admin only)' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateLoadDto,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole
+  ) {
+    return this.loadsService.update(id, userId, dto, role)
   }
 
   @Patch(':id/status')
