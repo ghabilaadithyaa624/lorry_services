@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { LoadsController } from './loads.controller'
 import { LoadsService } from './loads.service'
-import { LoadStatus } from '@prisma/client'
+import { LoadStatus } from '@lorrycarry/database'
 import { CreateLoadDto } from './dto/create-load.dto'
 
 describe('LoadsController', () => {

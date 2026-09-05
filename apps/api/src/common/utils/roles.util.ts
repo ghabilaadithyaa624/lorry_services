@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@lorrycarry/database'
 
 /**
  * Canonical roles are `factory_owner`, `truck_driver` and `admin`

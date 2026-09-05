@@ -9,7 +9,7 @@ import {
   Max,
 } from 'class-validator'
 import { ApiProperty } from '@nestjs/swagger'
-import { TruckType } from '@prisma/client'
+import { TruckType } from '@lorrycarry/database'
 
 /**
  * Partial edit of a posted load. Every freight-side field an operator can

@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@lorrycarry/database'
 import {
   CANONICAL_ROLES,
   LEGACY_ROLE_MAP,

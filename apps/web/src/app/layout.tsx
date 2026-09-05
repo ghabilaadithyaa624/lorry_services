@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { ToastProvider } from '@/components/ui'
 import { MobileBottomNav } from '@/components/layout'
@@ -16,24 +15,10 @@ import {
   getLogisticsServiceStructuredData,
 } from '@/lib/seo/structuredData'
 
-// ── Optimized font loading via next/font (eliminates render-blocking Google Fonts stylesheet) ──
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  display: 'swap',
-  variable: '--font-inter',
-  preload: true,
-  fallback: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
-})
-
-const jetBrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  variable: '--font-geist-mono',
-  preload: true,
-  fallback: ['ui-monospace', 'SFMono-Regular', 'monospace'],
-})
+// Font variables are declared without next/font so restricted build sandboxes
+// never need to fetch Google Fonts during compilation. Runtime CSS still falls
+// back to system fonts if external font stylesheets are unavailable.
+const fontVariables = '--font-inter --font-geist-mono'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://lorrycarry.com'
 
@@ -156,7 +141,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const logisticsLd = getLogisticsServiceStructuredData()
 
   return (
-    <html lang="en" suppressHydrationWarning className={`${plusJakartaSans.variable} ${jetBrainsMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={fontVariables}>
       <head>
         {/* Theme must apply before first paint — inline synchronous script (critical) */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />

@@ -1,6 +1,6 @@
 import { IsNumber, IsOptional, IsEnum, IsArray, Min, Max, IsString } from 'class-validator'
 import { ApiProperty } from '@nestjs/swagger'
-import { TruckType } from '@prisma/client'
+import { TruckType } from '@lorrycarry/database'
 
 /**
  * Partial edit of a registered truck. The registration number is immutable
