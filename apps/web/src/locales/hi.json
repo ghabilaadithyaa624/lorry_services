@@ -58,7 +58,7 @@
   "mobileNav.fleet": "बेड़ा",
   "mobileNav.loads": "लोड",
   "settings.language.title": "भाषा और इकाइयाँ",
-  "settings.language.description": "भाषा चयन आपके खाते में सहेजा जाता है। इंटरफ़ेस अनुवाद चरणबद्ध तरीके से लाया जा रहा है।",
+  "settings.language.description": "पूरे इंटरफ़ेस पर तुरंत लागू होती है और आपके खाते में सहेजी जाती है, इसलिए हर डिवाइस पर बनी रहती है।",
   "dash.dashboard": "डैशबोर्ड",
   "dash.myTrucks": "मेरे ट्रक",
   "nav.registerTruck": "ट्रक पंजीकरण",
